@@ -55,54 +55,55 @@ export class ParticleSystem {
     }
 
     createKnifeSlash(position, direction, color = 0x99e6ff) {
-        const slashGroup = new THREE.Group();
-        slashGroup.position.copy(position).addScaledVector(direction, 1.1);
+        const thrustGroup = new THREE.Group();
+        thrustGroup.position.copy(position).addScaledVector(direction, 0.5);
         
-        // Vệt chém hình cung trăng khuyết 3D phát sáng
-        const arcGeo = new THREE.RingGeometry(1.6, 3.4, 28, 1, -Math.PI * 0.38, Math.PI * 0.76);
-        const arcMat = new THREE.MeshBasicMaterial({
+        // Mũi nhọn đâm tới (Thrust Cone)
+        const coneGeo = new THREE.ConeGeometry(0.5, 3.5, 8);
+        coneGeo.rotateX(Math.PI / 2); // Chỉa về trục Z
+        coneGeo.translate(0, 0, 1.75); // Đưa gốc về tay
+        
+        const coneMat = new THREE.MeshBasicMaterial({
             color: color,
             transparent: true,
-            opacity: 0.95,
-            side: THREE.DoubleSide,
+            opacity: 0.9,
             blending: THREE.AdditiveBlending
         });
-        const arcMesh = new THREE.Mesh(arcGeo, arcMat);
+        const coneMesh = new THREE.Mesh(coneGeo, coneMat);
 
-        // Lưỡi kiếm neon trắng ở rìa tạo độ sắc bén
-        const coreGeo = new THREE.RingGeometry(2.6, 3.4, 28, 1, -Math.PI * 0.35, Math.PI * 0.70);
+        // Lõi sáng trắng bên trong
+        const coreGeo = new THREE.ConeGeometry(0.2, 3.2, 8);
+        coreGeo.rotateX(Math.PI / 2);
+        coreGeo.translate(0, 0, 1.6);
         const coreMat = new THREE.MeshBasicMaterial({
             color: 0xffffff,
             transparent: true,
-            opacity: 0.85,
-            side: THREE.DoubleSide,
+            opacity: 0.95,
             blending: THREE.AdditiveBlending
         });
         const coreMesh = new THREE.Mesh(coreGeo, coreMat);
-        coreMesh.position.z = 0.01;
 
-        slashGroup.add(arcMesh, coreMesh);
+        thrustGroup.add(coneMesh, coreMesh);
         
-        // Định hướng vệt chém theo hướng nhìn
-        slashGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction);
-        slashGroup.rotateZ(-0.25 + (Math.random() - 0.5) * 0.2);
+        // Định hướng đâm theo hướng nhìn
+        thrustGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction);
 
-        this.scene.add(slashGroup);
+        this.scene.add(thrustGroup);
         
-        // Bắn tia lửa chém dọc theo cung
-        this.createImpactSparks(slashGroup.position, direction, color, 6);
+        this.createImpactSparks(position.clone().addScaledVector(direction, 1.8), direction, color, 6);
 
         this.muzzleFlashes.push({
-            obj: slashGroup,
-            mat: arcMat,
+            obj: thrustGroup,
+            mat: coneMat,
             extraMat: coreMat,
             onUpdate: (delta, progress) => {
-                const expand = 1.0 + (1 - progress) * 0.45;
-                slashGroup.scale.set(expand, expand, expand);
-                slashGroup.rotateZ(delta * 14);
+                // Động tác đâm lao về phía trước
+                thrustGroup.position.addScaledVector(direction, delta * 22 * progress);
+                const scale = 0.6 + progress * 0.4;
+                thrustGroup.scale.set(scale * 0.4, scale * 0.4, scale * 1.5);
             },
-            life: 0.16,
-            maxLife: 0.16
+            life: 0.12,
+            maxLife: 0.12
         });
     }
 

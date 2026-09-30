@@ -99,12 +99,14 @@ export const RARE_WEAPON_CONFIGS = [
 
 export const KNIFE_CONFIG = {
     id: 'knife',
-    name: 'COMBAT KNIFE',
+    name: 'DAO BẾP',
+    modelFile: 'kenney-food/cooking-knife.glb',
+    icon: 'assets/previews/kenney-food/cooking-knife.png',
     category: 'VŨ KHÍ CẬN CHIẾN',
-    damage: 85,
+    damage: 56,
     penPower: 2, // Dao găm sắc bén xuyên giáp cấp 2
     fireRate: 0.30,
-    range: 3.8,
+    range: 2.2,
     screenShake: 0.10,
     cursorKick: 1.2,
     baseSpreadDegHip: 0,
@@ -260,7 +262,8 @@ export class WeaponSystem {
 
         const allModels = [
             ...WEAPON_CONFIGS.map(w => w.modelFile),
-            ...RARE_WEAPON_CONFIGS.map(w => w.modelFile)
+            ...RARE_WEAPON_CONFIGS.map(w => w.modelFile),
+            KNIFE_CONFIG.modelFile
         ].filter(Boolean);
         await Promise.all([...new Set(allModels)].map(loadModel));
 
@@ -543,6 +546,7 @@ export class WeaponSystem {
             if (!w) return;
             if (w.isKnife) {
                 const mesh = this.createKnifeMesh(w);
+                if (!mesh) return;
                 handNode.add(mesh);
                 this.weaponMeshes[w.id] = mesh;
                 return;
@@ -601,29 +605,25 @@ export class WeaponSystem {
     }
 
     createKnifeMesh(config = KNIFE_CONFIG) {
+        const source = this.models[config.modelFile];
+        if (!source) return null;
         const group = new THREE.Group();
-        const blade = new THREE.Mesh(
-            new THREE.BoxGeometry(0.07, 0.48, 0.025),
-            new THREE.MeshStandardMaterial({ color: config.color, metalness: 0.85, roughness: 0.2 })
-        );
-        const guard = new THREE.Mesh(
-            new THREE.BoxGeometry(0.16, 0.045, 0.045),
-            new THREE.MeshStandardMaterial({ color: 0x384458, metalness: 0.65, roughness: 0.35 })
-        );
-        const handle = new THREE.Mesh(
-            new THREE.BoxGeometry(0.065, 0.22, 0.065),
-            new THREE.MeshStandardMaterial({ color: 0x202838, roughness: 0.75 })
-        );
-        blade.position.y = 0.28;
-        guard.position.y = 0.03;
-        handle.position.y = -0.1;
-        group.add(blade, guard, handle);
-        group.scale.setScalar(0.8);
-        group.position.set(-0.05, -0.12, 0.04);
-        group.rotation.set(0, Math.PI * 0.35, -0.3);
+        group.name = 'kenney-cooking-knife';
+        const model = source.clone(true);
+        const bounds = new THREE.Box3().setFromObject(model);
+        this.handNode.updateWorldMatrix(true, false);
+        const armScale = this.handNode.getWorldScale(new THREE.Vector3()).x;
+        const scale = 0.8 / ((bounds.max.x - bounds.min.x) * armScale);
+        // Food Kit's tip points along -X and its wooden grip is at +X.
+        model.scale.setScalar(scale);
+        model.rotation.y = Math.PI / 2;
+        model.position.set(0.045 * scale, -0.02 * scale, 0.24 * scale);
+        group.add(model);
+        group.userData.gripOffset = new THREE.Vector3();
+        group.userData.handOffset = new THREE.Vector3(-0.24, -0.05, 0.02);
+        group.position.copy(group.userData.handOffset);
         return group;
     }
-
     updateEquippedMesh() {
         const currentId = this.getCurrentWeapon().id;
         for (const [id, mesh] of Object.entries(this.weaponMeshes || {})) {
@@ -664,14 +664,8 @@ export class WeaponSystem {
             return false;
         }
 
-        // Bấm bắn khi đang nạp đạn -> Chỉ Hủy nạp đạn ngay (Reload Cancel) nếu trong băng vẫn còn đạn (> 0)
-        // Nếu băng đạn đã hết (0 viên), giữ nguyên tiến trình nạp đạn không hủy để tránh bị kẹt khi giữ chuột
-        if (this.isReloading) {
-            if ((this.ammo[current.id] || 0) > 0) {
-                this.cancelReload();
-            }
-            return false;
-        }
+        // Giữ chuột bắn không ngắt quãng tiến trình tự động nạp đạn (Reload)
+        if (this.isReloading) return false;
 
         if (this.onCommand && isPlayer) {
             if (this.fireCooldown > 0) return false;
@@ -873,6 +867,10 @@ export class WeaponSystem {
             }
         }
 
+        // Also reload an empty gun after switching back or picking up reserve ammo.
+        if (!currentW.isKnife && !currentW.isUtility && !this.isReloading &&
+            this.ammo[currentW.id] <= 0 && this.reserve[currentW.id] > 0) this.reload();
+
         // Cập nhật tiến trình nạp đạn
         if (this.isReloading) {
             this.reloadTimer -= delta;
@@ -920,7 +918,7 @@ export class WeaponSystem {
                         _tempToEnemyHoriz.y = 0;
                         _tempToEnemyHoriz.normalize();
                         const dot = _tempSlashForward.dot(_tempToEnemyHoriz);
-                        if (dot < 0.25) continue; // Cung quét chém 150°
+                        if (dot < 0.75) continue; // Đòn chọc thẳng (góc hẹp)
 
                         // Check cản tường
                         _tempCheckRayDir.copy(_tempToEnemy).normalize();

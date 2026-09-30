@@ -72,7 +72,9 @@ export class Arena {
         sun.shadow.camera.top = d;
         sun.shadow.camera.bottom = -d;
         sun.shadow.bias = -0.0005;
+        this.sunLight = sun;
         this.scene.add(sun);
+        this.scene.add(sun.target);
     }
 
     placeInstance(modelName, position, rotationY = 0, scale = 1, addCollider = false) {
@@ -95,7 +97,7 @@ export class Arena {
     }
 
     buildFloorAndWalls() {
-        const halfSize = 110; // 220x220 map size (5x original)
+        const halfSize = 73; // 146x146 map size (2/3 of 220)
         const tileSize = 2;
 
         // 1. High-Performance Instanced Floor
@@ -223,7 +225,7 @@ export class Arena {
 
     buildSpawnPortals() {
         // 4 Dimensional Portals placed around the arena
-        const portalDist = 108;
+        const portalDist = 71;
         const portalDefs = [
             { name: 'North Portal', pos: new THREE.Vector3(0, 0, -portalDist), rot: 0, spawnDir: new THREE.Vector3(0, 0, 1) },
             { name: 'South Portal', pos: new THREE.Vector3(0, 0, portalDist), rot: Math.PI, spawnDir: new THREE.Vector3(0, 0, -1) },
@@ -366,9 +368,9 @@ export class Arena {
         let seed = 731;
         const random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
         for (let i = 0; i < blades.count; i++) {
-            dummy.position.set((random() - 0.5) * 216, 0.15, (random() - 0.5) * 216);
+            dummy.position.set((random() - 0.5) * 144, 0.15, (random() - 0.5) * 144);
             while (Math.abs(dummy.position.x) < 4.6 && Math.abs(dummy.position.z) < 4.6) {
-                dummy.position.set((random() - 0.5) * 216, 0.15, (random() - 0.5) * 216);
+                dummy.position.set((random() - 0.5) * 144, 0.15, (random() - 0.5) * 144);
             }
             dummy.rotation.y = random() * Math.PI;
             dummy.scale.set(1, 0.6 + random(), 1);
