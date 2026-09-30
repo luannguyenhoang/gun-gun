@@ -178,14 +178,12 @@ export class PlayerController {
                         child.castShadow = true;
                         child.receiveShadow = true;
                     }
-                    if (child.name === 'arm-right') {
+                    if (!this.handBone && (child.name.toLowerCase().includes('righthand') || child.name === 'arm-right' || child.name === 'hand-right')) {
                         this.handBone = child;
                     }
                 });
                 if (!this.handBone) {
-                    this.handBone = this.model.getObjectByName('hand-right')
-                        || this.model.getObjectByName('hand')
-                        || this.model;
+                    this.handBone = this.model;
                 }
 
                 scene.add(this.model);
@@ -195,11 +193,17 @@ export class PlayerController {
                 this.mixer = new THREE.AnimationMixer(this.model);
 
                 gltf.animations.forEach(clip => {
-                    // Separate arm-right aiming animation from locomotion tracks
-                    if (['idle', 'walk', 'sprint', 'jump'].includes(clip.name)) {
-                        clip.tracks = clip.tracks.filter(track => !track.name.includes('arm-right'));
+                    const originalName = clip.name;
+                    let clipName = originalName.toLowerCase();
+                    if (clipName === 'run') clipName = 'sprint'; // Mixamo uses Run, game expects sprint
+                    if (clipName === 'walk') clipName = 'walk';
+                    if (clipName === 'idle') clipName = 'idle';
+
+                    // Separate right arm aiming animation from locomotion tracks
+                    if (['idle', 'walk', 'sprint', 'jump'].includes(clipName)) {
+                        clip.tracks = clip.tracks.filter(track => !track.name.toLowerCase().includes('righthand') && !track.name.includes('arm-right'));
                     }
-                    this.animations[clip.name] = this.mixer.clipAction(clip);
+                    this.animations[clipName] = this.mixer.clipAction(clip);
                 });
 
                 // Attach weapon to right arm
@@ -568,15 +572,24 @@ export class PlayerController {
     updateCamera(delta) {
         // Tâm điểm máy ảnh: Dịch nhẹ về phía chuột khi ADS (giữ chuột phải)
         const target = new THREE.Vector3(this.position.x, 0.7, this.position.z);
+        let targetFov = 50; // Default FOV
+
         if (this.isADS) {
             const aimVec = new THREE.Vector3().subVectors(this.aimPoint, this.position);
             aimVec.y = 0;
             aimVec.clampLength(0, 4.2);
-            target.addScaledVector(aimVec, 0.35); // Dịch nhẹ 35% về phía con trỏ chuột
+            target.addScaledVector(aimVec, 0.45); // Dịch 45% về phía con trỏ chuột
+            targetFov = 30; // Zoom in for ADS
         }
 
         this.cameraFocus.lerp(target, 1 - Math.exp(-12 * Math.max(0, delta)));
         this.camera.position.copy(this.cameraFocus).add(this.cameraOffset);
+
+        // Smooth FOV zoom (Aiming Animation)
+        if (this.camera.fov) {
+            this.camera.fov += (targetFov - this.camera.fov) * (1 - Math.exp(-15 * delta));
+            this.camera.updateProjectionMatrix();
+        }
 
         // Hiệu ứng rung màn hình chấn thương (Screen Shake Trauma)
         const shake = this.screenShakeTrauma * this.screenShakeTrauma * 0.48;

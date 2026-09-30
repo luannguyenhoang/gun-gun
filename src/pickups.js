@@ -13,7 +13,7 @@ export const DROP_TYPES = [
     { id: 'weapon', label: 'SÚNG HIẾM', color: 0xffaa22, weight: 0.04 }
 ];
 
-export const DROP_CHANCE = 0.25;
+export const DROP_CHANCE = 0.05;
 export const DROP_PITY_KILLS = 5;
 export const AMMO_PITY_KILLS = 10;
 export const BUFF_PITY_KILLS = 20;

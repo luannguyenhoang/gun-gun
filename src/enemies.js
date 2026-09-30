@@ -8,7 +8,7 @@ const ZOMBIE_RADII = {
     walker: 0.6,
     sprinter: 0.55,
     tank: 0.95,
-    boss: 1.3,
+    boss: 2.2,
     giant: 1.65,
     spitter: 0.7,
     crawler: 0.4,
@@ -140,16 +140,16 @@ export class Zombie {
             this.knockbackResistance = 0.2;
             this.scoreValue = 160;
         } else if (type === 'boss') {
-            this.baseHealth = 750;
-            this.baseArmor = 380;
+            this.baseHealth = 3500;
+            this.baseArmor = 1500;
             this.armorClass = 4;
-            this.speed = Math.min(4.4 * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
-            this.scale = 2.4;
-            this.damage = Math.round(30 * dmgMult);
-            this.attackRange = 2.0;
-            this.attackCooldown = 1.2;
-            this.knockbackResistance = 0.95;
-            this.scoreValue = 600;
+            this.speed = Math.min(5.0 * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
+            this.scale = 5.2;
+            this.damage = Math.round(55 * dmgMult);
+            this.attackRange = 4.5;
+            this.attackCooldown = 1.5;
+            this.knockbackResistance = 1.0;
+            this.scoreValue = 2000;
         } else if (type === 'crawler') {
             this.baseHealth = 40;
             this.baseArmor = 0;
@@ -778,12 +778,12 @@ export class WaveManager {
         this.currentPhase = phaseNum;
         this.isWaveInProgress = true;
         this.hasSpawnedBoss = false;
-        // Tính tổng số lượng quái cho đợt (Đợt 1: 14 con, Đợt 2: 18 con, Đợt 3: 23 con...)
-        this.totalWaveEnemies = Math.floor(10 + phaseNum * 4.5);
+        // Tính tổng số lượng quái cho đợt tăng lên đáng kể
+        this.totalWaveEnemies = Math.floor(25 + phaseNum * 8.5);
         this.remainingToSpawn = this.totalWaveEnemies;
-        // Giới hạn số quái tối đa cùng xuất hiện trên sân để không bị quá tải ngập màn hình
-        this.maxOnField = Math.min(14, 6 + Math.floor(phaseNum * 1.4));
-        this.batchInterval = Math.max(1.8, 2.8 - phaseNum * 0.12);
+        // Giới hạn số quái tối đa cùng xuất hiện trên sân (Tăng maxOnField để đông hơn)
+        this.maxOnField = Math.min(24, 10 + Math.floor(phaseNum * 2.5));
+        this.batchInterval = Math.max(1.0, 2.0 - phaseNum * 0.15);
         this.batchSpawnTimer = 0;
     }
 
@@ -914,7 +914,7 @@ export class WaveManager {
                     this.remainingToSpawn--;
                 }
                 
-                const canSpawn = Math.min(2, this.maxOnField - activeCount, this.remainingToSpawn);
+                 const canSpawn = Math.min(2, this.maxOnField - activeCount, this.remainingToSpawn);
                 for (let i = 0; i < canSpawn; i++) {
                     this.spawnSingleEnemy(primaryPlayer, survivalMinutes);
                     this.remainingToSpawn--;

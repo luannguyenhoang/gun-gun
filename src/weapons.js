@@ -6,7 +6,7 @@ export const WEAPON_CONFIGS = [
         id: 'blaster',
         name: 'BLASTER-X',
         category: 'SÚNG CHÍNH',
-        modelFile: 'kenney-blaster/blaster-a.glb',
+        modelFile: 'styloo/ak47.glb',
         icon: 'assets/previews/kenney-blaster/blaster-a.png',
         fireRate: 0.18,
         damage: 28,
@@ -35,7 +35,7 @@ export const WEAPON_CONFIGS = [
         id: 'repeater',
         name: 'REPEATER-9',
         category: 'SÚNG TỰ ĐỘNG',
-        modelFile: 'kenney-blaster/blaster-d.glb',
+        modelFile: 'styloo/mac10.glb',
         icon: 'assets/previews/kenney-blaster/blaster-d.png',
         fireRate: 0.09,
         damage: 17,
@@ -64,7 +64,7 @@ export const WEAPON_CONFIGS = [
         id: 'scatter',
         name: 'SCATTER-V',
         category: 'SHOTGUN TÁN XẠ',
-        modelFile: 'kenney-blaster/blaster-g.glb',
+        modelFile: 'styloo/shotgun.glb',
         icon: 'assets/previews/kenney-blaster/blaster-g.png',
         fireRate: 0.55,
         damage: 14,
@@ -92,9 +92,9 @@ export const WEAPON_CONFIGS = [
 ];
 
 export const RARE_WEAPON_CONFIGS = [
-    { ...WEAPON_CONFIGS[0], id: 'plasma', name: 'PLASMA LANCE', modelFile: 'kenney-blaster/blaster-j.glb', icon: 'assets/previews/kenney-blaster/blaster-j.png', damage: 54, penPower: 3, fireRate: 0.15, magSize: 24, baseSpreadDegHip: 1.8, baseSpreadDegADS: 0.4, screenShake: 0.22, cursorKick: 3.8, color: 0x9966ff, isAuto: true, tier: 1 },
-    { ...WEAPON_CONFIGS[1], id: 'storm', name: 'STORM MK-II', modelFile: 'kenney-blaster/blaster-e.glb', icon: 'assets/previews/kenney-blaster/blaster-e.png', damage: 25, penPower: 2, fireRate: 0.065, magSize: 48, baseSpreadDegHip: 2.8, baseSpreadDegADS: 0.7, screenShake: 0.14, cursorKick: 2.4, color: 0x55ffcc, tier: 1 },
-    { ...WEAPON_CONFIGS[2], id: 'nova', name: 'NOVA SHOTGUN', modelFile: 'kenney-blaster/blaster-g.glb', icon: 'assets/previews/kenney-blaster/blaster-g.png', damage: 22, penPower: 3, pellets: 8, fireRate: 0.45, magSize: 12, baseSpreadDegHip: 7.5, baseSpreadDegADS: 3.5, screenShake: 0.45, cursorKick: 8.0, color: 0xff6633, tier: 1 }
+    { ...WEAPON_CONFIGS[0], id: 'plasma', name: 'AWP SNIPER', modelFile: 'styloo/awp.glb', icon: 'assets/previews/kenney-blaster/blaster-j.png', damage: 85, penPower: 3, fireRate: 1.2, magSize: 5, baseSpreadDegHip: 8.0, baseSpreadDegADS: 0.0, screenShake: 0.65, cursorKick: 12.0, color: 0x9966ff, isAuto: false, tier: 1 },
+    { ...WEAPON_CONFIGS[1], id: 'storm', name: 'AK-47 VARIANT', modelFile: 'styloo/ak47variant.glb', icon: 'assets/previews/kenney-blaster/blaster-e.png', damage: 32, penPower: 2, fireRate: 0.12, magSize: 40, baseSpreadDegHip: 2.8, baseSpreadDegADS: 0.7, screenShake: 0.22, cursorKick: 3.4, color: 0x55ffcc, isAuto: true, tier: 1 },
+    { ...WEAPON_CONFIGS[2], id: 'nova', name: 'NOVA ROCKET', modelFile: 'styloo/rocketlaucher.glb', icon: 'assets/previews/kenney-blaster/blaster-g.png', damage: 60, penPower: 3, pellets: 1, fireRate: 1.5, magSize: 4, baseSpreadDegHip: 4.0, baseSpreadDegADS: 1.0, screenShake: 0.85, cursorKick: 15.0, color: 0xff6633, isAuto: false, tier: 1 }
 ];
 
 export function getStartingWeapon(id) {
@@ -160,7 +160,6 @@ const _heldParentRotation = new THREE.Quaternion();
 const _heldFacing = new THREE.Quaternion();
 const _barrelCorrection = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
-// Kenney Blaster Kit barrels point along -Z; characters face +Z.
 export function updateHeldWeaponPose(mesh, hand, character) {
     if (!mesh?.userData.gripOffset || !hand || !character) return;
     hand.updateWorldMatrix(true, false);
@@ -168,7 +167,26 @@ export function updateHeldWeaponPose(mesh, hand, character) {
     character.getWorldQuaternion(_heldFacing);
     if (mesh.userData.barrelForward === -1) _heldFacing.multiply(_barrelCorrection);
     mesh.quaternion.copy(_heldParentRotation.invert().multiply(_heldFacing));
+    
+    // Động tác thay đạn bằng Code (Procedural Reload Animation)
+    if (mesh.userData.reloadProgress !== undefined && mesh.userData.reloadProgress < 1.0) {
+        const p = mesh.userData.reloadProgress;
+        // Dùng hàm sine để tạo đường cong vồng xuống mượt mà (0 -> 1 -> 0)
+        const dip = Math.sin(p * Math.PI);
+        // Xoay súng chúi nòng xuống 60 độ và hơi nghiêng qua phải
+        const reloadRot = new THREE.Quaternion().setFromEuler(new THREE.Euler(-dip * 1.0, 0, -dip * 0.5));
+        mesh.quaternion.multiply(reloadRot);
+    }
+    
     mesh.position.copy(mesh.userData.gripOffset).applyQuaternion(mesh.quaternion).add(mesh.userData.handOffset);
+    
+    // Giật súng xuống thấp khi thay đạn
+    if (mesh.userData.reloadProgress !== undefined && mesh.userData.reloadProgress < 1.0) {
+        const dip = Math.sin(mesh.userData.reloadProgress * Math.PI);
+        mesh.position.y -= dip * 0.15; 
+        mesh.position.z += dip * 0.1;
+    }
+    
     mesh.updateWorldMatrix(false, true);
 }
 
@@ -756,22 +774,33 @@ export class WeaponSystem {
                     }
                 }
             });
-            // Kenney guns are ~0.8 model units long. Normalize to a readable
-            // 0.95–1.15 world units instead of shrinking them again on the arm.
+            // Tự động scale vũ khí về chuẩn 1 mét bất kể model gốc quay hướng nào
             const bounds = new THREE.Box3().setFromObject(mesh);
             handNode.updateWorldMatrix(true, false);
-            const armScale = handNode.getWorldScale(new THREE.Vector3()).z;
-            const worldLength = w.modelFile.includes('blaster-a') ? 0.95 : 1.15;
-            const scale = worldLength / ((bounds.max.z - bounds.min.z) * armScale);
+            const armScale = handNode.getWorldScale(new THREE.Vector3()).z || 1.0;
+            const size = bounds.getSize(new THREE.Vector3());
+            const maxLength = Math.max(size.x, size.y, size.z);
+            const scale = 1.0 / (maxLength * armScale);
+            
             mesh.scale.setScalar(scale);
             mesh.userData.barrelForward = -1;
-            mesh.userData.gripOffset = new THREE.Vector3(0, 0.14, -0.18).multiplyScalar(scale);
-            mesh.userData.handOffset = w.offset.clone();
-            mesh.rotation.set(0, -Math.PI / 3, 0);
+            
+            // Mặc định, Styloo guns thường hướng về +Z hoặc +X, chúng ta dùng rotOffset trong config
+            mesh.rotation.copy(w.rotOffset || new THREE.Euler(0, -Math.PI / 3, 0));
+            
+            // Tính lại bounds sau khi scale & rotate để xác định vị trí nòng súng
+            mesh.updateMatrixWorld(true);
+            const scaledBounds = new THREE.Box3().setFromObject(mesh);
+            
+            mesh.userData.gripOffset = new THREE.Vector3(0, 0.1, 0.0);
+            mesh.userData.handOffset = w.offset ? w.offset.clone() : new THREE.Vector3(-0.24, -0.05, 0.02);
+            
             mesh.position.copy(mesh.userData.gripOffset).applyQuaternion(mesh.quaternion).add(mesh.userData.handOffset);
+            
             const muzzle = new THREE.Object3D();
             muzzle.name = 'weapon-muzzle';
-            muzzle.position.set(0, 0.04, bounds.min.z - 0.025);
+            // Nòng súng ở đầu phía -Z (sau khi đã xoay)
+            muzzle.position.set(0, 0.04, -0.5); 
             mesh.add(muzzle);
             mesh.visible = false;
             handNode.add(mesh);
@@ -810,6 +839,11 @@ export class WeaponSystem {
 
     updateHeldPose(character) {
         const mesh = this.weaponMeshes?.[this.getCurrentWeapon().id];
+        if (mesh) {
+            const w = this.getCurrentWeapon();
+            const effective = this.getModifiedStats(w);
+            mesh.userData.reloadProgress = this.isReloading ? (1 - this.reloadTimer / effective.reloadTime) : 1.0;
+        }
         updateHeldWeaponPose(mesh, this.handNode, character);
     }
 
