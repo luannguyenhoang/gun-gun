@@ -3,8 +3,17 @@ import * as SkeletonUtils from '../libs/SkeletonUtils.js';
 import { sounds } from './audio.js';
 import { HealthBar3D } from './healthbar.js';
 
-const ZOMBIE_RADII = { walker: 0.6, sprinter: 0.55, tank: 0.9, boss: 1.3, giant: 1.65, spitter: 0.7 };
+// Ban kinh va cham vat ly theo loai quai
+const ZOMBIE_RADII = {
+    walker: 0.6,
+    sprinter: 0.55,
+    tank: 0.95,
+    boss: 1.3,
+    giant: 1.65,
+    spitter: 0.7
+};
 
+// Vector va bien tam dung chung de toi uu bo nho, Zero GC trong vong lap 60 FPS
 const _upAxis = new THREE.Vector3(0, 1, 0);
 const _tempCenter = new THREE.Vector3();
 const _tempSphere = new THREE.Sphere();
@@ -16,111 +25,152 @@ const _tempSeparation = new THREE.Vector3();
 const _tempDiff = new THREE.Vector3();
 const _tempMoveVel = new THREE.Vector3();
 const _tempDesiredDir = new THREE.Vector3();
-const _tempNextPos = new THREE.Vector3();
-const _tempLeftDir = new THREE.Vector3();
-const _tempRightDir = new THREE.Vector3();
 const _tempCheckPos = new THREE.Vector3();
+const _tempClawPos = new THREE.Vector3();
+
+// Cac trang thai chu ky chien dau cua Zombie
+export const ZombieCombatState = {
+    CHASE: 'CHASE',         // San duoi truc dien
+    WINDUP: 'WINDUP',       // Tu luc tan cong (~0.25s), model rung nhe va chop do bao hieu
+    RECOVERY: 'RECOVERY',   // Khung lai sau don danh (~0.8s - 1.0s), dung chon chan tai cho
+    STUNNED: 'STUNNED'      // Khung do dinh dan (~0.1s), bi ngat don va day lui
+};
 
 export class Zombie {
     constructor(scene, type, position, gltfModels, particles, phaseNum = 1, weapons = null) {
         this.scene = scene;
         this.type = type;
         this.weapons = weapons;
-        this.spitCharge = 0;
-        this.position = position.clone();
         this.particles = particles;
+        this.gltfModels = gltfModels;
+        this.position = position ? position.clone() : new THREE.Vector3();
+        this.active = true;
         this.isDead = false;
+        this.id = 0;
+
+        // Vector day lui tich luy
+        this.knockbackVelocity = new THREE.Vector3();
+
+        // Cac chi so chu ky chien dau
+        this.combatState = ZombieCombatState.CHASE;
+        this.combatTimer = 0;
+        this.windupDuration = 0.25;      // Pha 1: Tu luc ~0.25s
+        this.recoveryDuration = 0.85;    // Pha 3: Khung hoi phuc ~0.85s
+        this.stunDuration = 0.1;         // Khung khi trung dan ~0.1s
+
+        this.flashTimer = 0;
+        this.spitCharge = 0;
+        this.acidTarget = null;
+        this.navigationPath = null;
+        this.pathTimer = 0;
+
+        // Model, animation va thanh mau
+        this.mesh = null;
+        this.mixer = null;
+        this.animations = {};
+        this.currentAction = null;
+        this.healthBar = null;
+        this.mutationParts = [];
+        this.stompRing = null;
+        this.meshMaterials = [];
+
+        this.applyStats(type, phaseNum, 0, 7.5);
+        this.setupVisuals(gltfModels);
+    }
+
+    // Tinh toan chi so quai dua tren he so thoi gian va loai quai
+    applyStats(type, phaseNum = 1, survivalMinutes = 0, playerSpeed = 7.5) {
+        this.type = type;
         this.radius = ZOMBIE_RADII[type] ?? ZOMBIE_RADII.walker;
 
-        // Infinite phase scaling formulas
-        const phaseMult = 1 + (phaseNum - 1) * 0.22; // +22% HP per phase
-        const speedMult = Math.min(1.45, 1 + (phaseNum - 1) * 0.03); // Speed scales up to +45%
-        const dmgMult = 1 + (phaseNum - 1) * 0.12;
+        // He so tang tien theo thoi gian song (hoac phase)
+        const timeScale = 1.0 + (survivalMinutes * 0.15);
+        const phaseMult = Math.max(timeScale, 1.0 + (phaseNum - 1) * 0.20);
+        const dmgMult = 1.0 + survivalMinutes * 0.10;
 
-        if (type === 'giant') {
+        // Tinh toan toc do toi da khong vuot qua 90% toc do Player de luon tha dieu duoc
+        const maxAllowedSpeed = (playerSpeed || 7.5) * 0.90;
+
+        if (type === 'tank') {
+            // Tanker Zombie: Xuat hien sau phut 5, kich thuoc to 1.3x, mau day, khang day lui knockback 85%
+            this.baseHealth = 260;
+            this.baseArmor = 130;
+            this.armorClass = 2; // Giap kim loai cap 2
+            this.speed = Math.min(3.6 * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
+            this.scale = 2.15;
+            this.damage = Math.round(24 * dmgMult);
+            this.attackRange = 1.45;
+            this.attackCooldown = 1.2;
+            this.knockbackResistance = 0.85; // Khang 85% knockback
+            this.scoreValue = 220;
+        } else if (type === 'sprinter') {
+            // Fast Zombie: Xuat hien tu phut 2-5, toc do rat cao, mau it, ap sat nhanh
+            this.baseHealth = 50;
+            this.baseArmor = 0;
+            this.armorClass = 0; // Khong giap
+            this.speed = Math.min(6.75 * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
+            this.scale = 1.55;
+            this.damage = Math.round(14 * dmgMult);
+            this.attackRange = 1.15;
+            this.attackCooldown = 0.8;
+            this.knockbackResistance = 0.0;
+            this.scoreValue = 140;
+        } else if (type === 'giant') {
             this.baseHealth = 460;
             this.baseArmor = 220;
-            this.armorClass = 3; // Giáp nặng cấp 3
-            this.speed = 2.8 * speedMult;
-            this.scale = 3.8;
+            this.armorClass = 3;
+            this.speed = Math.min(2.8 * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
+            this.scale = 3.6;
             this.damage = Math.round(35 * dmgMult);
-            this.attackRange = 3.1;
-            this.attackCooldown = 2.4;
-            this.scoreValue = 350 * phaseNum;
+            this.attackRange = 2.8;
+            this.attackCooldown = 2.0;
+            this.knockbackResistance = 0.92;
+            this.scoreValue = 350;
         } else if (type === 'spitter') {
-            this.baseHealth = 100;
+            this.baseHealth = 95;
             this.baseArmor = 20;
-            this.armorClass = 1; // Giáp nhẹ cấp 1
-            this.speed = 3.9 * speedMult;
-            this.scale = 1.85;
+            this.armorClass = 1;
+            this.speed = Math.min(4.0 * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
+            this.scale = 1.8;
             this.damage = Math.round(18 * dmgMult);
-            this.attackRange = 1.5;
-            this.attackCooldown = 2.8;
-            this.scoreValue = 160 * phaseNum;
+            this.attackRange = 1.35;
+            this.attackCooldown = 2.5;
+            this.knockbackResistance = 0.2;
+            this.scoreValue = 160;
         } else if (type === 'boss') {
-            this.baseHealth = 700;
+            this.baseHealth = 750;
             this.baseArmor = 380;
-            this.armorClass = 4; // Giáp siêu cấp 4
-            this.speed = 4.2 * speedMult;
+            this.armorClass = 4;
+            this.speed = Math.min(4.4 * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
             this.scale = 2.4;
-            this.damage = Math.round(28 * dmgMult);
-            this.attackRange = 2.2;
+            this.damage = Math.round(30 * dmgMult);
+            this.attackRange = 2.0;
             this.attackCooldown = 1.2;
-            this.scoreValue = 600 * phaseNum;
-        } else if (type === 'tank') {
-            this.baseHealth = 220;
-            this.baseArmor = 130;
-            this.armorClass = 2; // Giáp kim loại cấp 2
-            this.speed = 3.6 * speedMult;
-            this.scale = 2.1;
-            this.damage = Math.round(22 * dmgMult);
-            this.attackRange = 1.8;
-            this.attackCooldown = 1.4;
-            this.scoreValue = 180 * phaseNum;
-        } else if (type === 'sprinter') {
-            this.baseHealth = 55;
-            this.baseArmor = 0;
-            this.armorClass = 0; // Không có giáp
-            this.speed = 9.0 * speedMult;
-            this.scale = 1.6;
-            this.damage = Math.round(14 * dmgMult);
-            this.attackRange = 1.3;
-            this.attackCooldown = 0.85;
-            this.scoreValue = 120 * phaseNum;
-        } else { // 'walker'
+            this.knockbackResistance = 0.95;
+            this.scoreValue = 600;
+        } else {
+            // Zombie thuong (walker): 0-2 phut dau, toc do trung binh, mau co ban
             this.baseHealth = 85;
             this.baseArmor = 0;
-            this.armorClass = 0; // Không có giáp
-            this.speed = 4.8 * speedMult;
+            this.armorClass = 0;
+            this.speed = Math.min(4.7 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
             this.scale = 1.65;
             this.damage = Math.round(16 * dmgMult);
-            this.attackRange = 1.4;
-            this.attackCooldown = 1.1;
-            this.scoreValue = 90 * phaseNum;
+            this.attackRange = 1.15;
+            this.attackCooldown = 1.0;
+            this.knockbackResistance = 0.0;
+            this.scoreValue = 100;
         }
 
         this.maxHealth = Math.round(this.baseHealth * phaseMult);
         this.health = this.maxHealth;
         this.maxArmor = Math.round(this.baseArmor * phaseMult);
         this.armor = this.maxArmor;
-
-        this.attackTimer = 0.4 + Math.random() * 0.5;
-        this.isAttacking = false;
-        this.attackDuration = type === 'giant' ? 0.9 : 0.5;
-        this.currentAttackTimer = 0;
-        this.flashTimer = 0;
-
-        // Model & Visuals
-        this.mesh = null;
-        this.mixer = null;
-        this.animations = {};
-        this.currentAction = null;
-        this.healthBar = null;
-
-        this.setupVisuals(gltfModels);
     }
 
     setupVisuals(models) {
+        if (!models) return;
+
         let baseModelKey = 'character-zombie';
         if (this.type === 'sprinter') {
             baseModelKey = models['character-skeleton'] ? 'character-skeleton' : 'character-zombie';
@@ -128,43 +178,41 @@ export class Zombie {
             baseModelKey = models['character-vampire'] ? 'character-vampire' : 'character-zombie';
         }
 
-        const base = models[baseModelKey];
+        const base = models[baseModelKey] || models['character-zombie'];
         if (!base) return;
 
         this.mesh = SkeletonUtils.clone(base.scene);
         this.mesh.scale.set(this.scale, this.scale, this.scale);
-        if (this.type === 'sprinter') this.mesh.scale.multiply(new THREE.Vector3(0.8, 1, 0.8));
+        if (this.type === 'sprinter') this.mesh.scale.multiply(new THREE.Vector3(0.82, 1, 0.82));
         if (this.type === 'giant') this.mesh.scale.multiply(new THREE.Vector3(1.15, 1, 1.15));
         this.mesh.position.copy(this.position);
         this.mesh.rotation.y = Math.random() * Math.PI * 2;
 
-        // Visual distinction per zombie tier
+        this.meshMaterials = [];
         this.mesh.traverse(child => {
             if (child.isMesh) {
                 child.castShadow = true;
                 child.receiveShadow = true;
                 child.material = child.material.clone();
+                this.meshMaterials.push(child.material);
 
                 if (this.type === 'giant') {
                     child.material.color.setHex(0x996044);
                 } else if (this.type === 'spitter') {
                     child.material.color.setHex(0x709d28);
                 } else if (this.type === 'tank') {
-                    // Dark rusted bruised armor
                     child.material.color.setHex(0x554433);
                 } else if (this.type === 'boss') {
-                    // Glowing crimson vampire overlord
                     child.material.color.setHex(0x770022);
                 } else if (this.type === 'sprinter') {
-                    // Bleached bone skeleton
                     child.material.color.setHex(0xffd34e);
                 }
             }
         });
 
         this.addMutationVisuals();
-
         this.scene.add(this.mesh);
+
         const barColor = this.type === 'spitter' ? 0x99ff22 : this.type === 'boss' ? 0xff2255 : 0xff4d5f;
         this.healthBar = new HealthBar3D(this.scene, {
             width: this.type === 'giant' || this.type === 'boss' ? 1.8 : 1.15,
@@ -173,21 +221,19 @@ export class Zombie {
         });
         this.healthBar.update(this.position, this.health, this.maxHealth, true);
 
-        // Animation mixer
         if (base.animations && base.animations.length > 0) {
             this.mixer = new THREE.AnimationMixer(this.mesh);
             base.animations.forEach(clip => {
                 this.animations[clip.name] = this.mixer.clipAction(clip);
             });
 
-            // Start with sprint for fast zombies or walk for regular
             const startAnim = (this.type === 'sprinter') ? 'sprint' : 'walk';
             this.playAnimation(this.animations[startAnim] ? startAnim : 'walk');
         }
     }
 
     addMutationVisuals() {
-        // Silhouettes remain readable at a distance, using the existing rig.
+        if (!this.mesh) return;
         const color = this.type === 'spitter' ? 0x99ff22 : this.type === 'giant' ? 0xff6622 : 0xffdd33;
         this.mutationParts = [];
         const add = (geometry, x, y, z, anchor = 'torso') => {
@@ -200,6 +246,7 @@ export class Zombie {
             this.mutationParts.push(part);
             return part;
         };
+
         if (this.type === 'spitter') {
             add(new THREE.IcosahedronGeometry(0.16, 1), -0.17, 0.17, -0.16);
             add(new THREE.IcosahedronGeometry(0.16, 1), 0.17, 0.17, -0.16);
@@ -223,10 +270,44 @@ export class Zombie {
         }
     }
 
+    // Tai kich hoat tu Object Pool de tranh cap phat lai bo nho
+    activate(position, type, survivalMinutes = 0, playerSpeed = 7.5, phaseNum = 1) {
+        this.position.copy(position);
+        this.position.y = 0;
+        this.active = true;
+        this.isDead = false;
+        this.knockbackVelocity.set(0, 0, 0);
+        this.combatState = ZombieCombatState.CHASE;
+        this.combatTimer = 0;
+        this.flashTimer = 0;
+        this.spitCharge = 0;
+        this.navigationPath = null;
+        this.pathTimer = 0;
+
+        this.applyStats(type, phaseNum, survivalMinutes, playerSpeed);
+
+        if (this.mesh) {
+            this.mesh.position.copy(this.position);
+            this.mesh.visible = true;
+            this.setEmissiveColor(0x000000, 0);
+        }
+        if (this.healthBar) {
+            this.healthBar.update(this.position, this.health, this.maxHealth, true);
+        }
+    }
+
+    // Thu hoi ve Object Pool
+    deactivate() {
+        this.active = false;
+        this.isDead = true;
+        if (this.mesh) this.mesh.visible = false;
+        if (this.stompRing) this.stompRing.visible = false;
+        if (this.healthBar) this.healthBar.update(this.position, 0, this.maxHealth, false);
+    }
+
     playAnimation(name, duration = 0.15) {
         if (!this.mixer || !this.animations[name]) return;
         const newAction = this.animations[name];
-
         if (this.currentAction === newAction) return;
 
         if (this.currentAction) {
@@ -239,8 +320,19 @@ export class Zombie {
         this.currentAction = newAction;
     }
 
+    setEmissiveColor(colorHex, intensity = 0.5) {
+        if (!this.meshMaterials) return;
+        for (let i = 0; i < this.meshMaterials.length; i++) {
+            const mat = this.meshMaterials[i];
+            if (mat && mat.emissive) {
+                mat.emissive.setHex(colorHex);
+                mat.emissiveIntensity = intensity;
+            }
+        }
+    }
+
     takeDamage(amount, penPower = 1, isCrit = false, hitDir = null) {
-        if (this.isDead) return { isPenetrated: false, isBlunt: false, healthDamage: 0, armorDamage: 0 };
+        if (this.isDead || !this.active) return { isPenetrated: false, isBlunt: false, healthDamage: 0, armorDamage: 0 };
 
         const ac = this.armorClass || 0;
         const isPenetrated = (penPower >= ac) || (this.armor <= 0);
@@ -249,50 +341,41 @@ export class Zombie {
         let isBlunt = false;
 
         if (isPenetrated) {
-            // Đạn xuyên giáp (Pen Power >= AC): Sát thương trừ thẳng vào Máu (Health), giảm nhẹ Giáp
+            // Dan xuyen giap: Tru thang vao Mau
             healthDmg = Math.round(amount * 0.88);
             armorDmg = Math.round(amount * 0.32);
             this.health -= healthDmg;
             this.armor = Math.max(0, this.armor - armorDmg);
             this.flashTimer = 0.12;
-
             sounds.play('enemyHurt', { volume: 0.5, pitchVariation: 0.2 });
-
-            // Nháy đỏ / cam (Damage Flash Shader/Material)
-            if (this.mesh) {
-                this.mesh.traverse(c => {
-                    if (c.isMesh && c.material && c.material.emissive) {
-                        c.material.emissive.setHex(isCrit ? 0xff0022 : 0xcc3300);
-                    }
-                });
-            }
+            this.setEmissiveColor(isCrit ? 0xff0022 : 0xcc3300, 0.85);
         } else {
-            // Bị giáp cản (Pen Power < AC): Đạn trừ vào Giáp, chỉ gây sát thương cùn (Blunt: 1-2 HP) vào Máu
+            // Bi giap can: Dan tru vao Giap, sat thuong cun vao Mau
             armorDmg = Math.min(this.armor, Math.round(amount));
             this.armor = Math.max(0, this.armor - armorDmg);
-            healthDmg = Math.min(2, Math.max(1, Math.round(amount * 0.08))); // 1-2 HP sát thương cùn
+            healthDmg = Math.min(2, Math.max(1, Math.round(amount * 0.08)));
             this.health -= healthDmg;
             isBlunt = true;
             this.flashTimer = 0.08;
-
-            // Âm thanh kim loại va đập cản giáp
             sounds.playArmorDeflect();
-
-            // Nháy trắng sáng kim loại (Damage Flash kim loại)
-            if (this.mesh) {
-                this.mesh.traverse(c => {
-                    if (c.isMesh && c.material && c.material.emissive) {
-                        c.material.emissive.setHex(0xffffff);
-                    }
-                });
-            }
+            this.setEmissiveColor(0xffffff, 0.8);
         }
 
-        // Knockback (tanks and bosses have heavy resistance)
+        // Hit Stun va Knockback: Ngat don danh neu dang tu luc (Wind-up), khung 0.1s va day lui
+        if (this.combatState === ZombieCombatState.WINDUP) {
+            // Ngat don dang tu luc
+            this.combatState = ZombieCombatState.STUNNED;
+            this.combatTimer = this.stunDuration;
+        } else if (this.combatState === ZombieCombatState.CHASE) {
+            this.combatState = ZombieCombatState.STUNNED;
+            this.combatTimer = this.stunDuration;
+        }
+
+        // Tinh toan luc day lui knockback nguoc huong dan bay (xet he so khang cua Tanker)
         if (hitDir && this.type !== 'boss') {
-            const kb = this.type === 'giant' ? 0.08 : this.type === 'tank' ? 0.15 : 0.55;
-            const displaced = this.position.clone().addScaledVector(new THREE.Vector3(hitDir.x, 0, hitDir.z), kb);
-            if (!this.arena || !this.arena.checkCollision(displaced, this.radius)) this.position.copy(displaced);
+            const baseKb = this.type === 'giant' ? 0.08 : this.type === 'tank' ? 0.15 : 0.55;
+            const effectiveKb = baseKb * Math.max(0, 1.0 - (this.knockbackResistance || 0));
+            this.knockbackVelocity.addScaledVector(new THREE.Vector3(hitDir.x, 0, hitDir.z), effectiveKb * 7.5);
         }
 
         if (this.health <= 0) {
@@ -311,30 +394,30 @@ export class Zombie {
     die() {
         if (this.isDead) return;
         this.isDead = true;
-
         sounds.play('enemyDestroy', { volume: this.type === 'boss' ? 1.0 : 0.75 });
-        this.disposeVisuals();
+        this.deactivate();
     }
 
     disposeVisuals() {
+        this.deactivate();
         this.healthBar?.dispose();
         this.healthBar = null;
         if (this.stompRing) {
             this.stompRing.removeFromParent();
-            this.stompRing.geometry.dispose();
-            this.stompRing.material.dispose();
+            this.stompRing.geometry?.dispose();
+            this.stompRing.material?.dispose();
             this.stompRing = null;
         }
         if (this.mesh) {
             this.mesh.removeFromParent();
-            this.mesh.traverse(c => { if (c.isMesh) c.material.dispose(); });
-            for (const part of this.mutationParts || []) part.geometry.dispose();
+            this.mesh.traverse(c => { if (c.isMesh) c.material?.dispose(); });
+            for (const part of this.mutationParts || []) part.geometry?.dispose();
             this.mesh = null;
         }
     }
 
     checkHit(startPos, endPos, ray) {
-        if (!this.mesh || this.isDead) return { hit: false };
+        if (!this.mesh || this.isDead || !this.active) return { hit: false };
 
         _tempCenter.copy(this.position);
         _tempCenter.y += (this.scale * 0.45);
@@ -345,7 +428,7 @@ export class Zombie {
         const hit = ray.intersectSphere(_tempSphere, _tempHitPoint);
 
         if (hit && startPos.distanceTo(_tempHitPoint) <= startPos.distanceTo(endPos)) {
-            // Headshot is top 30% of zombie height
+            // Headshot nam o 32% phan dau tren cung
             const isCrit = (_tempHitPoint.y > _tempCenter.y + this.radius * 0.32);
             return { hit: true, point: _tempHitPoint.clone(), isCrit: isCrit };
         }
@@ -354,22 +437,33 @@ export class Zombie {
     }
 
     update(delta, player, arena, allZombies, navigationBudget = null) {
-        if (this.isDead || !this.mesh) return;
+        if (this.isDead || !this.mesh || !this.active) return;
         this.arena = arena;
 
         if (this.mixer) {
             this.mixer.update(delta);
         }
 
-        // Reset hit flash
+        // Phan ra van toc day lui Knockback
+        if (this.knockbackVelocity.lengthSq() > 0.01) {
+            const kbX = this.knockbackVelocity.x * delta;
+            const kbZ = this.knockbackVelocity.z * delta;
+            if (arena?.moveCharacter) {
+                arena.moveCharacter(this.position, kbX, kbZ, this.radius);
+            } else {
+                this.position.x += kbX;
+                this.position.z += kbZ;
+            }
+            this.knockbackVelocity.multiplyScalar(Math.max(0, 1.0 - delta * 12.0));
+        }
+
+        // Reset hit flash sau khi trung dan
         if (this.flashTimer > 0) {
             this.flashTimer -= delta;
             if (this.flashTimer <= 0) {
-                this.mesh.traverse(c => {
-                    if (c.isMesh && c.material && c.material.emissive) {
-                        c.material.emissive.setHex(c.material.userData.baseEmissive || 0x000000);
-                    }
-                });
+                if (this.combatState !== ZombieCombatState.WINDUP) {
+                    this.setEmissiveColor(0x000000, 0);
+                }
             }
         }
 
@@ -378,27 +472,18 @@ export class Zombie {
             return;
         }
 
-        // Distance and direction to player (tái sử dụng vector module)
+        // 1. Tinh toan culy va huong truc dien toi Player (Pure Chaser AI)
         _tempToPlayer.subVectors(player.position, this.position);
         _tempToPlayer.y = 0;
         const dist = _tempToPlayer.length();
-        if (dist > 0.001) _tempToPlayer.multiplyScalar(1 / dist);
+        if (dist > 0.0001) _tempToPlayer.multiplyScalar(1 / dist);
 
-        _tempSpitOrigin.copy(this.position);
-        _tempSpitOrigin.y += this.scale * 0.61;
-        if (this.spitMouth && this.mesh.getObjectByName('head')) {
-            this.mesh.updateMatrixWorld(true);
-            this.spitMouth.getWorldPosition(_tempSpitOrigin);
-        }
-        _tempPlayerTarget.copy(player.position);
-        _tempPlayerTarget.y += 0.9;
-        const canSpit = this.type === 'spitter' && dist <= 24 && arena.hasLineOfSight(_tempSpitOrigin, _tempPlayerTarget);
-
-        // 1. Swarm separation: giải thuật đẩy quái không sinh rác GC
+        // 2. Swarm separation: Thuat toan day mem chong chong lan quai, giup bay tu dan hang ngang
         _tempSeparation.set(0, 0, 0);
         let neighborCount = 0;
-        for (const other of allZombies) {
-            if (other === this || other.isDead) continue;
+        for (let i = 0; i < allZombies.length; i++) {
+            const other = allZombies[i];
+            if (other === this || other.isDead || !other.active) continue;
             _tempDiff.subVectors(this.position, other.position);
             _tempDiff.y = 0;
             const minSpace = this.radius + other.radius;
@@ -414,135 +499,146 @@ export class Zombie {
             _tempSeparation.multiplyScalar(4.0);
         }
 
-        // 2. Chasing movement & AI Obstacle Avoidance
-        _tempMoveVel.set(0, 0, 0);
-        const holdingRange = canSpit && dist >= 9 && dist <= 17;
-        const windingUp = this.spitCharge > 0 || (this.type === 'giant' && this.isAttacking);
-        if (!windingUp && !holdingRange && dist > this.attackRange * 0.8) {
-            _tempDesiredDir.copy(_tempToPlayer);
-            if (canSpit && dist < 9) _tempDesiredDir.negate();
-            
-            // Follow persistent corner waypoints rather than randomly switching sides.
-            this.pathTimer = (this.pathTimer || 0) - delta;
-            if (arena.findNavigationPath && !(canSpit && dist < 9)) {
-                if ((this.pathTimer <= 0 || !this.navigationPath) &&
-                    (!navigationBudget || (navigationBudget.remaining > 0 && navigationBudget.allowed.has(this)))) {
-                    if (navigationBudget) navigationBudget.remaining--;
-                    this.navigationPath = arena.findNavigationPath(this.position, player.position, this.radius);
-                    this.pathTimer = 0.9;
-                }
-                while (this.navigationPath?.length && this.position.distanceToSquared(this.navigationPath[0]) < 0.0625) this.navigationPath.shift();
-                if (this.navigationPath?.length) _tempDesiredDir.subVectors(this.navigationPath[0], this.position).setY(0).normalize();
+        // 3. May trang thai chu ky chien dau (Combat Loop: Wind-up -> Hit -> Recovery)
+        if (this.combatState === ZombieCombatState.STUNNED) {
+            // Bi ngat don va khung lai trong 0.1s
+            this.combatTimer -= delta;
+            if (this.combatTimer <= 0) {
+                this.combatState = ZombieCombatState.CHASE;
             }
-            // Flanking behavior for sprinters
-            if (this.type === 'sprinter' && dist > 5 && !(this.navigationPath?.length > 1)) {
-                _tempDesiredDir.applyAxisAngle(_upAxis, Math.sin(performance.now() * 0.002 + this.position.x) * 0.6);
+        } else if (this.combatState === ZombieCombatState.WINDUP) {
+            // Pha 1: Tu luc (~0.25s), Zombie dung buoc hoan toan
+            this.combatTimer -= delta;
+
+            // Chi thi hinh anh: Chop do manh dan va model rung nhe bao hieu sap vung don
+            const progress = 1.0 - Math.max(0, this.combatTimer / this.windupDuration);
+            this.setEmissiveColor(0xff0022, 0.4 + progress * 0.5);
+
+            // Rung nhe vi tri mesh
+            const shake = 0.05;
+            this.mesh.position.x = this.position.x + (Math.random() - 0.5) * shake;
+            this.mesh.position.z = this.position.z + (Math.random() - 0.5) * shake;
+
+            if (this.combatTimer <= 0) {
+                // Pha 2: Gay sat thuong (Impact)
+                this.setEmissiveColor(0x000000, 0);
+                this.executeImpact(player, dist);
             }
-
-            _tempDesiredDir.normalize();
-            _tempMoveVel.addScaledVector(_tempDesiredDir, this.speed);
-        }
-        _tempMoveVel.add(_tempSeparation);
-
-        // Shared swept movement prevents corner snagging and tunneling.
-        if (arena.moveCharacter) {
-            arena.moveCharacter(this.position, _tempMoveVel.x * delta, _tempMoveVel.z * delta, this.radius);
-        } else {
-            _tempCheckPos.copy(this.position); _tempCheckPos.x += _tempMoveVel.x * delta;
-            if (!arena.checkCollision(_tempCheckPos, this.radius)) this.position.x = _tempCheckPos.x;
-            _tempCheckPos.copy(this.position); _tempCheckPos.z += _tempMoveVel.z * delta;
-            if (!arena.checkCollision(_tempCheckPos, this.radius)) this.position.z = _tempCheckPos.z;
-        }
-        this.mesh.position.copy(this.position);
-        this.healthBar?.update(this.position, this.health, this.maxHealth, true);
-
-        // Zombie faces direction of motion / player
-        let targetYaw = Math.atan2(_tempToPlayer.x, _tempToPlayer.z);
-        if (_tempMoveVel.lengthSq() > 0.5) {
-            targetYaw = Math.atan2(_tempMoveVel.x, _tempMoveVel.z);
-        }
-        // Removed the + Math.PI offset because Kenney models face +Z natively
-
-        let diff = (targetYaw - this.mesh.rotation.y) % (Math.PI * 2);
-        if (diff < -Math.PI) diff += Math.PI * 2;
-        if (diff > Math.PI) diff -= Math.PI * 2;
-        this.mesh.rotation.y += diff * Math.min(1.0, delta * 14);
-
-        // 3. Melee Attack Execution
-        this.attackTimer -= delta;
-
-        if (this.type === 'spitter') {
-            if (this.spitCharge > 0) {
-                this.spitCharge -= delta;
-                for (const part of this.mutationParts) part.scale.setScalar(1 + Math.sin(this.spitCharge * 25) * 0.2);
-                if (this.spitCharge <= 0) {
-                    if (this.acidTarget && arena.hasLineOfSight(_tempSpitOrigin, this.acidTarget)) {
-                        this.weapons?.shootEnemyBolt(_tempSpitOrigin, this.acidTarget, this.damage, 18, true);
-                    }
-                    for (const part of this.mutationParts) part.scale.setScalar(1);
-                }
-            } else if (canSpit && dist > 4 && this.attackTimer <= 0 && this.weapons) {
-                this.spitCharge = 0.7;
-                this.acidTarget = _tempPlayerTarget.clone();
-                this.attackTimer = this.attackCooldown;
-                this.particles.createImpactSparks(_tempSpitOrigin, _upAxis, 0x99ff22, 6);
-            }
-        }
-
-        if (this.stompRing) {
-            this.stompRing.position.copy(this.position);
-            this.stompRing.position.y = 0.04;
-            this.stompRing.visible = this.isAttacking;
-            this.stompRing.material.opacity = 0.3 + 0.5 * (1 - this.currentAttackTimer / this.attackDuration);
-        }
-
-        if (this.isAttacking) {
-            this.currentAttackTimer -= delta;
-            if (this.currentAttackTimer <= 0) {
-                this.isAttacking = false;
-                if (this.type === 'giant') {
-                    _tempHitPoint.copy(this.position);
-                    _tempHitPoint.y += 0.15;
-                    this.particles.createImpactSparks(_tempHitPoint, _upAxis, 0xff6622, 24);
-                    if (dist <= this.attackRange && arena.hasLineOfSight(_tempSpitOrigin, _tempPlayerTarget)) this.applyMeleeDamage(player);
-                }
+        } else if (this.combatState === ZombieCombatState.RECOVERY) {
+            // Pha 3: Khung lai sau don danh (~0.8s - 1.0s), dung chon chan tai cho, khong xoay nguoi
+            this.combatTimer -= delta;
+            if (this.combatTimer <= 0) {
+                this.combatState = ZombieCombatState.CHASE;
                 const runAnim = (this.type === 'sprinter') ? 'sprint' : 'walk';
                 this.playAnimation(this.animations[runAnim] ? runAnim : 'walk');
             }
+        } else {
+            // Trạng thái CHASE: San duoi va ap sat
+            if (dist <= this.attackRange) {
+                // Buoc vao tam danh -> Chuyen sang Pha Tu luc (Wind-up)
+                this.combatState = ZombieCombatState.WINDUP;
+                this.combatTimer = this.windupDuration;
+            } else {
+                // Di chuyen truc dien toi nguoi choi ket hop ne vat can
+                _tempMoveVel.set(0, 0, 0);
+                _tempDesiredDir.copy(_tempToPlayer);
+
+                this.pathTimer = (this.pathTimer || 0) - delta;
+                if (arena?.findNavigationPath) {
+                    if ((this.pathTimer <= 0 || !this.navigationPath) &&
+                        (!navigationBudget || (navigationBudget.remaining > 0 && navigationBudget.allowed.has(this)))) {
+                        if (navigationBudget) navigationBudget.remaining--;
+                        this.navigationPath = arena.findNavigationPath(this.position, player.position, this.radius);
+                        this.pathTimer = 0.9;
+                    }
+                    while (this.navigationPath?.length && this.position.distanceToSquared(this.navigationPath[0]) < 0.0625) {
+                        this.navigationPath.shift();
+                    }
+                    if (this.navigationPath?.length) {
+                        _tempDesiredDir.subVectors(this.navigationPath[0], this.position).setY(0).normalize();
+                    }
+                }
+
+                _tempDesiredDir.normalize();
+                _tempMoveVel.addScaledVector(_tempDesiredDir, this.speed);
+                _tempMoveVel.add(_tempSeparation);
+
+                // Di chuyen nhan vat tren Arena
+                if (arena?.moveCharacter) {
+                    arena.moveCharacter(this.position, _tempMoveVel.x * delta, _tempMoveVel.z * delta, this.radius);
+                } else if (arena?.checkCollision) {
+                    _tempCheckPos.copy(this.position); _tempCheckPos.x += _tempMoveVel.x * delta;
+                    if (!arena.checkCollision(_tempCheckPos, this.radius)) this.position.x = _tempCheckPos.x;
+                    _tempCheckPos.copy(this.position); _tempCheckPos.z += _tempMoveVel.z * delta;
+                    if (!arena.checkCollision(_tempCheckPos, this.radius)) this.position.z = _tempCheckPos.z;
+                } else {
+                    this.position.x += _tempMoveVel.x * delta;
+                    this.position.z += _tempMoveVel.z * delta;
+                }
+
+                // Xoay huong mat theo huong di chuyen / huong player
+                let targetYaw = Math.atan2(_tempToPlayer.x, _tempToPlayer.z);
+                if (_tempMoveVel.lengthSq() > 0.5) {
+                    targetYaw = Math.atan2(_tempMoveVel.x, _tempMoveVel.z);
+                }
+                let diff = (targetYaw - this.mesh.rotation.y) % (Math.PI * 2);
+                if (diff < -Math.PI) diff += Math.PI * 2;
+                if (diff > Math.PI) diff -= Math.PI * 2;
+                this.mesh.rotation.y += diff * Math.min(1.0, delta * 14);
+            }
         }
 
-        if (dist <= this.attackRange && this.attackTimer <= 0 && !this.isAttacking && this.spitCharge <= 0 && arena.hasLineOfSight(_tempSpitOrigin, _tempPlayerTarget)) {
-            this.performMeleeAttack(player);
+        // Cap nhat vi tri mesh va thanh mau neu khong trong pha rung
+        if (this.combatState !== ZombieCombatState.WINDUP) {
+            this.mesh.position.copy(this.position);
+        }
+        this.healthBar?.update(this.position, this.health, this.maxHealth, true);
+
+        // Cap nhat stomp ring cua quai Giant neu co
+        if (this.stompRing) {
+            this.stompRing.position.copy(this.position);
+            this.stompRing.position.y = 0.04;
+            this.stompRing.visible = (this.combatState === ZombieCombatState.WINDUP);
         }
     }
 
-    performMeleeAttack(player) {
-        this.isAttacking = true;
-        this.currentAttackTimer = this.attackDuration;
-        this.attackTimer = this.attackCooldown;
-
-        // Choose attack animation
-        const attackAnims = ['attack-melee-right', 'attack-melee-left'];
-        const animName = attackAnims[Math.floor(Math.random() * attackAnims.length)];
-        if (this.animations[animName]) {
-            this.playAnimation(animName, 0.08);
+    // Pha 2: Kiem tra va gay sat thuong (Impact)
+    executeImpact(player, currentDist) {
+        // Kiem tra lai khoang cach: Neu nguoi choi van trong tam -> Danh trung
+        if (currentDist <= this.attackRange * 1.15) {
+            this.applyMeleeDamage(player);
+        } else {
+            // Nguoi choi da kip lui ra ngoai tam danh -> Don danh bi hut (Miss)
+            // Khong tru mau, quai van phai chiu thoi gian hoi phuc (Recovery)
         }
 
-        // Giants telegraph a stomp; damage is checked at the end of the wind-up.
-        if (this.type !== 'giant') this.applyMeleeDamage(player);
+        // Chuyen sang Pha 3: Khung hoi phuc (Recovery)
+        this.combatState = ZombieCombatState.RECOVERY;
+        this.combatTimer = this.recoveryDuration;
     }
 
     applyMeleeDamage(player) {
         sounds.play('enemyAttack', { volume: 0.7, pitchVariation: 0.15 });
         const hitDir = new THREE.Vector3().subVectors(player.position, this.position).normalize();
+        
+        // Tru mau nguoi choi
         player.takeDamage(this.damage, hitDir);
 
-        // Claw impact spark
-        const clawPos = player.position.clone().add(new THREE.Vector3(0, 1.1, 0));
-        this.particles.createImpactSparks(clawPos, hitDir.clone().negate(), 0xff1133, 10);
+        // Kich hoat rung man hinh chấn thương va flash do man hinh
+        if (typeof player.applyKickbackAndShake === 'function') {
+            player.applyKickbackAndShake(new THREE.Vector2(0, 0), 0.35);
+        } else {
+            player.screenShakeTrauma = Math.min(1.0, (player.screenShakeTrauma || 0) + 0.35);
+        }
+
+        // Tao tia mau va vet cao chem
+        _tempClawPos.copy(player.position);
+        _tempClawPos.y += 1.1;
+        this.particles?.createImpactSparks(_tempClawPos, hitDir.clone().negate(), 0xff1133, 10);
     }
 }
 
+// Bo sinh quai vo tan voi Object Pool va leo thang do kho theo thoi gian
 export class WaveManager {
     constructor(scene, gltfLoader, weapons, particles, arena) {
         this.scene = scene;
@@ -552,18 +648,28 @@ export class WaveManager {
         this.arena = arena;
         this.models = {};
 
-        this.currentPhase = 1;
+        // Danh sach quan ly quai tren san va Pool tai su dung
         this.enemies = [];
-        this.isWaveInProgress = false;
-        this.spawnQueue = [];
-        this.spawnInterval = 0.75;
-        this.lastSpawnTime = 0;
+        this.pool = [];
         this.nextId = 1;
+
+        // Thoi gian sinh ton va bo dem spawn
+        this.survivalTimer = 0;       // Tong so giay song sot
+        this.batchSpawnTimer = 0;     // Bo dem spawn theo dot
+        this.currentPhase = 1;
+        this.isWaveInProgress = true;
+        this.spawnQueue = [];
+
+        // Cu ly spawn vong tron ngoai man hinh (15m - 20m quanh Player)
+        this.minSpawnDistance = 16.0;
+        this.maxSpawnDistance = 21.0;
+
         this.navigationBudget = { remaining: 0, allowed: new Set() };
         this.navigationCursor = 0;
     }
 
     async init() {
+        if (!this.loader) return;
         const load = (name, file) => new Promise(resolve => {
             this.loader.load(`assets/models/${file}`, (gltf) => {
                 this.models[name] = gltf;
@@ -578,131 +684,193 @@ export class WaveManager {
         ]);
     }
 
-    startWave(phaseNum) {
+    startWave(phaseNum = 1) {
         this.currentPhase = phaseNum;
         this.isWaveInProgress = true;
-        this.spawnQueue = [];
-
-        // INFINITE PHASE SCALING FORMULA:
-        // Zombie count increases each phase
-        const walkerCount = Math.floor(6 + phaseNum * 2.5);
-        const sprinterCount = phaseNum >= 2 ? Math.floor(2 + phaseNum * 1.5) : 0;
-        const tankCount = phaseNum >= 3 ? Math.floor(1 + (phaseNum - 2) * 0.8) : 0;
-        const spitterCount = phaseNum >= 2 ? Math.min(10, Math.floor(1 + phaseNum * 0.6)) : 0;
-        const giantCount = phaseNum >= 3 ? Math.min(5, Math.floor(phaseNum / 3)) : 0;
-        const hasBoss = (phaseNum % 5 === 0);
-
-        for (let i = 0; i < walkerCount; i++) this.spawnQueue.push('walker');
-        for (let i = 0; i < sprinterCount; i++) this.spawnQueue.push('sprinter');
-        for (let i = 0; i < tankCount; i++) this.spawnQueue.push('tank');
-        for (let i = 0; i < spitterCount; i++) this.spawnQueue.push('spitter');
-        for (let i = 0; i < giantCount; i++) this.spawnQueue.push('giant');
-        if (hasBoss) this.spawnQueue.push('boss');
-
-        // Shuffle spawn queue
-        this.spawnQueue.sort(() => Math.random() - 0.5);
-
-        // Dynamic spawn interval (gets slightly faster in later phases)
-        this.spawnInterval = Math.max(0.4, 0.85 - phaseNum * 0.03);
     }
 
-    spawnZombie(type) {
-        // Pick one of the 4 Arena Portals
-        const portals = this.arena.getPortals();
-        let spawnPos = new THREE.Vector3(0, 0, -18);
-        const radius = ZOMBIE_RADII[type] ?? ZOMBIE_RADII.walker;
+    // Chon loai quai xuat hien dua tren moc thoi gian song sot (phut)
+    determineArchetype(survivalMinutes) {
+        if (survivalMinutes < 2.0) {
+            // 0 - 2 phut: 100% Zombie thuong (walker)
+            return 'walker';
+        } else if (survivalMinutes < 5.0) {
+            // 2 - 5 phut: Xuat hien Fast Zombie (sprinter)
+            return Math.random() < 0.45 ? 'sprinter' : 'walker';
+        } else {
+            // 5+ phut: Xuat hien Tanker Zombie (tank)
+            const roll = Math.random();
+            if (roll < 0.22) return 'tank';
+            if (roll < 0.60) return 'sprinter';
+            return 'walker';
+        }
+    }
 
+    // Tinh toan toa do spawn vong tron ngoai man hinh bao quanh nguoi choi (Off-screen Perimeter)
+    calculateOffscreenSpawnPosition(player) {
+        const center = player?.position || new THREE.Vector3(0, 0, 0);
+        const arenaRadius = this.arena?.radius || 35;
+
+        for (let attempts = 0; attempts < 8; attempts++) {
+            const angle = Math.random() * Math.PI * 2;
+            const distance = this.minSpawnDistance + Math.random() * (this.maxSpawnDistance - this.minSpawnDistance);
+            const spawnX = center.x + Math.cos(angle) * distance;
+            const spawnZ = center.z + Math.sin(angle) * distance;
+            const spawnPos = new THREE.Vector3(spawnX, 0, spawnZ);
+
+            // Kiem tra hop le voi ranh gioi va vat can cua Arena
+            if (this.arena?.checkCollision && this.arena.checkCollision(spawnPos, 0.8)) {
+                continue;
+            }
+            if (spawnPos.length() > arenaRadius - 2) {
+                spawnPos.clampLength(0, arenaRadius - 3);
+            }
+            return spawnPos;
+        }
+
+        // Fallback neu cham bien: lay vi tri portal
+        const portals = this.arena?.getPortals?.();
         if (portals && portals.length > 0) {
             const portal = portals[Math.floor(Math.random() * portals.length)];
-            spawnPos = this.arena.getPortalSpawnPosition(portal, radius);
-            if (!spawnPos) return false;
+            return this.arena.getPortalSpawnPosition(portal, 0.7) || new THREE.Vector3(0, 0, -16);
+        }
+        return new THREE.Vector3(center.x + 16, 0, center.z);
+    }
 
-            // Flash portal light on spawn
-            if (portal.light) {
-                portal.light.intensity = 10;
+    // Lay doi tuong Zombie tu Object Pool hoac khoi tao moi
+    acquireZombie(type, position, survivalMinutes, playerSpeed) {
+        let zombie = null;
+        for (let i = 0; i < this.pool.length; i++) {
+            if (!this.pool[i].active) {
+                zombie = this.pool[i];
+                break;
             }
         }
 
-        if (this.arena.checkCollision(spawnPos, radius)) return false;
+        if (!zombie) {
+            zombie = new Zombie(
+                this.scene,
+                type,
+                position,
+                this.models,
+                this.particles,
+                this.currentPhase,
+                this.weapons
+            );
+            this.pool.push(zombie);
+        }
 
-        // Portal spawn energy burst
-        this.particles.createImpactSparks(spawnPos, new THREE.Vector3(0, 1, 0), 0xb026ff, 18);
-
-        const zombie = new Zombie(
-            this.scene,
-            type,
-            spawnPos,
-            this.models,
-            this.particles,
-            this.currentPhase,
-            this.weapons
-        );
-        zombie.arena = this.arena;
         zombie.id = this.nextId++;
-        this.enemies.push(zombie);
+        zombie.arena = this.arena;
+        zombie.activate(position, type, survivalMinutes, playerSpeed, this.currentPhase);
+        return zombie;
+    }
+
+    spawnSingleEnemy(targetPlayer, survivalMinutes) {
+        const type = this.determineArchetype(survivalMinutes);
+        const spawnPos = this.calculateOffscreenSpawnPosition(targetPlayer);
+        const playerSpeed = targetPlayer?.speed || 7.5;
+
+        // Hieu ung nang luong portal / tia dien khi quai spawn
+        this.particles?.createImpactSparks(spawnPos, _upAxis, 0xb026ff, 12);
+
+        const zombie = this.acquireZombie(type, spawnPos, survivalMinutes, playerSpeed);
+        if (!this.enemies.includes(zombie)) {
+            this.enemies.push(zombie);
+        }
         return true;
     }
 
     update(delta, player, arena, onEnemyKilled) {
         const targets = (Array.isArray(player) ? player : [player]).filter(p => !p.isDead);
-        // Spawn queue from portals
-        if (this.spawnQueue.length > 0) {
-            this.lastSpawnTime += delta;
-            if (this.lastSpawnTime >= this.spawnInterval) {
-                this.lastSpawnTime = 0;
-                // Keep the queued enemy when an exit is blocked; retry later.
-                if (this.spawnZombie(this.spawnQueue[0])) this.spawnQueue.shift();
+        const primaryPlayer = targets[0] || (Array.isArray(player) ? player[0] : player);
+
+        // Cap nhat thoi gian song sot de tinh he so leo thang do kho
+        if (primaryPlayer && !primaryPlayer.isDead) {
+            this.survivalTimer += delta;
+            this.batchSpawnTimer += delta;
+        }
+
+        const survivalMinutes = this.survivalTimer / 60.0;
+
+        // 1. Thuat toan leo thang do kho theo thoi gian song:
+        // Tan suat spawn nhanh hon theo tung phut (tu 3.0s xuong toi thieu 1.2s)
+        const spawnInterval = Math.max(1.2, 3.2 - survivalMinutes * 0.35);
+
+        // So luong quai toi da tren san tang theo phut (50 con ban dau -> 180+ con)
+        const maxEnemiesOnMap = Math.min(180, Math.floor(45 + survivalMinutes * 28));
+
+        // So quai trong moi dot (Batch size tang dan tu 3-4 len 10-12 con)
+        const batchSize = Math.min(12, Math.floor(3 + survivalMinutes * 1.6));
+
+        // 2. Sinh quai theo chu ky (Continuous Wave Spawning)
+        if (primaryPlayer && !primaryPlayer.isDead && this.batchSpawnTimer >= spawnInterval) {
+            this.batchSpawnTimer = 0;
+            const activeCount = this.enemies.filter(e => e.active && !e.isDead).length;
+            const spawnCapacity = maxEnemiesOnMap - activeCount;
+            const countToSpawn = Math.min(batchSize, spawnCapacity);
+
+            for (let i = 0; i < countToSpawn; i++) {
+                this.spawnSingleEnemy(primaryPlayer, survivalMinutes);
             }
         }
 
-        // Update active zombies
+        // 3. Round-robin phan phoi ngan sach navigation
         this.navigationBudget.remaining = 2;
         this.navigationBudget.allowed.clear();
-        // Round-robin grants prevent the same enemies monopolizing the budget in large hordes.
         for (let checked = 0; checked < this.enemies.length && this.navigationBudget.allowed.size < 2; checked++) {
-            this.navigationCursor %= this.enemies.length;
+            this.navigationCursor %= Math.max(1, this.enemies.length);
             const candidate = this.enemies[this.navigationCursor++];
-            if (!candidate.isDead && (!candidate.navigationPath || (candidate.pathTimer || 0) <= delta)) {
+            if (candidate && !candidate.isDead && candidate.active && (!candidate.navigationPath || (candidate.pathTimer || 0) <= delta)) {
                 this.navigationBudget.allowed.add(candidate);
             }
         }
+
+        // 4. Cap nhat toan bo quai dang hoat dong
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const zombie = this.enemies[i];
-            const target = targets.reduce((nearest, p) => !nearest || p.position.distanceToSquared(zombie.position) < nearest.position.distanceToSquared(zombie.position) ? p : nearest, null);
-            if (target) zombie.update(delta, target, arena, this.enemies, this.navigationBudget);
+            if (!zombie.active) {
+                this.enemies.splice(i, 1);
+                continue;
+            }
+
+            const target = targets.reduce((nearest, p) =>
+                !nearest || p.position.distanceToSquared(zombie.position) < nearest.position.distanceToSquared(zombie.position) ? p : nearest, null);
+
+            if (target) {
+                zombie.update(delta, target, arena, this.enemies, this.navigationBudget);
+            }
 
             if (zombie.isDead) {
                 if (onEnemyKilled) {
                     onEnemyKilled(zombie);
                 }
+                zombie.deactivate();
                 this.enemies.splice(i, 1);
             }
-        }
-
-        // Phase finished check
-        if (this.spawnQueue.length === 0 && this.enemies.length === 0 && this.isWaveInProgress) {
-            this.isWaveInProgress = false;
-            return true;
         }
 
         return false;
     }
 
     getRemainingEnemiesCount() {
-        return this.spawnQueue.length + this.enemies.length;
+        return this.enemies.filter(e => e.active && !e.isDead).length;
     }
 
     getBoss() {
-        return this.enemies.find(e => e.type === 'boss');
+        return this.enemies.find(e => e.type === 'boss' && e.active && !e.isDead);
     }
 
     clear() {
-        for (const e of this.enemies) {
-            e.disposeVisuals();
+        for (let i = 0; i < this.enemies.length; i++) {
+            this.enemies[i].deactivate();
+        }
+        for (let i = 0; i < this.pool.length; i++) {
+            this.pool[i].deactivate();
         }
         this.enemies = [];
         this.spawnQueue = [];
-        this.isWaveInProgress = false;
-        this.lastSpawnTime = 0;
+        this.survivalTimer = 0;
+        this.batchSpawnTimer = 0;
     }
 }
