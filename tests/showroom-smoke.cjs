@@ -29,6 +29,31 @@ const root = path.resolve(__dirname, '..');
         assert.equal(await page.locator('#home-dialog').evaluate(el => el.open), false);
         assert.equal(await page.locator('#character-stage canvas').count(), 1);
         assert.equal(await page.evaluate(() => window.game.homeMenu.showroom.renderer === window.game.roomLobby.renderer), true);
+        const directions = await page.evaluate(async () => {
+            const T = await import('/libs/three.module.js');
+            const view = window.game.homeMenu.showroom;
+            const values = [];
+            for (const character of ['soldier', 'skeleton', 'vampire']) {
+                view.preview(character);
+                for (const weapon of ['blaster', 'repeater', 'scatter']) {
+                    view.previewWeapon(weapon);
+                    for (const yaw of [-0.35, 1.2, -2.4]) {
+                        const entry = view.entries.get(character);
+                        entry.model.rotation.y = yaw;
+                        view.render(0.12);
+                        const barrel = new T.Vector3(0, 0, -1).applyQuaternion(entry.gun.getWorldQuaternion(new T.Quaternion()));
+                        const facing = new T.Vector3(0, 0, 1).applyQuaternion(entry.model.getWorldQuaternion(new T.Quaternion()));
+                        values.push(barrel.dot(facing));
+                    }
+                    view.entries.get(character).model.rotation.y = -0.35;
+                }
+            }
+            view.previewWeapon(window.game.weapons.startingWeaponId);
+            view.preview(window.game.characterId);
+            view.render(0);
+            return values;
+        });
+        assert.ok(directions.every(dot => dot > 0.999), 'all 3 guns face forward for all 3 animated characters and rotations');
         await page.screenshot({ path: path.join(__dirname, 'artifacts', 'characters-desktop.png') });
         await page.setViewportSize({ width: 1366, height: 565 });
         const compactInfo = await page.locator('.character-info:visible').boundingBox();

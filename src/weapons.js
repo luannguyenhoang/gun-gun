@@ -156,6 +156,21 @@ const _tempCheckRay = new THREE.Ray();
 const _tempCheckRayDir = new THREE.Vector3();
 const _tempSparkDir = new THREE.Vector3();
 const _tempHitPointSparks = new THREE.Vector3();
+const _heldParentRotation = new THREE.Quaternion();
+const _heldFacing = new THREE.Quaternion();
+const _barrelCorrection = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+
+// Kenney Blaster Kit barrels point along -Z; characters face +Z.
+export function updateHeldWeaponPose(mesh, hand, character) {
+    if (!mesh?.userData.gripOffset || !hand || !character) return;
+    hand.updateWorldMatrix(true, false);
+    hand.getWorldQuaternion(_heldParentRotation);
+    character.getWorldQuaternion(_heldFacing);
+    if (mesh.userData.barrelForward === -1) _heldFacing.multiply(_barrelCorrection);
+    mesh.quaternion.copy(_heldParentRotation.invert().multiply(_heldFacing));
+    mesh.position.copy(mesh.userData.gripOffset).applyQuaternion(mesh.quaternion).add(mesh.userData.handOffset);
+    mesh.updateWorldMatrix(false, true);
+}
 
 export class WeaponSystem {
     constructor(scene, gltfLoader, particleSystem) {
@@ -599,13 +614,14 @@ export class WeaponSystem {
             const worldLength = w.modelFile.includes('blaster-a') ? 0.95 : 1.15;
             const scale = worldLength / ((bounds.max.z - bounds.min.z) * armScale);
             mesh.scale.setScalar(scale);
-            mesh.userData.gripOffset = new THREE.Vector3(0, 0.14, 0.18).multiplyScalar(scale);
+            mesh.userData.barrelForward = -1;
+            mesh.userData.gripOffset = new THREE.Vector3(0, 0.14, -0.18).multiplyScalar(scale);
             mesh.userData.handOffset = w.offset.clone();
             mesh.rotation.set(0, -Math.PI / 3, 0);
             mesh.position.copy(mesh.userData.gripOffset).applyQuaternion(mesh.quaternion).add(mesh.userData.handOffset);
             const muzzle = new THREE.Object3D();
             muzzle.name = 'weapon-muzzle';
-            muzzle.position.set(0, 0.04, bounds.max.z + 0.025);
+            muzzle.position.set(0, 0.04, bounds.min.z - 0.025);
             mesh.add(muzzle);
             mesh.visible = false;
             handNode.add(mesh);
@@ -644,13 +660,7 @@ export class WeaponSystem {
 
     updateHeldPose(character) {
         const mesh = this.weaponMeshes?.[this.getCurrentWeapon().id];
-        if (!mesh?.userData.gripOffset || !this.handNode || !character) return;
-        this.handNode.updateWorldMatrix(true, false);
-        const parentRotation = this.handNode.getWorldQuaternion(new THREE.Quaternion());
-        const facing = character.getWorldQuaternion(new THREE.Quaternion());
-        mesh.quaternion.copy(parentRotation.invert().multiply(facing));
-        mesh.position.copy(mesh.userData.gripOffset).applyQuaternion(mesh.quaternion).add(mesh.userData.handOffset);
-        mesh.updateWorldMatrix(false, true);
+        updateHeldWeaponPose(mesh, this.handNode, character);
     }
 
     getMuzzlePosition(target = new THREE.Vector3()) {

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as SkeletonUtils from '../libs/SkeletonUtils.js';
 import { CHARACTER_CONFIGS } from './characters.js';
-import { WEAPON_CONFIGS, getStartingWeapon } from './weapons.js';
+import { WEAPON_CONFIGS, getStartingWeapon, updateHeldWeaponPose } from './weapons.js';
 
 const DETAILS = {
     soldier: { title: 'LÍNH', subtitle: 'CHIẾN BINH TIỀN TUYẾN', color: '#75bca1', description: 'Giữ vững vị trí. Sẵn sàng đối đầu với bất kỳ đợt zombie nào.' },
@@ -114,6 +114,8 @@ export class CharacterShowroom {
             const mixer = new THREE.AnimationMixer(model);
             const idle = gltf.animations?.find(clip => clip.name.toLowerCase() === 'idle');
             if (idle) mixer.clipAction(idle).play();
+            const holding = gltf.animations?.find(clip => clip.name === 'holding-right');
+            if (holding) mixer.clipAction(holding).play();
             mixer.update(0.1);
             model.rotation.y = -0.35;
             model.visible = false;
@@ -201,11 +203,14 @@ export class CharacterShowroom {
         hand.updateWorldMatrix(true, false);
         const scale = 1.55 / Math.max(0.01, (bounds.max.z - bounds.min.z) * hand.getWorldScale(new THREE.Vector3()).z);
         gun.scale.setScalar(scale);
-        gun.rotation.set(0, -Math.PI / 3, 0);
-        gun.position.set(0, 0.14, 0.18).multiplyScalar(scale).applyQuaternion(gun.quaternion).add(weapon.offset);
+        gun.userData.barrelForward = -1;
+        gun.userData.gripOffset = new THREE.Vector3(0, 0.14, -0.18).multiplyScalar(scale);
+        gun.userData.handOffset = weapon.offset.clone();
         gun.name = `showroom-${weapon.id}`;
         hand.add(gun);
         entry.gun = gun;
+        entry.hand = hand;
+        updateHeldWeaponPose(gun, hand, entry.model);
     }
 
     previewWeapon(id) {
@@ -260,7 +265,11 @@ export class CharacterShowroom {
             this.camera.lookAt(0, 1.9, 0);
             this.camera.updateProjectionMatrix();
         }
-        this.entries.get(this.selected)?.mixer.update(delta);
+        const entry = this.entries.get(this.selected);
+        if (entry) {
+            entry.mixer.update(delta);
+            updateHeldWeaponPose(entry.gun, entry.hand, entry.model);
+        }
         this.renderer.render(this.scene, this.camera);
     }
 }
