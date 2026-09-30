@@ -178,12 +178,14 @@ export class PlayerController {
                         child.castShadow = true;
                         child.receiveShadow = true;
                     }
-                    if (!this.handBone && (child.name.toLowerCase().includes('righthand') || child.name === 'arm-right' || child.name === 'hand-right')) {
+                    if (child.name === 'arm-right') {
                         this.handBone = child;
                     }
                 });
                 if (!this.handBone) {
-                    this.handBone = this.model;
+                    this.handBone = this.model.getObjectByName('hand-right')
+                        || this.model.getObjectByName('hand')
+                        || this.model;
                 }
 
                 scene.add(this.model);
@@ -193,17 +195,11 @@ export class PlayerController {
                 this.mixer = new THREE.AnimationMixer(this.model);
 
                 gltf.animations.forEach(clip => {
-                    const originalName = clip.name;
-                    let clipName = originalName.toLowerCase();
-                    if (clipName === 'run') clipName = 'sprint'; // Mixamo uses Run, game expects sprint
-                    if (clipName === 'walk') clipName = 'walk';
-                    if (clipName === 'idle') clipName = 'idle';
-
-                    // Separate right arm aiming animation from locomotion tracks
-                    if (['idle', 'walk', 'sprint', 'jump'].includes(clipName)) {
-                        clip.tracks = clip.tracks.filter(track => !track.name.toLowerCase().includes('righthand') && !track.name.includes('arm-right'));
+                    // Separate arm-right aiming animation from locomotion tracks
+                    if (['idle', 'walk', 'sprint', 'jump'].includes(clip.name)) {
+                        clip.tracks = clip.tracks.filter(track => !track.name.includes('arm-right'));
                     }
-                    this.animations[clipName] = this.mixer.clipAction(clip);
+                    this.animations[clip.name] = this.mixer.clipAction(clip);
                 });
 
                 // Attach weapon to right arm
