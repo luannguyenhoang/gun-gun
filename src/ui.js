@@ -584,8 +584,8 @@ export class UIManager {
         const h = this.radarCanvas.height;
         const cx = w / 2;
         const cy = h / 2;
-        const radarRange = 28;
-        const scale = (w * 0.44) / radarRange;
+        const radarRange = 75;
+        const scale = (w * 0.46) / radarRange;
 
         ctx.clearRect(0, 0, w, h);
 
@@ -609,103 +609,77 @@ export class UIManager {
         ctx.lineTo(cx + w * 0.44, cy);
         ctx.stroke();
 
-        const pPos = player.position;
-        const pYaw = player.cameraYaw;
+        const getPx = (x) => cx + x * scale;
+        const getPy = (z) => cy + z * scale;
 
-        // Draw 4 Portals (Purple glowing diamonds)
+        // Draw 4 Portals
         for (const port of portals) {
-            const dx = port.position.x - pPos.x;
-            const dz = port.position.z - pPos.z;
-
-            const rx = dx * Math.cos(pYaw) - dz * Math.sin(pYaw);
-            const rz = dx * Math.sin(pYaw) + dz * Math.cos(pYaw);
-
-            const px = cx + rx * scale;
-            const py = cy + rz * scale;
-
-            if (Math.hypot(rx, rz) <= radarRange) {
-                ctx.fillStyle = '#b026ff';
-                ctx.shadowColor = '#b026ff';
-                ctx.shadowBlur = 6;
-                ctx.beginPath();
-                ctx.moveTo(px, py - 4);
-                ctx.lineTo(px + 4, py);
-                ctx.lineTo(px, py + 4);
-                ctx.lineTo(px - 4, py);
-                ctx.closePath();
-                ctx.fill();
-                ctx.shadowBlur = 0;
-            }
+            const px = getPx(port.position.x);
+            const py = getPy(port.position.z);
+            ctx.fillStyle = '#b026ff';
+            ctx.shadowColor = '#b026ff';
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            ctx.moveTo(px, py - 4);
+            ctx.lineTo(px + 4, py);
+            ctx.lineTo(px, py + 4);
+            ctx.lineTo(px - 4, py);
+            ctx.closePath();
+            ctx.fill();
+            ctx.shadowBlur = 0;
         }
 
         // Draw Pickups
         for (const pick of pickups) {
-            const dx = pick.mesh.position.x - pPos.x;
-            const dz = pick.mesh.position.z - pPos.z;
-
-            const rx = dx * Math.cos(pYaw) - dz * Math.sin(pYaw);
-            const rz = dx * Math.sin(pYaw) + dz * Math.cos(pYaw);
-
-            const px = cx + rx * scale;
-            const py = cy + rz * scale;
-
-            if (Math.hypot(rx, rz) <= radarRange) {
-                ctx.fillStyle = `#${pick.color.toString(16).padStart(6, '0')}`;
-                ctx.beginPath();
-                ctx.arc(px, py, 3, 0, Math.PI * 2);
-                ctx.fill();
-            }
+            const px = getPx(pick.mesh.position.x);
+            const py = getPy(pick.mesh.position.z);
+            ctx.fillStyle = `#${pick.color.toString(16).padStart(6, '0')}`;
+            ctx.beginPath();
+            ctx.arc(px, py, 3, 0, Math.PI * 2);
+            ctx.fill();
         }
 
         // Draw Zombies
         for (const enemy of enemies) {
             if (enemy.isDead) continue;
-            const dx = enemy.position.x - pPos.x;
-            const dz = enemy.position.z - pPos.z;
+            const px = getPx(enemy.position.x);
+            const py = getPy(enemy.position.z);
 
-            const rx = dx * Math.cos(pYaw) - dz * Math.sin(pYaw);
-            const rz = dx * Math.sin(pYaw) + dz * Math.cos(pYaw);
-
-            const px = cx + rx * scale;
-            const py = cy + rz * scale;
-
-            if (Math.hypot(rx, rz) <= radarRange) {
-                if (enemy.type === 'boss') {
-                    ctx.fillStyle = '#ff0055';
-                    ctx.shadowColor = '#ff0055';
-                    ctx.shadowBlur = 8;
-                    ctx.beginPath();
-                    ctx.arc(px, py, 6, 0, Math.PI * 2);
-                    ctx.fill();
-                } else if (enemy.type === 'tank' || enemy.type === 'giant') {
-                    ctx.fillStyle = '#ff8800';
-                    ctx.shadowColor = '#ff8800';
-                    ctx.shadowBlur = 5;
-                    ctx.beginPath();
-                    ctx.arc(px, py, enemy.type === 'giant' ? 6 : 4.5, 0, Math.PI * 2);
-                    ctx.fill();
-                } else if (enemy.type === 'spitter') {
-                    ctx.fillStyle = '#99ff22';
-                    ctx.shadowColor = '#99ff22';
-                    ctx.shadowBlur = 5;
-                    ctx.fillRect(px - 3, py - 3, 6, 6);
-                } else if (enemy.type === 'sprinter') {
-                    ctx.fillStyle = '#ffff00';
-                    ctx.shadowColor = '#ffff00';
-                    ctx.shadowBlur = 4;
-                    ctx.beginPath();
-                    ctx.arc(px, py, 3, 0, Math.PI * 2);
-                    ctx.fill();
-                } else {
-                    ctx.fillStyle = '#ff2a5f';
-                    ctx.shadowColor = '#ff2a5f';
-                    ctx.shadowBlur = 4;
-                    ctx.beginPath();
-                    ctx.arc(px, py, 3.5, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-                ctx.shadowBlur = 0;
+            if (enemy.type === 'boss') {
+                ctx.fillStyle = '#ff0055';
+                ctx.shadowColor = '#ff0055';
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.arc(px, py, 6, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (enemy.type === 'tank' || enemy.type === 'giant') {
+                ctx.fillStyle = '#ff8800';
+                ctx.shadowColor = '#ff8800';
+                ctx.shadowBlur = 5;
+                ctx.beginPath();
+                ctx.arc(px, py, enemy.type === 'giant' ? 6 : 4.5, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (enemy.type === 'spitter') {
+                ctx.fillStyle = '#99ff22';
+                ctx.shadowColor = '#99ff22';
+                ctx.shadowBlur = 5;
+                ctx.fillRect(px - 3, py - 3, 6, 6);
+            } else if (enemy.type === 'sprinter') {
+                ctx.fillStyle = '#ffff00';
+                ctx.shadowColor = '#ffff00';
+                ctx.shadowBlur = 4;
+                ctx.beginPath();
+                ctx.arc(px, py, 3, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                ctx.fillStyle = '#ff2a5f';
+                ctx.shadowColor = '#ff2a5f';
+                ctx.shadowBlur = 4;
+                ctx.beginPath();
+                ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+                ctx.fill();
             }
+            ctx.shadowBlur = 0;
         }
 
         // Vẽ vị trí đồng đội trên Radar
@@ -713,23 +687,11 @@ export class UIManager {
             for (const mate of teammates) {
                 if (!mate || (mate.isDead && !mate.isDowned)) continue;
                 const matePos = mate.mesh ? mate.mesh.position : mate.position;
-                const dx = matePos.x - pPos.x;
-                const dz = matePos.z - pPos.z;
-
-                const rx = dx * Math.cos(pYaw) - dz * Math.sin(pYaw);
-                const rz = dx * Math.sin(pYaw) + dz * Math.cos(pYaw);
-
-                const dist = Math.hypot(rx, rz);
-                const isOutside = dist > radarRange;
-                const drawDist = isOutside ? (radarRange - 1.5) : dist;
-                const scaleDist = dist > 0 ? (drawDist / dist) : 1;
-
-                const px = cx + (rx * scaleDist) * scale;
-                const py = cy + (rz * scaleDist) * scale;
+                const px = getPx(matePos.x);
+                const py = getPy(matePos.z);
 
                 ctx.save();
                 if (mate.isDowned) {
-                    // Đồng đội bị hạ gục: vòng tròn đỏ nhấp nháy
                     ctx.fillStyle = '#ff1744';
                     ctx.shadowColor = '#ff1744';
                     ctx.shadowBlur = 8;
@@ -740,20 +702,18 @@ export class UIManager {
                     ctx.lineWidth = 1.5;
                     ctx.stroke();
 
-                    // Ký hiệu dấu chấm than báo động
                     ctx.fillStyle = '#ffffff';
                     ctx.font = 'bold 8px Rajdhani, sans-serif';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     ctx.fillText('!', px, py);
                 } else {
-                    // Đồng đội bình thường: biểu tượng theo màu nhân vật với tâm trắng sáng
                     const charColor = CHARACTER_COLORS[mate.characterId] || '#00f0ff';
                     ctx.fillStyle = charColor;
                     ctx.shadowColor = charColor;
                     ctx.shadowBlur = 7;
                     ctx.beginPath();
-                    ctx.arc(px, py, isOutside ? 3.5 : 4.8, 0, Math.PI * 2);
+                    ctx.arc(px, py, 4.8, 0, Math.PI * 2);
                     ctx.fill();
 
                     ctx.fillStyle = '#ffffff';
@@ -763,6 +723,27 @@ export class UIManager {
                 }
                 ctx.restore();
             }
+        }
+
+        // Player central pointer
+        const pPx = getPx(player.position.x);
+        const pPy = getPy(player.position.z);
+        
+        ctx.save();
+        ctx.translate(pPx, pPy);
+        ctx.rotate(Math.PI - player.aimYaw);
+        ctx.fillStyle = '#00f0ff';
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.moveTo(0, -6);
+        ctx.lineTo(-4, 5);
+        ctx.lineTo(4, 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+    }
         }
 
         // Player central pointer (triangle pointing forward: up)

@@ -103,10 +103,10 @@ export const KNIFE_CONFIG = {
     modelFile: 'kenney-food/cooking-knife.glb',
     icon: 'assets/previews/kenney-food/cooking-knife.png',
     category: 'VŨ KHÍ CẬN CHIẾN',
-    damage: 85,
+    damage: 56,
     penPower: 2, // Dao găm sắc bén xuyên giáp cấp 2
     fireRate: 0.30,
-    range: 3.8,
+    range: 2.2,
     screenShake: 0.10,
     cursorKick: 1.2,
     baseSpreadDegHip: 0,

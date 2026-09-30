@@ -90,7 +90,7 @@ export class ParticleSystem {
 
         this.scene.add(thrustGroup);
         
-        this.createImpactSparks(position.clone().addScaledVector(direction, 2.5), direction, color, 6);
+        this.createImpactSparks(position.clone().addScaledVector(direction, 1.8), direction, color, 6);
 
         this.muzzleFlashes.push({
             obj: thrustGroup,
@@ -98,7 +98,7 @@ export class ParticleSystem {
             extraMat: coreMat,
             onUpdate: (delta, progress) => {
                 // Động tác đâm lao về phía trước
-                thrustGroup.position.addScaledVector(direction, delta * 35 * progress);
+                thrustGroup.position.addScaledVector(direction, delta * 22 * progress);
                 const scale = 0.6 + progress * 0.4;
                 thrustGroup.scale.set(scale * 0.4, scale * 0.4, scale * 1.5);
             },
