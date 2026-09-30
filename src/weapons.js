@@ -897,7 +897,7 @@ export class WeaponSystem {
                         _tempToEnemyHoriz.y = 0;
                         _tempToEnemyHoriz.normalize();
                         const dot = _tempSlashForward.dot(_tempToEnemyHoriz);
-                        if (dot < 0.25) continue; // Cung quét chém 150°
+                        if (dot < 0.75) continue; // Đòn chọc thẳng (góc hẹp)
 
                         // Check cản tường
                         _tempCheckRayDir.copy(_tempToEnemy).normalize();

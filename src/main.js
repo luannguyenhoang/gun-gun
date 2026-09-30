@@ -601,6 +601,12 @@ class CyberArenaGame {
         this.network.update(delta);
 
         if (this.state === 'PLAYING') {
+            // Shadow bounds follow the player to avoid clipping in large maps
+            if (this.arena.sunLight && this.player) {
+                this.arena.sunLight.position.copy(this.player.position).add(new THREE.Vector3(25, 38, 20));
+                this.arena.sunLight.target.position.copy(this.player.position);
+            }
+
             // Update arena portals and grass ambience.
             this.arena.update(delta);
             if (this.nextWaveTimer > 0) {
