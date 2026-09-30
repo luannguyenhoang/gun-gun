@@ -311,6 +311,26 @@ class CyberArenaGame {
 
         if (enemy.type === 'boss') {
             this.ui.showBanner('MUTANT OVERLORD DESTROYED!');
+        } else if (enemy.type === 'boomer') {
+            // Boomer Explosion
+            this.particles.createExplosion(enemy.position.clone().add(new THREE.Vector3(0, 1, 0)), 0x55aa33, 40);
+            sounds.play('enemyDestroy', { volume: 1.0 });
+            
+            const explosionRadius = 4.5;
+            const explosionDamage = 45;
+            for (const player of this.coopPlayers) {
+                if (player.isDead) continue;
+                const dist = player.position.distanceTo(enemy.position);
+                if (dist <= explosionRadius) {
+                    const hitDir = new THREE.Vector3().subVectors(player.position, enemy.position).normalize();
+                    // Damage scales by distance
+                    const dmg = Math.round(explosionDamage * (1 - dist / explosionRadius));
+                    player.takeDamage(dmg, hitDir);
+                    if (player.applyKickbackAndShake) {
+                        player.applyKickbackAndShake(new THREE.Vector2(0, 0), 0.5);
+                    }
+                }
+            }
         }
     }
 

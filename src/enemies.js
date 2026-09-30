@@ -10,7 +10,9 @@ const ZOMBIE_RADII = {
     tank: 0.95,
     boss: 1.3,
     giant: 1.65,
-    spitter: 0.7
+    spitter: 0.7,
+    crawler: 0.4,
+    boomer: 1.05
 };
 
 // Vector va bien tam dung chung de toi uu bo nho, Zero GC trong vong lap 60 FPS
@@ -83,10 +85,10 @@ export class Zombie {
         this.type = type;
         this.radius = ZOMBIE_RADII[type] ?? ZOMBIE_RADII.walker;
 
-        // He so tang tien theo thoi gian song (hoac phase)
-        const timeScale = 1.0 + (survivalMinutes * 0.15);
-        const phaseMult = Math.max(timeScale, 1.0 + (phaseNum - 1) * 0.20);
-        const dmgMult = 1.0 + survivalMinutes * 0.10;
+        // He so tang tien theo thoi gian song (hoac phase) - Tang manh tay hon
+        const timeScale = 1.0 + (survivalMinutes * 0.25);
+        const phaseMult = Math.max(timeScale, 1.0 + (phaseNum - 1) * 0.40);
+        const dmgMult = 1.0 + survivalMinutes * 0.15 + (phaseNum - 1) * 0.25;
 
         // Tinh toan toc do toi da khong vuot qua 90% toc do Player de luon tha dieu duoc
         const maxAllowedSpeed = (playerSpeed || 7.5) * 0.90;
@@ -148,6 +150,28 @@ export class Zombie {
             this.attackCooldown = 1.2;
             this.knockbackResistance = 0.95;
             this.scoreValue = 600;
+        } else if (type === 'crawler') {
+            this.baseHealth = 40;
+            this.baseArmor = 0;
+            this.armorClass = 0;
+            this.speed = Math.min(5.8 * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
+            this.scale = 0.8;
+            this.damage = Math.round(18 * dmgMult);
+            this.attackRange = 0.9;
+            this.attackCooldown = 0.6;
+            this.knockbackResistance = 0.0;
+            this.scoreValue = 80;
+        } else if (type === 'boomer') {
+            this.baseHealth = 140;
+            this.baseArmor = 0;
+            this.armorClass = 0;
+            this.speed = Math.min(2.8 * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
+            this.scale = 1.7;
+            this.damage = Math.round(45 * dmgMult);
+            this.attackRange = 1.4;
+            this.attackCooldown = 2.0;
+            this.knockbackResistance = 0.4;
+            this.scoreValue = 130;
         } else {
             // Zombie thuong (walker): 0-2 phut dau, toc do trung binh, mau co ban
             this.baseHealth = 85;
@@ -204,8 +228,10 @@ export class Zombie {
                     child.material.color.setHex(0x554433);
                 } else if (this.type === 'boss') {
                     child.material.color.setHex(0x770022);
-                } else if (this.type === 'sprinter') {
+                } else if (this.type === 'sprinter' || this.type === 'crawler') {
                     child.material.color.setHex(0xffd34e);
+                } else if (this.type === 'boomer') {
+                    child.material.color.setHex(0x55aa33);
                 }
             }
         });
@@ -281,6 +307,8 @@ export class Zombie {
         this.combatTimer = 0;
         this.flashTimer = 0;
         this.spitCharge = 0;
+        this.bossSkillTimer = 4.0;
+        this.bossPhase = phaseNum;
         this.navigationPath = null;
         this.pathTimer = 0;
 
@@ -592,6 +620,43 @@ export class Zombie {
             }
         }
 
+        // Boss Skills Logic
+        if (this.type === 'boss' && this.combatState === ZombieCombatState.CHASE) {
+            this.bossSkillTimer -= delta;
+            if (this.bossSkillTimer <= 0) {
+                this.bossSkillTimer = 5.0 - Math.min(2.5, this.bossPhase * 0.1); // Cooldown decreases as phases go up
+                const skillRoll = Math.random();
+                
+                if (skillRoll < 0.33) {
+                    // Skill 1: Bloodlust Sprint
+                    this.speed += 4.0;
+                    this.setEmissiveColor(0xff0000, 0.8);
+                    setTimeout(() => { if (!this.isDead) this.speed -= 4.0; }, 2500 + this.bossPhase * 100);
+                    sounds.play('enemyAttack', { pitchVariation: 0.4 });
+                } else if (skillRoll < 0.66 && this.weapons) {
+                    // Skill 2: Acid Spit Volley
+                    this.playAnimation('attack', 0.2);
+                    this.setEmissiveColor(0x00ff00, 0.8);
+                    const projectiles = Math.min(8, 3 + Math.floor(this.bossPhase / 2));
+                    for (let i = 0; i < projectiles; i++) {
+                        setTimeout(() => {
+                            if (!this.isDead && this.weapons && !player.isDead) {
+                                _tempSpitOrigin.copy(this.position);
+                                _tempSpitOrigin.y += 1.8;
+                                this.weapons.shootEnemyBolt(_tempSpitOrigin, player.position.clone(), this.damage * 0.5, 30 + this.bossPhase * 2, true);
+                            }
+                        }, i * 250);
+                    }
+                } else {
+                    // Skill 3: Ground Slam
+                    this.combatState = ZombieCombatState.WINDUP;
+                    this.combatTimer = 0.8; // Long windup
+                    this.setEmissiveColor(0xffaa00, 1.0);
+                    this.isGroundSlamming = true; // Flag for executeImpact
+                }
+            }
+        }
+
         // Cap nhat vi tri mesh va thanh mau neu khong trong pha rung
         if (this.combatState !== ZombieCombatState.WINDUP) {
             this.mesh.position.copy(this.position);
@@ -608,12 +673,28 @@ export class Zombie {
 
     // Pha 2: Kiem tra va gay sat thuong (Impact)
     executeImpact(player, currentDist) {
-        // Kiem tra lai khoang cach: Neu nguoi choi van trong tam -> Danh trung
-        if (currentDist <= this.attackRange * 1.15) {
-            this.applyMeleeDamage(player);
+        if (this.isGroundSlamming) {
+            this.isGroundSlamming = false;
+            // Ground Slam AoE
+            const slamRadius = 6.0 + (this.bossPhase || 1) * 0.5;
+            this.particles?.createImpactSparks(this.position, new THREE.Vector3(0, 1, 0), 0xffaa00, 30);
+            sounds.play('enemyDestroy', { volume: 1.0 });
+            
+            const targets = Array.isArray(player) ? player : [player];
+            for (const t of targets) {
+                if (t.isDead) continue;
+                const d = t.position.distanceTo(this.position);
+                if (d <= slamRadius) {
+                    const hitDir = new THREE.Vector3().subVectors(t.position, this.position).normalize();
+                    t.takeDamage(this.damage * 1.5, hitDir);
+                    if (t.applyKickbackAndShake) t.applyKickbackAndShake(new THREE.Vector2(0, 0), 0.8);
+                }
+            }
         } else {
-            // Nguoi choi da kip lui ra ngoai tam danh -> Don danh bi hut (Miss)
-            // Khong tru mau, quai van phai chiu thoi gian hoi phuc (Recovery)
+            // Kiem tra lai khoang cach: Neu nguoi choi van trong tam -> Danh trung
+            if (currentDist <= this.attackRange * 1.15) {
+                this.applyMeleeDamage(player);
+            }
         }
 
         // Chuyen sang Pha 3: Khung hoi phuc (Recovery)
@@ -691,6 +772,7 @@ export class WaveManager {
     startWave(phaseNum = 1) {
         this.currentPhase = phaseNum;
         this.isWaveInProgress = true;
+        this.hasSpawnedBoss = false;
         // Tính tổng số lượng quái cho đợt (Đợt 1: 14 con, Đợt 2: 18 con, Đợt 3: 23 con...)
         this.totalWaveEnemies = Math.floor(10 + phaseNum * 4.5);
         this.remainingToSpawn = this.totalWaveEnemies;
@@ -702,17 +784,25 @@ export class WaveManager {
 
     // Chon loai quai xuat hien dua tren moc thoi gian song sot (phut)
     determineArchetype(survivalMinutes) {
+        const roll = Math.random();
         if (survivalMinutes < 2.0) {
-            // 0 - 2 phut: 100% Zombie thuong (walker)
+            return roll < 0.3 ? 'crawler' : 'walker';
+        } else if (survivalMinutes < 4.0) {
+            if (roll < 0.25) return 'sprinter';
+            if (roll < 0.50) return 'crawler';
             return 'walker';
-        } else if (survivalMinutes < 5.0) {
-            // 2 - 5 phut: Xuat hien Fast Zombie (sprinter)
-            return Math.random() < 0.45 ? 'sprinter' : 'walker';
+        } else if (survivalMinutes < 6.0) {
+            if (roll < 0.15) return 'spitter';
+            if (roll < 0.35) return 'sprinter';
+            if (roll < 0.55) return 'crawler';
+            if (roll < 0.65) return 'boomer';
+            return 'walker';
         } else {
-            // 5+ phut: Xuat hien Tanker Zombie (tank)
-            const roll = Math.random();
-            if (roll < 0.22) return 'tank';
-            if (roll < 0.60) return 'sprinter';
+            if (roll < 0.15) return 'tank';
+            if (roll < 0.25) return 'giant';
+            if (roll < 0.45) return 'spitter';
+            if (roll < 0.60) return 'boomer';
+            if (roll < 0.75) return 'sprinter';
             return 'walker';
         }
     }
@@ -777,8 +867,8 @@ export class WaveManager {
         return zombie;
     }
 
-    spawnSingleEnemy(targetPlayer, survivalMinutes) {
-        const type = this.determineArchetype(survivalMinutes);
+    spawnSingleEnemy(targetPlayer, survivalMinutes, forceType = null) {
+        const type = forceType || this.determineArchetype(survivalMinutes);
         const spawnPos = this.calculateOffscreenSpawnPosition(targetPlayer);
         const playerSpeed = targetPlayer?.speed || 7.5;
 
@@ -811,6 +901,14 @@ export class WaveManager {
             // Chỉ sinh thêm quái nếu số quái trên sân chưa chạm trần maxOnField và còn quái trong hàng đợi của đợt
             if (this.remainingToSpawn > 0 && activeCount < this.maxOnField && this.batchSpawnTimer >= this.batchInterval) {
                 this.batchSpawnTimer = 0;
+                
+                // Kiem tra spawn Boss moi 5 phase
+                if (this.currentPhase % 5 === 0 && !this.hasSpawnedBoss) {
+                    this.hasSpawnedBoss = true;
+                    this.spawnSingleEnemy(primaryPlayer, survivalMinutes, 'boss');
+                    this.remainingToSpawn--;
+                }
+                
                 const canSpawn = Math.min(2, this.maxOnField - activeCount, this.remainingToSpawn);
                 for (let i = 0; i < canSpawn; i++) {
                     this.spawnSingleEnemy(primaryPlayer, survivalMinutes);
