@@ -1417,12 +1417,98 @@ export class UIManager {
         this.backpackCapacityBadge = document.getElementById('backpack-capacity-badge');
         this.btnSmartAutoSort = document.getElementById('btn-smart-autosort');
 
+        // Duckov Frosted Glass Elements
+        this.duckovTopWeight = document.getElementById('duckov-top-weight');
+        this.duckovWeightText = document.getElementById('duckov-weight-text');
+        this.duckovWeightFill = document.getElementById('duckov-weight-fill');
+        this.duckovCashVal = document.getElementById('duckov-cash-val');
+        this.smartInspectCard = document.getElementById('smart-inspect-card');
+        this.quickHotbarItems = ['medkit_military', 'stimpack_adrenaline', 'painkiller_morphine', 'grenade_explosive', null, null]; // Phím 3-8
+
         // Tooltip Inspector & Comparison Elements
         this.inspectItemTitle = document.getElementById('inspect-item-title');
         this.inspectItemDesc = document.getElementById('inspect-item-desc');
         this.inspectItemComparison = document.getElementById('inspect-item-comparison');
 
         this.bindSmartInventoryEvents();
+        this.initHotbarEvents();
+    }
+
+    initHotbarEvents() {
+        // Gắn listener kéo thả và click vào các ô Quick Hotbar 3-8
+        for (let key = 3; key <= 8; key++) {
+            const slotEl = document.querySelector(`.hotbar-slot[data-hotkey="${key}"]`);
+            if (!slotEl) continue;
+
+            const hotbarIdx = key - 3;
+            slotEl.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                slotEl.classList.add('drag-over');
+            });
+            slotEl.addEventListener('dragleave', () => slotEl.classList.remove('drag-over'));
+            slotEl.addEventListener('drop', (e) => {
+                e.preventDefault();
+                slotEl.classList.remove('drag-over');
+                if (!this._dragData) return;
+
+                let itemId = null;
+                if (this._dragData.side === 'player') {
+                    const item = this._lootingSystem?.inventory?.slots[this._dragData.index];
+                    if (item) itemId = item.itemId;
+                }
+                if (itemId) {
+                    this.quickHotbarItems[hotbarIdx] = itemId;
+                    sounds.playItemMove();
+                    this.updateHotbarUI();
+                }
+            });
+
+            // Click vào slot hotbar để dùng ngay
+            slotEl.addEventListener('click', () => {
+                this.triggerHotbarUse(hotbarIdx);
+            });
+        }
+
+        // Lắng nghe phím số 3, 4, 5, 6, 7, 8 khi đang chơi game
+        window.addEventListener('keydown', (e) => {
+            if (['Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8'].includes(e.code)) {
+                const keyNum = parseInt(e.code.replace('Digit', ''), 10);
+                if (keyNum >= 3 && keyNum <= 8) {
+                    this.triggerHotbarUse(keyNum - 3);
+                }
+            }
+        });
+    }
+
+    triggerHotbarUse(hotbarIdx) {
+        const itemId = this.quickHotbarItems[hotbarIdx];
+        if (!itemId || !this._lootingSystem?.inventory) return;
+
+        // Tìm item này trong balo người chơi và kích hoạt sử dụng
+        const pSlots = this._lootingSystem.inventory.slots;
+        const foundIndex = pSlots.findIndex(s => s && s.itemId === itemId);
+        if (foundIndex !== -1) {
+            this._lootingSystem.useItem(foundIndex);
+            this.refreshSmartInventory();
+        } else {
+            this.showPickupAlert(`HẾT VẬT PHẨM [${LOOT_ITEMS[itemId]?.name?.toUpperCase() || itemId}] TRONG BALO!`);
+        }
+    }
+
+    updateHotbarUI() {
+        for (let key = 3; key <= 8; key++) {
+            const contentEl = document.getElementById(`hotbar-slot-${key}`);
+            if (!contentEl) continue;
+            const itemId = this.quickHotbarItems[key - 3];
+            if (itemId && LOOT_ITEMS[itemId]) {
+                const def = LOOT_ITEMS[itemId];
+                contentEl.innerHTML = def.iconImage
+                    ? `<img src="${def.iconImage}" alt="${def.name}" title="[Phím ${key}] Dùng ${def.name}">`
+                    : `<span style="font-size:10px;font-weight:900;color:${def.color}">${def.icon || 'ITM'}</span>`;
+            } else {
+                contentEl.innerHTML = '';
+            }
+        }
     }
 
     bindSmartInventoryEvents() {
@@ -1479,7 +1565,6 @@ export class UIManager {
                 if (removedId) {
                     const added = this._lootingSystem.inventory.addItem(removedId, 1, true);
                     if (added <= 0) {
-                        // Nếu balo đầy, gán lại vào súng
                         weapons.attachMod(slot, removedId);
                         this.showPickupAlert('BALO ĐÃ ĐẦY! KHÔNG THỂ THÁO PHỤ KIỆN');
                     } else {
@@ -1507,7 +1592,6 @@ export class UIManager {
 
                 const { side, index } = this._dragData;
                 let itemId = null;
-                let count = 1;
 
                 if (side === 'player') {
                     const item = this._lootingSystem?.inventory?.slots[index];
@@ -1590,7 +1674,7 @@ export class UIManager {
 
         this.refreshSmartInventory();
         if (this.smartInvOverlay) {
-            this.smartInvOverlay.style.display = 'flex';
+            this.smartInvOverlay.style.display = 'block';
             sounds.playBackpackToggle(true);
         }
     }
@@ -1601,10 +1685,13 @@ export class UIManager {
             this.smartInvOverlay.style.display = 'none';
             sounds.playBackpackToggle(false);
         }
+        if (this.smartInspectCard) {
+            this.smartInspectCard.style.display = 'none';
+        }
         this._currentContainer = null;
     }
 
-    // Cập nhật lại toàn bộ giao diện 3 cột
+    // Cập nhật lại toàn bộ giao diện Balo & Hòm đồ chuẩn Duckov
     refreshSmartInventory() {
         if (!this._currentPlayerInventory) return;
         const player = this._lootingSystem?.player;
@@ -1618,15 +1705,6 @@ export class UIManager {
                 const names = { soldier: 'CHIẾN BINH LÍNH', skeleton: 'KHUNG XƯƠNG', vampire: 'MA CÀ RỒNG' };
                 this.charNameBadge.textContent = names[charId] || 'CHIẾN BINH';
             }
-            if (this.charAvatarBox) {
-                this.charAvatarBox.innerHTML = getCharacterAvatarSvg(charId);
-            }
-            if (this.charStatHp) {
-                this.charStatHp.textContent = `${Math.round(player.health || 100)} / ${player.maxHealth || 100}`;
-            }
-            if (this.charStatShield) {
-                this.charStatShield.textContent = `${Math.round(player.shield || 0)} / ${player.maxShield || 100}`;
-            }
         }
 
         if (curWeapon && this.primaryWeaponName) {
@@ -1636,7 +1714,7 @@ export class UIManager {
             }
         }
 
-        // 2. Cột giữa: Cửa sổ độ súng & Real-time Stat Bars
+        // 2. Cửa sổ độ súng & Real-time Stat Bars
         if (weapons && curWeapon) {
             const effective = weapons.getModifiedStats(curWeapon);
             if (this.moddingWeaponTitle) {
@@ -1653,29 +1731,26 @@ export class UIManager {
             this.updateSocketUI('grip', weapons.attachments.grip, this.socketGrip, this.socketGripContent);
 
             // Cập nhật Real-time Stat Bars
-            // Sát thương (Damage): chuẩn từ 15-60
             const dmgVal = Math.round(effective.damage);
             if (this.statValDmg) this.statValDmg.textContent = dmgVal.toString();
             if (this.statBarDmg) this.statBarDmg.style.width = `${Math.min(100, Math.round((dmgVal / 60) * 100))}%`;
 
-            // Độ chính xác (Accuracy): tính từ góc tản ADS (càng nhỏ càng chính xác)
             const spreadScore = Math.max(10, Math.min(100, Math.round(100 - (effective.baseSpreadDegADS * 25))));
             if (this.statValAcc) this.statValAcc.textContent = `${spreadScore}%`;
             if (this.statBarAcc) this.statBarAcc.style.width = `${spreadScore}%`;
 
-            // Kiểm soát độ giật (Recoil Control): tính từ recoilPitch
             const recoilScore = Math.max(10, Math.min(100, Math.round(100 - (effective.recoilPitch * 1400))));
             if (this.statValRecoil) this.statValRecoil.textContent = `${recoilScore}%`;
             if (this.statBarRecoil) this.statBarRecoil.style.width = `${recoilScore}%`;
 
-            // Tốc độ nạp đạn (Reload Speed): thời gian nạp giây
             const reloadTime = effective.reloadTime.toFixed(2);
             const reloadScore = Math.max(15, Math.min(100, Math.round(100 - (effective.reloadTime * 35))));
             if (this.statValReload) this.statValReload.textContent = `${reloadTime}s`;
             if (this.statBarReload) this.statBarReload.style.width = `${reloadScore}%`;
         }
 
-        // 3. Cột phải: Lưới Balo (5 Cột x 6 Hàng = 30 Ô)
+        // 3. Lưới Balo (5 Cột x 6 Hàng = 30 Ô) & Tính toán Trọng lượng (Weight)
+        let totalWeightKg = 16.5; // Trọng lượng cơ bản trang bị (súng, giáp, mũ)
         if (this.smartBackpackGrid) {
             this.smartBackpackGrid.innerHTML = '';
             const pSlots = this._currentPlayerInventory.slots;
@@ -1684,17 +1759,35 @@ export class UIManager {
 
             for (let i = 0; i < pCapacity; i++) {
                 const slot = pSlots[i];
-                if (slot) pFilled++;
+                if (slot) {
+                    pFilled++;
+                    const def = LOOT_ITEMS[slot.itemId];
+                    const itemWeight = (def?.size ? def.size[0] * def.size[1] * 1.8 : 1.2) * (slot.count || 1);
+                    totalWeightKg += itemWeight;
+                }
                 const slotEl = this.createSmartSlotElement(slot, i, 'player');
                 this.smartBackpackGrid.appendChild(slotEl);
             }
 
             if (this.backpackCapacityBadge) {
-                this.backpackCapacityBadge.textContent = `${pFilled} / ${pCapacity} Ô`;
+                this.backpackCapacityBadge.textContent = `${pFilled} / ${pCapacity}`;
             }
         }
 
-        // 4. Cột giữa (chế độ Container Grid): nếu có hòm đang mở
+        // Cập nhật Thanh Trọng lượng & Tiền sinh tồn
+        const weightFormatted = totalWeightKg.toFixed(1);
+        if (this.duckovWeightText) this.duckovWeightText.textContent = `${weightFormatted} / 118.9kg`;
+        if (this.duckovTopWeight) this.duckovTopWeight.textContent = `${weightFormatted} / 118.9kg`;
+        if (this.duckovWeightFill) {
+            const fillPct = Math.min(100, Math.round((totalWeightKg / 118.9) * 100));
+            this.duckovWeightFill.style.width = `${fillPct}%`;
+        }
+        if (this.duckovCashVal) {
+            const cashVal = (window.game?.score ? (window.game.score * 10 + 99351) : 99351).toLocaleString();
+            this.duckovCashVal.textContent = cashVal;
+        }
+
+        // 4. Ngăn chứa Hòm đồ (nếu đang tương tác hòm)
         if (this._currentContainer && this.smartContainerGrid) {
             this.smartContainerGrid.innerHTML = '';
             const cSlots = this._currentContainer.slots;
@@ -1709,9 +1802,12 @@ export class UIManager {
             }
 
             if (this.containerCapacityBadge) {
-                this.containerCapacityBadge.textContent = `${cFilled} / ${cCapacity} Ô`;
+                this.containerCapacityBadge.textContent = `(${cFilled}/${cCapacity})`;
             }
         }
+
+        // Cập nhật các ô Hotbar
+        this.updateHotbarUI();
     }
 
     // Cập nhật nội dung hiển thị của từng Socket phụ kiện trên súng
@@ -1725,21 +1821,14 @@ export class UIManager {
 
             const imgHtml = def?.iconImage
                 ? `<img src="${def.iconImage}" alt="${def.name}">`
-                : `<span class="slot-item-icon" style="color:${def?.color || '#00f0ff'};">${def?.icon || 'MOD'}</span>`;
+                : `<span class="duck-icon-txt">${def?.icon || 'MOD'}</span>`;
 
-            contentEl.innerHTML = `
-                <div class="socket-item-badge">
-                    ${imgHtml}
-                    <div class="socket-item-info">
-                        <strong>${def?.name || attachmentId}</strong>
-                        <small>ĐÃ TRANG BỊ</small>
-                    </div>
-                </div>
-            `;
+            contentEl.innerHTML = imgHtml;
         } else {
             socketEl.classList.remove('socket-filled');
             socketEl.title = `Ô [${slotType.toUpperCase()}] còn trống - Kéo phụ kiện từ Balo vào đây`;
-            contentEl.innerHTML = `<span class="socket-empty-text">TRỐNG</span>`;
+            const defaultLabels = { muzzle: 'Muzzle', optic: 'Face', magazine: 'Mag', grip: 'Grip' };
+            contentEl.innerHTML = `<span class="duck-socket-empty">${defaultLabels[slotType] || 'Slot'}</span>`;
         }
     }
 
@@ -1816,9 +1905,26 @@ export class UIManager {
             ${slot.count > 1 ? `<span class="slot-item-count">×${slot.count}</span>` : ''}
         `;
 
-        // Rê chuột lên ô: Hiển thị Tooltip Inspector và So sánh chỉ số xanh / đỏ
-        el.addEventListener('mouseenter', () => {
-            this.renderTooltipComparison(itemDef);
+        // Rê chuột lên ô: Hiển thị Floating Tooltip Inspector và So sánh chỉ số xanh / đỏ
+        el.addEventListener('mouseenter', (e) => {
+            this.renderTooltipComparison(itemDef, e);
+        });
+        el.addEventListener('mousemove', (e) => {
+            if (this.smartInspectCard && this.smartInspectCard.style.display !== 'none') {
+                const cardWidth = 300;
+                let left = e.clientX + 14;
+                let top = e.clientY - 10;
+                if (left + cardWidth > window.innerWidth - 10) {
+                    left = e.clientX - cardWidth - 14;
+                }
+                this.smartInspectCard.style.left = `${Math.max(10, left)}px`;
+                this.smartInspectCard.style.top = `${Math.max(10, top)}px`;
+            }
+        });
+        el.addEventListener('mouseleave', () => {
+            if (this.smartInspectCard) {
+                this.smartInspectCard.style.display = 'none';
+            }
         });
 
         // Click trái: Hỗ trợ Shift+Click và Click đúp (Smart QoL Action)
@@ -1912,12 +2018,26 @@ export class UIManager {
     }
 
     // Hiển thị bảng so sánh chỉ số phụ kiện với màu Xanh Lá (Tăng) / Đỏ (Giảm)
-    renderTooltipComparison(itemDef) {
+    renderTooltipComparison(itemDef, e = null) {
         if (!itemDef) return;
+
+        if (this.smartInspectCard) {
+            this.smartInspectCard.style.display = 'flex';
+            if (e && e.clientX) {
+                const cardWidth = 300;
+                let left = e.clientX + 14;
+                let top = e.clientY - 10;
+                if (left + cardWidth > window.innerWidth - 10) {
+                    left = e.clientX - cardWidth - 14;
+                }
+                this.smartInspectCard.style.left = `${Math.max(10, left)}px`;
+                this.smartInspectCard.style.top = `${Math.max(10, top)}px`;
+            }
+        }
 
         if (this.inspectItemTitle) {
             this.inspectItemTitle.textContent = itemDef.name.toUpperCase();
-            this.inspectItemTitle.style.color = itemDef.color || '#ffdf8a';
+            this.inspectItemTitle.style.color = itemDef.color || '#fbbf24';
         }
         if (this.inspectItemDesc) {
             const desc = itemDef.description || 'Không có mô tả.';
