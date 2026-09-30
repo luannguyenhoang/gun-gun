@@ -28,8 +28,8 @@ export const WEAPON_CONFIGS = [
         pellets: 1,
         recoilPitch: 0.025,
         scale: 0.24,
-        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
-        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+        offset: new THREE.Vector3(-0.05, -0.05, -0.15),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.85, 0)
     },
     {
         id: 'repeater',
@@ -57,8 +57,8 @@ export const WEAPON_CONFIGS = [
         pellets: 1,
         recoilPitch: 0.018,
         scale: 0.24,
-        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
-        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+        offset: new THREE.Vector3(-0.05, -0.05, -0.15),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.85, 0)
     },
     {
         id: 'scatter',
@@ -86,15 +86,15 @@ export const WEAPON_CONFIGS = [
         pellets: 6,
         recoilPitch: 0.06,
         scale: 0.24,
-        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
-        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+        offset: new THREE.Vector3(-0.05, -0.05, -0.15),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.85, 0)
     }
 ];
 
 export const RARE_WEAPON_CONFIGS = [
-    { ...WEAPON_CONFIGS[0], id: 'plasma', name: 'AWP SNIPER', modelFile: 'styloo/awp.glb', icon: 'assets/previews/kenney-blaster/blaster-j.png', damage: 85, penPower: 3, fireRate: 1.2, magSize: 5, baseSpreadDegHip: 8.0, baseSpreadDegADS: 0.0, screenShake: 0.65, cursorKick: 12.0, color: 0x9966ff, isAuto: false, tier: 1 },
-    { ...WEAPON_CONFIGS[1], id: 'storm', name: 'AK-47 VARIANT', modelFile: 'styloo/ak47variant.glb', icon: 'assets/previews/kenney-blaster/blaster-e.png', damage: 32, penPower: 2, fireRate: 0.12, magSize: 40, baseSpreadDegHip: 2.8, baseSpreadDegADS: 0.7, screenShake: 0.22, cursorKick: 3.4, color: 0x55ffcc, isAuto: true, tier: 1 },
-    { ...WEAPON_CONFIGS[2], id: 'nova', name: 'NOVA ROCKET', modelFile: 'styloo/rocketlaucher.glb', icon: 'assets/previews/kenney-blaster/blaster-g.png', damage: 60, penPower: 3, pellets: 1, fireRate: 1.5, magSize: 4, baseSpreadDegHip: 4.0, baseSpreadDegADS: 1.0, screenShake: 0.85, cursorKick: 15.0, color: 0xff6633, isAuto: false, tier: 1 }
+    { ...WEAPON_CONFIGS[0], id: 'plasma', name: 'AWP SNIPER', modelFile: 'styloo/awp.glb', icon: 'assets/previews/kenney-blaster/blaster-j.png', damage: 85, penPower: 3, fireRate: 1.2, magSize: 5, baseSpreadDegHip: 8.0, baseSpreadDegADS: 0.0, screenShake: 0.65, cursorKick: 12.0, color: 0x9966ff, isAuto: false, tier: 1, rotOffset: new THREE.Euler(0, Math.PI * 0.85, 0), offset: new THREE.Vector3(-0.05, -0.05, -0.15) },
+    { ...WEAPON_CONFIGS[1], id: 'storm', name: 'AK-47 VARIANT', modelFile: 'styloo/ak47variant.glb', icon: 'assets/previews/kenney-blaster/blaster-e.png', damage: 32, penPower: 2, fireRate: 0.12, magSize: 40, baseSpreadDegHip: 2.8, baseSpreadDegADS: 0.7, screenShake: 0.22, cursorKick: 3.4, color: 0x55ffcc, isAuto: true, tier: 1, rotOffset: new THREE.Euler(0, Math.PI * 0.85, 0), offset: new THREE.Vector3(-0.05, -0.05, -0.15) },
+    { ...WEAPON_CONFIGS[2], id: 'nova', name: 'NOVA ROCKET', modelFile: 'styloo/rocketlaucher.glb', icon: 'assets/previews/kenney-blaster/blaster-g.png', damage: 60, penPower: 3, pellets: 1, fireRate: 1.5, magSize: 4, baseSpreadDegHip: 4.0, baseSpreadDegADS: 1.0, screenShake: 0.85, cursorKick: 15.0, color: 0xff6633, isAuto: false, tier: 1, rotOffset: new THREE.Euler(0, Math.PI * 0.85, 0), offset: new THREE.Vector3(-0.05, -0.05, -0.15) }
 ];
 
 export function getStartingWeapon(id) {
