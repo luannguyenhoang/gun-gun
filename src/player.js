@@ -41,6 +41,7 @@ export class PlayerController {
         this.shieldRegenDelay = 4.0;
         this.shieldRegenTimer = 0;
         this.shieldRegenRate = 25;
+        this.developerMode = false;
 
         // Dodge / Dash
         this.dodgeCooldown = 0;
@@ -89,7 +90,7 @@ export class PlayerController {
 
     initInput() {
         window.addEventListener('keydown', (e) => {
-            if (!this.inputEnabled) return;
+            if (!this.inputEnabled || this.isBackpackOpen || e.target?.matches?.('input, textarea, select, [contenteditable="true"]')) return;
             if (e.code === 'Space') {
                 e.preventDefault();
                 this.weapons.cancelReload(); // Reload cancel khi nhảy
@@ -291,6 +292,17 @@ export class PlayerController {
 
     takeDamage(amount, hitDir) {
         if (this.isDead || this.isDodging || this.invulnerability > 0) return;
+        // Che do Developer: Nhan vat bat tu, khong bi tru mau hoac khien
+        if (this.developerMode || window.developerMode) {
+            this.health = this.maxHealth;
+            this.shield = this.maxShield;
+            if (hitDir) {
+                this.velocity.x += hitDir.x * 2.0;
+                this.velocity.z += hitDir.z * 2.0;
+            }
+            sounds.playShieldDamage();
+            return;
+        }
         this.damageRevision++;
 
         this.shieldRegenTimer = this.shieldRegenDelay;
@@ -333,6 +345,7 @@ export class PlayerController {
 
     die() {
         if (this.isDead) return;
+        if (this.developerMode || window.developerMode) return;
         this.isDead = true;
         this.isDowned = this.cooperative;
         sounds.play('enemyDestroy', { volume: 0.9 });
@@ -369,6 +382,13 @@ export class PlayerController {
     }
 
     update(delta, arena, enemies = []) {
+        // Duy tri trang thai day mau va song sot khi bat Che do Developer
+        if (this.developerMode || window.developerMode) {
+            this.health = this.maxHealth;
+            this.shield = this.maxShield;
+            this.isDead = false;
+            this.isDowned = false;
+        }
         this.enemiesRef = enemies;
         this.invulnerability = Math.max(0, this.invulnerability - delta);
         if (this.painTimer > 0) {

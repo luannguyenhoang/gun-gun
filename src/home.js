@@ -1,5 +1,7 @@
 import { sounds } from './audio.js?v=4';
 import { CharacterShowroom } from './showroom.js';
+import { CHARACTER_CONFIGS } from './characters.js';
+import { getStartingWeapon } from './weapons.js';
 
 export class HomeMenu {
     constructor(game) {
@@ -21,6 +23,7 @@ export class HomeMenu {
         });
         document.getElementById('home-sound').addEventListener('click', () => { sounds.toggleAudio(); this.syncAudio(); });
         document.getElementById('home-music').addEventListener('click', () => { sounds.toggleMusic(); this.syncAudio(); });
+        document.getElementById('home-devmode')?.addEventListener('click', () => { this.game.toggleDeveloperMode(); });
         document.getElementById('copy-link').addEventListener('click', async event => {
             try { await navigator.clipboard.writeText(document.getElementById('share-link').value); event.target.textContent = 'ĐÃ COPY'; setTimeout(() => event.target.textContent = 'COPY', 1800); }
             catch { game.showRoomError('Hãy chọn và sao chép liên kết trong ô phía trên.'); }
@@ -30,7 +33,11 @@ export class HomeMenu {
         this.preview();
     }
     open(panel) {
-        if (panel === 'characters') { this.showroom.open(); return; }
+        if (panel === 'characters' || panel === 'weapons') {
+            this.showroom.open();
+            if (panel === 'weapons') this.showroom.setMode('weapons');
+            return;
+        }
         document.getElementById('dialog-title').textContent = this.titles[panel];
         this.dialog.querySelectorAll('[data-panel]').forEach(section => section.hidden = section.dataset.panel !== panel);
         document.getElementById('record-score').textContent = this.game.highScore.toLocaleString();
@@ -42,9 +49,18 @@ export class HomeMenu {
         document.getElementById('home-music').textContent = `NHẠC: ${sounds.musicEnabled ? 'BẬT' : 'TẮT'}`;
         document.getElementById('toggle-sound').textContent = `SOUND: ${sounds.enabled ? 'ON' : 'OFF'}`;
         document.getElementById('toggle-music').textContent = `MUSIC: ${sounds.musicEnabled ? 'ON' : 'OFF'}`;
+        this.game.syncDeveloperModeUI?.();
     }
     preview() {
+        this.refreshLoadout();
         if (!this.game.network.active) this.game.roomLobby.update({ solo: true, code: '', you: 'preview', host: 'preview', players: [{ id: 'preview', name: this.game.roomName.value, character: this.game.characterId }] });
+    }
+
+    refreshLoadout() {
+        const gun = getStartingWeapon(this.game.weapons.startingWeaponId);
+        document.getElementById('home-equipped-character').textContent = CHARACTER_CONFIGS[this.game.characterId].label;
+        document.getElementById('home-equipped-weapon').textContent = gun.name;
+        document.getElementById('home-equipped-icon').src = gun.icon;
     }
     room(data) {
         const code = data?.code || '';

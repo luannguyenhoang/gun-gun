@@ -1399,6 +1399,8 @@ export class LootingSystem {
 
     initEventListeners() {
         window.addEventListener('keydown', (e) => {
+            if (e.repeat || e.target?.matches?.('input, textarea, select, [contenteditable="true"]')) return;
+            if (window.game?.state !== 'PLAYING') return;
             // Phím [B] để bật / tắt Giao diện Balo Túi Đồ [Backpack Grid & Weapon Modding]
             if (e.code === 'KeyB') {
                 if (window.game?.state === 'PLAYING') {
@@ -1422,6 +1424,7 @@ export class LootingSystem {
             }
             // Phím [Escape] để đóng hòm đồ / balo
             if (e.code === 'Escape' && this.isBackpackOpen) {
+                e.preventDefault();
                 this.closeContainerUI();
             }
         });
@@ -1439,6 +1442,8 @@ export class LootingSystem {
     // Mở Balo túi đồ người chơi
     openBackpack() {
         this.isBackpackOpen = true;
+        this.player.keys = {};
+        this.player.mouseButtons = { left: false, right: false };
         this.ui?.openSmartInventory(this.inventory, this.activeContainer, this);
         if (this.player) {
             this.player.isBackpackOpen = true;

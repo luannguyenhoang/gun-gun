@@ -32,6 +32,8 @@ class CyberArenaGame {
         this.practiceBot = null;
         this.animate = this.animate.bind(this);
         this.radarElapsed = 0;
+        this.developerMode = localStorage.getItem('arena_developer_mode') === 'true';
+        window.developerMode = this.developerMode;
 
         this.initThree();
         this.initSubsystems();
@@ -84,6 +86,7 @@ class CyberArenaGame {
         this.weapons = new WeaponSystem(this.scene, this.gltfLoader, this.particles);
         this.weapons.startingWeaponId = getStartingWeapon(localStorage.getItem('cyber_arena_weapon')).id;
         this.player = new PlayerController(this.camera, this.canvas, this.arena, this.weapons, true, this.characterId);
+        this.player.developerMode = this.developerMode;
         this.waveManager = new WaveManager(this.scene, this.gltfLoader, this.weapons, this.particles, this.arena);
         this.pickups = new PickupManager(this.scene, this.particles);
         this.ui = new UIManager();
@@ -120,6 +123,9 @@ class CyberArenaGame {
         this.roomStart?.addEventListener('click', () => this.network.start().catch(e => this.showRoomError(e.message)));
         this.roomLeave?.addEventListener('click', () => this.network.leave());
         this.homeMenu = new HomeMenu(this);
+        document.getElementById('hud-pause').addEventListener('click', () => this.pauseGame());
+        document.getElementById('hud-backpack').addEventListener('click', () => this.lootingSystem.toggleBackpack());
+        document.querySelectorAll('[data-return-home]').forEach(button => button.addEventListener('click', () => this.returnToMenu()));
 
         this.finalScoreEl = document.getElementById('final-score');
         this.finalWaveEl = document.getElementById('final-wave');
@@ -147,10 +153,15 @@ class CyberArenaGame {
         if (this.btnToggleBot) {
             this.btnToggleBot.addEventListener('click', () => this.togglePracticeBot());
         }
+        this.btnToggleDevMode = document.getElementById('btn-toggle-devmode');
+        if (this.btnToggleDevMode) {
+            this.btnToggleDevMode.addEventListener('click', () => this.toggleDeveloperMode());
+        }
 
         // Pause Key (ESC)
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Escape') {
+                if (e.defaultPrevented || e.repeat) return;
                 // Nếu đang mở hòm đồ hoặc balo, ưu tiên đóng trước và không mở menu pause
                 if (this.lootingSystem?.isBackpackOpen || this.lootingSystem?.activeContainer?.isOpen) {
                     this.lootingSystem.closeContainerUI();
@@ -183,6 +194,7 @@ class CyberArenaGame {
                 musicBtn.textContent = on ? 'MUSIC: ON' : 'MUSIC: OFF';
             });
         }
+        this.syncDeveloperModeUI();
     }
 
     async loadAssetsAndStart() {
@@ -248,6 +260,11 @@ class CyberArenaGame {
             remote.isDead = false; remote.isDowned = false; remote.commandQueue = [];
         }
         this.player.reset();
+        if (this.developerMode) {
+            this.player.developerMode = true;
+            this.player.health = this.player.maxHealth;
+            this.player.shield = this.player.maxShield;
+        }
         this.pickups.clear();
         this.particles.clear();
         this.waveManager.clear();
@@ -255,9 +272,10 @@ class CyberArenaGame {
 
         this.player.setInputEnabled(true);
         this.player.cooperative = this.network.active;
+        document.getElementById('hud-pause').disabled = this.network.active;
         if (!this.network.active || this.network.host) this.waveManager.startWave(this.currentWave);
         else this.waveManager.clear();
-        this.ui.showBanner(`PHASE 1: ZOMBIE INVASION BEGINS`);
+        this.ui.showBanner('SỐNG SÓT · NHẶT ĐẠN · NÂNG CẤP');
     }
 
     pauseGame() {
@@ -278,6 +296,26 @@ class CyberArenaGame {
         this.startGame();
     }
 
+    returnToMenu() {
+        this.lootingSystem.closeContainerUI();
+        this.player.setInputEnabled(false);
+        this.state = 'MENU';
+        if (this.network.active) this.network.leave();
+        for (const id of [...this.remotePlayers.keys()]) this.removeCoopPlayer(id);
+        this.practiceBot = null;
+        this.waveManager.clear();
+        this.weapons.clear();
+        this.pickups.clear();
+        this.particles.clear();
+        this.ui.clearTeammateIndicators();
+        this.screenPause.style.display = 'none';
+        this.screenGameOver.style.display = 'none';
+        this.hud.style.display = 'none';
+        this.screenMenu.style.display = 'flex';
+        this.homeMenu.preview();
+        this.btnStart?.focus();
+    }
+
     gameOver() {
         this.state = 'GAMEOVER';
         this.player.setInputEnabled(false);
@@ -294,6 +332,7 @@ class CyberArenaGame {
         if (this.highScoreOverEl) this.highScoreOverEl.textContent = this.highScore.toLocaleString();
 
         setTimeout(() => {
+            if (this.state !== 'GAMEOVER') return;
             if (this.hud) this.hud.style.display = 'none';
             if (this.screenGameOver) this.screenGameOver.style.display = 'flex';
         }, 1200);
@@ -543,6 +582,45 @@ class CyberArenaGame {
                 const shootTarget = nearestEnemy.position.clone().add(new THREE.Vector3(0, 0.8, 0));
                 bot.weapons.shoot(shootOrigin, shootTarget, false, true);
             }
+        }
+    }
+
+    // Bat hoac tat Che do Developer (bat tu cho nhan vat)
+    toggleDeveloperMode() {
+        this.developerMode = !this.developerMode;
+        window.developerMode = this.developerMode;
+        try {
+            localStorage.setItem('arena_developer_mode', this.developerMode ? 'true' : 'false');
+        } catch (e) {
+            console.warn('Khong the ghi localStorage:', e);
+        }
+        if (this.player) {
+            this.player.developerMode = this.developerMode;
+            if (this.developerMode) {
+                this.player.health = this.player.maxHealth;
+                this.player.shield = this.player.maxShield;
+                this.player.isDead = false;
+                this.player.isDowned = false;
+            }
+        }
+        this.syncDeveloperModeUI();
+        if (this.ui?.showPickupAlert) {
+            this.ui.showPickupAlert(this.developerMode ? 'CHE DO DEVELOPER: BAT (BAT TU)' : 'CHE DO DEVELOPER: TAT');
+        }
+    }
+
+    // Dong bo giao dien nut Che do Developer giua Menu cai dat va Menu tam dung
+    syncDeveloperModeUI() {
+        const homeDevBtn = document.getElementById('home-devmode');
+        if (homeDevBtn) {
+            homeDevBtn.textContent = `CHẾ ĐỘ DEVELOPER: ${this.developerMode ? 'BẬT (BẤT TỬ)' : 'TẮT'}`;
+            homeDevBtn.classList.toggle('yellow', this.developerMode);
+            homeDevBtn.classList.toggle('orange', !this.developerMode);
+        }
+        const pauseDevBtn = document.getElementById('btn-toggle-devmode');
+        if (pauseDevBtn) {
+            pauseDevBtn.textContent = `CHẾ ĐỘ DEVELOPER: ${this.developerMode ? 'BẬT (BẤT TỬ)' : 'TẮT'}`;
+            pauseDevBtn.style.background = this.developerMode ? 'linear-gradient(#ffe39a, #eeb34e)' : '#8aaddd';
         }
     }
 

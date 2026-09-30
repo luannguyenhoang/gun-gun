@@ -1773,7 +1773,22 @@ export class UIManager {
 
         this.refreshSmartInventory();
         if (this.smartInvOverlay) {
-            this.smartInvOverlay.style.display = 'block';
+            this._inventoryFocusReturn = document.activeElement;
+            this.smartInvOverlay.style.display = 'flex';
+            this.smartInvOverlay.setAttribute('role', 'dialog');
+            this.smartInvOverlay.setAttribute('aria-modal', 'true');
+            this.smartInvOverlay.setAttribute('aria-label', 'Balô và trang bị');
+            if (!this._inventoryFocusBound) {
+                this._inventoryFocusBound = true;
+                this.smartInvOverlay.addEventListener('keydown', event => {
+                    if (event.key !== 'Tab') return;
+                    const controls = [...this.smartInvOverlay.querySelectorAll('button:not(:disabled), input, [tabindex="0"]')].filter(el => el.getClientRects().length);
+                    const first = controls[0], last = controls.at(-1);
+                    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+                    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+                });
+            }
+            this.smartInvOverlay.querySelector('.pubg-close-btn')?.focus();
             sounds.playBackpackToggle(true);
         }
     }
@@ -1782,6 +1797,7 @@ export class UIManager {
     closeSmartInventory() {
         if (this.smartInvOverlay && this.smartInvOverlay.style.display !== 'none') {
             this.smartInvOverlay.style.display = 'none';
+            this._inventoryFocusReturn?.focus?.();
             sounds.playBackpackToggle(false);
         }
         if (this.smartInspectCard) {
@@ -1795,7 +1811,7 @@ export class UIManager {
         if (!this._currentPlayerInventory) return;
         const player = this._lootingSystem?.player;
         const weapons = player?.weapons;
-        const curWeapon = weapons?.getCurrentWeapon?.() || weapons?.weaponSlots?.[0];
+        const curWeapon = weapons?.weaponSlots?.[0] || weapons?.getCurrentWeapon?.();
 
         // 1. CỘT 1 (BÊN TRÁI): VẬT PHẨM LÂN CẬN (Ground / Container / Loot)
         const nearbyItems = this._lootingSystem?.getNearbyItems ? this._lootingSystem.getNearbyItems() : [];
@@ -1822,8 +1838,19 @@ export class UIManager {
         if (weapons && curWeapon) {
             const effective = weapons.getModifiedStats(curWeapon);
             if (this.moddingWeaponTitle) {
-                this.moddingWeaponTitle.textContent = `${curWeapon.name.toUpperCase()} RIFLE`;
+                this.moddingWeaponTitle.textContent = curWeapon.name.toUpperCase();
             }
+            const ammoLabel = this.smartInvOverlay.querySelector('.gun-ammo-stat');
+            if (ammoLabel) ammoLabel.textContent = `${weapons.ammo[curWeapon.id] ?? 0} / ${weapons.reserve[curWeapon.id] ?? 0} VIÊN`;
+            const healthLabel = this.slotHelmet?.querySelector('.gear-hp');
+            const shieldLabel = this.slotArmor?.querySelector('.gear-hp');
+            if (healthLabel) healthLabel.textContent = `${Math.ceil(player.health)} / ${player.maxHealth}`;
+            if (shieldLabel) shieldLabel.textContent = `${Math.ceil(player.shield)} / ${player.maxShield}`;
+            const healthBar = this.slotHelmet?.querySelector('.durability-fill');
+            const shieldBar = this.slotArmor?.querySelector('.durability-fill');
+            if (healthBar) healthBar.style.width = `${Math.max(0,player.health / player.maxHealth * 100)}%`;
+            if (shieldBar) shieldBar.style.width = `${Math.max(0,player.shield / player.maxShield * 100)}%`;
+            if (this.slotSecondary) this.slotSecondary.querySelector('small').textContent = `${weapons.inventory.medkits ?? 0} TÚI · PHÍM 3`;
             if (curWeapon.icon && this.moddingWeaponImg) {
                 this.moddingWeaponImg.src = curWeapon.icon;
             }
@@ -1854,7 +1881,6 @@ export class UIManager {
         }
 
         // 3. CỘT 3 (BÊN PHẢI): BA LÔ TÚI ĐỒ (Danh sách thẻ ngang cuộn mượt mà)
-        let totalWeightKg = 25.0; // Trọng lượng cơ bản
         if (this.smartBackpackGrid) {
             this.smartBackpackGrid.innerHTML = '';
             const pSlots = this._currentPlayerInventory.slots;
@@ -1863,9 +1889,6 @@ export class UIManager {
             pSlots.forEach((slot, slotIdx) => {
                 if (slot && slot.itemId) {
                     pFilled++;
-                    const def = LOOT_ITEMS[slot.itemId];
-                    const itemWeight = (def?.size ? def.size[0] * def.size[1] * 3.5 : 2.5) * (slot.count || 1);
-                    totalWeightKg += itemWeight;
 
                     const rowEl = this.createPubgItemRow(slot, slotIdx, 'player');
                     this.smartBackpackGrid.appendChild(rowEl);
@@ -1873,9 +1896,8 @@ export class UIManager {
             });
 
             // Cập nhật tải trọng chuẩn PUBG kiểu 401 / 450
-            const curWeightNum = Math.min(450, Math.round(totalWeightKg * 2.8 + 120));
-            if (this.duckovTopWeight) this.duckovTopWeight.textContent = `${curWeightNum} / 450`;
-            if (this.duckovWeightText) this.duckovWeightText.textContent = `${curWeightNum} / 450`;
+            if (this.duckovTopWeight) this.duckovTopWeight.textContent = `${pFilled} / ${pSlots.length} Ô`;
+            if (this.duckovWeightText) this.duckovWeightText.textContent = `${pFilled} / ${pSlots.length} Ô`;
             if (this.backpackCapacityBadge) this.backpackCapacityBadge.textContent = `${pFilled} / ${pSlots.length} Ô Chứa`;
         }
 
@@ -1921,6 +1943,15 @@ export class UIManager {
         const isGold = itemDef.theme === 'gold' || ['medical', 'booster'].includes(itemDef.category);
         row.className = `pubg-item-row ${isGold ? 'card-gold' : 'card-silver'}`;
         row.draggable = true;
+        row.tabIndex = 0;
+        row.setAttribute('role', 'button');
+        row.setAttribute('aria-label', `${itemDef.name} · ${side === 'nearby' ? 'Nhặt' : 'Dùng hoặc trang bị'}`);
+        row.addEventListener('keydown', event => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            event.stopPropagation();
+            row.dispatchEvent(new MouseEvent(side === 'nearby' ? 'click' : 'dblclick', { bubbles: true }));
+        });
 
         const countText = data.count && data.count > 1 ? data.count : (itemDef.category === 'ammo' ? data.count : '');
         const descText = itemDef.shortDesc || itemDef.description || '';
@@ -1979,7 +2010,7 @@ export class UIManager {
                         this.showPickupAlert(`ĐÃ LẮP [${itemDef.name.toUpperCase()}] LÊN SÚNG!`);
                         this.refreshSmartInventory();
                     }
-                }
+                } else this._lootingSystem?.useItem(index);
             });
 
             // Click chuột phải: Dùng vật phẩm ngay

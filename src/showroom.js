@@ -46,6 +46,7 @@ export class CharacterShowroom {
             if (!this.entries.get(this.selected) || this.locked()) return;
             if (this.mode === 'weapons') {
                 this.game.selectWeapon(this.weaponId);
+                this.game.homeMenu.refreshLoadout();
                 this.syncSelection();
                 return;
             }

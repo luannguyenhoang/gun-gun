@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="zappets.css"><link rel="stylesheet" href="combat.css?v=16"><link rel="stylesheet" href="showroom.css">
+    <link rel="stylesheet" href="ux.css">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script type="importmap">
     {
@@ -28,6 +29,7 @@
 
     <!-- Combat HUD: live values only, no decorative weather or fake timers. -->
     <div id="hud" style="display:none;">
+      <nav class="hud-actions" aria-label="Thao tác trong trận"><button id="hud-backpack" title="Mở balô [B]">BALÔ <kbd>B</kbd></button><button id="hud-pause" title="Tạm dừng khi chơi đơn [Esc]">Ⅱ <span>TẠM DỪNG</span></button></nav>
       <section class="combat-vitals combat-panel" aria-label="Máu và khiên">
         <div class="combat-card-title"><span>CHIẾN BINH</span><span class="combat-score">★ <b id="score-value">0</b></span></div>
         <div class="vital-label"><span>♥ MÁU</span><strong id="health-text">100 / 100</strong></div>
@@ -107,11 +109,11 @@
         <div class="pubg-top-bar">
           <div class="pubg-top-left">
             <span class="pubg-main-title">TRANG BỊ &amp; BA LÔ TÁC CHIẾN</span>
-            <span class="pubg-sub-guide">Bấm [B] hoặc [ESC] để đóng • Vừa mở đồ vừa nhìn rõ chiến trường</span>
+            <span class="pubg-sub-guide">Bấm [B] hoặc [ESC] để đóng • Kéo phụ kiện vào súng · Nhấp đúp để sử dụng</span>
           </div>
           <div class="pubg-top-right">
             <div class="pubg-weight-badge">
-              <span class="weight-label">TẢI TRỌNG:</span>
+              <span class="weight-label">SỨC CHỨA:</span>
               <strong id="duckov-top-weight">401 / 450 kg</strong>
             </div>
             <button id="btn-inv-close" class="pubg-close-btn" title="Đóng giao diện [B] / [ESC]">✕</button>
@@ -145,18 +147,18 @@
           <div class="pubg-col pubg-col-mid" id="dock-weapon">
             <!-- 3 Ô Trang bị bảo vệ: Mũ, Áo Giáp, Balo (như ảnh 2) -->
             <div class="pubg-armor-strip">
-              <div class="pubg-gear-item" id="slot-helmet" title="Mũ chống đạn FAST-MT">
+              <div class="pubg-gear-item" id="slot-helmet" title="Máu hiện tại">
                 <div class="gear-thumb"><img src="assets/previews/kenney-blaster/target-detail.png" alt="Mũ"></div>
                 <div class="gear-detail">
-                  <span class="gear-label" id="equip-helmet-name">MŨ FAST-MT</span>
+                  <span class="gear-label" id="equip-helmet-name">MÁU HIỆN TẠI</span>
                   <div class="gear-durability-track"><div class="durability-fill fill-cyan" style="width: 100%;"></div></div>
                   <small class="gear-hp">150</small>
                 </div>
               </div>
-              <div class="pubg-gear-item" id="slot-armor" title="Áo giáp chống đạn đặc nhiệm">
+              <div class="pubg-gear-item" id="slot-armor" title="Khiên hiện tại">
                 <div class="gear-thumb"><img src="assets/previews/kenney-blaster/crate-small.png" alt="Giáp"></div>
                 <div class="gear-detail">
-                  <span class="gear-label" id="equip-armor-name">GIÁP ĐẶC NHIỆM</span>
+                  <span class="gear-label" id="equip-armor-name">KHIÊN HIỆN TẠI</span>
                   <div class="gear-durability-track"><div class="durability-fill fill-blue" style="width: 100%;"></div></div>
                   <small class="gear-hp">220</small>
                 </div>
@@ -248,18 +250,18 @@
 
             <!-- Khung Súng Phụ (Secondary) & Cận Chiến (Melee / Chảo rán) -->
             <div class="pubg-secondary-row">
-              <div class="sec-gun-slot" id="slot-secondary" title="Súng phụ [2]">
+              <div class="sec-gun-slot" id="slot-secondary" title="Túi cứu thương [3]">
                 <div class="sec-thumb"><img id="secondary-weapon-img" src="assets/previews/kenney-blaster/blaster-b.png" alt="Súng phụ"></div>
                 <div class="sec-meta">
-                  <strong>SÚNG PHỤ AKM</strong>
-                  <small>7.62mm • 30/60</small>
+                  <strong>TÚI CỨU THƯƠNG</strong>
+                  <small>PHÍM 3</small>
                 </div>
               </div>
-              <div class="sec-gun-slot" id="slot-melee" title="Cận chiến / Chảo rán [3]">
-                <div class="sec-thumb"><img src="assets/previews/kenney-food/cooking-knife.png" alt="Chảo rán dã chiến"></div>
+              <div class="sec-gun-slot" id="slot-melee" title="Dao cận chiến [2]">
+                <div class="sec-thumb"><img src="assets/previews/kenney-food/cooking-knife.png" alt="Dao cận chiến"></div>
                 <div class="sec-meta">
-                  <strong>CHẢO RÁN DÃ CHIẾN</strong>
-                  <small>Cận chiến uy lực cao</small>
+                  <strong>DAO CẬN CHIẾN</strong>
+                  <small>PHÍM 2 · TẦM ĐÁNH NGẮN</small>
                 </div>
               </div>
             </div>
@@ -322,6 +324,7 @@
     <!-- Full-screen character lobby -->
     <div id="screen-menu" class="screen-overlay" style="display:none;">
       <main class="home-shell">
+        <div class="home-intro"><span>CYBER ARENA</span><h1>SẴN SÀNG<br>SINH TỒN?</h1><p>Chọn chiến binh. Trang bị súng.<br>Cùng nhau vượt qua bầy zombie.</p></div>
         <header class="home-header">
           <button class="toy-button purple profile-button" data-open="profile"><span class="profile-avatar">★</span><span><strong id="profile-name">NGƯỜI CHƠI</strong><small>SỬA HỒ SƠ</small></span></button>
           <button class="toy-button orange friends-button" data-open="friends"><span class="friends-icon">▣</span> BẠN BÈ <span class="button-badge">+</span></button>
@@ -329,10 +332,12 @@
         </header>
         <nav class="home-nav" aria-label="Menu chính">
           <button class="toy-button blue nav-tile" data-open="characters"><span class="tile-icon character-icon">♟</span><strong>NHÂN VẬT</strong><small>3 / 3</small></button>
+          <button class="toy-button blue nav-tile" data-open="weapons"><span class="tile-icon weapon-nav-icon">⌁</span><strong>KHO SÚNG</strong><small>TRANG BỊ</small></button>
           <button class="toy-button blue nav-tile" data-open="help"><span class="tile-icon help-icon">?</span><strong>HƯỚNG DẪN</strong></button>
           <button class="toy-button blue nav-tile" data-open="settings"><span class="tile-icon gear-icon">⚙</span><strong>CÀI ĐẶT</strong></button>
         </nav>
         <div id="room-lobby" aria-label="Xem trước nhân vật 3D"></div>
+        <button class="home-equipped" data-open="weapons" title="Thay đổi súng khởi đầu"><img id="home-equipped-icon" alt="Súng đã trang bị"><span><small>TRANG BỊ CỦA BẠN</small><strong id="home-equipped-character">LÍNH</strong><b id="home-equipped-weapon">BLASTER-X</b></span><span aria-hidden="true">↗</span></button>
         <button class="toy-button orange invite-button" data-open="friends" aria-label="Mời bạn vào phòng">+</button>
         <footer class="home-footer">
           <button class="toy-button blue record-button" data-open="records"><span>♜</span><span>KỶ LỤC<small>THÀNH TÍCH CỦA BẠN</small></span></button>
@@ -357,8 +362,8 @@
               <p id="room-status" role="status">Tạo phòng và gửi liên kết để rủ bạn cùng chiến đấu. Tối đa 4 người.</p>
             </section>
             <section data-panel="profile" hidden><label class="eyebrow" for="room-name">TÊN CỦA BẠN</label><input id="room-name" maxlength="24" placeholder="Tên của bạn" value="Người chơi"><p>Tên sẽ hiển thị khi bạn tham gia phòng mới.</p><button id="save-profile" class="toy-button yellow wide-button">LƯU HỒ SƠ</button></section>
-            <section data-panel="help" hidden><div class="help-row"><kbd>W A S D</kbd><span>Di chuyển</span></div><div class="help-row"><kbd>CHUỘT</kbd><span>Ngắm · Giữ chuột trái để bắn</span></div><div class="help-row"><kbd>SPACE / Q</kbd><span>Nhảy / Lướt né</span></div><div class="help-row"><kbd>1 / 2 / R</kbd><span>Súng / Dao / Nạp đạn</span></div><div class="help-row"><kbd>E / B</kbd><span>Cứu đồng đội / Bật tắt bot</span></div><div class="help-row"><kbd>ESC</kbd><span>Tạm dừng trận đấu</span></div><p>Nhặt đạn và nâng cấp từ zombie. Hết đạn? Chuyển sang dao để tiếp tục sống sót!</p></section>
-            <section data-panel="settings" hidden><button id="home-sound" class="toy-button blue wide-button">ÂM THANH: BẬT</button><button id="home-music" class="toy-button purple wide-button">NHẠC: BẬT</button><p>Cài đặt được áp dụng ngay trong trận đấu.</p></section>
+            <section data-panel="help" hidden><div class="help-row"><kbd>W A S D</kbd><span>Di chuyển</span></div><div class="help-row"><kbd>CHUỘT</kbd><span>Trái: bắn · Phải: ngắm kỹ</span></div><div class="help-row"><kbd>SPACE / Q</kbd><span>Nhảy / Lướt né</span></div><div class="help-row"><kbd>1 / 2 / R</kbd><span>Súng / Dao / Nạp đạn</span></div><div class="help-row"><kbd>3 / B / F</kbd><span>Sơ cứu / Balô / Lục hòm</span></div><div class="help-row"><kbd>E / P</kbd><span>Cứu đồng đội / Bật tắt bot</span></div><div class="help-row"><kbd>ESC</kbd><span>Tạm dừng trận đấu</span></div><p>Nhặt đạn và nâng cấp từ zombie. Hết đạn? Chuyển sang dao để tiếp tục sống sót!</p></section>
+            <section data-panel="settings" hidden><button id="home-sound" class="toy-button blue wide-button">ÂM THANH: BẬT</button><button id="home-music" class="toy-button purple wide-button">NHẠC: BẬT</button><button id="home-devmode" class="toy-button orange wide-button">CHẾ ĐỘ DEVELOPER: TẮT</button><p>Cài đặt được áp dụng ngay trong trận đấu.</p></section>
             <section data-panel="records" hidden><p class="eyebrow">ĐIỂM CAO NHẤT TRÊN THIẾT BỊ NÀY</p><div class="record-value">★ <span id="record-score">0</span></div><p>Chiến đấu, sống sót và phá kỷ lục của chính bạn.</p></section>
           </div>
         </dialog>
@@ -418,7 +423,9 @@
             <div class="menu-buttons">
                 <button id="btn-resume" class="btn-action">TIẾP TỤC</button>
                 <button id="btn-restart-pause" class="btn-action secondary">CHƠI LẠI</button>
+                <button class="btn-action secondary" data-return-home>KẾT THÚC & VỀ SẢNH</button>
                 <button id="btn-toggle-bot" class="btn-toggle">ĐỒNG ĐỘI BOT: BẬT (PHÍM P)</button>
+                <button id="btn-toggle-devmode" class="btn-toggle">CHẾ ĐỘ DEVELOPER: TẮT</button>
                 <div class="toggle-row">
                     <button id="toggle-sound" class="btn-toggle">SOUND: ON</button>
                     <button id="toggle-music" class="btn-toggle">MUSIC: ON</button>
@@ -446,10 +453,11 @@
                 </div>
             </div>
             <button id="btn-restart-gameover" class="btn-action pulse">CHƠI LẠI</button>
+            <button class="btn-action secondary" data-return-home>VỀ SẢNH · ĐỔI TRANG BỊ</button>
         </div>
     </div>
 
     <!-- Main Game Script -->
-    <script src="libs/qrcode.min.js"></script><script type="module" src="src/main.js?v=16"></script>
+    <script src="libs/qrcode.min.js"></script><script type="module" src="src/main.js?v=17"></script>
 </body>
 </html>
