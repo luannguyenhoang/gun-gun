@@ -212,9 +212,10 @@ export class WeaponSystem {
         // Cấu hình phụ kiện mod vũ khí (Attachments Ecosystem)
         this.attachments = {
             muzzle: null,    // Đầu nòng (Compensator, Silencer, Flash Hider)
-            optic: null,     // Kính ngắm (Red Dot, Scope x2, Scope x4)
+            optic: null,     // Kính ngắm (Red Dot, Scope x2, Scope x4, Scope x6, Scope x8)
             magazine: null,  // Băng đạn (Extended Mag, Quick-draw Mag)
-            grip: null       // Tay cầm / Báng súng (Tactical Grip, Heavy Stock)
+            grip: null,      // Tay cầm (Tactical Grip)
+            stock: null      // Báng súng (Heavy Stock, Tactical Stock)
         };
 
         // Shared geometries & materials pool
@@ -328,7 +329,8 @@ export class WeaponSystem {
             muzzle: null,
             optic: null,
             magazine: null,
-            grip: null
+            grip: null,
+            stock: null
         };
         this.isReloading = false;
         this.reloadTimer = 0;
@@ -392,39 +394,46 @@ export class WeaponSystem {
 
         // 2. Phụ kiện Kính ngắm (Optic / Sight)
         if (this.attachments.optic === 'attach_red_dot') {
-            // Red Dot: Tăng nhẹ tầm nhìn ngắm ADS, giảm góc tản đạn ADS 20%
             adsZoom = 1.35;
             adsSpreadFactor -= 0.20;
         } else if (this.attachments.optic === 'attach_scope_x2') {
-            // Scope x2: Phóng đại x2 khi ADS, độ chụm cao nhưng chậm xoay 15%
             adsZoom = 2.0;
             adsSpreadFactor -= 0.40;
             turnPenalty = 0.15;
         } else if (this.attachments.optic === 'attach_scope_x4') {
-            // Scope x4: Phóng đại x4 khi ADS tầm xa, giảm tốc độ xoay 30%
             adsZoom = 3.5;
             adsSpreadFactor -= 0.60;
             turnPenalty = 0.30;
+        } else if (this.attachments.optic === 'attach_scope_x6') {
+            adsZoom = 4.5;
+            adsSpreadFactor -= 0.70;
+            turnPenalty = 0.35;
+        } else if (this.attachments.optic === 'attach_scope_x8') {
+            adsZoom = 6.0;
+            adsSpreadFactor -= 0.80;
+            turnPenalty = 0.45;
         }
 
         // 3. Phụ kiện Băng đạn (Magazine)
         if (this.attachments.magazine === 'attach_ext_mag') {
-            // Băng đạn mở rộng: tăng thêm 14 viên hoặc +50% sức chứa
             magSize += Math.max(8, Math.round(w.magSize * 0.5));
         } else if (this.attachments.magazine === 'attach_quickdraw_mag') {
-            // Băng nạp nhanh: giảm 30% thời gian thay đạn
-            reloadTime *= 0.70;
+            reloadTime *= 0.65;
         }
 
-        // 4. Phụ kiện Tay cầm / Báng súng (Grip / Stock)
+        // 4. Phụ kiện Tay cầm (Grip)
         if (this.attachments.grip === 'attach_grip_tactical') {
-            // Tay cầm dã chiến: giảm 30% rung lắc khi vừa chạy vừa bắn, hồi tâm +35%
             runSpreadFactor -= 0.30;
             spreadRecoveryBonus += 0.35;
-        } else if (this.attachments.grip === 'attach_stock_heavy') {
-            // Báng súng đầm: giảm giật 20%, hồi tâm +20%
+        }
+
+        // 5. Phụ kiện Báng súng (Stock)
+        if (this.attachments.stock === 'attach_stock_heavy') {
             recoilFactor -= 0.20;
             spreadRecoveryBonus += 0.20;
+        } else if (this.attachments.stock === 'attach_stock_tactical') {
+            recoilFactor -= 0.15;
+            spreadRecoveryBonus += 0.25;
         }
 
         return {

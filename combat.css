@@ -54,434 +54,373 @@
 .search-meter-fill { height:100%; width:0%; background:linear-gradient(90deg,#ff9e42,#ffd06b); transition:width .05s linear; }
 .search-warning { font-size:8px; font-weight:800; color:#ff9a90; letter-spacing:0.5px; }
 
-/* ==========================================================
-   SMART 3-PANEL EXTRACTION INVENTORY & WEAPON MODDING [PHÍM B]
-   ========================================================== */
 /* ==========================================================================
-   GIAO DIỆN BALO & HÒM ĐỒ FROSTED GLASS MỜ TRONG SUỐT (ESCAPE FROM DUCKOV STYLE)
+   GIAO DIỆN BALO, HÒM ĐỒ & ĐỘ SÚNG KÍNH TRONG SUỐT (PUBG GLASSMORPHISM STYLE)
    ========================================================================== */
-.duckov-inventory-overlay {
+.pubg-glass-overlay {
   position:fixed; inset:0;
   background:transparent;
   z-index:220;
-  pointer-events:none; /* Để xuyên thấu chuột xuống 3D canvas ở vùng trống giữa màn hình */
+  pointer-events:none;
   font-family:'Nunito','Segoe UI',system-ui,sans-serif;
   user-select:none;
+  display:flex; flex-direction:column;
+  padding:12px 20px;
 }
 
-/* 1. TOP NAVIGATION BAR (Thanh biểu tượng viên thuốc ở đỉnh màn hình) */
-.duckov-top-bar {
-  position:absolute; top:12px; left:50%; transform:translateX(-50%);
-  display:flex; align-items:center; gap:12px;
-  pointer-events:auto; z-index:10;
-}
-
-.duckov-nav-pill {
-  background:rgba(18, 24, 38, 0.65);
+/* 1. TOP BAR KÍNH MỜ */
+.pubg-top-bar {
+  background:rgba(12, 18, 30, 0.65);
   backdrop-filter:blur(18px) saturate(180%);
   -webkit-backdrop-filter:blur(18px) saturate(180%);
   border:1px solid rgba(255, 255, 255, 0.14);
-  border-radius:30px;
-  padding:4px 8px;
-  display:flex; align-items:center; gap:6px;
+  border-radius:12px;
+  padding:8px 18px;
+  display:flex; align-items:center; justify-content:space-between;
+  pointer-events:auto;
   box-shadow:0 8px 24px rgba(0, 0, 0, 0.4);
 }
-
-.nav-tab-btn {
-  width:34px; height:34px; border-radius:50%;
-  background:transparent; border:none;
-  display:flex; align-items:center; justify-content:center;
-  color:#94a3b8; cursor:pointer;
-  transition:all .15s ease;
+.pubg-top-left { display:flex; align-items:baseline; gap:12px; }
+.pubg-main-title { font-size:13px; font-weight:1000; letter-spacing:1px; color:#38bdf8; text-transform:uppercase; text-shadow:0 0 10px rgba(56,189,248,0.5); }
+.pubg-sub-guide { font-size:10px; font-weight:700; color:#94a3b8; }
+.pubg-top-right { display:flex; align-items:center; gap:14px; }
+.pubg-weight-badge {
+  background:rgba(255, 255, 255, 0.08);
+  border:1px solid rgba(255, 255, 255, 0.12);
+  border-radius:20px; padding:4px 12px;
+  display:flex; align-items:center; gap:6px;
+  font-size:11px; font-weight:900; color:#f8fafc;
 }
-.nav-tab-btn svg { width:18px; height:18px; }
-.nav-tab-btn:hover { color:#fff; background:rgba(255,255,255,0.1); transform:scale(1.08); }
-.nav-tab-btn.active {
-  background:#38bdf8; color:#0f172a;
-  box-shadow:0 0 12px rgba(56, 189, 248, 0.6);
-}
-
-.duckov-weight-badge {
-  background:rgba(18, 24, 38, 0.65);
-  backdrop-filter:blur(18px);
-  -webkit-backdrop-filter:blur(18px);
-  border:1px solid rgba(255, 255, 255, 0.14);
-  border-radius:20px;
-  padding:6px 14px;
-  font-size:11px; font-weight:800; color:#e2e8f0;
-  box-shadow:0 8px 20px rgba(0,0,0,0.35);
-}
-
-.duckov-close-btn {
-  width:32px; height:32px; border-radius:50%;
-  background:rgba(239, 68, 68, 0.75);
-  backdrop-filter:blur(8px);
+.pubg-weight-badge .weight-label { color:#94a3b8; font-size:9.5px; }
+.pubg-close-btn {
+  width:30px; height:30px; border-radius:50%;
+  background:rgba(239, 68, 68, 0.85);
   border:1px solid rgba(255, 255, 255, 0.2);
   color:#fff; font-size:14px; font-weight:1000;
   cursor:pointer; display:flex; align-items:center; justify-content:center;
   transition:all .15s ease;
 }
-.duckov-close-btn:hover {
-  background:#dc2626; transform:scale(1.1);
-  box-shadow:0 0 12px rgba(220, 38, 38, 0.6);
-}
+.pubg-close-btn:hover { background:#dc2626; transform:scale(1.1); box-shadow:0 0 12px rgba(220,38,38,0.7); }
 
-/* 2. CỘT TRÁI: LEFT DOCK PANEL (Equipment + Backpack) */
-.duckov-left-dock {
-  position:absolute; top:54px; left:18px; bottom:18px;
-  width:380px; max-width:calc(50vw - 36px);
-  display:flex; flex-direction:column; gap:10px;
-  pointer-events:auto; z-index:5;
-  overflow-y:auto; overflow-x:hidden;
-}
-.duckov-left-dock::-webkit-scrollbar { width:4px; }
-.duckov-left-dock::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); border-radius:4px; }
-
-.dock-header-row {
-  display:flex; justify-content:space-between; align-items:center;
-  padding:2px 4px;
-}
-.dock-currency-pill {
-  background:rgba(18, 24, 38, 0.7);
-  backdrop-filter:blur(14px);
-  border:1px solid rgba(255, 255, 255, 0.12);
-  border-radius:18px; padding:4px 12px;
-  display:flex; align-items:center; gap:6px;
-  color:#f1f5f9; font-size:12px; font-weight:1000;
-}
-.currency-symbol { color:#fbbf24; font-size:14px; font-weight:1000; }
-.dock-char-name {
-  font-size:11px; font-weight:900; color:#38bdf8;
-  letter-spacing:0.5px; text-transform:uppercase;
-  background:rgba(56, 189, 248, 0.12); border:1px solid rgba(56, 189, 248, 0.25);
-  border-radius:12px; padding:3px 10px;
-}
-
-.duckov-section-card {
-  background:rgba(16, 22, 34, 0.62);
-  backdrop-filter:blur(22px) saturate(180%);
-  -webkit-backdrop-filter:blur(22px) saturate(180%);
-  border:1px solid rgba(255, 255, 255, 0.12);
-  border-radius:14px;
-  padding:10px 12px;
-  display:flex; flex-direction:column; gap:8px;
-  box-shadow:0 12px 36px rgba(0, 0, 0, 0.45);
-}
-
-.section-title-row {
-  display:flex; justify-content:space-between; align-items:center;
-  border-bottom:1px solid rgba(255, 255, 255, 0.08);
-  padding-bottom:5px;
-}
-.section-title { font-size:12px; font-weight:1000; color:#f8fafc; letter-spacing:0.3px; }
-.section-sub { font-size:9px; font-weight:700; color:#94a3b8; }
-.title-with-pill { display:flex; align-items:center; gap:8px; }
-.duck-count-pill { font-size:10px; font-weight:900; color:#38bdf8; }
-
-.duck-sort-btn {
-  background:rgba(56, 189, 248, 0.2);
-  border:1px solid rgba(56, 189, 248, 0.4);
-  color:#f8fafc; font-size:10px; font-weight:1000;
-  border-radius:14px; padding:3px 12px;
-  cursor:pointer; transition:all .15s ease;
-}
-.duck-sort-btn:hover {
-  background:#38bdf8; color:#0f172a;
-  box-shadow:0 0 10px rgba(56, 189, 248, 0.5);
-}
-
-/* Equipment Grid trong Cột Trái (5 Cột x 2 Hàng) */
-.equipment-duckov-grid {
+/* 2. LAYOUT 3 CỘT KÍNH TRONG SUỐT (3-COLUMN DOCK) */
+.pubg-glass-grid {
   display:grid;
-  grid-template-columns:repeat(5, 1fr);
-  gap:6px;
+  grid-template-columns:310px 1fr 340px;
+  gap:16px;
+  flex:1;
+  margin:10px 0 6px 0;
+  max-height:calc(100vh - 135px);
+  pointer-events:none;
 }
 
-.equip-duck-slot {
-  aspect-ratio:1;
-  background:rgba(28, 38, 54, 0.48);
-  border:1px solid rgba(255, 255, 255, 0.09);
-  border-radius:7px;
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  position:relative; cursor:pointer;
-  transition:all .12s ease;
-  padding:4px;
-}
-.equip-duck-slot:hover {
-  border-color:#38bdf8; background:rgba(56, 189, 248, 0.15);
-  box-shadow:0 0 10px rgba(56, 189, 248, 0.3);
-  transform:translateY(-1px);
-}
-.equip-duck-slot.attach-socket {
-  border-style:dashed; border-color:rgba(255, 255, 255, 0.14);
-}
-.equip-duck-slot.socket-filled {
-  border-style:solid; border-color:#38bdf8;
-  background:rgba(56, 189, 248, 0.18);
-  box-shadow:0 0 10px rgba(56, 189, 248, 0.25);
-}
-.slot-duck-thumb {
-  width:32px; height:32px; display:flex; align-items:center; justify-content:center;
-}
-.slot-duck-thumb img {
-  max-width:100%; max-height:100%; object-fit:contain;
-  filter:drop-shadow(0 2px 4px rgba(0,0,0,0.6));
-}
-.duck-icon-txt { font-size:10px; font-weight:1000; color:#38bdf8; }
-.duck-socket-empty { font-size:8px; font-weight:800; color:#64748b; }
-.slot-duck-label {
-  font-size:7.5px; font-weight:800; color:#94a3b8;
-  text-align:center; max-width:92%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  margin-top:2px;
-}
-
-/* Lưới Balo (Backpack Grid: 5 Cột x 6 Hàng = 30 Ô) */
-.backpack-section { flex:1; display:flex; flex-direction:column; }
-.duckov-backpack-grid {
-  display:grid;
-  grid-template-columns:repeat(5, 1fr);
-  gap:6px;
-  margin-top:4px;
-}
-
-.inv-slot {
-  aspect-ratio:1; min-height:48px;
-  border:1px solid rgba(255, 255, 255, 0.09);
-  border-radius:7px;
-  background:rgba(28, 38, 54, 0.48);
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  position:relative; cursor:pointer;
-  transition:all .12s ease;
-  user-select:none;
-}
-.inv-slot:hover {
-  border-color:#38bdf8; background:rgba(56, 189, 248, 0.15);
-  box-shadow:0 0 10px rgba(56, 189, 248, 0.3);
-  transform:translateY(-1px);
-}
-.inv-slot.empty {
-  cursor:default; opacity:0.35; border-style:dashed;
-}
-.inv-slot.empty:hover {
-  transform:none; border-color:rgba(255,255,255,0.09); background:rgba(28,38,54,0.48);
-}
-.inv-slot.slot-selected {
-  border-color:#fbbf24; box-shadow:0 0 12px rgba(251, 191, 36, 0.6);
-}
-
-.slot-unrevealed {
-  background:rgba(15, 23, 42, 0.7); border-color:rgba(255,255,255,0.06);
-  color:#64748b; font-size:16px; font-weight:1000;
-}
-.slot-unrevealed:hover {
-  border-color:#38bdf8; color:#38bdf8;
-}
-
-.slot-item-thumb { width:30px; height:30px; display:flex; align-items:center; justify-content:center; }
-.slot-item-img { max-width:100%; max-height:100%; object-fit:contain; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
-.slot-item-icon { font-size:12px; font-weight:1000; line-height:1; }
-.slot-item-name {
-  font-size:7px; font-weight:800; text-align:center;
-  max-width:92%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  margin-top:1px; color:#f1f5f9;
-}
-.slot-item-count {
-  position:absolute; bottom:2px; right:4px;
-  font-size:8px; font-weight:1000; color:#fff; text-shadow:0 1px 2px #000;
-}
-
-/* Thanh Trọng Lượng Weight */
-.duckov-weight-bar-row {
-  display:flex; align-items:center; gap:8px;
-  margin-top:auto; padding-top:6px;
-  border-top:1px solid rgba(255, 255, 255, 0.08);
-}
-.weight-label { font-size:9px; font-weight:900; color:#94a3b8; }
-.weight-track {
-  flex:1; height:6px; background:rgba(15, 23, 42, 0.8);
-  border:1px solid rgba(255, 255, 255, 0.08); border-radius:4px; overflow:hidden;
-}
-.weight-fill {
-  height:100%; background:linear-gradient(90deg, #38bdf8, #818cf8);
-  border-radius:3px; transition:width .2s ease;
-}
-#duckov-weight-text { font-size:9.5px; font-weight:900; color:#f8fafc; font-variant-numeric:tabular-nums; }
-
-/* 3. CỘT PHẢI: RIGHT DOCK PANEL (Loot Panel khi mở hòm HOẶC Modding Workbench) */
-.duckov-right-dock {
-  position:absolute; top:54px; right:18px;
-  width:380px; max-width:calc(50vw - 36px);
-  display:flex; flex-direction:column; gap:10px;
-  pointer-events:auto; z-index:5;
-}
-
-/* Loot Card nổi bên phải y hệt Escape from Duckov */
-.duckov-loot-card {
-  background:rgba(16, 22, 34, 0.62);
-  backdrop-filter:blur(22px) saturate(180%);
-  -webkit-backdrop-filter:blur(22px) saturate(180%);
-  border:1px solid rgba(255, 255, 255, 0.12);
-  border-radius:14px; padding:12px;
-  display:flex; flex-direction:column; gap:10px;
-  box-shadow:0 12px 36px rgba(0, 0, 0, 0.45);
-}
-
-.loot-card-header {
-  display:flex; justify-content:space-between; align-items:center;
-  border-bottom:1px solid rgba(255, 255, 255, 0.08);
-  padding-bottom:8px;
-}
-.loot-title-group { display:flex; align-items:baseline; gap:8px; }
-.loot-heading { margin:0; font-size:16px; font-weight:1000; color:#f8fafc; }
-.loot-count-badge { font-size:11px; font-weight:800; color:#94a3b8; }
-
-.duck-loot-all-btn {
-  background:linear-gradient(135deg, rgba(245, 158, 11, 0.85), rgba(217, 119, 6, 0.95));
-  border:1px solid rgba(251, 191, 36, 0.4);
-  color:#fff; font-size:10px; font-weight:1000;
-  border-radius:8px; padding:5px 12px;
-  cursor:pointer; display:flex; align-items:center; gap:6px;
-  transition:all .15s ease;
-}
-.duck-loot-all-btn kbd {
-  background:rgba(0,0,0,0.3); padding:1px 4px; border-radius:3px; font-size:8.5px;
-}
-.duck-loot-all-btn:hover {
-  background:#f59e0b; box-shadow:0 0 12px rgba(245, 158, 11, 0.6);
-  transform:scale(1.02);
-}
-
-.duckov-container-grid {
-  display:grid; grid-template-columns:repeat(5, 1fr); gap:6px;
-}
-.loot-card-hint {
-  font-size:8.5px; font-weight:700; color:#94a3b8; text-align:center;
-}
-
-/* Modding Card bên phải khi không mở hòm đồ */
-.duckov-modding-card {
-  background:rgba(16, 22, 34, 0.62);
-  backdrop-filter:blur(22px) saturate(180%);
-  -webkit-backdrop-filter:blur(22px) saturate(180%);
-  border:1px solid rgba(255, 255, 255, 0.12);
-  border-radius:14px; padding:12px;
-  display:flex; flex-direction:column; gap:10px;
-  box-shadow:0 12px 36px rgba(0, 0, 0, 0.45);
-}
-.modding-card-header {
-  display:flex; justify-content:space-between; align-items:center;
-  border-bottom:1px solid rgba(255, 255, 255, 0.08); padding-bottom:6px;
-}
-.mod-title-box { display:flex; flex-direction:column; }
-.mod-heading { margin:0; font-size:12px; font-weight:1000; color:#38bdf8; }
-.mod-title-box small { font-size:8.5px; color:#94a3b8; }
-.mod-quick-tabs { display:flex; gap:6px; }
-.mod-tab-btn {
-  background:rgba(30, 41, 59, 0.6); border:1px solid rgba(255, 255, 255, 0.1);
-  color:#94a3b8; font-size:9.5px; font-weight:800; border-radius:6px; padding:3px 8px;
-  cursor:pointer;
-}
-.mod-tab-btn.active { background:#38bdf8; color:#0f172a; border-color:#38bdf8; }
-
-.duckov-weapon-blueprint {
-  min-height:120px;
-  background:radial-gradient(ellipse at center, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.9) 100%);
-  border:1px solid rgba(255, 255, 255, 0.1); border-radius:10px;
-  display:flex; align-items:center; justify-content:center;
-  position:relative; overflow:hidden;
-}
-.duckov-weapon-blueprint img {
-  max-width:180px; max-height:85px; object-fit:contain;
-  filter:drop-shadow(0 6px 12px rgba(0,0,0,0.8));
-  transition:transform .2s ease;
-}
-.duckov-weapon-blueprint:hover img { transform:scale(1.05); }
-.blueprint-tech-grid {
-  position:absolute; inset:0;
-  background-image:linear-gradient(rgba(56,189,248,0.06) 1px, transparent 1px),
-                   linear-gradient(90deg, rgba(56,189,248,0.06) 1px, transparent 1px);
-  background-size:14px 14px; pointer-events:none;
-}
-
-/* Stat bars bên trong Modding Card */
-.duckov-stat-bars { display:flex; flex-direction:column; gap:6px; }
-.d-stat-row { display:flex; flex-direction:column; gap:2px; }
-.d-stat-lbl { display:flex; justify-content:space-between; font-size:9.5px; font-weight:900; color:#cbd5e1; }
-.d-stat-lbl strong { color:#fff; }
-.d-stat-track { height:6px; background:rgba(15, 23, 42, 0.8); border:1px solid rgba(255, 255, 255, 0.08); border-radius:3px; overflow:hidden; }
-.d-stat-fill { height:100%; border-radius:3px; transition:width .2s ease; }
-.fill-orange { background:linear-gradient(90deg,#f97316,#fb923c); }
-.fill-cyan { background:linear-gradient(90deg,#06b6d4,#38bdf8); }
-.fill-gold { background:linear-gradient(90deg,#eab308,#fde047); }
-.fill-green { background:linear-gradient(90deg,#10b981,#34d399); }
-
-/* 4. BOTTOM QUICK HOTBAR: Dải phím tắt dưới đáy màn hình */
-.duckov-bottom-hotbar {
-  position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
-  background:rgba(16, 22, 34, 0.65);
+.pubg-col {
+  background:rgba(14, 20, 32, 0.62);
   backdrop-filter:blur(20px) saturate(180%);
   -webkit-backdrop-filter:blur(20px) saturate(180%);
-  border:1px solid rgba(255, 255, 255, 0.12);
-  border-radius:12px; padding:6px 14px;
-  display:flex; flex-direction:column; align-items:center; gap:4px;
-  pointer-events:auto; z-index:8;
-  box-shadow:0 12px 32px rgba(0, 0, 0, 0.45);
+  border:1px solid rgba(255, 255, 255, 0.14);
+  border-radius:12px;
+  pointer-events:auto;
+  display:flex; flex-direction:column;
+  box-shadow:0 16px 36px rgba(0, 0, 0, 0.45);
+  overflow:hidden;
 }
-.hotbar-instruction { font-size:8.5px; font-weight:700; color:#94a3b8; }
+
+/* Card Headers */
+.pubg-card-header {
+  padding:10px 14px;
+  background:rgba(255, 255, 255, 0.04);
+  border-bottom:1px solid rgba(255, 255, 255, 0.08);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.header-tag-box { display:flex; align-items:center; gap:8px; }
+.pubg-title-text { font-size:12px; font-weight:1000; color:#f8fafc; letter-spacing:0.5px; }
+.pubg-badge-count { font-size:11px; font-weight:800; color:#38bdf8; }
+.pubg-weight-counter { font-size:11px; font-weight:900; color:#fbbf24; }
+.header-action-box { display:flex; align-items:center; gap:8px; }
+
+.pubg-lootall-btn {
+  background:linear-gradient(135deg, #0284c7, #0369a1);
+  border:1px solid #38bdf8; border-radius:6px;
+  color:#fff; padding:4px 10px; font-size:10px; font-weight:900;
+  display:flex; align-items:center; gap:6px; cursor:pointer;
+  transition:all .15s ease;
+}
+.pubg-lootall-btn:hover { background:#0284c7; transform:scale(1.04); box-shadow:0 0 10px rgba(56,189,248,0.5); }
+.pubg-lootall-btn kbd { background:rgba(0,0,0,0.3); padding:1px 4px; border-radius:3px; font-size:8.5px; }
+
+.pubg-btn-sm {
+  background:rgba(255, 255, 255, 0.08);
+  border:1px solid rgba(255, 255, 255, 0.15);
+  border-radius:6px; color:#cbd5e1; padding:4px 8px;
+  font-size:10px; font-weight:800; cursor:pointer;
+  transition:all .12s ease;
+}
+.pubg-btn-sm:hover { background:rgba(255,255,255,0.15); color:#fff; }
+
+.pubg-trash-icon {
+  width:28px; height:28px; border-radius:6px;
+  background:rgba(239, 68, 68, 0.2);
+  border:1px solid rgba(239, 68, 68, 0.4);
+  color:#f87171; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:all .15s ease;
+}
+.pubg-trash-icon svg { width:15px; height:15px; }
+.pubg-trash-icon:hover, .pubg-trash-icon.drag-over {
+  background:rgba(239, 68, 68, 0.5); color:#fff; transform:scale(1.08);
+  box-shadow:0 0 10px rgba(239,68,68,0.6);
+}
+
+/* Danh sách cuộn vật phẩm dạng thẻ ngang */
+.pubg-items-scrollable {
+  flex:1; overflow-y:auto; overflow-x:hidden;
+  padding:8px; display:flex; flex-direction:column; gap:6px;
+}
+.pubg-items-scrollable::-webkit-scrollbar { width:4px; }
+.pubg-items-scrollable::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); border-radius:4px; }
+
+/* 3. THẺ ITEM NẰM NGANG (CHUẨN PUBG MOBILE) */
+.pubg-item-row {
+  display:flex; align-items:center; gap:8px;
+  border-radius:8px; padding:6px 8px;
+  cursor:pointer; position:relative;
+  transition:all .15s ease;
+  min-height:48px;
+}
+.pubg-item-row:hover { transform:translateX(2px); }
+
+/* Thẻ Vàng (Gold Card) - cho đạn, y tế, phụ kiện đặc biệt */
+.pubg-item-row.card-gold {
+  background:linear-gradient(90deg, rgba(234, 179, 8, 0.88) 0%, rgba(202, 138, 4, 0.68) 100%);
+  border:1px solid rgba(254, 240, 138, 0.7);
+  box-shadow:0 2px 8px rgba(202, 138, 4, 0.25);
+  color:#0f172a;
+}
+.pubg-item-row.card-gold .row-title { color:#0f172a; font-weight:1000; }
+.pubg-item-row.card-gold .row-desc { color:#334155; font-weight:800; }
+.pubg-item-row.card-gold .row-qty { color:#0f172a; font-weight:1000; text-shadow:0 1px 2px rgba(255,255,255,0.4); }
+
+/* Thẻ Bạc Xám (Silver Card) - cho súng, linh kiện, đồ thường */
+.pubg-item-row.card-silver {
+  background:rgba(30, 41, 59, 0.65);
+  border:1px solid rgba(255, 255, 255, 0.12);
+  color:#f8fafc;
+}
+.pubg-item-row.card-silver:hover {
+  background:rgba(45, 60, 85, 0.8);
+  border-color:#38bdf8;
+  box-shadow:0 0 10px rgba(56, 189, 248, 0.35);
+}
+.pubg-item-row.card-silver .row-title { color:#f8fafc; font-weight:900; }
+.pubg-item-row.card-silver .row-desc { color:#94a3b8; font-weight:700; }
+.pubg-item-row.card-silver .row-qty { color:#fbbf24; font-weight:1000; }
+
+.row-thumb {
+  width:40px; height:38px; border-radius:5px;
+  background:rgba(0, 0, 0, 0.25);
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; overflow:hidden;
+}
+.row-thumb img { width:32px; height:32px; object-fit:contain; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
+.row-thumb .icon-txt { font-size:11px; font-weight:1000; }
+
+.row-body { flex:1; display:flex; flex-direction:column; gap:1px; overflow:hidden; }
+.row-title { font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.row-desc { font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.row-qty { font-size:13px; padding-right:4px; flex-shrink:0; }
+
+/* 4. CỘT GIỮA: VŨ KHÍ & MODDING TRỰC QUAN */
+.pubg-col-mid { padding:10px 14px; gap:10px; justify-content:space-between; }
+
+/* Dải 3 ô Giáp / Mũ / Balo trên đỉnh cột giữa */
+.pubg-armor-strip {
+  display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;
+}
+.pubg-gear-item {
+  background:rgba(20, 28, 44, 0.65);
+  border:1px solid rgba(255, 255, 255, 0.1);
+  border-radius:8px; padding:6px 10px;
+  display:flex; align-items:center; gap:8px;
+}
+.gear-thumb { width:32px; height:32px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.gear-thumb img { width:28px; height:28px; object-fit:contain; }
+.gear-detail { flex:1; display:flex; flex-direction:column; gap:2px; }
+.gear-label { font-size:9.5px; font-weight:900; color:#e2e8f0; }
+.gear-durability-track { height:4px; background:rgba(0,0,0,0.5); border-radius:2px; overflow:hidden; }
+.durability-fill { height:100%; border-radius:2px; }
+.durability-fill.fill-cyan { background:#06b6d4; }
+.durability-fill.fill-blue { background:#3b82f6; }
+.gear-hp, .gear-capacity { font-size:8.5px; font-weight:900; color:#94a3b8; }
+
+/* Khung Súng Chính Lớn & Sockets Định Vị Bao Quanh */
+.pubg-primary-gun-box {
+  background:rgba(18, 25, 40, 0.7);
+  border:1px solid rgba(56, 189, 248, 0.25);
+  border-radius:10px; padding:12px 14px;
+  display:flex; flex-direction:column; gap:8px;
+  position:relative;
+}
+.gun-header-meta { display:flex; justify-content:space-between; align-items:center; }
+.gun-title-txt { font-size:12.5px; font-weight:1000; color:#f8fafc; letter-spacing:0.5px; }
+.gun-ammo-stat { font-size:10px; font-weight:800; color:#fbbf24; }
+
+/* Khu vực độ súng: Súng nằm giữa, 5 ô socket định vị bao quanh */
+.gun-modding-stage {
+  position:relative; height:155px;
+  display:flex; align-items:center; justify-content:center;
+  background:radial-gradient(ellipse at center, rgba(56,189,248,0.08) 0%, transparent 70%);
+  border-radius:8px;
+}
+.gun-center-display { width:220px; height:110px; display:flex; align-items:center; justify-content:center; }
+.gun-center-display img { max-width:100%; max-height:100%; object-fit:contain; filter:drop-shadow(0 4px 12px rgba(0,0,0,0.7)); }
+
+/* Các ô socket phụ kiện */
+.gun-mod-slot {
+  position:absolute; width:48px; height:48px;
+  background:rgba(20, 28, 45, 0.75);
+  border:1px dashed rgba(255, 255, 255, 0.25);
+  border-radius:8px; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  transition:all .15s ease;
+}
+.gun-mod-slot:hover {
+  border-color:#38bdf8; background:rgba(56, 189, 248, 0.15);
+  box-shadow:0 0 12px rgba(56,189,248,0.5); transform:scale(1.05);
+}
+.gun-mod-slot.has-mod {
+  border-style:solid; border-color:#fbbf24;
+  background:rgba(234, 179, 8, 0.12);
+  box-shadow:0 0 8px rgba(234, 179, 8, 0.35);
+}
+.gun-mod-slot.drag-over,
+.gun-mod-slot.target-highlight {
+  border-style:solid !important;
+  border-color:#10b981 !important;
+  background:rgba(16, 185, 129, 0.35) !important;
+  box-shadow:0 0 18px #10b981, inset 0 0 10px rgba(16, 185, 129, 0.4) !important;
+  transform:scale(1.12) !important;
+  animation:slotPulse 0.8s infinite alternate !important;
+  z-index:10;
+}
+.gun-mod-slot.slot-flash {
+  animation:slotEquipFlash 0.5s ease-out;
+}
+@keyframes slotPulse {
+  0% { box-shadow:0 0 8px #10b981; }
+  100% { box-shadow:0 0 22px #34d399, inset 0 0 12px #10b981; }
+}
+@keyframes slotEquipFlash {
+  0% { transform:scale(1.25); box-shadow:0 0 30px #38bdf8, inset 0 0 20px #fff; border-color:#fff; }
+  100% { transform:scale(1.0); }
+}
+
+.pubg-primary-gun-box.gun-drag-active {
+  border-color:#38bdf8 !important;
+  box-shadow:0 0 25px rgba(56, 189, 248, 0.35), inset 0 0 15px rgba(56, 189, 248, 0.15) !important;
+  transition:all .2s ease;
+}
+
+/* Định vị 5 ô socket quanh súng */
+.slot-pos-optic { top:2px; left:50%; transform:translateX(-50%); }
+.slot-pos-muzzle { top:50%; left:12px; transform:translateY(-50%); }
+.slot-pos-stock { top:50%; right:12px; transform:translateY(-50%); }
+.slot-pos-grip { bottom:4px; left:28%; }
+.slot-pos-mag { bottom:4px; right:28%; }
+
+.slot-mod-inner { width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+.slot-mod-inner img { width:30px; height:30px; object-fit:contain; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
+.slot-placeholder-txt { font-size:8px; font-weight:800; color:#64748b; text-transform:uppercase; }
+.slot-tag-label {
+  position:absolute; bottom:-12px; font-size:7.5px; font-weight:900;
+  color:#94a3b8; letter-spacing:0.5px; white-space:nowrap;
+}
+
+/* 4 Thanh dynamic stats súng */
+.gun-dynamic-stats {
+  display:grid; grid-template-columns:1fr 1fr; gap:6px 12px;
+  background:rgba(10, 16, 26, 0.55); border-radius:6px; padding:6px 10px;
+}
+.pubg-stat-bar-item { display:flex; flex-direction:column; gap:2px; }
+.stat-hdr { display:flex; justify-content:space-between; font-size:8.5px; font-weight:900; color:#cbd5e1; }
+.stat-hdr strong { color:#fff; }
+.stat-track { height:4px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden; }
+.stat-fill { height:100%; border-radius:2px; transition:width .2s ease; }
+.stat-fill.fill-orange { background:#f97316; }
+.stat-fill.fill-cyan { background:#06b6d4; }
+.stat-fill.fill-gold { background:#eab308; }
+.stat-fill.fill-green { background:#10b981; }
+
+/* Khung súng phụ & cận chiến (Secondary & Melee) */
+.pubg-secondary-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.sec-gun-slot {
+  background:rgba(20, 28, 44, 0.65);
+  border:1px solid rgba(255, 255, 255, 0.1);
+  border-radius:8px; padding:6px 10px;
+  display:flex; align-items:center; gap:8px;
+}
+.sec-thumb { width:36px; height:34px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.sec-thumb img { width:32px; height:32px; object-fit:contain; }
+.sec-meta { display:flex; flex-direction:column; gap:1px; }
+.sec-meta strong { font-size:10px; color:#e2e8f0; }
+.sec-meta small { font-size:8.5px; color:#94a3b8; }
+
+/* 5. BOTTOM QUICK HOTBAR: Dải phím tắt 3 - 8 */
+.pubg-bottom-hotbar {
+  background:rgba(14, 20, 32, 0.65);
+  backdrop-filter:blur(20px);
+  border:1px solid rgba(255, 255, 255, 0.12);
+  border-radius:10px; padding:4px 14px;
+  align-self:center; display:flex; align-items:center; gap:8px;
+  pointer-events:auto; box-shadow:0 8px 24px rgba(0,0,0,0.45);
+}
 .hotbar-slots-row { display:flex; gap:6px; }
 .hotbar-slot {
-  width:44px; height:44px; border-radius:7px;
+  width:40px; height:40px; border-radius:6px;
   background:rgba(28, 38, 54, 0.55);
   border:1px solid rgba(255, 255, 255, 0.1);
   display:flex; flex-direction:column; align-items:center; justify-content:center;
-  position:relative; cursor:pointer;
-  transition:all .12s ease;
+  position:relative; cursor:pointer; transition:all .12s ease;
 }
-.hotbar-slot:hover {
-  border-color:#38bdf8; background:rgba(56, 189, 248, 0.15);
-  transform:translateY(-1px);
-}
+.hotbar-slot:hover { border-color:#38bdf8; background:rgba(56, 189, 248, 0.15); transform:translateY(-1px); }
 .hotbar-key {
-  position:absolute; bottom:2px; left:3px;
-  background:rgba(0,0,0,0.5); color:#e2e8f0;
-  font-size:7.5px; font-weight:900; padding:1px 3px; border-radius:3px;
+  position:absolute; bottom:1px; left:3px;
+  background:rgba(0,0,0,0.6); color:#e2e8f0;
+  font-size:7.5px; font-weight:900; padding:1px 3px; border-radius:2px;
 }
 .hotbar-content { width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
-.hotbar-content img { width:26px; height:26px; object-fit:contain; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
+.hotbar-content img { width:24px; height:24px; object-fit:contain; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
 
-/* 5. FLOATING TOOLTIP INSPECTOR */
-.duckov-inspect-card {
+/* 6. FLOATING TOOLTIP INSPECTOR */
+.pubg-inspect-card {
   position:fixed; pointer-events:none; z-index:300;
-  background:rgba(15, 23, 42, 0.92);
-  backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+  background:rgba(15, 23, 42, 0.94);
+  backdrop-filter:blur(16px);
   border:1px solid rgba(56, 189, 248, 0.4);
-  border-radius:10px; padding:10px 14px;
-  display:flex; flex-direction:column; gap:6px;
+  border-radius:8px; padding:8px 12px;
+  display:flex; flex-direction:column; gap:4px;
   box-shadow:0 12px 32px rgba(0, 0, 0, 0.7);
-  max-width:320px;
+  max-width:280px;
 }
-.inspect-main-info { display:flex; flex-direction:column; gap:2px; }
-.inspect-item-title { font-size:12px; font-weight:1000; color:#fbbf24; }
-.inspect-item-desc { font-size:9.5px; font-weight:700; color:#cbd5e1; line-height:1.3; }
-.inspect-item-comparison { display:flex; flex-wrap:wrap; gap:8px; }
+.inspect-title-txt { font-size:11.5px; font-weight:1000; color:#fbbf24; }
+.inspect-desc-txt { font-size:9.5px; font-weight:700; color:#cbd5e1; line-height:1.3; }
+.inspect-comp-area { display:flex; flex-wrap:wrap; gap:6px; }
 .comp-badge {
-  font-size:9px; font-weight:1000; padding:2px 6px; border-radius:4px;
-  display:flex; align-items:center; gap:3px;
+  font-size:8.5px; font-weight:1000; padding:1px 5px; border-radius:3px;
+  display:flex; align-items:center; gap:2px;
 }
 .comp-badge.better { background:rgba(16,185,129,0.25); color:#10b981; border:1px solid #10b98188; }
 .comp-badge.worse { background:rgba(239,68,68,0.25); color:#ef4444; border:1px solid #ef444488; }
 .comp-badge.neutral { background:rgba(148,163,184,0.2); color:#94a3b8; border:1px solid #94a3b866; }
 
 /* Drag & Drop Feedback */
-.inv-slot.dragging, .equip-duck-slot.dragging, .hotbar-slot.dragging { opacity:0.35; transform:scale(0.95); }
-.inv-slot.drag-over, .equip-duck-slot.drag-over, .hotbar-slot.drag-over {
+.pubg-item-row.dragging, .gun-mod-slot.dragging, .hotbar-slot.dragging { opacity:0.35; transform:scale(0.95); }
+.pubg-item-row.drag-over, .gun-mod-slot.drag-over, .hotbar-slot.drag-over {
   border-color:#38bdf8 !important; background:rgba(56, 189, 248, 0.3) !important;
   box-shadow:0 0 12px #38bdf8 !important;
 }
 
-@media(max-width:900px) {
-  .duckov-left-dock { width:320px; }
-  .duckov-right-dock { width:300px; }
+@media(max-width:960px) {
+  .pubg-glass-grid { grid-template-columns:260px 1fr 280px; gap:10px; }
+  .gun-center-display { width:160px; height:80px; }
 }
 
 
