@@ -74,6 +74,7 @@ export class PlayerController {
         this.mouseButtons = { left: false, right: false };
         this.inputEnabled = false;
         this.isBackpackOpen = false;
+        this.isOverweight = false; // Trạng thái quá tải balo (Overweight)
         this.stepTimer = 0;
 
         // 3D Model & Animation
@@ -437,6 +438,9 @@ export class PlayerController {
         }
         if (this.isBackpackOpen) {
             currentSpeed *= 0.65; // Vừa xem balo vừa bước đi cẩn thận quan sát
+        }
+        if (this.isOverweight) {
+            currentSpeed *= 0.65; // Phạt giảm tốc độ di chuyển khi balo vượt quá 450 KG
         }
 
         const moveDir = this.getMovementInput();
