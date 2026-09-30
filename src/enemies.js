@@ -395,7 +395,11 @@ export class Zombie {
         if (this.isDead) return;
         this.isDead = true;
         sounds.play('enemyDestroy', { volume: this.type === 'boss' ? 1.0 : 0.75 });
-        this.deactivate();
+        // Keep the pool slot reserved until WaveManager awards this kill.
+        // Releasing here skipped onEnemyKilled and could respawn the same object first.
+        if (this.mesh) this.mesh.visible = false;
+        if (this.stompRing) this.stompRing.visible = false;
+        this.healthBar?.update(this.position, 0, this.maxHealth, false);
     }
 
     disposeVisuals() {

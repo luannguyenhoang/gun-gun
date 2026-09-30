@@ -107,10 +107,10 @@ export const KNIFE_CONFIG = {
     modelFile: 'kenney-food/cooking-knife.glb',
     icon: 'assets/previews/kenney-food/cooking-knife.png',
     category: 'VŨ KHÍ CẬN CHIẾN',
-    damage: 56,
+    damage: 32,
     penPower: 2, // Dao găm sắc bén xuyên giáp cấp 2
     fireRate: 0.30,
-    range: 2.2,
+    range: 1.1,
     screenShake: 0.10,
     cursorKick: 1.2,
     baseSpreadDegHip: 0,
@@ -711,7 +711,7 @@ export class WeaponSystem {
             direction.normalize();
             this.fireCooldown = w.fireRate;
             sounds.play('enemyAttack', { volume: 0.5, rate: 1.45 });
-            this.particles?.createKnifeSlash?.(origin, direction, w.color);
+            this.particles?.createKnifeSlash?.(origin, direction, w.color, w.range);
 
             if (playerRef?.applyKickbackAndShake) playerRef.applyKickbackAndShake(w.cursorKick, w.screenShake);
 

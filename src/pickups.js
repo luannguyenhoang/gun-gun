@@ -13,12 +13,21 @@ export const DROP_TYPES = [
     { id: 'weapon', label: 'SÚNG HIẾM', color: 0xffaa22, weight: 0.04 }
 ];
 
+export const DROP_CHANCE = 0.25;
+export const DROP_PITY_KILLS = 5;
+export const AMMO_PITY_KILLS = 10;
+export const BUFF_PITY_KILLS = 20;
+const BUFF_TYPES = ['damage', 'rapid', 'multishot'];
+
 export class PickupManager {
     constructor(scene, particles) {
         this.scene = scene;
         this.particles = particles;
         this.pickups = [];
         this.nextId = 1;
+        this.killsWithoutDrop = 0;
+        this.killsWithoutAmmo = 0;
+        this.killsWithoutBuff = 0;
         this.airdropTimer = 16;
         this.geoBox = new THREE.BoxGeometry(0.4, 0.4, 0.4);
         this.geoOcta = new THREE.OctahedronGeometry(0.35);
@@ -28,13 +37,28 @@ export class PickupManager {
     }
 
     spawnDrop(position, enemyType = 'walker') {
-        if (Math.random() > 0.15) return null;
+        this.killsWithoutDrop++;
+        this.killsWithoutAmmo++;
+        this.killsWithoutBuff++;
+        let forcedType = null;
+        if (this.killsWithoutBuff >= BUFF_PITY_KILLS) {
+            forcedType = BUFF_TYPES[Math.floor(Math.random() * BUFF_TYPES.length)];
+            if (this.killsWithoutAmmo >= AMMO_PITY_KILLS) {
+                this.createPickup(position, 'ammo');
+                this.killsWithoutAmmo = 0;
+            }
+        } else if (this.killsWithoutAmmo >= AMMO_PITY_KILLS) forcedType = 'ammo';
+        if (!forcedType && enemyType !== 'boss' && this.killsWithoutDrop < DROP_PITY_KILLS && Math.random() >= DROP_CHANCE) return null;
         let roll = Math.random();
         const definition = DROP_TYPES.find(drop => {
             roll -= drop.weight;
             return roll < 0;
         }) || DROP_TYPES.at(-1);
-        return this.createPickup(position, definition.id);
+        const type = forcedType || definition.id;
+        this.killsWithoutDrop = 0;
+        if (type === 'ammo') this.killsWithoutAmmo = 0;
+        if (BUFF_TYPES.includes(type)) this.killsWithoutBuff = 0;
+        return this.createPickup(position, type);
     }
 
     createPickup(position, type, options = {}) {
@@ -208,5 +232,8 @@ export class PickupManager {
 
     clear() {
         while (this.pickups.length) this.remove(this.pickups.length - 1);
+        this.killsWithoutDrop = 0;
+        this.killsWithoutAmmo = 0;
+        this.killsWithoutBuff = 0;
     }
 }
