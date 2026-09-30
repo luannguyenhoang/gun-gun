@@ -1,11 +1,74 @@
 import * as THREE from 'three';
 import { sounds } from './audio.js';
 
+// Chuẩn hóa 5 Cấp bậc Độ hiếm (Rarity Tiers) áp dụng cho CẢ SÚNG VÀ PHỤ KIỆN
+export const RARITY_TIERS = {
+    1: { tier: 1, id: 'common', name: 'COMMON', label: 'Cấp 1 · Thường', color: '#94a3b8', hex: 0x94a3b8, dmgMod: 0.00, desc: 'Chỉ số gốc' },
+    2: { tier: 2, id: 'uncommon', name: 'UNCOMMON', label: 'Cấp 2 · Đặc biệt', color: '#22c55e', hex: 0x22c55e, dmgMod: 0.15, desc: '+15% Sát thương' },
+    3: { tier: 3, id: 'rare', name: 'RARE', label: 'Cấp 3 · Hiếm', color: '#3b82f6', hex: 0x3b82f6, dmgMod: 0.35, desc: '+35% Sát thương' },
+    4: { tier: 4, id: 'epic', name: 'EPIC', label: 'Cấp 4 · Sử thi', color: '#a855f7', hex: 0xa855f7, dmgMod: 0.60, desc: '+60% Sát thương' },
+    5: { tier: 5, id: 'legendary', name: 'LEGENDARY', label: 'Cấp 5 · Huyền thoại', color: '#f59e0b', hex: 0xf59e0b, dmgMod: 1.00, desc: '+100% Sát thương, Xuyên mục tiêu & Bắn nổ lan' }
+};
+
+// 4 Linh kiện Phụ kiện Nâng cấp Súng (Attachments Ecosystem theo 5 Tier)
+export const ATTACHMENT_DEFS = {
+    // 1. Nòng súng (Barrel): Tăng trực tiếp Flat Damage và tầm bắn hiệu dụng
+    barrel_t1: { id: 'barrel_t1', name: 'Nòng Cấp 1', slot: 'barrel', tier: 1, flatDmg: 5, rangeBonus: 1.1, desc: '+5 Sát thương trực tiếp' },
+    barrel_t2: { id: 'barrel_t2', name: 'Nòng Cấp 2', slot: 'barrel', tier: 2, flatDmg: 12, rangeBonus: 1.25, desc: '+12 Flat DMG, +15% Mod' },
+    barrel_t3: { id: 'barrel_t3', name: 'Nòng Cấp 3', slot: 'barrel', tier: 3, flatDmg: 22, rangeBonus: 1.45, desc: '+22 Flat DMG, +35% Mod' },
+    barrel_t4: { id: 'barrel_t4', name: 'Nòng Cấp 4', slot: 'barrel', tier: 4, flatDmg: 38, rangeBonus: 1.70, desc: '+38 Flat DMG, +60% Mod' },
+    barrel_t5: { id: 'barrel_t5', name: 'Nòng Cấp 5', slot: 'barrel', tier: 5, flatDmg: 65, rangeBonus: 2.10, desc: '+65 Flat DMG, +100% Mod, Đạn xé gió' },
+
+    // 2. Băng đạn (Magazine): Tăng dung lượng đạn và tốc độ nạp đạn (DPS duy trì)
+    magazine_t1: { id: 'magazine_t1', name: 'Băng Đạn Cấp 1', slot: 'magazine', tier: 1, magBonusPct: 0.25, reloadSpeedBonus: 0.15, desc: '+25% Dung lượng, nạp nhanh 15%' },
+    magazine_t2: { id: 'magazine_t2', name: 'Băng Đạn Cấp 2', slot: 'magazine', tier: 2, magBonusPct: 0.45, reloadSpeedBonus: 0.25, desc: '+45% Băng đạn, nạp nhanh 25%' },
+    magazine_t3: { id: 'magazine_t3', name: 'Băng Đạn Cấp 3', slot: 'magazine', tier: 3, magBonusPct: 0.75, reloadSpeedBonus: 0.40, desc: '+75% Băng đạn, nạp nhanh 40%' },
+    magazine_t4: { id: 'magazine_t4', name: 'Băng Đạn Cấp 4', slot: 'magazine', tier: 4, magBonusPct: 1.10, reloadSpeedBonus: 0.55, desc: '+110% Băng đạn, nạp đạn chớp mắt' },
+    magazine_t5: { id: 'magazine_t5', name: 'Băng Đạn Cấp 5', slot: 'magazine', tier: 5, magBonusPct: 1.60, reloadSpeedBonus: 0.75, desc: '+160% Băng đạn, nạp đạn siêu tốc' },
+
+    // 3. Kính ngắm (Optic): Tăng tỷ lệ bạo kích (Crit Chance) và sát thương bạo kích (Crit Damage)
+    optic_t1: { id: 'optic_t1', name: 'Kính Ngắm Cấp 1', slot: 'optic', tier: 1, critChance: 0.08, critDmgMod: 0.2, adsZoom: 1.25, desc: '+8% Crit, +0.2x Bạo kích' },
+    optic_t2: { id: 'optic_t2', name: 'Kính Ngắm Cấp 2', slot: 'optic', tier: 2, critChance: 0.15, critDmgMod: 0.4, adsZoom: 1.50, desc: '+15% Crit, +0.4x Bạo kích, zoom 1.5x' },
+    optic_t3: { id: 'optic_t3', name: 'Kính Ngắm Cấp 3', slot: 'optic', tier: 3, critChance: 0.25, critDmgMod: 0.7, adsZoom: 2.00, desc: '+25% Crit, +0.7x Bạo kích, zoom 2.0x' },
+    optic_t4: { id: 'optic_t4', name: 'Kính Ngắm Cấp 4', slot: 'optic', tier: 4, critChance: 0.38, critDmgMod: 1.1, adsZoom: 2.80, desc: '+38% Crit, +1.1x Bạo kích, zoom 2.8x' },
+    optic_t5: { id: 'optic_t5', name: 'Kính Ngắm Cấp 5', slot: 'optic', tier: 5, critChance: 0.55, critDmgMod: 1.8, adsZoom: 3.50, desc: '+55% Crit, +1.8x Bạo kích cực đại' },
+
+    // 4. Báng / Tay cầm (Grip): Giảm độ tản đạn, giảm độ giật để gom toàn bộ đạn vào 1 điểm
+    grip_t1: { id: 'grip_t1', name: 'Báng Tay Cầm Cấp 1', slot: 'grip', tier: 1, recoilReduction: 0.20, spreadReduction: 0.20, desc: '-20% Giật, -20% Tản đạn' },
+    grip_t2: { id: 'grip_t2', name: 'Báng Tay Cầm Cấp 2', slot: 'grip', tier: 2, recoilReduction: 0.35, spreadReduction: 0.35, desc: '-35% Giật, -35% Tản đạn' },
+    grip_t3: { id: 'grip_t3', name: 'Báng Tay Cầm Cấp 3', slot: 'grip', tier: 3, recoilReduction: 0.50, spreadReduction: 0.50, desc: '-50% Giật, -50% Gom đạn' },
+    grip_t4: { id: 'grip_t4', name: 'Báng Tay Cầm Cấp 4', slot: 'grip', tier: 4, recoilReduction: 0.65, spreadReduction: 0.65, desc: '-65% Giật, -65% Gom toàn bộ đạn' },
+    grip_t5: { id: 'grip_t5', name: 'Báng Tay Cầm Cấp 5', slot: 'grip', tier: 5, recoilReduction: 0.85, spreadReduction: 0.80, desc: '-85% Giật, đạn bay thẳng như laser' }
+};
+
+// Ánh xạ tương thích ngược với các ID phụ kiện cũ
+export const ATTACH_ALIAS = {
+    attach_compensator: 'barrel_t3',
+    attach_silencer: 'barrel_t4',
+    attach_flash_hider: 'barrel_t2',
+    attach_red_dot: 'optic_t1',
+    attach_scope_x2: 'optic_t2',
+    attach_scope_x4: 'optic_t3',
+    attach_scope_x6: 'optic_t4',
+    attach_scope_x8: 'optic_t5',
+    attach_ext_mag: 'magazine_t3',
+    attach_quickdraw_mag: 'magazine_t4',
+    attach_grip_tactical: 'grip_t3',
+    attach_stock_heavy: 'grip_t4',
+    attach_stock_tactical: 'grip_t2'
+};
+
+export function th_normalizeAttachment(id) {
+    if (!id) return null;
+    return ATTACH_ALIAS[id] || id;
+}
+
 export const WEAPON_CONFIGS = [
     {
         id: 'blaster',
         name: 'BLASTER-X',
         category: 'SÚNG CHÍNH',
+        tier: 1,
         modelFile: 'kenney-blaster/blaster-a.glb',
         icon: 'assets/previews/kenney-blaster/blaster-a.png',
         fireRate: 0.18,
@@ -35,6 +98,7 @@ export const WEAPON_CONFIGS = [
         id: 'repeater',
         name: 'REPEATER-9',
         category: 'SÚNG TỰ ĐỘNG',
+        tier: 1,
         modelFile: 'kenney-blaster/blaster-d.glb',
         icon: 'assets/previews/kenney-blaster/blaster-d.png',
         fireRate: 0.09,
@@ -64,6 +128,7 @@ export const WEAPON_CONFIGS = [
         id: 'scatter',
         name: 'SCATTER-V',
         category: 'SHOTGUN TÁN XẠ',
+        tier: 1,
         modelFile: 'kenney-blaster/blaster-g.glb',
         icon: 'assets/previews/kenney-blaster/blaster-g.png',
         fireRate: 0.55,
@@ -92,9 +157,9 @@ export const WEAPON_CONFIGS = [
 ];
 
 export const RARE_WEAPON_CONFIGS = [
-    { ...WEAPON_CONFIGS[0], id: 'plasma', name: 'PLASMA LANCE', modelFile: 'kenney-blaster/blaster-j.glb', icon: 'assets/previews/kenney-blaster/blaster-j.png', damage: 54, penPower: 3, fireRate: 0.15, magSize: 24, baseSpreadDegHip: 1.8, baseSpreadDegADS: 0.4, screenShake: 0.22, cursorKick: 3.8, color: 0x9966ff, isAuto: true, tier: 1 },
-    { ...WEAPON_CONFIGS[1], id: 'storm', name: 'STORM MK-II', modelFile: 'kenney-blaster/blaster-e.glb', icon: 'assets/previews/kenney-blaster/blaster-e.png', damage: 25, penPower: 2, fireRate: 0.065, magSize: 48, baseSpreadDegHip: 2.8, baseSpreadDegADS: 0.7, screenShake: 0.14, cursorKick: 2.4, color: 0x55ffcc, tier: 1 },
-    { ...WEAPON_CONFIGS[2], id: 'nova', name: 'NOVA SHOTGUN', modelFile: 'kenney-blaster/blaster-g.glb', icon: 'assets/previews/kenney-blaster/blaster-g.png', damage: 22, penPower: 3, pellets: 8, fireRate: 0.45, magSize: 12, baseSpreadDegHip: 7.5, baseSpreadDegADS: 3.5, screenShake: 0.45, cursorKick: 8.0, color: 0xff6633, tier: 1 }
+    { ...WEAPON_CONFIGS[0], id: 'plasma', name: 'PLASMA LANCE', modelFile: 'kenney-blaster/blaster-j.glb', icon: 'assets/previews/kenney-blaster/blaster-j.png', damage: 54, penPower: 3, fireRate: 0.15, magSize: 24, baseSpreadDegHip: 1.8, baseSpreadDegADS: 0.4, screenShake: 0.22, cursorKick: 3.8, color: 0x9966ff, isAuto: true, tier: 4 },
+    { ...WEAPON_CONFIGS[1], id: 'storm', name: 'STORM MK-II', modelFile: 'kenney-blaster/blaster-e.glb', icon: 'assets/previews/kenney-blaster/blaster-e.png', damage: 25, penPower: 2, fireRate: 0.065, magSize: 48, baseSpreadDegHip: 2.8, baseSpreadDegADS: 0.7, screenShake: 0.14, cursorKick: 2.4, color: 0x55ffcc, tier: 4 },
+    { ...WEAPON_CONFIGS[2], id: 'nova', name: 'NOVA SHOTGUN', modelFile: 'kenney-blaster/blaster-g.glb', icon: 'assets/previews/kenney-blaster/blaster-g.png', damage: 22, penPower: 3, pellets: 8, fireRate: 0.45, magSize: 12, baseSpreadDegHip: 7.5, baseSpreadDegADS: 3.5, screenShake: 0.45, cursorKick: 8.0, color: 0xff6633, tier: 5 }
 ];
 
 export function getStartingWeapon(id) {
@@ -320,19 +385,22 @@ export class WeaponSystem {
         const starter = getStartingWeapon(weaponId);
         this.startingWeaponId = starter.id;
         this.clear();
-        // 3 ô trang bị tối giản: [1] Súng chính, [2] Dao cận chiến, [3] Túi cứu thương (mất 5s sơ cứu)
+        // 3 ô trang bị: [0] Súng chính, [1] Súng phụ, [2] Dao cận chiến
+        this.secondaryWeapon = { ...WEAPON_CONFIGS[1], tier: 1 };
         this.weaponSlots = [
-            starter, // Selected primary weapon
-            KNIFE_CONFIG,      // 1: COMBAT KNIFE
-            MEDKIT_CONFIG      // 2: TÚI CỨU THƯƠNG
+            starter,               // 0: Súng chính
+            this.secondaryWeapon,  // 1: Súng phụ
+            KNIFE_CONFIG           // 2: Dao găm
         ];
         this.currentSlotIndex = 0;
         this.ammo = {
-            [starter.id]: starter.magSize
+            [starter.id]: starter.magSize,
+            [this.secondaryWeapon.id]: this.secondaryWeapon.magSize
         };
-        // Tăng số lượng băng đạn khởi đầu lên 6 băng đạn dự trữ (16 x 6 = 96 viên)
+        // Đạn dự trữ là vô hạn để người chơi tập trung 100% vào việc bắn và nâng cấp đồ
         this.reserve = {
-            [starter.id]: starter.magSize * 6
+            [starter.id]: Infinity,
+            [this.secondaryWeapon.id]: Infinity
         };
         this.inventory = {
             medkits: 3
@@ -343,22 +411,29 @@ export class WeaponSystem {
         this.medkitPlayerRef = null;
         this.currentCaliberIndex = 0;
         this.upgrades = { damage: 0, rapid: 0, multishot: 0 };
+
+        // 4 Linh kiện Phụ kiện Nâng cấp Súng (Attachments Ecosystem):
+        // 1. barrel (Nòng), 2. magazine (Băng đạn), 3. optic (Kính ngắm), 4. grip (Báng/Tay cầm)
         this.primaryAttachments = {
-            muzzle: null,
-            optic: null,
+            barrel: null,
             magazine: null,
+            optic: null,
             grip: null
         };
         this.secondaryAttachments = {
-            muzzle: null,
-            optic: null,
+            barrel: null,
             magazine: null,
+            optic: null,
             grip: null
         };
         this.attachments = this.primaryAttachments;
-        this.secondaryWeapon = WEAPON_CONFIGS[1];
-        this.ammo[this.secondaryWeapon.id] = this.secondaryWeapon.magSize;
-        this.reserve[this.secondaryWeapon.id] = this.secondaryWeapon.magSize * 4;
+
+        // Chế độ Overclock (Xả đạn tăng cường)
+        this.overclockTimer = 0;
+        this.overclockDuration = 6.0;
+        this.overclockCooldown = 0;
+        this.overclockMaxCooldown = 15.0;
+
         this.isReloading = false;
         this.reloadTimer = 0;
         this.fireCooldown = 0;
@@ -379,13 +454,29 @@ export class WeaponSystem {
     // Tự động tìm khẩu súng có slot phụ kiện tương ứng còn trống
     // Ưu tiên súng chính (Khẩu 1), nếu đã lắp thì kiểm tra tiếp súng phụ (Khẩu 2)
     findEmptyAttachmentSlot(slotType) {
-        if (!['muzzle', 'optic', 'magazine', 'grip'].includes(slotType)) return null;
-        if (!this.primaryAttachments[slotType]) return 0;
-        if (!this.secondaryAttachments[slotType]) return 1;
+        const normSlot = (slotType === 'muzzle' ? 'barrel' : (slotType === 'stock' ? 'grip' : slotType));
+        if (!['barrel', 'magazine', 'optic', 'grip'].includes(normSlot)) return null;
+        if (!this.primaryAttachments[normSlot]) return 0;
+        if (!this.secondaryAttachments[normSlot]) return 1;
         return null;
     }
 
-    // Tính toán chỉ số vũ khí hiệu dụng sau khi gắn phụ kiện (Real-time Weapon Stats)
+    // Kiểm tra xem phụ kiện mới có thể hoán đổi nâng cấp (Swap) vào súng không
+    th_canSwapAttachment(gunIndex, slotType, newTier) {
+        const normSlot = (slotType === 'muzzle' ? 'barrel' : (slotType === 'stock' ? 'grip' : slotType));
+        const attachMap = this.getAttachmentsForGun(gunIndex);
+        const currentAttachId = attachMap[normSlot];
+        if (!currentAttachId) return { canEquip: true, canUpgrade: false, currentTier: 0 };
+        const currentDef = ATTACHMENT_DEFS[th_normalizeAttachment(currentAttachId)];
+        const currentTier = currentDef ? currentDef.tier : 1;
+        if (newTier > currentTier) {
+            return { canEquip: true, canUpgrade: true, currentTier };
+        }
+        return { canEquip: false, canUpgrade: false, currentTier };
+    }
+
+    // Tính toán chỉ số vũ khí hiệu dụng theo Cấp bậc & Phụ kiện (Tier & Direct Damage Scaling)
+    // Công thức: FinalDamage = (WeaponBaseDamage * (1 + WeaponTierMod) + BarrelFlatDamage) * (1 + SumAttachmentDamageModifiers)
     getModifiedStats(weapon = null, gunIndex = null) {
         const w = weapon || this.getCurrentWeapon();
         const effectiveGunIdx = gunIndex !== null ? gunIndex : (w?.id === this.secondaryWeapon?.id ? 1 : 0);
@@ -405,107 +496,132 @@ export class WeaponSystem {
                 baseSpreadDegADS: w?.baseSpreadDegADS || 0.5,
                 adsZoom: 1.0,
                 soundRadius: 26.0,
-                attachments: { ...attachMap }
+                attachments: { ...attachMap },
+                extraCritChance: 0,
+                extraCritDmgMod: 0,
+                hasLegendary: false
             };
         }
 
-        // Giá trị cơ bản ban đầu
-        let damage = w.damage;
-        let magSize = w.magSize;
-        let reloadTime = w.reloadTime;
-        let recoilFactor = 1.0;
-        let spreadRecoveryBonus = 0;
-        let runSpreadFactor = 1.0;
-        let adsSpreadFactor = 1.0;
+        const weaponTier = w.tier || 1;
+        const weaponTierMod = RARITY_TIERS[weaponTier]?.dmgMod || 0;
+
+        let barrelFlat = 0;
+        let sumAttachMods = 0;
+        let magBonusPct = 0;
+        let reloadSpeedBonus = 0;
+        let extraCritChance = 0;
+        let extraCritDmgMod = 0;
+        let recoilReduction = 0;
+        let spreadReduction = 0;
         let adsZoom = 1.0;
-        let soundRadius = 26.0;
-        let turnPenalty = 0;
+        let hasLegendary = (weaponTier >= 5);
 
-        // 1. Phụ kiện Đầu nòng (Muzzle)
-        if (attachMap.muzzle === 'attach_compensator') {
-            recoilFactor -= 0.25;
-            spreadRecoveryBonus += 0.15;
-        } else if (attachMap.muzzle === 'attach_silencer') {
-            soundRadius *= 0.40;
-            recoilFactor -= 0.10;
-        } else if (attachMap.muzzle === 'attach_flash_hider') {
-            recoilFactor -= 0.12;
-            adsSpreadFactor -= 0.10;
+        for (const [slotKey, rawId] of Object.entries(attachMap)) {
+            if (!rawId) continue;
+            const attachId = th_normalizeAttachment(rawId);
+            const def = ATTACHMENT_DEFS[attachId];
+            if (!def) continue;
+
+            // Mỗi phụ kiện đóng góp modifier sát thương theo Tier (+15%, +35%, +60%, +100%)
+            sumAttachMods += (RARITY_TIERS[def.tier]?.dmgMod || 0);
+            if (def.tier >= 5) hasLegendary = true;
+
+            if (def.slot === 'barrel') {
+                barrelFlat += (def.flatDmg || 0);
+            } else if (def.slot === 'magazine') {
+                magBonusPct += (def.magBonusPct || 0);
+                reloadSpeedBonus += (def.reloadSpeedBonus || 0);
+            } else if (def.slot === 'optic') {
+                extraCritChance += (def.critChance || 0);
+                extraCritDmgMod += (def.critDmgMod || 0);
+                adsZoom = Math.max(adsZoom, def.adsZoom || 1.25);
+            } else if (def.slot === 'grip') {
+                recoilReduction += (def.recoilReduction || 0);
+                spreadReduction += (def.spreadReduction || 0);
+            }
         }
 
-        // 2. Phụ kiện Kính ngắm (Optic / Sight)
-        if (attachMap.optic === 'attach_red_dot') {
-            adsZoom = 1.35;
-            adsSpreadFactor -= 0.20;
-        } else if (attachMap.optic === 'attach_scope_x2') {
-            adsZoom = 2.0;
-            adsSpreadFactor -= 0.40;
-            turnPenalty = 0.15;
-        } else if (attachMap.optic === 'attach_scope_x4') {
-            adsZoom = 3.5;
-            adsSpreadFactor -= 0.60;
-            turnPenalty = 0.30;
-        } else if (attachMap.optic === 'attach_scope_x6') {
-            adsZoom = 4.5;
-            adsSpreadFactor -= 0.70;
-            turnPenalty = 0.35;
-        } else if (attachMap.optic === 'attach_scope_x8') {
-            adsZoom = 6.0;
-            adsSpreadFactor -= 0.80;
-            turnPenalty = 0.45;
-        }
+        // Tính FinalDamage theo đúng công thức cốt lõi
+        const finalBaseDamage = (w.damage * (1 + weaponTierMod) + barrelFlat);
+        const damage = Math.round(finalBaseDamage * (1 + sumAttachMods));
+        const magSize = Math.max(w.magSize, Math.round(w.magSize * (1 + magBonusPct)));
+        const reloadTime = Math.max(0.35, w.reloadTime * (1 - Math.min(0.75, reloadSpeedBonus)));
 
-        // 3. Phụ kiện Băng đạn (Magazine)
-        if (attachMap.magazine === 'attach_ext_mag') {
-            magSize += Math.max(8, Math.round(w.magSize * 0.5));
-        } else if (attachMap.magazine === 'attach_quickdraw_mag') {
-            reloadTime *= 0.65;
-        }
-
-        // 4. Phụ kiện Tay cầm (Grip)
-        if (attachMap.grip === 'attach_grip_tactical') {
-            runSpreadFactor -= 0.30;
-            spreadRecoveryBonus += 0.35;
-        }
+        const recoilFactor = Math.max(0.12, 1 - recoilReduction);
+        const spreadFactor = Math.max(0.15, 1 - spreadReduction);
 
         return {
             damage,
             magSize,
-            reloadTime: Math.max(0.45, reloadTime),
-            recoilPitch: w.recoilPitch * Math.max(0.3, recoilFactor),
-            cursorKick: w.cursorKick * Math.max(0.3, recoilFactor),
-            screenShake: w.screenShake * Math.max(0.3, recoilFactor),
-            spreadRecoveryRate: (w.spreadRecoveryRate || 20) * (1 + spreadRecoveryBonus),
-            moveSpreadPenalty: (w.moveSpreadPenalty || 2.5) * Math.max(0.3, runSpreadFactor),
-            baseSpreadDegHip: w.baseSpreadDegHip,
-            baseSpreadDegADS: (w.baseSpreadDegADS || 0.5) * Math.max(0.2, adsSpreadFactor),
+            reloadTime,
+            recoilPitch: w.recoilPitch * recoilFactor,
+            cursorKick: w.cursorKick * recoilFactor,
+            screenShake: w.screenShake * recoilFactor,
+            spreadRecoveryRate: (w.spreadRecoveryRate || 20) * (1 + spreadReduction * 0.8),
+            moveSpreadPenalty: (w.moveSpreadPenalty || 2.5) * spreadFactor,
+            baseSpreadDegHip: (w.baseSpreadDegHip || 2.0) * spreadFactor,
+            baseSpreadDegADS: (w.baseSpreadDegADS || 0.5) * spreadFactor,
             adsZoom,
-            soundRadius,
-            turnPenalty,
-            attachments: { ...attachMap }
+            soundRadius: 26.0,
+            turnPenalty: 0,
+            attachments: { ...attachMap },
+            extraCritChance,
+            extraCritDmgMod,
+            hasLegendary
         };
     }
 
     // Lắp phụ kiện vào ô chỉ định của khẩu súng chỉ định (0: Khẩu 1, 1: Khẩu 2)
     attachMod(slot, attachmentId, gunIndex = 0) {
-        if (!['muzzle', 'optic', 'magazine', 'grip'].includes(slot)) return null;
+        const normSlot = (slot === 'muzzle' ? 'barrel' : (slot === 'stock' ? 'grip' : slot));
+        if (!['barrel', 'magazine', 'optic', 'grip'].includes(normSlot)) return null;
         const targetMap = this.getAttachmentsForGun(gunIndex);
-        const previousId = targetMap[slot];
-        targetMap[slot] = attachmentId;
+        const previousId = targetMap[normSlot];
+        targetMap[normSlot] = th_normalizeAttachment(attachmentId);
         sounds.play('switchWeapon', { volume: 0.85, rate: 1.35 });
         return previousId;
     }
 
     // Tháo phụ kiện khỏi ô chỉ định của khẩu súng chỉ định
     detachMod(slot, gunIndex = 0) {
-        if (!['muzzle', 'optic', 'magazine', 'grip'].includes(slot)) return null;
+        const normSlot = (slot === 'muzzle' ? 'barrel' : (slot === 'stock' ? 'grip' : slot));
+        if (!['barrel', 'magazine', 'optic', 'grip'].includes(normSlot)) return null;
         const targetMap = this.getAttachmentsForGun(gunIndex);
-        const removed = targetMap[slot];
-        targetMap[slot] = null;
+        const removed = targetMap[normSlot];
+        targetMap[normSlot] = null;
         if (removed) {
             sounds.play('switchWeapon', { volume: 0.7, rate: 0.95 });
         }
         return removed;
+    }
+
+    // Kích hoạt chế độ Overclock (Xả đạn nhanh trong 6 giây)
+    th_activateOverclock() {
+        if (this.overclockCooldown > 0) return false;
+        this.overclockTimer = this.overclockDuration;
+        this.overclockCooldown = this.overclockMaxCooldown;
+        sounds.play('switchWeapon', { volume: 0.95, rate: 2.1 });
+        return true;
+    }
+
+    // Bơm máu nhanh cấp cứu (Quick Heal)
+    th_quickHeal(player) {
+        if (!player || player.isDead) return false;
+        if ((this.inventory.medkits || 0) <= 0) return false;
+        if (player.health >= player.maxHealth) return false;
+        this.inventory.medkits--;
+        player.heal(50);
+        player.painTimer = 0;
+        sounds.playMedkit();
+        this.particles?.createImpactSparks?.(player.position.clone().add(new THREE.Vector3(0, 1.0, 0)), new THREE.Vector3(0, 1, 0), 0x00ff88, 22);
+        return true;
+    }
+
+    // Đổi nhanh giữa Súng chính <-> Súng phụ
+    th_swapWeapons(player) {
+        const nextSlot = (this.currentSlotIndex === 0) ? 1 : 0;
+        this.switchWeapon(nextSlot, player);
     }
 
     getNetworkState() {
@@ -923,7 +1039,7 @@ export class WeaponSystem {
 
         const effective = this.getModifiedStats(w);
 
-        // Kiểm tra hết băng đạn
+        // Kiểm tra hết băng đạn -> Tự động nạp đạn (Đạn dự trữ là vô hạn)
         if (this.ammo[w.id] <= 0) {
             this.reload();
             return false;
@@ -932,33 +1048,35 @@ export class WeaponSystem {
         if (this.fireCooldown > 0) return false;
 
         this.ammo[w.id]--;
-        this.fireCooldown = w.fireRate / this.fireRateBoost;
-        this.recoilOffset = effective.recoilPitch;
+
+        // Xử lý chế độ Bắn Tăng Cường (Overclock): Tốc độ xả đạn cực nhanh, độ giật triệt tiêu
+        const isOverclockActive = this.overclockTimer > 0;
+        const speedFactor = isOverclockActive ? 0.55 : 1.0;
+        this.fireCooldown = (w.fireRate / this.fireRateBoost) * speedFactor;
+        this.recoilOffset = isOverclockActive ? (effective.recoilPitch * 0.2) : effective.recoilPitch;
 
         // Tăng nón tản đạn sau mỗi phát bắn (Recoil Spread có tính phụ kiện giảm giật)
-        const recoilSpread = (w.recoilSpreadPerShot || 0.8) * (effective.recoilPitch / Math.max(0.001, w.recoilPitch));
+        const recoilSpread = isOverclockActive ? 0.05 : ((w.recoilSpreadPerShot || 0.8) * (effective.recoilPitch / Math.max(0.001, w.recoilPitch)));
         this.currentSpreadDeg = Math.min(w.maxSpreadDeg, this.currentSpreadDeg + recoilSpread);
 
         // Phản lực con trỏ và rung màn hình (Cursor Kickback & Screen Shake)
-        if (playerRef?.applyKickbackAndShake) {
+        if (playerRef?.applyKickbackAndShake && !isOverclockActive) {
             playerRef.applyKickbackAndShake(effective.cursorKick, effective.screenShake);
         }
 
-        // Hiệu ứng âm thanh giảm thanh hoặc mặc định
-        const isSilenced = this.attachments.muzzle === 'attach_silencer';
-        if (isSilenced) {
-            sounds.play('switchWeapon', { volume: 0.45, rate: 1.8 });
+        // Hiệu ứng âm thanh bắn
+        if (isOverclockActive) {
+            sounds.playShot(w.id);
         } else {
             sounds.playShot(w.id);
         }
 
-        // Nếu không trang bị Loa che lửa Flash Hider thì phụt tia lửa nòng
-        if (this.attachments.muzzle !== 'attach_flash_hider') {
-            this.particles?.createMuzzleFlash?.(origin, new THREE.Vector3().subVectors(targetPoint, origin).normalize(), w.color);
-        }
+        // Phụt tia lửa nòng
+        const bulletColor = isOverclockActive ? 0xffdd00 : (effective.hasLegendary ? 0xf59e0b : w.color);
+        this.particles?.createMuzzleFlash?.(origin, new THREE.Vector3().subVectors(targetPoint, origin).normalize(), bulletColor);
 
         const beams = isPlayer ? this.beamCount : 1;
-        const spreadRad = THREE.MathUtils.degToRad(this.currentSpreadDeg);
+        const spreadRad = THREE.MathUtils.degToRad(isOverclockActive ? Math.min(this.currentSpreadDeg, 1.0) : this.currentSpreadDeg);
 
         for (let i = 0; i < w.pellets * beams; i++) {
             _tempAimDir.subVectors(targetPoint, origin).normalize();
@@ -975,9 +1093,12 @@ export class WeaponSystem {
             _tempAimDir.applyAxisAngle(_tempRotAxis, lane * 0.07);
 
             // Lấy mesh từ pool linh hoạt
-            const entry = this.getBulletMesh(w.color);
+            const entry = this.getBulletMesh(bulletColor);
             entry.mesh.position.copy(origin);
             entry.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), _tempAimDir);
+
+            // Đạn huyền thoại (Tier 5): Xuyên 3 mục tiêu + Bắn nổ lan
+            const pierceCount = effective.hasLegendary ? 3 : (w.penPower || 1);
 
             this.projectiles.push({
                 meshEntry: entry,
@@ -985,11 +1106,15 @@ export class WeaponSystem {
                 id: this.nextProjectileId++,
                 origin: origin.clone(),
                 direction: _tempAimDir.clone(),
-                speed: w.bulletSpeed,
-                damage: w.damage * damageMultiplier * (isPlayer ? this.damageBoost : 1),
-                penPower: w.penPower,
-                critMultiplier: w.critMultiplier,
-                color: w.color,
+                speed: w.bulletSpeed * (isOverclockActive ? 1.25 : 1.0),
+                damage: effective.damage * damageMultiplier * (isPlayer ? this.damageBoost : 1),
+                penPower: effective.hasLegendary ? Math.max(3, w.penPower) : w.penPower,
+                critMultiplier: (w.critMultiplier || 2.0) + (effective.extraCritDmgMod || 0),
+                critChance: 0.12 + (effective.extraCritChance || 0),
+                hasLegendary: !!effective.hasLegendary,
+                pierceCount: pierceCount,
+                hitEnemies: new Set(),
+                color: bulletColor,
                 life: 2.0,
                 isPlayer: true,
                 ownerId: 'player',
@@ -1042,6 +1167,14 @@ export class WeaponSystem {
             this.fireCooldown -= delta;
         }
 
+        // Cập nhật bộ đếm thời gian Overclock
+        if (this.overclockTimer > 0) {
+            this.overclockTimer -= delta;
+        }
+        if (this.overclockCooldown > 0) {
+            this.overclockCooldown -= delta;
+        }
+
         // Xử lý tiến trình sơ cứu Medkit 5 giây
         if (this.isUsingMedkit && this.medkitPlayerRef) {
             const p = this.medkitPlayerRef;
@@ -1091,9 +1224,10 @@ export class WeaponSystem {
             }
         }
 
-        // Also reload an empty gun after switching back or picking up reserve ammo.
-        if (!currentW.isKnife && !currentW.isUtility && !this.isReloading &&
-            this.ammo[currentW.id] <= 0 && this.reserve[currentW.id] > 0) this.reload();
+        // Tự động nạp đạn nếu súng hết đạn trong băng (đạn dự trữ là vô hạn)
+        if (!currentW.isKnife && !currentW.isUtility && !this.isReloading && (this.ammo[currentW.id] || 0) <= 0) {
+            this.reload();
+        }
 
         // Cập nhật tiến trình nạp đạn
         if (this.isReloading) {
@@ -1101,17 +1235,11 @@ export class WeaponSystem {
             if (this.reloadTimer <= 0) {
                 const w = this.getCurrentWeapon();
                 const effective = this.getModifiedStats(w);
-                const amount = Math.min(effective.magSize - (this.ammo[w.id] || 0), this.reserve[w.id] || 0);
-                this.ammo[w.id] = (this.ammo[w.id] || 0) + amount;
-                this.reserve[w.id] -= amount;
+                this.ammo[w.id] = effective.magSize;
+                this.reserve[w.id] = Infinity;
                 this.isReloading = false;
                 this.reloadTimer = 0;
                 sounds.playClearJam(); // Âm thanh lên đạn cơ khí giòn giã khi nạp xong
-            }
-        } else {
-            // Cơ chế tự động thay đạn: nếu súng hết đạn trong băng và còn đạn dự trữ mà chưa nạp đạn
-            if (!currentW.isKnife && !currentW.isUtility && (this.ammo[currentW.id] || 0) <= 0 && (this.reserve[currentW.id] || 0) > 0) {
-                this.reload();
             }
         }
 
@@ -1210,10 +1338,13 @@ export class WeaponSystem {
             // 2. Đạn người chơi va chạm quái
             if (p.isPlayer) {
                 for (const enemy of enemies) {
-                    if (enemy.isDead) continue;
+                    if (enemy.isDead || p.hitEnemies?.has(enemy)) continue;
                     const hitInfo = enemy.checkHit(startPos, _tempNextPos, _tempRay);
                     if (hitInfo.hit) {
-                        const isCrit = hitInfo.isCrit;
+                        p.hitEnemies?.add(enemy);
+
+                        // Tính tỷ lệ bạo kích theo Phụ kiện Kính ngắm (Optic Crit Chance)
+                        const isCrit = hitInfo.isCrit || (Math.random() < (p.critChance || 0.12));
                         const finalDamage = p.damage * (isCrit ? p.critMultiplier : 1.0);
 
                         // Gọi takeDamage kèm penPower
@@ -1223,12 +1354,29 @@ export class WeaponSystem {
                         const sparkColor = hitResult?.isPenetrated ? (isCrit ? 0xff2255 : p.color) : 0xffffff;
                         this.particles.createImpactSparks(hitInfo.point, p.direction.clone().negate(), sparkColor, isCrit ? 14 : 8);
 
+                        // Hiệu ứng Đồ Huyền Thoại (Tier 5): Bắn lan (Area of Effect Splash Damage)
+                        if (p.hasLegendary) {
+                            this.particles?.createExplosion?.(hitInfo.point, 0xf59e0b, 16);
+                            for (const other of enemies) {
+                                if (other !== enemy && !other.isDead && other.position.distanceTo(hitInfo.point) <= 3.2) {
+                                    other.takeDamage(finalDamage * 0.45, 1, false, other.position.clone().sub(hitInfo.point).normalize());
+                                }
+                            }
+                        }
+
                         sounds.playHitMarker(isCrit);
                         if (onHitCallback) onHitCallback(finalDamage, isCrit, hitInfo.point, hitResult);
 
-                        this.removeProjectile(i);
-                        hitFound = true;
-                        break;
+                        // Hiệu ứng Xuyên mục tiêu (Piercing)
+                        if (p.pierceCount > 1) {
+                            p.pierceCount--;
+                            p.damage *= 0.85; // Giảm nhẹ sát thương qua từng quái
+                            // Đạn vẫn tiếp tục bay
+                        } else {
+                            this.removeProjectile(i);
+                            hitFound = true;
+                            break;
+                        }
                     }
                 }
             } else {

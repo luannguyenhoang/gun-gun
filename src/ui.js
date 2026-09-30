@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { LOOT_ITEMS } from './looting.js?v=16';
-import { sounds } from './audio.js?v=16';
+import { LOOT_ITEMS, LOOT_TIERS } from './looting.js?v=22';
+import { sounds } from './audio.js?v=22';
+import { ATTACHMENT_DEFS } from './weapons.js?v=22';
 
 const _tempMateWorldPos = new THREE.Vector3();
 const _tempNdc = new THREE.Vector3();
@@ -1354,6 +1355,352 @@ export class UIManager {
     }
 
     // =========================================================================
+    // 2. GIAO DIỆN NHẶT ĐỒ HÒM PHONG CÁCH PUBG MINI (IN-WORLD CRATE UI)
+    // =========================================================================
+    th_initPUBGMiniCrateDOM() {
+        if (this._pubgMiniCrateInitialized) return;
+        this._pubgMiniCrateInitialized = true;
+        this.pubgMiniCrate = document.getElementById('pubg-mini-crate');
+        this.pubgCrateName = document.getElementById('pubg-crate-name');
+        this.pubgCrateItems = document.getElementById('pubg-crate-items');
+    }
+
+    showPUBGMiniCrate(container, lootingSystem) {
+        this.th_initPUBGMiniCrateDOM();
+        if (!this.pubgMiniCrate || !container) return;
+
+        if (this.pubgCrateName) {
+            this.pubgCrateName.textContent = (container.name || 'HÒM CHIẾN LỢI PHẨM').toUpperCase();
+        }
+
+        this.refreshPUBGMiniCrate(container, lootingSystem);
+        this.pubgMiniCrate.style.display = 'flex';
+    }
+
+    refreshPUBGMiniCrate(container, lootingSystem) {
+        this.th_initPUBGMiniCrateDOM();
+        if (!this.pubgCrateItems) return;
+
+        this.pubgCrateItems.innerHTML = '';
+        if (!container || !container.slots) return;
+
+        const validItems = [];
+        container.slots.forEach((slot, idx) => {
+            if (slot && slot.itemId) {
+                validItems.push({ ...slot, slotIndex: idx });
+            }
+        });
+
+        if (validItems.length === 0) {
+            const emptyEl = document.createElement('div');
+            emptyEl.className = 'pubg-crate-empty';
+            emptyEl.style.cssText = 'color:#64748b; font-size:11px; padding:12px; text-align:center; font-family:Rajdhani,sans-serif; letter-spacing:1px;';
+            emptyEl.textContent = 'HÒM ĐỒ ĐÃ ĐƯỢC VÉT SẠCH!';
+            this.pubgCrateItems.appendChild(emptyEl);
+            setTimeout(() => {
+                if (this._currentPUBGContainer === container && validItems.length === 0) {
+                    lootingSystem?.closeContainerUI();
+                }
+            }, 600);
+            return;
+        }
+
+        this._currentPUBGContainer = container;
+        const weapons = lootingSystem?.player?.weapons;
+        const currentGunIdx = weapons?.currentSlotIndex === 1 ? 1 : 0;
+        const currentGunAttach = weapons?.getAttachmentsForGun ? weapons.getAttachmentsForGun(currentGunIdx) : (weapons?.attachments || {});
+
+        validItems.forEach((item, index) => {
+            const def = (typeof LOOT_ITEMS !== 'undefined' && LOOT_ITEMS[item.itemId]) || {
+                name: item.itemId,
+                tier: 1,
+                category: 'misc',
+                statSummary: ''
+            };
+
+            const tier = def.tier || 1;
+            const tierColor = def.color || '#94a3b8';
+            const row = document.createElement('div');
+            row.className = `pubg-crate-row${index === 0 ? ' focused' : ''}`;
+            row.style.borderLeftColor = tierColor;
+
+            // Xác định nút hành động thông minh (Smart Action Badge - hoàn toàn typography, không icon)
+            let actionBadgeHtml = '';
+            if (def.category === 'medical' || item.itemId === 'medkit') {
+                actionBadgeHtml = `<span class="pubg-action-btn badge-med">[F] CẤP CỨU</span>`;
+            } else if (def.category === 'weapon') {
+                actionBadgeHtml = `<span class="pubg-action-btn badge-gun">[F] TRANG BỊ</span>`;
+            } else if (def.category === 'attachment') {
+                const attachSlot = def.slot;
+                const equippedModId = currentGunAttach[attachSlot];
+                if (!equippedModId) {
+                    actionBadgeHtml = `<span class="pubg-action-btn badge-equip">[F] LẮP NGAY</span>`;
+                } else {
+                    const equippedTier = (typeof ATTACHMENT_DEFS !== 'undefined' && ATTACHMENT_DEFS[equippedModId]?.tier) || 1;
+                    if (tier > equippedTier) {
+                        actionBadgeHtml = `<span class="pubg-action-btn badge-swap">[F] NÂNG CẤP</span>`;
+                    } else {
+                        actionBadgeHtml = `<span class="pubg-action-btn badge-locked">CẤP THẤP HƠN</span>`;
+                    }
+                }
+            } else {
+                actionBadgeHtml = `<span class="pubg-action-btn badge-equip">[F] NHẶT</span>`;
+            }
+
+            // Tóm tắt chỉ số cực kỳ ngắn gọn, chống tràn chữ
+            let statSummary = def.statSummary || '';
+            if (!statSummary || statSummary.length > 28) {
+                if (def.category === 'attachment') {
+                    if (def.flatDmg) statSummary = `+${def.flatDmg} FLAT DMG`;
+                    else if (def.slot === 'magazine') statSummary = `+BĂNG ĐẠN & NẠP NHANH`;
+                    else if (def.slot === 'optic') statSummary = `+BẠO KÍCH & SÁT THƯƠNG`;
+                    else if (def.slot === 'grip') statSummary = `-GIẬT & GOM ĐẠN`;
+                } else if (def.category === 'medical') {
+                    statSummary = `+50 HP CẤP CỨU`;
+                } else if (def.category === 'weapon') {
+                    statSummary = `SÚNG HIẾM CẤP ${tier}`;
+                }
+            }
+
+            row.innerHTML = `
+                <div class="pubg-item-left">
+                    <span class="pubg-tier-badge" style="background:${tierColor}25; color:${tierColor}; border:1px solid ${tierColor};">T${tier}</span>
+                    <div class="pubg-item-details">
+                        <span class="pubg-item-name" style="color:${tier >= 3 ? tierColor : '#ffffff'};">${def.name.toUpperCase()}</span>
+                        <span class="pubg-item-stat">${statSummary}</span>
+                    </div>
+                </div>
+                <div class="pubg-item-action">
+                    ${actionBadgeHtml}
+                </div>
+            `;
+
+            row.addEventListener('click', () => {
+                lootingSystem?.th_smartLootCrate(container, item.slotIndex);
+            });
+
+            this.pubgCrateItems.appendChild(row);
+        });
+    }
+
+    hidePUBGMiniCrate() {
+        if (this.pubgMiniCrate) {
+            this.pubgMiniCrate.style.display = 'none';
+        }
+        this._currentPUBGContainer = null;
+    }
+
+    // =========================================================================
+    // 3. BÁNH XE THAO TÁC NHANH TRONG SUỐT Ở GIỮA MÀN HÌNH (RADIAL MENU)
+    // =========================================================================
+    th_initRadialMenuDOM() {
+        if (this._radialMenuInitialized) return;
+        this._radialMenuInitialized = true;
+        this.radialOverlay = document.getElementById('radial-menu-overlay');
+        this.radialPointerLine = document.getElementById('radial-pointer-line');
+        this.radialGunImg = document.getElementById('radial-gun-img');
+        this.radialSectors = {
+            north: document.getElementById('radial-sector-north'),
+            east: document.getElementById('radial-sector-east'),
+            south: document.getElementById('radial-sector-south'),
+            west: document.getElementById('radial-sector-west')
+        };
+        this.radialSubs = {
+            north: document.getElementById('radial-sub-north'),
+            east: document.getElementById('radial-sub-east'),
+            south: document.getElementById('radial-sub-south'),
+            west: document.getElementById('radial-sub-west')
+        };
+        this._activeRadialSector = null;
+
+        // Cho phép nhấp chuột trực tiếp vào sector để kích hoạt (Click-to-Select trong Tap Mode)
+        Object.entries(this.radialSectors).forEach(([dir, el]) => {
+            el?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const player = window.game?.player;
+                const weapons = player?.weapons;
+                this.executeRadialAction(dir, player, weapons);
+            });
+        });
+
+        // Click ra ngoài vòng tròn để đóng menu
+        this.radialOverlay?.addEventListener('click', (e) => {
+            if (e.target === this.radialOverlay) {
+                this.closeRadialMenuOnly();
+            }
+        });
+    }
+
+    openRadialMenu(player, weapons) {
+        this.th_initRadialMenuDOM();
+        if (!this.radialOverlay) return;
+
+        // Cập nhật text trạng thái theo thời gian thực (Hoàn toàn typography, không icon)
+        if (this.radialSubs.north) {
+            const isADS = player?.isADS || player?.th_toggleADS;
+            this.radialSubs.north.innerHTML = isADS ? 'NGẮM<br>ĐANG BẬT' : 'NGẮM<br>PHẢN XẠ';
+        }
+
+        if (weapons) {
+            const currentIdx = weapons.currentSlotIndex === 1 ? 1 : 0;
+            const nextIdx = currentIdx === 0 ? 1 : 0;
+            const nextGun = weapons.weaponSlots ? weapons.weaponSlots[nextIdx] : null;
+
+            if (this.radialSubs.east) {
+                this.radialSubs.east.textContent = nextGun ? `ĐỔI SÚNG: ${nextGun.name.toUpperCase()}` : 'ĐỔI VŨ KHÍ';
+            }
+            if (this.radialGunImg) {
+                this.radialGunImg.src = nextGun?.image || 'assets/previews/kenney-blaster/blaster-a.png';
+            }
+        }
+
+        if (this.radialSubs.south && weapons) {
+            const medkits = weapons.inventory?.medkits || 0;
+            this.radialSubs.south.textContent = `CẤP CỨU: +50 HP (${medkits})`;
+        }
+
+        if (this.radialSubs.west && weapons) {
+            if (weapons.th_overclockActive) {
+                this.radialSubs.west.textContent = `ĐANG XẢ (${Math.ceil(weapons.th_overclockTimer)}S)`;
+            } else if (weapons.th_overclockCooldown > 0) {
+                this.radialSubs.west.textContent = `HỒI: ${Math.ceil(weapons.th_overclockCooldown)}S`;
+            } else {
+                this.radialSubs.west.textContent = 'XẢ ĐẠN 3S';
+            }
+        }
+
+        // Reset active highlight và tia laser
+        Object.values(this.radialSectors).forEach(sec => sec?.classList.remove('active'));
+        this._activeRadialSector = null;
+        if (this.radialPointerLine) {
+            this.radialPointerLine.style.width = '0px';
+        }
+
+        this.radialOverlay.style.display = 'flex';
+    }
+
+    updateRadialMenuPointer(screenX, screenY) {
+        if (!this.radialOverlay || this.radialOverlay.style.display === 'none') return;
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        const dx = screenX - centerX;
+        const dy = screenY - centerY;
+        const dist = Math.hypot(dx, dy);
+        const angleRad = Math.atan2(dy, dx);
+
+        // Cập nhật tia Laser chỉ hướng chuột thời gian thực
+        if (this.radialPointerLine) {
+            if (dist >= 16) {
+                const lineLen = Math.min(105, dist);
+                this.radialPointerLine.style.width = `${lineLen}px`;
+                this.radialPointerLine.style.transform = `rotate(${angleRad}rad)`;
+                this.radialPointerLine.style.opacity = '1';
+            } else {
+                this.radialPointerLine.style.width = '0px';
+                this.radialPointerLine.style.opacity = '0';
+            }
+        }
+
+        // Vùng tâm Deadzone 20px
+        if (dist < 20) {
+            if (this._activeRadialSector) {
+                Object.values(this.radialSectors).forEach(sec => sec?.classList.remove('active'));
+                this._activeRadialSector = null;
+            }
+            return;
+        }
+
+        // Tính góc deg (-180 đến 180)
+        const angleDeg = angleRad * 180 / Math.PI;
+
+        let selected = null;
+        if (angleDeg >= -135 && angleDeg < -45) {
+            selected = 'north'; // Hướng Bắc: Kính ngắm ADS (Phím 1)
+        } else if (angleDeg >= -45 && angleDeg < 45) {
+            selected = 'east';  // Hướng Đông: Đổi súng (Phím 2)
+        } else if (angleDeg >= 45 && angleDeg < 135) {
+            selected = 'south'; // Hướng Nam: Cấp cứu (Phím 3)
+        } else {
+            selected = 'west';  // Hướng Tây: Overclock xả đạn (Phím 4)
+        }
+
+        if (this._activeRadialSector !== selected) {
+            this._activeRadialSector = selected;
+            Object.entries(this.radialSectors).forEach(([dir, el]) => {
+                if (dir === selected) {
+                    el?.classList.add('active');
+                } else {
+                    el?.classList.remove('active');
+                }
+            });
+        }
+    }
+
+    closeRadialMenuOnly() {
+        if (this.radialOverlay) {
+            this.radialOverlay.style.display = 'none';
+        }
+        Object.values(this.radialSectors).forEach(sec => sec?.classList.remove('active'));
+        this._activeRadialSector = null;
+        if (this.radialPointerLine) {
+            this.radialPointerLine.style.width = '0px';
+        }
+        if (window.game?.player) {
+            window.game.player.th_isRadialMenuOpen = false;
+        }
+    }
+
+    executeRadialAction(actionOrDir, player, weapons) {
+        this.closeRadialMenuOnly();
+        if (!actionOrDir) return;
+
+        // Chuẩn hóa tên action từ hướng hoặc phím số 1-4
+        let action = actionOrDir;
+        if (action === '1' || action === 'north') action = 'ads';
+        else if (action === '2' || action === 'east') action = 'swap_gun';
+        else if (action === '3' || action === 'south') action = 'quick_heal';
+        else if (action === '4' || action === 'west') action = 'overclock';
+
+        switch (action) {
+            case 'ads':
+                // 1. Kính ngắm ADS
+                if (player) {
+                    player.th_toggleADS = !player.th_toggleADS;
+                    this.showPickupAlert(player.th_toggleADS ? 'KÍNH NGẮM ADS: BẬT' : 'KÍNH NGẮM ADS: TẮT');
+                }
+                break;
+            case 'swap_gun':
+                // 2. Đổi súng chính <-> phụ
+                if (weapons) {
+                    weapons.th_swapWeapons(this);
+                }
+                break;
+            case 'quick_heal':
+                // 3. Bơm máu nhanh cấp cứu
+                if (weapons && player) {
+                    weapons.th_quickHeal(player, this);
+                }
+                break;
+            case 'overclock':
+                // 4. Chế độ bắn tăng cường
+                if (weapons) {
+                    weapons.th_activateOverclock(this);
+                }
+                break;
+        }
+    }
+
+    closeAndExecuteRadialMenu(player, weapons) {
+        if (!this.radialOverlay || this.radialOverlay.style.display === 'none') return;
+        const chosen = this._activeRadialSector;
+        if (chosen) {
+            this.executeRadialAction(chosen, player, weapons);
+        } else {
+            this.closeRadialMenuOnly();
+        }
+    }
+
+    // =========================================================================
     // HỆ SINH THÁI GIAO DIỆN BALO TÚI ĐỒ [B] & ĐỘ SÚNG (SMART 3-PANEL INVENTORY)
     // =========================================================================
     // =========================================================================
@@ -1849,7 +2196,6 @@ export class UIManager {
         }
 
         // Render danh sách Balo dạng Compact List (Cao 48px) có áp dụng Tab Lọc
->>>>>>> 7f8568fd29d67c7ed5897c62d4dd9319a675af0b
         if (this.smartBackpackGrid) {
             this.smartBackpackGrid.innerHTML = '';
             let renderedCount = 0;

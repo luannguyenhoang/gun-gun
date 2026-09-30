@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../libs/loaders/GLTFLoader.js';
 import { sounds } from './audio.js';
+import { WEAPON_CONFIGS, RARE_WEAPON_CONFIGS, ATTACHMENT_DEFS } from './weapons.js';
 
 const _gltfLoader = new GLTFLoader();
 const _modelCache = new Map();
@@ -23,840 +24,547 @@ function getOrLoadModel(path, onLoad) {
 }
 
 // Danh mục vật phẩm chuẩn Hardcore Extraction Shooter
+// =========================================================================
+// HỆ THỐNG CẤP BẬC ĐỘ HIẾM & DANH MỤC VẬT PHẨM CHUẨN HÓA 5 TIER
+// Loại bỏ hoàn toàn hộp đạn, buff đạn lẻ. Chỉ tập trung vào Súng, Phụ kiện & Túi cứu thương
+// =========================================================================
+export const LOOT_TIERS = {
+    1: { tier: 1, name: 'COMMON', label: 'Cấp 1 · Thường', color: '#94a3b8', border: '#64748b' },
+    2: { tier: 2, name: 'UNCOMMON', label: 'Cấp 2 · Đặc biệt', color: '#22c55e', border: '#16a34a' },
+    3: { tier: 3, name: 'RARE', label: 'Cấp 3 · Hiếm', color: '#3b82f6', border: '#2563eb' },
+    4: { tier: 4, name: 'EPIC', label: 'Cấp 4 · Sử thi', color: '#a855f7', border: '#9333ea' },
+    5: { tier: 5, name: 'LEGENDARY', label: 'Cấp 5 · Huyền thoại', color: '#f59e0b', border: '#d97706' }
+};
+
 export const LOOT_ITEMS = {
-    // 1. Phụ kiện súng (Weapon Attachments / Mods)
-    // --- 1.1 Đầu nòng (Muzzle) ---
-    attach_compensator: {
-        id: 'attach_compensator',
-        name: 'Nòng Giảm Giật Compensator',
-        category: 'attachment',
-        slot: 'muzzle',
-        rarity: 'rare',
-        color: '#00d0ff',
-        icon: 'COMP',
-        iconImage: 'assets/previews/kenney-blaster/silencer-small.png',
-        description: 'Bộ tản khí đầu nòng: Giảm 25% độ giật súng, tăng 15% tốc độ co tâm hồi phục.',
-        value: 750,
-        stackMax: 1,
-        size: [1, 1],
-        effects: { recoil: -0.25, recovery: 0.15 }
+    // --- 1. VẬT PHẨM Y TẾ DUY NHẤT (FIRST AID KIT) ---
+    medkit: {
+        id: 'medkit',
+        name: 'Túi Cứu Thương PUBG',
+        category: 'medical',
+        tier: 2,
+        rarity: 'uncommon',
+        color: '#22c55e',
+        tag: 'MEDKIT',
+        description: 'Bấm [F] nhặt ngay, tự dồn vào số lượng máu dự trữ. Hồi 50 HP khẩn cấp.',
+        statSummary: '+50 Máu Cấp Cứu',
+        actionLabel: 'NHẶT CỨU THƯƠNG'
     },
-    attach_silencer: {
-        id: 'attach_silencer',
-        name: 'Ống Giảm Thanh Tactical Silencer',
+
+    // --- 2. LINH KIỆN NÒNG SÚNG (BARREL - Flat Damage & Range) ---
+    barrel_t1: {
+        id: 'barrel_t1',
+        name: 'Nòng Chuẩn Cấp 1',
         category: 'attachment',
-        slot: 'muzzle',
-        rarity: 'epic',
-        color: '#b026ff',
-        icon: 'SIL',
-        iconImage: 'assets/previews/kenney-blaster/silencer-larger.png',
-        description: 'Ống triệt âm đặc nhiệm: Giảm 60% bán kính tiếng ồn báo động zombie, giảm 10% độ giật.',
-        value: 1250,
-        stackMax: 1,
-        size: [1, 1],
-        effects: { soundRadius: -0.60, recoil: -0.10 }
-    },
-    attach_flash_hider: {
-        id: 'attach_flash_hider',
-        name: 'Loa Che Lửa Flash Hider',
-        category: 'attachment',
-        slot: 'muzzle',
+        slot: 'barrel',
+        tier: 1,
         rarity: 'common',
         color: '#94a3b8',
-        icon: 'FH',
-        iconImage: 'assets/previews/kenney-blaster/silencer-small.png',
-        description: 'Loa triệt tiêu ánh chớp đầu nòng: Triệt tiêu tia lửa khi bắn, giảm 12% độ giật, tăng 10% độ chụm ADS.',
-        value: 400,
-        stackMax: 1,
-        size: [1, 1],
-        effects: { recoil: -0.12, adsSpread: -0.10 }
+        tag: 'NÒNG T1',
+        description: 'Tăng trực tiếp +5 Flat Damage cho súng.',
+        statSummary: '+5 Flat Damage',
+        flatDmg: 5
     },
-
-    // --- 1.2 Kính ngắm (Optic / Sight) ---
-    attach_red_dot: {
-        id: 'attach_red_dot',
-        name: 'Kính Ngắm Phản Xạ Red Dot',
+    barrel_t2: {
+        id: 'barrel_t2',
+        name: 'Nòng Cường Lực Cấp 2',
         category: 'attachment',
-        slot: 'optic',
+        slot: 'barrel',
+        tier: 2,
+        rarity: 'uncommon',
+        color: '#22c55e',
+        tag: 'NÒNG T2',
+        description: 'Tăng +12 Flat Damage và +15% Damage modifier.',
+        statSummary: '+12 Flat DMG · +15% Mod',
+        flatDmg: 12
+    },
+    barrel_t3: {
+        id: 'barrel_t3',
+        name: 'Nòng Tác Chiến Cấp 3',
+        category: 'attachment',
+        slot: 'barrel',
+        tier: 3,
         rarity: 'rare',
-        color: '#00d0ff',
-        icon: 'RDS',
-        iconImage: 'assets/previews/kenney-blaster/scope-small.png',
-        description: 'Kính ngắm điểm đỏ chấm phản xạ: Tăng nhẹ tầm nhìn khi ngắm ADS (x1.35), giảm 20% góc tản đạn.',
-        value: 600,
-        stackMax: 1,
-        size: [1, 1],
-        effects: { adsZoom: 1.35, adsSpread: -0.20 }
+        color: '#3b82f6',
+        tag: 'NÒNG T3',
+        description: 'Tăng +22 Flat Damage và +35% Damage modifier.',
+        statSummary: '+22 Flat DMG · +35% Mod',
+        flatDmg: 22
     },
-    attach_scope_x2: {
-        id: 'attach_scope_x2',
-        name: 'Ống Ngắm Tác Chiến Scope x2',
+    barrel_t4: {
+        id: 'barrel_t4',
+        name: 'Nòng Siêu Cấp Cấp 4',
         category: 'attachment',
-        slot: 'optic',
+        slot: 'barrel',
+        tier: 4,
         rarity: 'epic',
-        color: '#b026ff',
-        icon: '2X',
-        iconImage: 'assets/previews/kenney-blaster/scope-large-a.png',
-        description: 'Ống ngắm quang học cự ly trung bình: Mở rộng tầm nhìn x2.0, giảm 40% góc tản đạn ADS, làm chậm 15% tốc độ xoay.',
-        value: 1100,
-        stackMax: 1,
-        size: [1, 1],
-        effects: { adsZoom: 2.0, adsSpread: -0.40, turnPenalty: -0.15 }
+        color: '#a855f7',
+        tag: 'NÒNG T4',
+        description: 'Tăng +38 Flat Damage và +60% Damage modifier.',
+        statSummary: '+38 Flat DMG · +60% Mod',
+        flatDmg: 38
     },
-    attach_scope_x4: {
-        id: 'attach_scope_x4',
-        name: 'Ống Ngắm Bắn Tỉa Scope x4',
+    barrel_t5: {
+        id: 'barrel_t5',
+        name: 'Nòng Thần Thoại Cấp 5',
         category: 'attachment',
-        slot: 'optic',
+        slot: 'barrel',
+        tier: 5,
         rarity: 'legendary',
-        color: '#ffaa00',
-        icon: '4X',
-        iconImage: 'assets/previews/kenney-blaster/scope-large-b.png',
-        description: 'Ống ngắm bắn tỉa tầm xa phóng đại x3.5: Giảm 60% tản đạn ngắm tĩnh, nhưng làm chậm 30% tốc độ xoay người.',
-        shortDesc: 'Độ phóng đại 4x tầm xa',
-        theme: 'silver',
-        value: 1900,
-        stackMax: 1,
-        size: [1, 1],
-        effects: { adsZoom: 3.5, adsSpread: -0.60, turnPenalty: -0.30 }
-    },
-    attach_scope_x6: {
-        id: 'attach_scope_x6',
-        name: 'Ống Ngắm 6x',
-        category: 'attachment',
-        slot: 'optic',
-        rarity: 'epic',
-        color: '#b026ff',
-        icon: '6X',
-        iconImage: 'assets/previews/kenney-blaster/scope-large-b.png',
-        description: 'Ống ngắm quang học phóng đại 6x cự ly xa.',
-        shortDesc: 'Độ phóng đại 6x cự ly xa',
-        theme: 'silver',
-        value: 2200,
-        stackMax: 1,
-        size: [1, 1],
-        effects: { adsZoom: 4.5, adsSpread: -0.70, turnPenalty: -0.35 }
-    },
-    attach_scope_x8: {
-        id: 'attach_scope_x8',
-        name: 'Ống Ngắm 8x',
-        category: 'attachment',
-        slot: 'optic',
-        rarity: 'legendary',
-        color: '#ffaa00',
-        icon: '8X',
-        iconImage: 'assets/previews/kenney-blaster/scope-large-b.png',
-        description: 'Ống ngắm bắn tỉa chuyên nghiệp phóng đại 8x tối đa.',
-        shortDesc: 'Độ phóng đại 8x tối đa',
-        theme: 'silver',
-        value: 3000,
-        stackMax: 1,
-        size: [1, 1],
-        effects: { adsZoom: 6.0, adsSpread: -0.80, turnPenalty: -0.45 }
+        color: '#f59e0b',
+        tag: 'NÒNG T5',
+        description: 'Tăng +65 Flat Damage, +100% Mod, đạn bay xé gió.',
+        statSummary: '+65 Flat DMG · +100% Mod',
+        flatDmg: 65
     },
 
-    // --- 1.3 Băng đạn (Magazine) ---
-    attach_ext_mag: {
-        id: 'attach_ext_mag',
-        name: 'Băng Đạn Mở Rộng Extended Mag',
+    // --- 3. LINH KIỆN BĂNG ĐẠN (MAGAZINE - Mag Size & Reload Speed) ---
+    magazine_t1: {
+        id: 'magazine_t1',
+        name: 'Băng Đạn Cấp 1',
         category: 'attachment',
         slot: 'magazine',
-        rarity: 'rare',
-        color: '#00d0ff',
-        icon: 'EXT',
-        iconImage: 'assets/previews/kenney-blaster/clip-large.png',
-        description: 'Hộp tiếp đạn mở rộng sức chứa: Tăng +50% sức chứa băng đạn (tăng từ 16 lên 24-30 viên).',
-        shortDesc: '+50% Sức chứa băng đạn',
-        theme: 'silver',
-        value: 850,
-        stackMax: 1,
-        size: [1, 1],
-        effects: { magBonus: 14 }
+        tier: 1,
+        rarity: 'common',
+        color: '#94a3b8',
+        tag: 'BĂNG ĐẠN T1',
+        description: 'Tăng +25% sức chứa băng đạn, nạp đạn nhanh hơn 15%.',
+        statSummary: '+25% Băng đạn · Nạp +15%',
+        magBonusPct: 0.25
     },
-    attach_quickdraw_mag: {
-        id: 'attach_quickdraw_mag',
-        name: 'Băng Nạp Nhanh Quickdraw Mag',
+    magazine_t2: {
+        id: 'magazine_t2',
+        name: 'Băng Đạn Mở Rộng Cấp 2',
         category: 'attachment',
         slot: 'magazine',
+        tier: 2,
+        rarity: 'uncommon',
+        color: '#22c55e',
+        tag: 'BĂNG ĐẠN T2',
+        description: 'Tăng +45% sức chứa băng đạn, nạp đạn nhanh hơn 25%, +15% Damage.',
+        statSummary: '+45% Băng đạn · Nạp +25% · +15% DMG',
+        magBonusPct: 0.45
+    },
+    magazine_t3: {
+        id: 'magazine_t3',
+        name: 'Băng Đạn Siêu Cấp Cấp 3',
+        category: 'attachment',
+        slot: 'magazine',
+        tier: 3,
+        rarity: 'rare',
+        color: '#3b82f6',
+        tag: 'BĂNG ĐẠN T3',
+        description: 'Tăng +75% sức chứa băng đạn, nạp đạn nhanh hơn 40%, +35% Damage.',
+        statSummary: '+75% Băng đạn · Nạp +40% · +35% DMG',
+        magBonusPct: 0.75
+    },
+    magazine_t4: {
+        id: 'magazine_t4',
+        name: 'Băng Đạn Trống Kép Cấp 4',
+        category: 'attachment',
+        slot: 'magazine',
+        tier: 4,
         rarity: 'epic',
-        color: '#eab308',
-        icon: 'QDM',
-        iconImage: 'assets/previews/kenney-blaster/clip-small.png',
-        description: 'Băng đạn kẹp trợ lực nạp siêu tốc: Giảm 35% thời gian nạp đạn cho súng.',
-        shortDesc: '+ Tốc độ nạp đạn (Reloading speed)',
-        theme: 'gold',
-        value: 950,
-        stackMax: 1,
-        size: [1, 1],
-        effects: { reloadTime: -0.35 }
+        color: '#a855f7',
+        tag: 'BĂNG ĐẠN T4',
+        description: '+110% Băng đạn, nạp đạn chớp mắt, +60% Damage.',
+        statSummary: '+110% Băng đạn · Nạp chớp mắt · +60% DMG',
+        magBonusPct: 1.10
+    },
+    magazine_t5: {
+        id: 'magazine_t5',
+        name: 'Băng Đạn Vô Tận Cấp 5',
+        category: 'attachment',
+        slot: 'magazine',
+        tier: 5,
+        rarity: 'legendary',
+        color: '#f59e0b',
+        tag: 'BĂNG ĐẠN T5',
+        description: '+160% Băng đạn, nạp đạn siêu tốc, +100% Damage.',
+        statSummary: '+160% Băng đạn · Nạp siêu tốc · +100% DMG',
+        magBonusPct: 1.60
     },
 
-    // --- 1.4 Tay cầm / Báng súng (Grip / Stock) ---
-    attach_grip_tactical: {
-        id: 'attach_grip_tactical',
-        name: 'Tay Cầm Tác Chiến Tactical Grip',
+    // --- 4. LINH KIỆN KÍNH NGẮM (OPTIC - Crit Chance & Crit Damage) ---
+    optic_t1: {
+        id: 'optic_t1',
+        name: 'Kính Ngắm Cấp 1',
+        category: 'attachment',
+        slot: 'optic',
+        tier: 1,
+        rarity: 'common',
+        color: '#94a3b8',
+        tag: 'KÍNH NGẮM T1',
+        description: 'Kính Red Dot: +8% Crit, +0.2x Sát thương bạo kích.',
+        statSummary: '+8% Crit · +0.2x Crit DMG',
+        critChance: 0.08
+    },
+    optic_t2: {
+        id: 'optic_t2',
+        name: 'Kính Ngắm Cấp 2',
+        category: 'attachment',
+        slot: 'optic',
+        tier: 2,
+        rarity: 'uncommon',
+        color: '#22c55e',
+        tag: 'KÍNH NGẮM T2',
+        description: 'Kính Holo: +15% Crit, +0.4x Crit DMG, +15% Damage.',
+        statSummary: '+15% Crit · +0.4x Crit DMG · +15% DMG',
+        critChance: 0.15
+    },
+    optic_t3: {
+        id: 'optic_t3',
+        name: 'Kính Ngắm Cấp 3',
+        category: 'attachment',
+        slot: 'optic',
+        tier: 3,
+        rarity: 'rare',
+        color: '#3b82f6',
+        tag: 'KÍNH NGẮM T3',
+        description: 'Ống ngắm Scope 2x: +25% Crit, +0.7x Crit DMG, +35% Damage.',
+        statSummary: '+25% Crit · +0.7x Crit DMG · +35% DMG',
+        critChance: 0.25
+    },
+    optic_t4: {
+        id: 'optic_t4',
+        name: 'Kính Ngắm Cấp 4',
+        category: 'attachment',
+        slot: 'optic',
+        tier: 4,
+        rarity: 'epic',
+        color: '#a855f7',
+        tag: 'KÍNH NGẮM T4',
+        description: 'Ống ngắm Scope 4x: +38% Crit, +1.1x Crit DMG, +60% Damage.',
+        statSummary: '+38% Crit · +1.1x Crit DMG · +60% DMG',
+        critChance: 0.38
+    },
+    optic_t5: {
+        id: 'optic_t5',
+        name: 'Kính Ngắm Cấp 5',
+        category: 'attachment',
+        slot: 'optic',
+        tier: 5,
+        rarity: 'legendary',
+        color: '#f59e0b',
+        tag: 'KÍNH NGẮM T5',
+        description: 'Kính Thần Ưng: +55% Crit, +1.8x Bạo kích cực đại, +100% Damage.',
+        statSummary: '+55% Crit · +1.8x Bạo kích · +100% DMG',
+        critChance: 0.55
+    },
+
+    // --- 5. LINH KIỆN BÁNG / TAY CẦM (GRIP - Recoil & Spread Reduction) ---
+    grip_t1: {
+        id: 'grip_t1',
+        name: 'Báng Tay Cầm Cấp 1',
         category: 'attachment',
         slot: 'grip',
-        rarity: 'rare',
-        color: '#00d0ff',
-        icon: 'GRP',
-        iconImage: 'assets/previews/kenney-blaster/blaster-a.png',
-        description: 'Tay cầm dọc dã chiến: Tăng 35% tốc độ co tâm, giảm 30% độ tản đạn khi vừa chạy vừa bắn.',
-        shortDesc: '+35% Tốc độ co tâm, giảm rung',
-        theme: 'silver',
-        value: 700,
-        stackMax: 1,
-        size: [1, 1],
-        effects: { recovery: 0.35, runSpread: -0.30 }
+        tier: 1,
+        rarity: 'common',
+        color: '#94a3b8',
+        tag: 'TAY CẦM T1',
+        description: 'Tay cầm dọc: Giảm 20% độ giật, giảm 20% góc tản đạn.',
+        statSummary: '-20% Giật · -20% Tản đạn'
     },
-    attach_stock_heavy: {
-        id: 'attach_stock_heavy',
-        name: 'Báng Súng Hấp Thụ Giật Heavy Stock',
+    grip_t2: {
+        id: 'grip_t2',
+        name: 'Báng Tay Cầm Cấp 2',
         category: 'attachment',
-        slot: 'stock',
-        rarity: 'epic',
-        color: '#b026ff',
-        icon: 'STK',
-        iconImage: 'assets/previews/kenney-blaster/blaster-d.png',
-        description: 'Báng tỳ đầm chắc cao cấp: Giảm 20% độ giật súng, tăng 20% tốc độ ổn định đường ngắm.',
-        shortDesc: 'Giảm 20% độ giật súng',
-        theme: 'silver',
-        value: 1050,
-        stackMax: 1,
-        size: [1, 1],
-        effects: { recoil: -0.20, recovery: 0.20 }
+        slot: 'grip',
+        tier: 2,
+        rarity: 'uncommon',
+        color: '#22c55e',
+        tag: 'TAY CẦM T2',
+        description: 'Báng hợp kim: Giảm 35% độ giật, giảm 35% tản đạn, +15% Damage.',
+        statSummary: '-35% Giật · Gom đạn · +15% DMG'
     },
-    attach_stock_tactical: {
-        id: 'attach_stock_tactical',
-        name: 'Báng Chiến Thuật Tactical Stock',
+    grip_t3: {
+        id: 'grip_t3',
+        name: 'Báng Tay Cầm Cấp 3',
         category: 'attachment',
-        slot: 'stock',
+        slot: 'grip',
+        tier: 3,
         rarity: 'rare',
-        color: '#00d0ff',
-        icon: 'TCK',
-        iconImage: 'assets/previews/kenney-blaster/blaster-c.png',
-        description: 'Báng súng hợp kim nhẹ: Tăng độ ổn định và giảm giật khi bắn liên thanh.',
-        shortDesc: 'Tăng ổn định khi xả đạn',
-        theme: 'silver',
-        value: 800,
-        stackMax: 1,
-        size: [1, 1],
-        effects: { recoil: -0.15, recovery: 0.25 }
+        color: '#3b82f6',
+        tag: 'TAY CẦM T3',
+        description: 'Báng giảm giật cao cấp: Giảm 50% độ giật, gom 50% chùm đạn, +35% Damage.',
+        statSummary: '-50% Giật · Gom đạn · +35% DMG'
     },
-
-    // 2. Đạn dược chuyên dụng (Ammunition)
-    ammo_12gauge: {
-        id: 'ammo_12gauge',
-        name: '12 Gauge Ammo',
-        category: 'ammo',
-        rarity: 'rare',
-        color: '#eab308',
-        icon: '12G',
-        iconImage: 'assets/previews/kenney-blaster/clip-small.png',
-        description: 'Hộp đạn ghém 12 Gauge tiêu chuẩn dùng cho mọi loại súng Shotgun dã chiến.',
-        shortDesc: 'Cho súng Shotgun (For Shotguns)',
-        theme: 'gold',
-        value: 350,
-        stackMax: 10,
-        size: [1, 1],
-        effect: { type: 'add_ammo', packs: 3 }
-    },
-    ammo_556: {
-        id: 'ammo_556',
-        name: 'Đạn 5.56mm',
-        category: 'ammo',
-        rarity: 'rare',
-        color: '#94a3b8',
-        icon: '5.56',
-        iconImage: 'assets/previews/kenney-blaster/bullet-foam-tip.png',
-        description: 'Hộp đạn 5.56mm sơ tốc cao dùng cho súng trường tiến công tầm trung và xa.',
-        shortDesc: 'Dùng cho súng 5.56mm (AR)',
-        theme: 'silver',
-        value: 380,
-        stackMax: 10,
-        size: [1, 1],
-        effect: { type: 'add_ammo', packs: 4 }
-    },
-    ammo_762: {
-        id: 'ammo_762',
-        name: 'Đạn 7.62mm',
-        category: 'ammo',
-        rarity: 'rare',
-        color: '#94a3b8',
-        icon: '7.62',
-        iconImage: 'assets/previews/kenney-blaster/bullet-foam-tip-thick.png',
-        description: 'Đạn 7.62mm uy lực xuyên phá cao chuyên dùng cho súng AKM và Blaster-X.',
-        shortDesc: 'Dùng cho súng 7.62mm / AKM',
-        theme: 'silver',
-        value: 400,
-        stackMax: 10,
-        size: [1, 1],
-        effect: { type: 'add_ammo', packs: 4 }
-    },
-    ammo_9mm: {
-        id: 'ammo_9mm',
-        name: 'Đạn 9mm',
-        category: 'ammo',
-        rarity: 'common',
-        color: '#94a3b8',
-        icon: '9MM',
-        iconImage: 'assets/previews/kenney-blaster/bullet-foam.png',
-        description: 'Đạn 9mm cơ bản dùng cho súng ngắn P92 và các dòng tiểu liên SMG.',
-        shortDesc: 'Dùng cho súng P92 & SMG',
-        theme: 'silver',
-        value: 200,
-        stackMax: 10,
-        size: [1, 1],
-        effect: { type: 'add_ammo', packs: 3 }
-    },
-    ammo_hollow: {
-        id: 'ammo_hollow',
-        name: 'Hộp Đạn Hollow Point HP (Mô Mềm)',
-        category: 'ammo',
-        rarity: 'rare',
-        color: '#00d0ff',
-        icon: 'HP',
-        iconImage: 'assets/previews/kenney-blaster/bullet-foam-tip.png',
-        description: 'Đạn nở khoang rỗng khi va chạm: Tăng 40% sát thương chí mạng crit lên quái không mặc giáp.',
-        shortDesc: '+40% Sát thương chí mạng',
-        theme: 'silver',
-        value: 450,
-        stackMax: 3,
-        size: [1, 1],
-        effect: { type: 'crit_boost', duration: 30, value: 0.4 }
-    },
-    ammo_standard: {
-        id: 'ammo_standard',
-        name: 'Băng Đạn Quân Dụng FMJ',
-        category: 'ammo',
-        rarity: 'common',
-        color: '#94a3b8',
-        icon: 'FMJ',
-        iconImage: 'assets/previews/kenney-blaster/clip-small.png',
-        description: 'Đạn bọc kim loại toàn phần FMJ cân bằng, nạp đầy 4 băng đạn dự trữ cho mọi loại súng.',
-        shortDesc: 'Nạp đầy 4 băng đạn dự trữ',
-        theme: 'silver',
-        value: 200,
-        stackMax: 5,
-        size: [1, 1],
-        effect: { type: 'add_ammo', packs: 4 }
-    },
-    ammo_ap: {
-        id: 'ammo_ap',
-        name: 'Hộp Đạn Xuyên Giáp AP',
-        category: 'ammo',
+    grip_t4: {
+        id: 'grip_t4',
+        name: 'Báng Tay Cầm Cấp 4',
+        category: 'attachment',
+        slot: 'grip',
+        tier: 4,
         rarity: 'epic',
-        color: '#b026ff',
-        icon: 'AP',
-        iconImage: 'assets/previews/kenney-blaster/bullet-foam-tip-thick.png',
-        description: 'Đạn lõi vonfram mật độ cao: Tăng 100% xuyên thấu giáp và xé rách mô cứng đột biến của Mutant.',
-        shortDesc: 'Tăng 100% xuyên thấu giáp',
-        theme: 'silver',
-        value: 650,
-        stackMax: 3,
-        size: [1, 1],
-        effect: { type: 'damage_boost', duration: 45, value: 0.35 }
+        color: '#a855f7',
+        tag: 'TAY CẦM T4',
+        description: 'Khung giảm chấn thủy lực: Giảm 65% độ giật, gom 1 điểm, +60% Damage.',
+        statSummary: '-65% Giật · Gom 1 điểm · +60% DMG'
     },
-
-    // 3. Vật phẩm Y tế / Nước tăng lực / Sinh tồn (Meds, Drinks & Throwables)
-    energy_drink: {
-        id: 'energy_drink',
-        name: 'Nước tăng lực',
-        category: 'medical',
-        rarity: 'rare',
-        color: '#eab308',
-        icon: 'ENR',
-        iconImage: 'assets/previews/kenney-blaster/target-detail.png',
-        description: 'Lon nước tăng lực hồi phục sinh lực và tăng tốc độ chạy dã chiến.',
-        shortDesc: 'Hồi phục 40 Máu',
-        theme: 'gold',
-        value: 300,
-        stackMax: 5,
-        size: [1, 1],
-        effect: { type: 'heal', amount: 40, speedBoost: 1.2, duration: 15 }
-    },
-    medkit_military: {
-        id: 'medkit_military',
-        name: 'First Aid Kit',
-        category: 'medical',
-        rarity: 'rare',
-        color: '#eab308',
-        icon: 'FAK',
-        iconImage: 'assets/previews/kenney-blaster/crate-small.png',
-        description: 'Bộ cứu thương dã chiến cao cấp: Cầm máu tức thì và hồi phục 75 Máu.',
-        shortDesc: 'Hồi phục 75 Máu (Recovers to 75)',
-        theme: 'gold',
-        value: 500,
-        stackMax: 3,
-        size: [1, 1],
-        effect: { type: 'heal', amount: 75 }
-    },
-    painkiller_bottle: {
-        id: 'painkiller_bottle',
-        name: 'Thuốc giảm đau',
-        category: 'medical',
-        rarity: 'rare',
-        color: '#94a3b8',
-        icon: 'PKL',
-        iconImage: 'assets/previews/kenney-blaster/clip-small.png',
-        description: 'Lọ thuốc giảm đau giúp hồi phục 60 Máu và tăng khả năng chịu đòn.',
-        shortDesc: 'Hồi phục 60 Máu (Painkiller)',
-        theme: 'silver',
-        value: 450,
-        stackMax: 5,
-        size: [1, 1],
-        effect: { type: 'heal', amount: 60 }
-    },
-    stun_grenade: {
-        id: 'stun_grenade',
-        name: 'Lựu đạn gây choáng',
-        category: 'throwable',
-        rarity: 'common',
-        color: '#94a3b8',
-        icon: 'STN',
-        iconImage: 'assets/previews/kenney-blaster/grenade-a.png',
-        description: 'Lựu đạn chớp âm thanh gây mù và làm choáng toàn bộ zombie trong bán kính phát nổ.',
-        shortDesc: 'Làm mù mục tiêu (Stun)',
-        theme: 'silver',
-        value: 350,
-        stackMax: 3,
-        size: [1, 1],
-        effect: { type: 'stun_area', duration: 4, radius: 8 }
-    },
-    bandage_field: {
-        id: 'bandage_field',
-        name: 'Băng Gạc Ép Dã Chiến',
-        category: 'medical',
-        rarity: 'common',
-        color: '#94a3b8',
-        icon: 'BNG',
-        description: 'Băng cuộn cầm máu nhanh: Hồi phục tức thì 35 Máu và ngăn chảy máu mô.',
-        shortDesc: 'Hồi phục tức thì 35 Máu',
-        theme: 'silver',
-        value: 220,
-        stackMax: 4,
-        size: [1, 1],
-        effect: { type: 'heal', amount: 35 }
-    },
-    painkiller_morphine: {
-        id: 'painkiller_morphine',
-        name: 'Ống Tiêm Giảm Đau Morphine',
-        category: 'medical',
-        rarity: 'rare',
-        color: '#00d0ff',
-        icon: 'MOR',
-        description: 'Xóa bỏ mọi cảm giác đau đớn, tăng 35% tốc độ di chuyển trong 20 giây.',
-        shortDesc: '+35% Tốc độ di chuyển',
-        theme: 'silver',
-        value: 400,
-        stackMax: 4,
-        size: [1, 1],
-        effect: { type: 'speed_boost', duration: 20, multiplier: 1.35 }
-    },
-    stimpack_adrenaline: {
-        id: 'stimpack_adrenaline',
-        name: 'Huyết Thanh Adrenaline Combat',
-        category: 'medical',
-        rarity: 'epic',
-        color: '#b026ff',
-        icon: 'ADR',
-        description: 'Kích thích phản xạ thần kinh: Tăng 25% tốc độ xả đạn và hồi 30 Máu khẩn cấp.',
-        shortDesc: '+25% Tốc độ xả đạn & hồi 30 Máu',
-        theme: 'silver',
-        value: 750,
-        stackMax: 2,
-        size: [1, 1],
-        effect: { type: 'stimpack', duration: 15, fireRateBoost: 0.25, heal: 30 }
-    },
-    // 4. Phế liệu nâng cấp & Chế tạo (Scraps / Gun Parts)
-    scrap_metal: {
-        id: 'scrap_metal',
-        name: 'Phế Liệu Kim Loại Vũ Khí',
-        category: 'scrap',
-        rarity: 'common',
-        color: '#94a3b8',
-        icon: 'SCR',
-        iconImage: 'assets/previews/kenney-blaster/target-fragment-small.png',
-        description: 'Các mảnh hợp kim dùng để bảo trì vũ khí, gia cố giáp hoặc quy đổi 300 Điểm sinh tồn.',
-        shortDesc: 'Vật liệu bảo trì súng',
-        theme: 'silver',
-        value: 300,
-        stackMax: 10,
-        size: [1, 1],
-        effect: { type: 'score', points: 300 }
-    },
-    gun_parts: {
-        id: 'gun_parts',
-        name: 'Cụm Linh Kiện Vũ Khí',
-        category: 'scrap',
-        rarity: 'rare',
-        color: '#00d0ff',
-        icon: 'PRT',
-        iconImage: 'assets/previews/kenney-blaster/target-fragment-large.png',
-        description: 'Linh kiện cơ khí chính xác dùng để độ súng và thay thế phụ tùng, quy đổi 650 Điểm sinh tồn.',
-        shortDesc: 'Linh kiện cơ khí độ súng',
-        theme: 'silver',
-        value: 650,
-        stackMax: 5,
-        size: [1, 1],
-        effect: { type: 'score', points: 650 }
-    },
-    weapon_parts_core: {
-        id: 'weapon_parts_core',
-        name: 'Khối Cơ Khí Chế Tạo Vũ Khí',
-        category: 'scrap',
-        rarity: 'epic',
-        color: '#b026ff',
-        icon: 'COR',
-        iconImage: 'assets/previews/kenney-blaster/target-detail.png',
-        description: 'Khối cơ cấu khóa nòng cao cấp của kho khí tài quân sự. Quy đổi 1200 Điểm sinh tồn.',
-        shortDesc: 'Khối cơ cấu khóa nòng',
-        theme: 'silver',
-        value: 1200,
-        stackMax: 3,
-        size: [1, 1],
-        effect: { type: 'score', points: 1200 }
-    },
-
-    // 5. Mũ & Giáp bảo hộ (Equipment / Armor & Helmet)
-    helmet_tactical: {
-        id: 'helmet_tactical',
-        name: 'Mũ FAST-MT',
-        category: 'equipment',
-        slot: 'helmet',
-        rarity: 'rare',
-        color: '#00d0ff',
-        icon: 'HLM',
-        iconImage: 'assets/previews/kenney-blaster/target-detail.png',
-        description: 'Mũ bảo hộ carbon tăng +40 Giáp tối đa và giảm sát thương chí mạng vào đầu.',
-        shortDesc: '+40 Giáp, chống chí mạng',
-        theme: 'silver',
-        value: 700,
-        stackMax: 1,
-        size: [1, 1],
-        effect: { type: 'equip_armor', bonusShield: 40 }
-    },
-    armor_vest_lvl4: {
-        id: 'armor_vest_lvl4',
-        name: 'Áo Giáp Kevlar Cấp 4',
-        category: 'equipment',
-        slot: 'armor',
-        rarity: 'rare',
-        color: '#00d0ff',
-        icon: 'LV4',
-        iconImage: 'assets/previews/kenney-blaster/crate-small.png',
-        description: 'Áo giáp sợi aramid tăng thêm +60 Giáp tối đa và lập tức sạc đầy lớp khiên phòng hộ.',
-        shortDesc: '+60 Giáp bảo hộ dã chiến',
-        theme: 'silver',
-        value: 900,
-        stackMax: 1,
-        size: [2, 1],
-        effect: { type: 'equip_armor', bonusShield: 60 }
-    },
-    armor_vest_lvl6: {
-        id: 'armor_vest_lvl6',
-        name: 'Áo Giáp Gốm Titan Cấp 6',
-        category: 'equipment',
-        slot: 'armor',
+    grip_t5: {
+        id: 'grip_t5',
+        name: 'Báng Tay Cầm Cấp 5',
+        category: 'attachment',
+        slot: 'grip',
+        tier: 5,
         rarity: 'legendary',
-        color: '#ffaa00',
-        icon: 'LV6',
-        iconImage: 'assets/previews/kenney-blaster/crate-wide.png',
-        description: 'Giáp tấm gốm cao cấp cấp độ đặc nhiệm: Tăng +120 Giáp tối đa và giảm 25% sát thương nhận vào.',
-        shortDesc: '+120 Giáp, giảm 25% sát thương',
-        theme: 'silver',
-        value: 2800,
-        stackMax: 1,
-        size: [2, 2],
-        effect: { type: 'equip_armor', bonusShield: 120, damageReduction: 0.25 }
+        color: '#f59e0b',
+        tag: 'TAY CẦM T5',
+        description: 'Báng cân bằng Laser: Giảm 85% độ giật, đạn bay thẳng tắp, +100% Damage.',
+        statSummary: '-85% Giật · Laser chính xác · +100% DMG'
     },
 
-    // 6. Vũ khí nhặt được (Weapons)
-    weapon_shotgun_s1897: {
-        id: 'weapon_shotgun_s1897',
-        name: 'S1897',
+    // --- 6. VŨ KHÍ THEO CẤP BẬC TIER ---
+    gun_blaster_t2: {
+        id: 'gun_blaster_t2',
+        name: 'Blaster-X Cấp 2',
         category: 'weapon',
+        baseWeaponId: 'blaster',
+        tier: 2,
+        rarity: 'uncommon',
+        color: '#22c55e',
+        tag: 'SÚNG T2',
+        description: 'Súng ngắn bán tự động Cấp 2 (+15% Damage gốc).',
+        statSummary: '+15% Base DMG',
+        actionLabel: 'ĐỔI / NHẶT SÚNG'
+    },
+    gun_blaster_t3: {
+        id: 'gun_blaster_t3',
+        name: 'Blaster-X Cấp 3',
+        category: 'weapon',
+        baseWeaponId: 'blaster',
+        tier: 3,
         rarity: 'rare',
-        color: '#00d0ff',
-        icon: 'S1897',
-        iconImage: 'assets/previews/kenney-blaster/blaster-g.png',
-        description: 'Súng Shotgun hành động bơm kinh điển, hỏa lực càn quét ở cự ly gần cực mạnh.',
-        shortDesc: 'Uses 12 Gauge ammo',
-        theme: 'silver',
-        value: 800,
-        stackMax: 1,
-        size: [3, 1],
-        weaponSlotId: 0
+        color: '#3b82f6',
+        tag: 'SÚNG T3',
+        description: 'Súng ngắn bán tự động Cấp 3 (+35% Damage gốc).',
+        statSummary: '+35% Base DMG',
+        actionLabel: 'ĐỔI / NHẶT SÚNG'
     },
-    weapon_pistol_p92: {
-        id: 'weapon_pistol_p92',
-        name: 'P92',
+    gun_repeater_t2: {
+        id: 'gun_repeater_t2',
+        name: 'Repeater-9 Cấp 2',
         category: 'weapon',
-        rarity: 'common',
-        color: '#94a3b8',
-        icon: 'P92',
-        iconImage: 'assets/previews/kenney-blaster/blaster-m.png',
-        description: 'Súng ngắn bán tự động P92 cơ động, độ giật thấp, tốc độ bắn nhanh.',
-        shortDesc: 'Uses 9mm ammo',
-        theme: 'silver',
-        value: 400,
-        stackMax: 1,
-        size: [2, 1],
-        weaponSlotId: 1
+        baseWeaponId: 'repeater',
+        tier: 2,
+        rarity: 'uncommon',
+        color: '#22c55e',
+        tag: 'SÚNG T2',
+        description: 'Súng trường liên thanh tự động Cấp 2 (+15% Damage gốc).',
+        statSummary: 'Tự động · +15% Base DMG',
+        actionLabel: 'ĐỔI / NHẶT SÚNG'
     },
-    weapon_pan: {
-        id: 'weapon_pan',
-        name: 'Chảo Rán Dã Chiến',
+    gun_repeater_t3: {
+        id: 'gun_repeater_t3',
+        name: 'Repeater-9 Cấp 3',
         category: 'weapon',
+        baseWeaponId: 'repeater',
+        tier: 3,
         rarity: 'rare',
-        color: '#00d0ff',
-        icon: 'PAN',
-        iconImage: 'assets/previews/kenney-food/cooking-knife.png',
-        description: 'Chảo rán thép gia cường: Vũ khí cận chiến uy lực, có khả năng đỡ đạn sau lưng.',
-        shortDesc: 'Vũ khí cận chiến uy lực cao',
-        theme: 'silver',
-        value: 500,
-        stackMax: 1,
-        size: [2, 1],
-        weaponSlotId: 2
+        color: '#3b82f6',
+        tag: 'SÚNG T3',
+        description: 'Súng trường liên thanh tự động Cấp 3 (+35% Damage gốc).',
+        statSummary: 'Tự động · +35% Base DMG',
+        actionLabel: 'ĐỔI / NHẶT SÚNG'
     },
-    weapon_assault: {
-        id: 'weapon_assault',
-        name: 'Súng Trường AK-CYBER',
+    gun_scatter_t2: {
+        id: 'gun_scatter_t2',
+        name: 'Scatter-V Cấp 2',
         category: 'weapon',
+        baseWeaponId: 'scatter',
+        tier: 2,
+        rarity: 'uncommon',
+        color: '#22c55e',
+        tag: 'SÚNG T2',
+        description: 'Shotgun tán xạ diện rộng Cấp 2 (+15% Damage gốc).',
+        statSummary: 'Shotgun · +15% Base DMG',
+        actionLabel: 'ĐỔI / NHẶT SÚNG'
+    },
+    gun_scatter_t3: {
+        id: 'gun_scatter_t3',
+        name: 'Scatter-V Cấp 3',
+        category: 'weapon',
+        baseWeaponId: 'scatter',
+        tier: 3,
+        rarity: 'rare',
+        color: '#3b82f6',
+        tag: 'SÚNG T3',
+        description: 'Shotgun tán xạ diện rộng Cấp 3 (+35% Damage gốc).',
+        statSummary: 'Shotgun · +35% Base DMG',
+        actionLabel: 'ĐỔI / NHẶT SÚNG'
+    },
+    gun_plasma_t4: {
+        id: 'gun_plasma_t4',
+        name: 'Plasma Lance Cấp 4',
+        category: 'weapon',
+        baseWeaponId: 'plasma',
+        tier: 4,
         rarity: 'epic',
-        color: '#b026ff',
-        icon: 'AK',
-        iconImage: 'assets/previews/kenney-blaster/blaster-d.png',
-        description: 'Vũ khí tự động quân dụng 7.62mm, uy lực cao, độ giật đầm, tàn phá mục tiêu bọc giáp.',
-        shortDesc: 'Uses 7.62mm ammo',
-        theme: 'silver',
-        value: 1200,
-        stackMax: 1,
-        size: [3, 1],
-        weaponSlotId: 1
+        color: '#a855f7',
+        tag: 'SÚNG T4 EPIC',
+        description: 'Khẩu pháo Plasma sử thi: Sát thương cực lớn, đạn xuyên giáp mạnh.',
+        statSummary: 'Sử thi · Xuyên giáp Cấp 3',
+        actionLabel: 'ĐỔI / NHẶT SÚNG'
     },
-    weapon_sniper: {
-        id: 'weapon_sniper',
-        name: 'Súng Bắn Tỉa Hạng Nặng DSR-50',
+    gun_storm_t4: {
+        id: 'gun_storm_t4',
+        name: 'Storm MK-II Cấp 4',
         category: 'weapon',
-        rarity: 'legendary',
-        color: '#ffaa00',
-        icon: 'SR',
-        iconImage: 'assets/previews/kenney-blaster/blaster-j.png',
-        description: 'Súng bắn tỉa hạng nặng công phá cao, đạn xuyên thấu mọi lớp vỏ bảo hộ của zombie khổng lồ.',
-        value: 2500,
-        stackMax: 1,
-        size: [3, 2],
-        weaponSlotId: 2
-    },
-    weapon_shotgun: {
-        id: 'weapon_shotgun',
-        name: 'Shotgun Tác Chiến STRIKER-12',
-        category: 'weapon',
-        rarity: 'rare',
-        color: '#00d0ff',
-        icon: 'SG',
-        iconImage: 'assets/previews/kenney-blaster/blaster-g.png',
-        description: 'Shotgun tác chiến cự ly gần với chùm đạn đa tia diện rộng, đẩy lùi đàn zombie hung hãn.',
-        value: 800,
-        stackMax: 1,
-        size: [3, 1],
-        weaponSlotId: 0
-    },
-    weapon_titan: {
-        id: 'weapon_titan',
-        name: 'Đại Bác Phản Lực TITAN-N',
-        category: 'weapon',
-        rarity: 'legendary',
-        color: '#ff3366',
-        icon: 'TITAN',
-        iconImage: 'assets/previews/kenney-blaster/blaster-n.png',
-        description: 'Khẩu đại pháo 4 họng xả cực mạnh từ kho khí tài Airdrop, phát bắn nổ chấn động xóa sổ mọi mục tiêu.',
-        value: 3500,
-        stackMax: 1,
-        size: [3, 2],
-        weaponSlotId: 0
-    },
-
-    // 7. Lựu đạn & Đồ chiến thuật
-    grenade_explosive: {
-        id: 'grenade_explosive',
-        name: 'Lựu Đạn Nổ Phá GRENADE-A',
-        category: 'grenade',
-        rarity: 'rare',
-        color: '#ef4444',
-        icon: 'NADE',
-        iconImage: 'assets/previews/kenney-blaster/grenade-a.png',
-        description: 'Lựu đạn nổ dã chiến: Chuột phải để ném kích nổ tức thì 260 sát thương trong bán kính 6.5m.',
-        value: 600,
-        stackMax: 3,
-        size: [1, 1],
-        effect: { type: 'explosive_grenade', damage: 260, radius: 6.5 }
-    },
-    grenade_smoke: {
-        id: 'grenade_smoke',
-        name: 'Lựu Đạn Khói Chiến Thuật SMOKE-B',
-        category: 'grenade',
-        rarity: 'rare',
-        color: '#00f0ff',
-        icon: 'SMK',
-        iconImage: 'assets/previews/kenney-blaster/smoke.png',
-        description: 'Tạo màn khói chiến thuật dày đặc trong 10 giây, làm chậm 60% tốc độ di chuyển của bầy zombie.',
-        value: 500,
-        stackMax: 3,
-        size: [1, 1],
-        effect: { type: 'smoke_grenade', duration: 10, slow: 0.6 }
-    },
-
-    // 8. Đồ quý giá & Tài liệu mật (Valuables)
-    gold_bar: {
-        id: 'gold_bar',
-        name: 'Thỏi Vàng Quân Quỹ 9999 (1kg)',
-        category: 'valuable',
-        rarity: 'legendary',
-        color: '#ffaa00',
-        icon: 'AU',
-        description: 'Tài sản thanh khoản cực cao từ kho dự trữ ngầm. Quy đổi trực tiếp 3000 Điểm sinh tồn.',
-        value: 3000,
-        stackMax: 5,
-        size: [1, 1],
-        effect: { type: 'score', points: 3000 }
-    },
-    military_flashdrive: {
-        id: 'military_flashdrive',
-        name: 'Ổ Cứng Mã Hóa Dữ Liệu Quân Sự',
-        category: 'valuable',
+        baseWeaponId: 'storm',
+        tier: 4,
         rarity: 'epic',
-        color: '#b026ff',
-        icon: 'USB',
-        description: 'Chứa sơ đồ trạm nghiên cứu sinh học ngầm. Quy đổi 1800 Điểm sinh tồn.',
-        value: 1800,
-        stackMax: 3,
-        size: [1, 1],
-        effect: { type: 'score', points: 1800 }
+        color: '#a855f7',
+        tag: 'SÚNG T4 EPIC',
+        description: 'Tiểu liên bão đạn sử thi: Tốc độ xả đạn thần tốc 48 viên/băng.',
+        statSummary: 'Sử thi · Tốc độ bắn cực đại',
+        actionLabel: 'ĐỔI / NHẶT SÚNG'
     },
-    classified_intel: {
-        id: 'classified_intel',
-        name: 'Tài Liệu Tuyệt Mật Mutant Project',
-        category: 'valuable',
-        rarity: 'epic',
-        color: '#b026ff',
-        icon: 'DOC',
-        description: 'Hồ sơ nghiên cứu gen đột biến Mutant Overlord. Quy đổi 2200 Điểm sinh tồn.',
-        value: 2200,
-        stackMax: 2,
-        size: [1, 1],
-        effect: { type: 'score', points: 2200 }
+    gun_nova_t5: {
+        id: 'gun_nova_t5',
+        name: 'Nova Shotgun Cấp 5',
+        category: 'weapon',
+        baseWeaponId: 'nova',
+        tier: 5,
+        rarity: 'legendary',
+        color: '#f59e0b',
+        tag: 'SÚNG T5 LEGENDARY',
+        description: 'Siêu vũ khí Huyền Thoại: 8 viên đạn nổ lan xuyên thấu mọi zombie!',
+        statSummary: 'Huyền thoại · Bắn nổ lan & Xuyên mục tiêu',
+        actionLabel: 'ĐỔI / NHẶT SÚNG'
     }
 };
 
-// Cấu hình các loại hòm đồ tương tác trong sàn đấu (Loot Tables mở rộng)
+// Ánh xạ tương thích ngược các ID item cũ để tránh lỗi tham chiếu
+const LEGACY_LOOT_ALIASES = {
+    medkit_military: 'medkit',
+    bandage_field: 'medkit',
+    painkiller_bottle: 'medkit',
+    painkiller_morphine: 'medkit',
+    energy_drink: 'medkit',
+    water_purified: 'medkit',
+    attach_compensator: 'barrel_t3',
+    attach_silencer: 'barrel_t4',
+    attach_flash_hider: 'barrel_t2',
+    attach_red_dot: 'optic_t1',
+    attach_scope_x2: 'optic_t2',
+    attach_scope_x4: 'optic_t3',
+    attach_scope_x6: 'optic_t4',
+    attach_scope_x8: 'optic_t5',
+    attach_ext_mag: 'magazine_t3',
+    attach_quickdraw_mag: 'magazine_t4',
+    attach_grip_tactical: 'grip_t3',
+    attach_stock_heavy: 'grip_t4',
+    attach_stock_tactical: 'grip_t2',
+    weapon_pistol_p92: 'gun_blaster_t2',
+    weapon_shotgun_s1897: 'gun_scatter_t2',
+    weapon_assault: 'gun_repeater_t3',
+    weapon_sniper: 'gun_plasma_t4',
+    weapon_titan: 'gun_nova_t5'
+};
+
+export function th_resolveLootItem(itemId) {
+    if (!itemId) return null;
+    const resolvedId = LEGACY_LOOT_ALIASES[itemId] || itemId;
+    return LOOT_ITEMS[resolvedId] || null;
+}
+
+// =========================================================================
+// CẤU HÌNH HÒM ĐỒ TƯƠNG TÁC (LOOT DROP RATES CHUẨN HÓA)
+// - Hòm thường: Rớt Súng / Phụ kiện Cấp 1 -> Cấp 3
+// - Hòm Airdrop: Chắc chắn có đồ Cấp 4 (Epic) hoặc Cấp 5 (Legendary)
+// =========================================================================
 export const CONTAINER_CONFIGS = {
     wooden_crate: {
         id: 'wooden_crate',
         name: 'Thùng Gỗ Quân Trang',
-        searchDuration: 1.2,
+        searchDuration: 1.0,
         interactionRadius: 3.6,
-        capacity: 10,
+        capacity: 6,
         meshColor: 0x8b5a2b,
-        accentColor: 0x4a3525,
-        promptLabel: 'VÙNG MỞ THÙNG GỖ (ĐỨNG TRONG VÒNG ĐỂ MỞ)',
+        accentColor: 0x00f0ff,
+        promptLabel: '[F] LỤC THÙNG GỖ QUÂN TRANG',
         lootTable: [
-            { itemId: 'energy_drink', chance: 0.90, min: 2, max: 5 },
-            { itemId: 'stun_grenade', chance: 0.85, min: 1, max: 2 },
-            { itemId: 'medkit_military', chance: 0.80, min: 1, max: 2 },
-            { itemId: 'attach_quickdraw_mag', chance: 0.75, min: 1, max: 1 },
-            { itemId: 'ammo_12gauge', chance: 0.85, min: 5, max: 10 },
-            { itemId: 'ammo_556', chance: 0.80, min: 30, max: 60 },
-            { itemId: 'weapon_shotgun_s1897', chance: 0.50, min: 1, max: 1 },
-            { itemId: 'weapon_pistol_p92', chance: 0.60, min: 1, max: 1 },
-            { itemId: 'attach_red_dot', chance: 0.70, min: 1, max: 1 },
-            { itemId: 'attach_scope_x6', chance: 0.40, min: 1, max: 1 },
-            { itemId: 'attach_scope_x8', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'attach_silencer', chance: 0.50, min: 1, max: 1 },
-            { itemId: 'attach_grip_tactical', chance: 0.50, min: 1, max: 1 },
-            { itemId: 'attach_stock_heavy', chance: 0.45, min: 1, max: 1 },
-            { itemId: 'painkiller_bottle', chance: 0.75, min: 1, max: 3 }
-        ]
-    },
-    military_safe: {
-        id: 'military_safe',
-        name: 'Két Sắt Quân Sự Chống Đạn',
-        searchDuration: 2.0,
-        interactionRadius: 3.6,
-        capacity: 10,
-        meshColor: 0x334155,
-        accentColor: 0x0284c7,
-        promptLabel: 'VÙNG MỞ KÉT SẮT (ĐỨNG TRONG VÒNG ĐỂ MỞ)',
-        lootTable: [
-            { itemId: 'ammo_ap', chance: 0.85, min: 1, max: 2 },
-            { itemId: 'attach_silencer', chance: 0.60, min: 1, max: 1 },
-            { itemId: 'attach_scope_x2', chance: 0.55, min: 1, max: 1 },
-            { itemId: 'attach_scope_x4', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'attach_quickdraw_mag', chance: 0.50, min: 1, max: 1 },
-            { itemId: 'attach_stock_heavy', chance: 0.45, min: 1, max: 1 },
-            { itemId: 'gun_parts', chance: 0.75, min: 1, max: 2 },
-            { itemId: 'weapon_parts_core', chance: 0.50, min: 1, max: 1 },
-            { itemId: 'armor_vest_lvl6', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'gold_bar', chance: 0.50, min: 1, max: 2 },
-            { itemId: 'military_flashdrive', chance: 0.60, min: 1, max: 1 },
-            { itemId: 'weapon_assault', chance: 0.45, min: 1, max: 1 },
-            { itemId: 'weapon_titan', chance: 0.25, min: 1, max: 1 }
+            { itemId: 'barrel_t2', chance: 0.65, min: 1, max: 1 },
+            { itemId: 'magazine_t2', chance: 0.60, min: 1, max: 1 },
+            { itemId: 'optic_t2', chance: 0.55, min: 1, max: 1 },
+            { itemId: 'grip_t2', chance: 0.60, min: 1, max: 1 },
+            { itemId: 'barrel_t3', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'magazine_t3', chance: 0.30, min: 1, max: 1 },
+            { itemId: 'optic_t3', chance: 0.25, min: 1, max: 1 },
+            { itemId: 'grip_t3', chance: 0.30, min: 1, max: 1 },
+            { itemId: 'gun_repeater_t2', chance: 0.40, min: 1, max: 1 },
+            { itemId: 'gun_scatter_t2', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'medkit', chance: 0.60, min: 1, max: 1 }
         ]
     },
     dead_body: {
         id: 'dead_body',
-        name: 'Thi Thể Đặc Nhiệm Tử Trận',
-        searchDuration: 1.4,
+        name: 'Thi Thể Đặc Nhiệm',
+        searchDuration: 1.0,
         interactionRadius: 3.6,
-        capacity: 10,
+        capacity: 6,
         meshColor: 0x475569,
-        accentColor: 0xef4444,
-        promptLabel: 'VÙNG KHÁM XÁC (ĐỨNG TRONG VÒNG ĐỂ MỞ)',
+        accentColor: 0x22c55e,
+        promptLabel: '[F] LỤC THI THỂ ĐẶC NHIỆM',
         lootTable: [
-            { itemId: 'ammo_standard', chance: 0.75, min: 1, max: 2 },
-            { itemId: 'ammo_hollow', chance: 0.45, min: 1, max: 1 },
-            { itemId: 'bandage_field', chance: 0.60, min: 1, max: 2 },
-            { itemId: 'medkit_military', chance: 0.50, min: 1, max: 1 },
-            { itemId: 'stimpack_adrenaline', chance: 0.40, min: 1, max: 1 },
-            { itemId: 'painkiller_morphine', chance: 0.50, min: 1, max: 1 },
-            { itemId: 'scrap_metal', chance: 0.60, min: 1, max: 3 },
-            { itemId: 'attach_red_dot', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'attach_compensator', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'attach_grip_tactical', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'armor_vest_lvl4', chance: 0.30, min: 1, max: 1 },
-            { itemId: 'helmet_tactical', chance: 0.35, min: 1, max: 1 }
+            { itemId: 'barrel_t1', chance: 0.70, min: 1, max: 1 },
+            { itemId: 'magazine_t1', chance: 0.70, min: 1, max: 1 },
+            { itemId: 'optic_t1', chance: 0.65, min: 1, max: 1 },
+            { itemId: 'grip_t1', chance: 0.65, min: 1, max: 1 },
+            { itemId: 'barrel_t2', chance: 0.45, min: 1, max: 1 },
+            { itemId: 'optic_t2', chance: 0.40, min: 1, max: 1 },
+            { itemId: 'gun_blaster_t2', chance: 0.50, min: 1, max: 1 },
+            { itemId: 'medkit', chance: 0.75, min: 1, max: 2 }
+        ]
+    },
+    military_safe: {
+        id: 'military_safe',
+        name: 'Két Sắt Quân Sự',
+        searchDuration: 1.6,
+        interactionRadius: 3.6,
+        capacity: 6,
+        meshColor: 0x334155,
+        accentColor: 0xa855f7,
+        promptLabel: '[F] MỞ KÉT SẮT QUÂN SỰ',
+        lootTable: [
+            { itemId: 'barrel_t3', chance: 0.75, min: 1, max: 1 },
+            { itemId: 'magazine_t3', chance: 0.70, min: 1, max: 1 },
+            { itemId: 'optic_t3', chance: 0.65, min: 1, max: 1 },
+            { itemId: 'grip_t3', chance: 0.70, min: 1, max: 1 },
+            { itemId: 'barrel_t4', chance: 0.45, min: 1, max: 1 },
+            { itemId: 'optic_t4', chance: 0.40, min: 1, max: 1 },
+            { itemId: 'gun_repeater_t3', chance: 0.55, min: 1, max: 1 },
+            { itemId: 'gun_plasma_t4', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'medkit', chance: 0.90, min: 1, max: 2 }
         ]
     },
     airdrop_crate: {
         id: 'airdrop_crate',
-        name: 'Hòm Thính Tiếp Tế Chiến Thuật',
-        searchDuration: 2.5,
+        name: 'Thính Tiếp Tế Airdrop',
+        searchDuration: 2.0,
         interactionRadius: 4.0,
-        capacity: 14,
+        capacity: 8,
         meshColor: 0xd97706,
-        accentColor: 0x06b6d4,
-        promptLabel: 'VÙNG HÒM THÍNH (ĐỨNG TRONG VÒNG ĐỂ MỞ)',
+        accentColor: 0xf59e0b,
+        promptLabel: '[F] MỞ HÒM THÍNH TIẾP TẾ',
         lootTable: [
-            { itemId: 'weapon_titan', chance: 0.65, min: 1, max: 1 },
-            { itemId: 'weapon_sniper', chance: 0.70, min: 1, max: 1 },
-            { itemId: 'weapon_assault', chance: 0.80, min: 1, max: 1 },
-            { itemId: 'attach_scope_x4', chance: 0.80, min: 1, max: 1 },
-            { itemId: 'attach_silencer', chance: 0.85, min: 1, max: 1 },
-            { itemId: 'attach_quickdraw_mag', chance: 0.80, min: 1, max: 1 },
-            { itemId: 'attach_stock_heavy', chance: 0.80, min: 1, max: 1 },
-            { itemId: 'armor_vest_lvl6', chance: 0.85, min: 1, max: 1 },
-            { itemId: 'ammo_ap', chance: 0.95, min: 2, max: 3 },
-            { itemId: 'stimpack_adrenaline', chance: 0.90, min: 2, max: 2 },
-            { itemId: 'medkit_military', chance: 0.95, min: 2, max: 3 },
-            { itemId: 'gold_bar', chance: 0.75, min: 2, max: 3 },
-            { itemId: 'weapon_parts_core', chance: 0.85, min: 1, max: 2 }
+            // CHẮC CHẮN CÓ ĐỒ CẤP 4 (EPIC) HOẶC CẤP 5 (LEGENDARY)
+            { itemId: 'barrel_t5', chance: 0.60, min: 1, max: 1 },
+            { itemId: 'barrel_t4', chance: 0.85, min: 1, max: 1 },
+            { itemId: 'magazine_t5', chance: 0.55, min: 1, max: 1 },
+            { itemId: 'magazine_t4', chance: 0.80, min: 1, max: 1 },
+            { itemId: 'optic_t5', chance: 0.55, min: 1, max: 1 },
+            { itemId: 'optic_t4', chance: 0.85, min: 1, max: 1 },
+            { itemId: 'grip_t5', chance: 0.55, min: 1, max: 1 },
+            { itemId: 'grip_t4', chance: 0.80, min: 1, max: 1 },
+            { itemId: 'gun_nova_t5', chance: 0.50, min: 1, max: 1 },
+            { itemId: 'gun_plasma_t4', chance: 0.70, min: 1, max: 1 },
+            { itemId: 'gun_storm_t4', chance: 0.70, min: 1, max: 1 },
+            { itemId: 'medkit', chance: 1.00, min: 1, max: 3 }
         ]
     }
 };
 
-// Quản lý Túi đồ của Người chơi (Smart Grid Backpack: 5 Cột x 6 Hàng = 30 Ô)
 export class PlayerInventory {
     constructor(cols = 5, rows = 6) {
         this.cols = cols;
@@ -1185,29 +893,65 @@ export class LootContainer {
         this.mesh = group;
     }
 
-    // Sinh vật phẩm ngẫu nhiên theo bảng Loot Table
+    // Sinh vật phẩm ngẫu nhiên và tự động sắp xếp Cấp bậc cao nhất lên trên cùng
     generateLoot() {
         const table = this.config.lootTable || [];
-        let slotIdx = 0;
+        const generated = [];
+
+        // Hòm Thính Tiếp Tế (Airdrop): Chắc chắn có đồ Cấp 4 (Epic) hoặc Cấp 5 (Legendary)
+        if (this.type === 'airdrop_crate') {
+            const highTierItems = [
+                'barrel_t5', 'magazine_t5', 'optic_t5', 'grip_t5', 'gun_nova_t5',
+                'barrel_t4', 'magazine_t4', 'optic_t4', 'grip_t4', 'gun_plasma_t4'
+            ];
+            const guaranteed = highTierItems[Math.floor(Math.random() * highTierItems.length)];
+            generated.push({ itemId: guaranteed, count: 1, revealed: true });
+            generated.push({ itemId: 'medkit', count: Math.floor(Math.random() * 2) + 1, revealed: true });
+        }
 
         for (const entry of table) {
-            if (slotIdx >= this.capacity) break;
+            if (generated.length >= this.capacity) break;
             if (Math.random() <= entry.chance) {
-                const count = Math.floor(Math.random() * (entry.max - entry.min + 1)) + entry.min;
-                this.slots[slotIdx] = {
-                    itemId: entry.itemId,
-                    count: count,
-                    revealed: false // Mới mở hòm lần đầu sẽ chưa nhận diện
-                };
-                slotIdx++;
+                if (!generated.some(g => g.itemId === entry.itemId)) {
+                    const count = Math.floor(Math.random() * (entry.max - entry.min + 1)) + entry.min;
+                    generated.push({
+                        itemId: entry.itemId,
+                        count: count,
+                        revealed: true
+                    });
+                }
             }
         }
 
-        // Đảm bảo hòm luôn có tối thiểu 1 vật phẩm hữu ích
-        if (slotIdx === 0 && table.length > 0) {
-            const first = table[0];
-            this.slots[0] = { itemId: first.itemId, count: 1, revealed: false };
+        if (generated.length === 0 && table.length > 0) {
+            generated.push({ itemId: table[0].itemId, count: 1, revealed: true });
         }
+
+        // Tự động sắp xếp ưu tiên: Cấp bậc cao nhất nằm TRÊN CÙNG
+        this.slots = this.sortLootList(generated, this.capacity);
+    }
+
+    sortLootList(items, capacity) {
+        items.sort((a, b) => {
+            const defA = th_resolveLootItem(a.itemId);
+            const defB = th_resolveLootItem(b.itemId);
+            const tierA = defA?.tier || 1;
+            const tierB = defB?.tier || 1;
+            if (tierB !== tierA) return tierB - tierA; // Cấp bậc cao hơn xếp trước
+            if (defA?.category === 'weapon' && defB?.category !== 'weapon') return -1;
+            if (defB?.category === 'weapon' && defA?.category !== 'weapon') return 1;
+            return 0;
+        });
+        const result = new Array(capacity).fill(null);
+        for (let i = 0; i < Math.min(capacity, items.length); i++) {
+            result[i] = items[i];
+        }
+        return result;
+    }
+
+    generateLootSort() {
+        const remaining = this.slots.filter(s => s && s.itemId);
+        this.slots = this.sortLootList(remaining, this.capacity);
     }
 
     // Kiểm tra xem hòm đã bị lấy sạch đồ chưa
@@ -1401,18 +1145,14 @@ export class LootingSystem {
         window.addEventListener('keydown', (e) => {
             if (e.repeat || e.target?.matches?.('input, textarea, select, [contenteditable="true"]')) return;
             if (window.game?.state !== 'PLAYING') return;
-            // Phím [B] để bật / tắt Giao diện Balo Túi Đồ [Backpack Grid & Weapon Modding]
-            if (e.code === 'KeyB') {
-                if (window.game?.state === 'PLAYING') {
-                    this.toggleBackpack();
-                }
-            }
-            // Phím [F] để bắt đầu lục hòm hoặc đóng hòm nếu đang mở
+
+            // Phím [F] cơ chế 1-Phím Thông Minh (Smart 1-Key Swap & Open)
             if (e.code === 'KeyF') {
                 if (this.isSearching) {
                     this.cancelSearch();
-                } else if (this.isBackpackOpen) {
-                    this.closeContainerUI();
+                } else if (this.activeContainer && this.activeContainer.isOpen) {
+                    // Nếu hòm đang mở: Bấm [F] nhặt ngay món đồ Cấp cao nhất!
+                    this.th_smartLootCrate(this.activeContainer);
                 } else {
                     this.tryStartSearch();
                 }
@@ -1573,7 +1313,7 @@ export class LootingSystem {
         this.ui?.showPickupAlert('ĐÃ RỜI KHỎI PHẠM VI MỞ HÒM');
     }
 
-    // Hoàn tất mở hòm: Mở giao diện Looting to Backpack Loop
+    // Hoàn tất mở hòm: Hiển thị giao diện In-World PUBG Mini Crate UI ngay dưới thanh tiến trình
     completeSearch() {
         this.isSearching = false;
         this.player.isSearching = false;
@@ -1584,28 +1324,22 @@ export class LootingSystem {
         container.isOpen = true;
         sounds.playClearJam(); // Tiếng khóa mở hòm cơ khí
 
-        // Mở giao diện Hòm đồ kết hợp Balo (Looting to Backpack Loop)
+        // Hiển thị PUBG Mini Crate UI (góc nhìn thông thoáng 100%, không che màn hình)
         this.openContainerUI(container);
     }
 
-    // Mở giao diện Hòm đồ
+    // Mở giao diện Hòm đồ PUBG Mini
     openContainerUI(container) {
         if (!container) return;
         this.activeContainer = container;
         container.isOpen = true;
-        this.isBackpackOpen = true;
-        this.ui?.openSmartInventory(this.inventory, container, this);
-        if (this.player) {
-            this.player.isBackpackOpen = true;
-            this.player.domElement.style.cursor = 'default';
-        }
+        this.ui?.showPUBGMiniCrate(container, this);
     }
 
-    // Đóng giao diện hòm đồ / balo
+    // Đóng giao diện Hòm đồ PUBG Mini
     closeContainerUI() {
         if (this.activeContainer) {
             this.activeContainer.isOpen = false;
-            // Nếu hòm đã bị vét sạch đồ thì gỡ bỏ khỏi sàn đấu để giữ map gọn gàng
             if (this.activeContainer.checkEmpty()) {
                 const idx = this.containers.indexOf(this.activeContainer);
                 if (idx !== -1) {
@@ -1615,14 +1349,155 @@ export class LootingSystem {
             }
             this.activeContainer = null;
         }
-        this.isBackpackOpen = false;
-        this.revealingSlotIndex = -1;
-        this.revealTimer = 0;
-        this.ui?.closeSmartInventory();
-        if (this.player && window.game?.state === 'PLAYING') {
-            this.player.isBackpackOpen = false;
-            this.player.domElement.style.cursor = 'none';
+        this.ui?.hidePUBGMiniCrate();
+    }
+
+    // Cơ chế Nhặt & Hoán đổi 1-Phím [F] (Smart 1-Key Swap)
+    th_smartLootCrate(targetContainer = null, targetSlotIndex = -1) {
+        const container = targetContainer || this.activeContainer;
+        if (!container || !container.isOpen) return false;
+
+        const validItems = container.slots
+            .map((s, idx) => s && s.itemId ? { ...s, slotIndex: idx } : null)
+            .filter(Boolean);
+
+        if (validItems.length === 0) {
+            this.closeContainerUI();
+            return false;
         }
+
+        let selected = null;
+        if (targetSlotIndex >= 0 && container.slots[targetSlotIndex]) {
+            selected = { ...container.slots[targetSlotIndex], slotIndex: targetSlotIndex };
+        } else {
+            // Mặc định chọn món có Cấp bậc cao nhất nằm trên cùng
+            selected = validItems[0];
+        }
+
+        if (!selected) return false;
+        const def = th_resolveLootItem(selected.itemId);
+        if (!def) return false;
+
+        const weapons = this.player?.weapons;
+        if (!weapons) return false;
+
+        // 1. VẬT PHẨM Y TẾ DUY NHẤT (FIRST AID KIT) -> Bấm [F] nhặt ngay, tự dồn vào số lượng máu dự trữ
+        if (def.category === 'medical' || selected.itemId === 'medkit') {
+            weapons.inventory.medkits = (weapons.inventory.medkits || 0) + (selected.count || 1);
+            container.slots[selected.slotIndex] = null;
+            sounds.playMedkit?.();
+            this.ui?.showPickupAlert('ĐÃ NHẶT TÚI CỨU THƯƠNG (+1)');
+            container.checkEmpty();
+            this.ui?.refreshPUBGMiniCrate(container, this);
+            return true;
+        }
+
+        // 2. LINH KIỆN PHỤ KIỆN (ATTACHMENT) -> Gắn thẳng hoặc Smart Swap Cấp Cao
+        if (def.category === 'attachment') {
+            const attachSlot = def.slot; // 'barrel', 'magazine', 'optic', 'grip'
+            const itemTier = def.tier || 1;
+            const currentGunIdx = weapons.currentSlotIndex === 1 ? 1 : 0;
+            const currentAttachMap = weapons.getAttachmentsForGun ? weapons.getAttachmentsForGun(currentGunIdx) : weapons.attachments;
+            const currentModId = currentAttachMap ? currentAttachMap[attachSlot] : null;
+
+            // Nếu slot tương ứng trên súng còn trống -> Gắn thẳng vào súng
+            if (!currentModId) {
+                weapons.attachMod(attachSlot, selected.itemId, currentGunIdx);
+                container.slots[selected.slotIndex] = null;
+                sounds.play('switchWeapon', { volume: 0.95, rate: 1.4 });
+                this.ui?.showPickupAlert(`ĐÃ LẮP [${def.name.toUpperCase()}] LÊN SÚNG!`);
+                container.checkEmpty();
+                this.ui?.refreshPUBGMiniCrate(container, this);
+                return true;
+            }
+
+            // Nếu súng ĐÃ CÓ phụ kiện đó: So sánh Tier
+            const currentTier = ATTACHMENT_DEFS[currentModId]?.tier || 1;
+
+            if (itemTier > currentTier) {
+                // TỰ ĐỘNG SWAP: Lắp phụ kiện cấp cao vào súng, vứt phụ kiện cũ lại hòm
+                const oldModId = weapons.attachMod(attachSlot, selected.itemId, currentGunIdx);
+                container.slots[selected.slotIndex] = {
+                    itemId: oldModId,
+                    count: 1,
+                    revealed: true
+                };
+                sounds.play('switchWeapon', { volume: 1.0, rate: 1.45 });
+                this.ui?.showPickupAlert(`NÂNG CẤP THÀNH CÔNG: [${def.name.toUpperCase()}] (HOÁN ĐỔI CẤP CŨ)`);
+                container.generateLootSort?.();
+                this.ui?.refreshPUBGMiniCrate(container, this);
+                return true;
+            } else {
+                // Kiểm tra xem súng phụ (Khẩu 2) có lắp được không
+                const secGunIdx = (currentGunIdx === 0) ? 1 : 0;
+                const secAttachMap = weapons.getAttachmentsForGun ? weapons.getAttachmentsForGun(secGunIdx) : {};
+                const secModId = secAttachMap[attachSlot];
+                if (!secModId) {
+                    weapons.attachMod(attachSlot, selected.itemId, secGunIdx);
+                    container.slots[selected.slotIndex] = null;
+                    sounds.play('switchWeapon', { volume: 0.9, rate: 1.35 });
+                    this.ui?.showPickupAlert(`ĐÃ LẮP [${def.name.toUpperCase()}] LÊN SÚNG PHỤ!`);
+                    container.checkEmpty();
+                    this.ui?.refreshPUBGMiniCrate(container, this);
+                    return true;
+                }
+                const secTier = ATTACHMENT_DEFS[secModId]?.tier || 1;
+                if (itemTier > secTier) {
+                    const oldModId = weapons.attachMod(attachSlot, selected.itemId, secGunIdx);
+                    container.slots[selected.slotIndex] = {
+                        itemId: oldModId,
+                        count: 1,
+                        revealed: true
+                    };
+                    sounds.play('switchWeapon', { volume: 0.95, rate: 1.4 });
+                    this.ui?.showPickupAlert(`NÂNG CẤP CHO SÚNG PHỤ: [${def.name.toUpperCase()}]`);
+                    container.generateLootSort?.();
+                    this.ui?.refreshPUBGMiniCrate(container, this);
+                    return true;
+                }
+
+                // Cả hai súng đều có cấp bằng hoặc cao hơn -> Cảnh báo
+                this.ui?.showPickupAlert(`PHỤ KIỆN [${def.name}] CẤP THẤP HƠN TRANG BỊ ĐANG CÓ!`);
+                return false;
+            }
+        }
+
+        // 3. SÚNG (WEAPON) -> Nhặt vào súng phụ hoặc đổi lấy súng đang cầm trên tay
+        if (def.category === 'weapon') {
+            const baseGunId = def.baseWeaponId || 'repeater';
+            const newTier = def.tier || 2;
+            const gunConfig = [...WEAPON_CONFIGS, ...RARE_WEAPON_CONFIGS].find(w => w.id === baseGunId) || WEAPON_CONFIGS[0];
+            const newGun = {
+                ...gunConfig,
+                tier: newTier,
+                color: def.color ? parseInt(def.color.replace('#', '0x'), 16) : gunConfig.color
+            };
+
+            const currentGunIdx = weapons.currentSlotIndex === 1 ? 1 : 0;
+            const currentGun = weapons.weaponSlots[currentGunIdx];
+
+            // Đổi súng
+            weapons.weaponSlots[currentGunIdx] = newGun;
+            weapons.ammo[newGun.id] = newGun.magSize;
+            weapons.reserve[newGun.id] = Infinity;
+            if (currentGunIdx === 1) weapons.secondaryWeapon = newGun;
+
+            // Đặt lại súng cũ vào hòm
+            const oldGunId = `gun_${currentGun.id}_t${currentGun.tier || 1}`;
+            container.slots[selected.slotIndex] = {
+                itemId: LOOT_ITEMS[oldGunId] ? oldGunId : selected.itemId,
+                count: 1,
+                revealed: true
+            };
+
+            sounds.play('switchWeapon', { volume: 1.0, rate: 1.1 });
+            if (weapons.handNode) weapons.attachToArm(weapons.handNode);
+            this.ui?.showPickupAlert(`ĐÃ TRANG BỊ [${newGun.name}] CẤP ${newTier}!`);
+            this.ui?.refreshPUBGMiniCrate(container, this);
+            return true;
+        }
+
+        return false;
     }
 
     // Nhận diện từng ô vật phẩm (Item Reveal - 0.5s Search Time mỗi ô)
@@ -1951,6 +1826,15 @@ export class LootingSystem {
         // Không cần nhấn phím, không chặn bắn súng hay di chuyển
         if (nearest && !nearest.isOpen && !this.isSearching) {
             this.tryStartSearch(nearest);
+        }
+
+        // Nếu hòm đang mở: tự động đóng khi người chơi di chuyển ra xa
+        if (this.activeContainer && this.activeContainer.isOpen) {
+            const dist = this.player.position.distanceTo(this.activeContainer.position);
+            const maxRange = (this.activeContainer.interactionRadius || 3.6) + 1.2;
+            if (dist > maxRange) {
+                this.closeContainerUI();
+            }
         }
 
         if (this.isSearching && this.activeContainer) {

@@ -62,6 +62,8 @@ export class PlayerController {
         this.toggleBotRequested = false;
         this.isADS = false;
         this.isSearching = false;
+        this.th_isRadialMenuOpen = false;
+        this.th_toggleADS = false;
 
         // Core Gunplay: Cursor Kickback & Screen Shake Trauma
         this.cursorKick = new THREE.Vector2(0, 0);
@@ -90,18 +92,63 @@ export class PlayerController {
     }
 
     initInput() {
+        this._radialPressTime = 0;
+
         window.addEventListener('keydown', (e) => {
-            if (!this.inputEnabled || this.isBackpackOpen || e.target?.matches?.('input, textarea, select, [contenteditable="true"]')) return;
+            if (!this.inputEnabled || e.target?.matches?.('input, textarea, select, [contenteditable="true"]')) return;
+
+            // Nếu Radial Menu đang mở:
+            if (this.th_isRadialMenuOpen) {
+                // Nhấn phím 1, 2, 3, 4 kích hoạt tức thì action tương ứng
+                if (e.code === 'Digit1') {
+                    e.preventDefault();
+                    (this.ui || window.game?.ui)?.executeRadialAction('1', this, this.weapons);
+                    return;
+                }
+                if (e.code === 'Digit2') {
+                    e.preventDefault();
+                    (this.ui || window.game?.ui)?.executeRadialAction('2', this, this.weapons);
+                    return;
+                }
+                if (e.code === 'Digit3') {
+                    e.preventDefault();
+                    (this.ui || window.game?.ui)?.executeRadialAction('3', this, this.weapons);
+                    return;
+                }
+                if (e.code === 'Digit4') {
+                    e.preventDefault();
+                    (this.ui || window.game?.ui)?.executeRadialAction('4', this, this.weapons);
+                    return;
+                }
+                // Nhấn Escape hoặc Alt lần 2 để đóng menu
+                if (e.code === 'Escape' || e.code === 'AltLeft' || e.code === 'AltRight') {
+                    e.preventDefault();
+                    (this.ui || window.game?.ui)?.closeRadialMenuOnly();
+                    return;
+                }
+            }
+
+            // Phím [Alt]: Mở Bánh xe thao tác nhanh thông minh (Smart Dual-Mode)
+            if (e.code === 'AltLeft' || e.code === 'AltRight') {
+                e.preventDefault();
+                if (!e.repeat) {
+                    this._radialPressTime = performance.now();
+                    this.th_openRadialMenu();
+                }
+                return;
+            }
+
+            if (this.isBackpackOpen) return;
             if (e.code === 'Space') {
                 e.preventDefault();
-                this.weapons.cancelReload(); // Reload cancel khi nhảy
+                this.weapons.cancelReload();
             }
             this.keys[e.code] = true;
 
             if (e.code === 'KeyR') {
                 this.weapons.reload();
             }
-            // Minimalist Survival Hotbar: [1] Súng chính, [2] Dao cận chiến, [3] Túi cứu thương (5s sơ cứu)
+            // Minimalist Survival Hotbar (khi menu đóng):
             if (e.code === 'Digit1') this.weapons.switchWeapon(0, this);
             if (e.code === 'Digit2' || e.code === 'KeyV') this.weapons.switchWeapon(1, this);
             if (e.code === 'Digit3') this.weapons.startMedkitUse(this);
@@ -112,27 +159,69 @@ export class PlayerController {
         });
 
         window.addEventListener('keyup', (e) => {
+            if (e.code === 'AltLeft' || e.code === 'AltRight') {
+                e.preventDefault();
+                const pressDuration = performance.now() - (this._radialPressTime || 0);
+                // Giữ phím > 180ms: Hold Mode (kích hoạt ngay khi nhả)
+                // Nhấp nhanh <= 180ms: Tap Mode (giữ menu mở để người chơi rê chuột hoặc bấm số 1-4)
+                if (pressDuration > 180) {
+                    this.th_closeRadialMenu();
+                }
+            }
             this.keys[e.code] = false;
         });
 
         window.addEventListener('mousedown', (e) => {
-            if (!this.inputEnabled || e.target !== this.domElement) return;
+            if (!this.inputEnabled) return;
+            // Chuột giữa (MMB): Kích hoạt Radial Menu
+            if (e.button === 1) {
+                e.preventDefault();
+                this._radialPressTime = performance.now();
+                if (this.th_isRadialMenuOpen) {
+                    (this.ui || window.game?.ui)?.closeRadialMenuOnly();
+                } else {
+                    this.th_openRadialMenu();
+                }
+                return;
+            }
+            // Khi Radial Menu đang mở, nếu click chuột trái (LMB):
+            if (this.th_isRadialMenuOpen && e.button === 0) {
+                const ui = this.ui || window.game?.ui;
+                if (ui?._activeRadialSector) {
+                    e.preventDefault();
+                    ui.executeRadialAction(ui._activeRadialSector, this, this.weapons);
+                    return;
+                }
+            }
+            if (e.target !== this.domElement) return;
             if (e.button === 0) this.mouseButtons.left = true;
             if (e.button === 2) this.mouseButtons.right = true;
         });
 
         window.addEventListener('mouseup', (e) => {
+            if (e.button === 1) {
+                e.preventDefault();
+                const pressDuration = performance.now() - (this._radialPressTime || 0);
+                if (pressDuration > 180) {
+                    this.th_closeRadialMenu();
+                }
+                return;
+            }
             if (e.button === 0) this.mouseButtons.left = false;
             if (e.button === 2) this.mouseButtons.right = false;
         });
 
         window.addEventListener('wheel', (e) => {
-            if (!this.inputEnabled) return;
+            if (!this.inputEnabled || this.th_isRadialMenuOpen) return;
             if (e.deltaY > 0) this.weapons.nextWeapon(this);
             else if (e.deltaY < 0) this.weapons.prevWeapon(this);
         });
 
         window.addEventListener('mousemove', (e) => {
+            if (this.th_isRadialMenuOpen) {
+                const ui = this.ui || window.game?.ui;
+                ui?.updateRadialMenuPointer(e.clientX, e.clientY);
+            }
             const bounds = this.domElement.getBoundingClientRect();
             this.pointer.set((e.clientX - bounds.left) / bounds.width * 2 - 1,
                 1 - (e.clientY - bounds.top) / bounds.height * 2);
@@ -141,9 +230,25 @@ export class PlayerController {
         });
         this.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
         window.addEventListener('blur', () => {
+            if (this.th_isRadialMenuOpen) {
+                (this.ui || window.game?.ui)?.closeRadialMenuOnly();
+            }
             this.keys = {};
             this.mouseButtons = { left: false, right: false };
         });
+    }
+
+    th_openRadialMenu() {
+        if (this.isDead || !this.inputEnabled) return;
+        this.th_isRadialMenuOpen = true;
+        const ui = this.ui || window.game?.ui;
+        ui?.openRadialMenu(this, this.weapons);
+    }
+
+    th_closeRadialMenu() {
+        if (!this.th_isRadialMenuOpen) return;
+        const ui = this.ui || window.game?.ui;
+        ui?.closeAndExecuteRadialMenu(this, this.weapons);
     }
 
     setInputEnabled(enabled) {
@@ -426,7 +531,7 @@ export class PlayerController {
         }
 
         // Precision fire affects spread and movement, never camera zoom/angle.
-        this.isADS = this.mouseButtons.right;
+        this.isADS = this.mouseButtons.right || !!this.th_toggleADS;
 
         // Locomotion input
         let currentSpeed = this.speed;
@@ -564,7 +669,7 @@ export class PlayerController {
     }
 
     handleShooting() {
-        if (!this.inputEnabled || !this.pointerInCanvas || this.isDead) return;
+        if (!this.inputEnabled || !this.pointerInCanvas || this.isDead || this.th_isRadialMenuOpen) return;
 
         const w = this.weapons.getCurrentWeapon();
         const shouldShoot = w.isAuto ? this.mouseButtons.left : (this.mouseButtons.left && this.weapons.fireCooldown <= 0);

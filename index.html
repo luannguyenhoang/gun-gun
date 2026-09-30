@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="zappets.css"><link rel="stylesheet" href="combat.css?v=16"><link rel="stylesheet" href="showroom.css">
+    <link rel="stylesheet" href="zappets.css"><link rel="stylesheet" href="combat.css?v=24"><link rel="stylesheet" href="showroom.css">
     <link rel="stylesheet" href="ux.css">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script type="importmap">
@@ -29,7 +29,7 @@
 
     <!-- Combat HUD: live values only, no decorative weather or fake timers. -->
     <div id="hud" style="display:none;">
-      <nav class="hud-actions" aria-label="Thao tác trong trận"><button id="hud-backpack" title="Mở balô [B]">BALÔ <kbd>B</kbd></button><button id="hud-pause" title="Tạm dừng khi chơi đơn [Esc]">Ⅱ <span>TẠM DỪNG</span></button></nav>
+      <nav class="hud-actions" aria-label="Thao tác trong trận"><button id="hud-pause" title="Tạm dừng khi chơi đơn [Esc]">Ⅱ <span>TẠM DỪNG</span></button></nav>
       <section class="combat-vitals combat-panel" aria-label="Máu và khiên">
         <div class="combat-card-title"><span>CHIẾN BINH</span><span class="combat-score">★ <b id="score-value">0</b></span></div>
         <div class="vital-label"><span>♥ MÁU</span><strong id="health-text">100 / 100</strong></div>
@@ -99,7 +99,148 @@
         </div>
       </div>
 
-      <div class="combat-controls"><kbd>WASD</kbd> Di chuyển <kbd>R</kbd> Nạp đạn <kbd>Q</kbd> Né <kbd>B</kbd> Balo &amp; Độ súng <kbd>F</kbd> Lục hòm <kbd>ESC</kbd> Tạm dừng</div>
+      <!-- Giao diện Nhặt Đồ Hòm Phong cách PUBG Mini (In-World Crate UI) -->
+      <div id="pubg-mini-crate" class="pubg-mini-crate" style="display:none;">
+        <div class="pubg-crate-header">
+          <div class="pubg-crate-title-wrap">
+            <span class="pubg-crate-tag">CRATE</span>
+            <span id="pubg-crate-name" class="pubg-crate-name">HÒM CHIẾN LỢI PHẨM</span>
+          </div>
+          <span class="pubg-crate-hint">[F] NHẶT / HOÁN ĐỔI</span>
+        </div>
+        <div id="pubg-crate-items" class="pubg-crate-items">
+          <!-- Render danh sách động -->
+        </div>
+      </div>
+
+      <!-- Bánh xe Thao tác Nhanh Chuẩn Quân sự Trong Suốt Giữa Màn Hình (Transparent Center Radial Menu) -->
+      <div id="radial-menu-overlay" class="radial-menu-overlay" style="display:none;">
+        <div class="radial-menu-container">
+          <!-- Vòng tròn vàng neon mảnh ngoài cùng bao quanh bánh xe -->
+          <div class="radial-outer-gold-ring"></div>
+
+          <!-- Lỗ tâm rỗng trong suốt 100% để quan sát nhân vật và chiến trường -->
+          <div class="radial-center-hole"></div>
+
+          <!-- Bánh xe SVG 8 Múi Vành Khăn Annular Sectors -->
+          <svg class="radial-svg-wheel" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <filter id="gold-glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#eab308" flood-opacity="0.8" />
+              </filter>
+              <filter id="cyan-glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#00f0ff" flood-opacity="0.8" />
+              </filter>
+            </defs>
+
+            <!-- 1. Hướng Bắc: RED DOT ADS (Phím 1) -->
+            <path id="radial-sector-north" class="radial-wedge wedge-north" data-action="ads"
+              d="M 132.2 27.9 A 185 185 0 0 1 267.8 27.9 L 227.5 130.2 A 75 75 0 0 0 172.5 130.2 Z" />
+
+            <!-- 2. Hướng Đông Bắc: Ô chờ chiến thuật -->
+            <path id="radial-sector-ne" class="radial-wedge wedge-tactical" data-action="tactical_ne"
+              d="M 273.8 30.3 A 185 185 0 0 1 369.7 126.2 L 268.8 170.1 A 75 75 0 0 0 229.9 131.2 Z" />
+
+            <!-- 3. Hướng Đông: Đổi Vũ Khí (Phím 2) -->
+            <path id="radial-sector-east" class="radial-wedge wedge-east" data-action="swap_gun"
+              d="M 372.1 132.2 A 185 185 0 0 1 372.1 267.8 L 269.8 227.5 A 75 75 0 0 0 269.8 172.5 Z" />
+
+            <!-- 4. Hướng Đông Nam: Hộp Tiếp Đạn -->
+            <path id="radial-sector-se" class="radial-wedge wedge-tactical" data-action="tactical_se"
+              d="M 369.7 273.8 A 185 185 0 0 1 273.8 369.7 L 229.9 268.8 A 75 75 0 0 0 268.8 229.9 Z" />
+
+            <!-- 5. Hướng Nam: Med Kit Cấp Cứu (Phím 3) -->
+            <path id="radial-sector-south" class="radial-wedge wedge-south" data-action="quick_heal"
+              d="M 267.8 372.1 A 185 185 0 0 1 132.2 372.1 L 172.5 269.8 A 75 75 0 0 0 227.5 269.8 Z" />
+
+            <!-- 6. Hướng Tây Nam: Ô chờ chiến thuật -->
+            <path id="radial-sector-sw" class="radial-wedge wedge-tactical" data-action="tactical_sw"
+              d="M 126.2 369.7 A 185 185 0 0 1 30.3 273.8 L 131.2 229.9 A 75 75 0 0 0 170.1 268.8 Z" />
+
+            <!-- 7. Hướng Tây: Bắn Tăng Cường (Phím 4) -->
+            <path id="radial-sector-west" class="radial-wedge wedge-west" data-action="overclock"
+              d="M 27.9 267.8 A 185 185 0 0 1 27.9 132.2 L 130.2 172.5 A 75 75 0 0 0 130.2 227.5 Z" />
+
+            <!-- 8. Hướng Tây Bắc: Ô chờ chiến thuật -->
+            <path id="radial-sector-nw" class="radial-wedge wedge-tactical" data-action="tactical_nw"
+              d="M 30.3 126.2 A 185 185 0 0 1 126.2 30.3 L 170.1 131.2 A 75 75 0 0 0 131.2 170.1 Z" />
+          </svg>
+
+          <!-- Lớp Nội Dung Hiển Thị (HTML Labels & Real Game Weapon Assets) -->
+          <div class="radial-content-layer">
+            <!-- Tia laser chỉ chuột -->
+            <div id="radial-pointer-line" class="radial-pointer-line"></div>
+
+            <!-- Múi Bắc (RED DOT) -->
+            <div class="radial-slot slot-north" id="slot-ui-north">
+              <div class="slot-icon-box">
+                <img src="assets/previews/kenney-blaster/scope-small.png" alt="Red Dot Scope" />
+              </div>
+              <div class="slot-text-box">
+                <strong class="slot-title">RED DOT</strong>
+                <span class="slot-sub-line" id="radial-sub-north">NGẮM<br>PHẢN XẠ</span>
+              </div>
+            </div>
+
+            <!-- Múi Đông Bắc (Tâm ngắm) -->
+            <div class="radial-slot slot-ne">
+              <img class="tactical-mark-img" src="assets/previews/kenney-blaster/target-small.png" alt="Tactical Mark" />
+            </div>
+
+            <!-- Múi Đông (ĐỔI SÚNG) -->
+            <div class="radial-slot slot-east" id="slot-ui-east">
+              <div class="slot-gun-img-box">
+                <img id="radial-gun-img" src="assets/previews/kenney-blaster/blaster-a.png" alt="Khẩu phụ" />
+              </div>
+              <div class="slot-text-box">
+                <strong class="slot-title" id="radial-sub-east">ĐỔI SÚNG: NOVA</strong>
+              </div>
+            </div>
+
+            <!-- Múi Đông Nam (Hộp đạn 7.62mm) -->
+            <div class="radial-slot slot-se">
+              <div class="slot-ammo-box">
+                <img src="assets/previews/kenney-blaster/crate-small.png" alt="7.62mm Ammo Box" />
+                <span class="ammo-tag">7.62mm</span>
+              </div>
+            </div>
+
+            <!-- Múi Nam (MED KIT) -->
+            <div class="radial-slot slot-south" id="slot-ui-south">
+              <div class="slot-icon-box medkit-box">
+                <img src="assets/previews/kenney-blaster/crate-small.png" alt="Med Kit" />
+              </div>
+              <div class="slot-text-box">
+                <strong class="slot-title">MED KIT</strong>
+                <span class="slot-sub-line" id="radial-sub-south">CẤP CỨU: +50 HP</span>
+              </div>
+            </div>
+
+            <!-- Múi Tây Nam (Tâm ngắm) -->
+            <div class="radial-slot slot-sw">
+              <img class="tactical-mark-img" src="assets/previews/kenney-blaster/target-small.png" alt="Tactical Mark" />
+            </div>
+
+            <!-- Múi Tây (TĂNG CƯỜNG) -->
+            <div class="radial-slot slot-west" id="slot-ui-west">
+              <div class="slot-icon-box">
+                <img src="assets/previews/kenney-blaster/clip-large.png" alt="Tăng cường" />
+              </div>
+              <div class="slot-text-box">
+                <strong class="slot-title">TĂNG CƯỜNG</strong>
+                <span class="slot-sub-line" id="radial-sub-west">XẢ ĐẠN 3S</span>
+              </div>
+            </div>
+
+            <!-- Múi Tây Bắc (Tâm ngắm) -->
+            <div class="radial-slot slot-nw">
+              <img class="tactical-mark-img" src="assets/previews/kenney-blaster/target-small.png" alt="Tactical Mark" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="combat-controls"><kbd>WASD</kbd> Di chuyển <kbd>R</kbd> Nạp đạn <kbd>Q</kbd> Né <kbd>F</kbd> Nhặt / Đổi đồ hòm <kbd>Alt / Chuột giữa / [1-4]</kbd> Thao tác nhanh <kbd>ESC</kbd> Tạm dừng</div>
       <div id="teammate-indicators" class="teammate-indicators-container"></div>
     </div>
 
@@ -514,6 +655,6 @@
     </div>
 
     <!-- Main Game Script -->
-    <script src="libs/qrcode.min.js"></script><script type="module" src="src/main.js?v=17"></script>
+    <script src="libs/qrcode.min.js"></script><script type="module" src="src/main.js?v=23"></script>
 </body>
 </html>

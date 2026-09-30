@@ -39,14 +39,52 @@ button { -webkit-tap-highlight-color:transparent; }
 .character-card { width:126px; height:135px; flex-shrink:0; }.character-card-status { font-size:10px; }.character-card strong { font-size:12px; }
 .character-action { grid-column:2; grid-row:3; position:relative; inset:auto; width:auto; max-width:none; align-self:center; margin:0; }.character-action button { min-height:64px; font-size:23px; }.character-action>span { font-size:12px; line-height:1.4; }
 .showroom-tabs { margin-left:10px; }.showroom-tabs button { font-size:12px; min-height:44px; }.armory-tags span { font-size:10px; }.armory-product { height:120px; }
-/* Combat keeps the central play area clear. */
-.combat-panel { background:linear-gradient(145deg,#59476cf0,#3d324beF); border:1px solid #b99cca88; border-radius:14px; box-shadow:0 3px #2e253cd9; }
-.combat-vitals { top:18px; left:18px; width:226px; padding:12px 14px; }.combat-meter { height:14px; }.shield-meter { height:9px; }
-.combat-card-title,.vital-label { font-size:12px; }.combat-wave { top:18px; padding:9px 16px; min-width:145px; }.combat-wave>strong { font-size:25px; }
-.combat-radar { top:18px; right:18px; padding:8px; }.combat-radar #radar-canvas { width:94px; height:94px; }.radar-key { font-size:9px; }
-.hud-actions { position:absolute; top:174px; right:18px; display:flex; gap:6px; pointer-events:auto; }.hud-actions button { min-height:38px; padding:6px 10px; border:1px solid #b99cca88; border-radius:9px; background:#43354eeF; color:#fff; font:900 11px var(--toy-font); cursor:pointer; }.hud-actions kbd { padding:1px 4px; font-size:10px; }.hud-actions button:disabled { opacity:.45; cursor:default; }
-.combat-loadout { bottom:43px; gap:8px; }.combat-slot { min-height:84px; width:74px; border-radius:12px; }.combat-slot>small { font-size:11px; }.combat-slot>img { width:44px; height:44px; object-fit:contain; }.combat-weapon-info { width:175px; padding:9px 12px; }.combat-ammo small { font-size:9px; }.combat-ammo>strong { font-size:29px; }.combat-upgrades { font-size:11px; bottom:-26px; }.combat-controls { font-size:11px; bottom:15px; }
-.hud-center-reload { top:auto; bottom:160px; width:180px; backdrop-filter:none; animation:none !important; box-shadow:0 3px 10px #0003; }.crosshair-reload-ring.almost-ready .reload-ring-bar { animation:none; }
+/* Combat HUD tactical overrides */
+.combat-panel {
+  background:rgba(4, 8, 14, 0.84);
+  backdrop-filter:blur(18px) saturate(150%);
+  border:1px solid rgba(0, 229, 255, 0.18);
+  border-radius:5px;
+  box-shadow:0 0 0 1px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.75);
+}
+.combat-vitals { top:16px; left:16px; width:228px; padding:10px 13px; }
+.combat-meter { height:6px; }.shield-meter { height:4px; }
+.combat-card-title, .vital-label { font-size:11px; }
+.combat-wave { top:16px; padding:7px 16px; min-width:140px; }
+.combat-wave > strong { font-size:26px; }
+.combat-radar { top:16px; right:16px; padding:7px; }
+.combat-radar #radar-canvas { width:90px; height:90px; }
+.radar-key { font-size:8px; }
+.hud-actions {
+  position:absolute; top:168px; right:16px;
+  display:flex; gap:6px; pointer-events:auto;
+}
+.hud-actions button {
+  min-height:34px; padding:5px 10px;
+  border:1px solid rgba(0,229,255,0.2); border-radius:4px;
+  background:rgba(4,8,14,0.85); color:#90a4ae;
+  font:700 10px 'Rajdhani','Segoe UI',sans-serif;
+  cursor:pointer; letter-spacing:0.5px; text-transform:uppercase;
+  transition:all .15s ease;
+}
+.hud-actions button:hover {
+  border-color:rgba(0,229,255,0.5); color:#fff;
+  background:rgba(0,20,30,0.92);
+}
+.hud-actions button:disabled { opacity:.35; cursor:default; }
+.hud-actions kbd { padding:1px 4px; font-size:9px; }
+
+.combat-loadout { bottom:40px; gap:6px; }
+.combat-slot { min-height:80px; width:70px; border-radius:4px; }
+.combat-slot > small { font-size:10px; }
+.combat-slot > img { width:42px; height:42px; object-fit:contain; }
+.combat-weapon-info { width:168px; padding:9px 12px; }
+.combat-ammo small { font-size:8px; }
+.combat-ammo > strong { font-size:32px; }
+.combat-upgrades { font-size:10px; bottom:-22px; }
+.combat-controls { font-size:10px; bottom:14px; }
+.hud-center-reload { top:auto; bottom:155px; width:176px; backdrop-filter:none; animation:none !important; box-shadow:0 3px 10px rgba(0,0,0,0.5); }
+.crosshair-reload-ring.almost-ready .reload-ring-bar { animation:none; }
 #hud .announcement-banner { font-size:19px; max-width:min(500px,80vw); box-sizing:border-box; }#hud .pickup-alert { font-size:14px; }#hud .team-roster-panel { top:170px; left:18px; }
 /* Pause and defeat use the same palette as the lobby. */
 #screen-pause,#screen-gameover { background:#292035b8; backdrop-filter:none; padding:20px; box-sizing:border-box; }

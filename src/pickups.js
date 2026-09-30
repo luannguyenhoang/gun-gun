@@ -1,23 +1,23 @@
 import * as THREE from 'three';
 import { sounds } from './audio.js';
-import { RARE_WEAPON_CONFIGS } from './weapons.js';
+import { RARE_WEAPON_CONFIGS, ATTACHMENT_DEFS, RARITY_TIERS } from './weapons.js';
+import { LOOT_ITEMS } from './looting.js';
 
+// Danh mục phần thưởng rơi từ Zombie: Hoàn toàn loại bỏ đạn lẻ và buff đạn, chỉ tập trung vào Phụ kiện, Súng & Y tế
 export const DROP_TYPES = [
-    { id: 'health', label: '+40 MÁU', color: 0x00ff88, weight: 0.15 },
-    { id: 'medkit', label: '+1 TÚI CỨU THƯƠNG', color: 0x10b981, weight: 0.12 },
-    { id: 'shield', label: '+50 GIÁP', color: 0x00d0ff, weight: 0.10 },
-    { id: 'ammo', label: '+3 BĂNG ĐẠN DỰ TRỮ', color: 0xffffff, weight: 0.35 },
-    { id: 'damage', label: '+20% SÁT THƯƠNG', color: 0xff6644, weight: 0.10 },
-    { id: 'rapid', label: '+12.5% TỐC ĐỘ BẮN', color: 0xffdd33, weight: 0.08 },
-    { id: 'multishot', label: '+2 TIA ĐẠN', color: 0xdd66ff, weight: 0.06 },
-    { id: 'weapon', label: 'SÚNG HIẾM', color: 0xffaa22, weight: 0.04 }
+    { id: 'health', label: '+40 MÁU', color: 0x00ff88, weight: 0.18 },
+    { id: 'shield', label: '+50 GIÁP', color: 0x00d0ff, weight: 0.16 },
+    { id: 'medkit', label: '+1 TÚI CỨU THƯƠNG', color: 0x10b981, weight: 0.16 },
+    { id: 'barrel', label: 'PHỤ KIỆN: NÒNG', color: 0xff4444, weight: 0.14 },
+    { id: 'magazine', label: 'PHỤ KIỆN: BĂNG ĐẠN', color: 0x38bdf8, weight: 0.14 },
+    { id: 'optic', label: 'PHỤ KIỆN: KÍNH NGẮM', color: 0xa855f7, weight: 0.11 },
+    { id: 'grip', label: 'PHỤ KIỆN: TAY CẦM', color: 0xf59e0b, weight: 0.08 },
+    { id: 'weapon', label: 'VŨ KHÍ MỚI', color: 0xffaa22, weight: 0.03 }
 ];
 
-export const DROP_CHANCE = 0.05;
-export const DROP_PITY_KILLS = 5;
-export const AMMO_PITY_KILLS = 10;
-export const BUFF_PITY_KILLS = 20;
-const BUFF_TYPES = ['damage', 'rapid', 'multishot'];
+export const DROP_CHANCE = 0.08;
+export const DROP_PITY_KILLS = 6;
+const ATTACHMENT_SLOTS = ['barrel', 'magazine', 'optic', 'grip'];
 
 export class PickupManager {
     constructor(scene, particles) {
@@ -26,79 +26,100 @@ export class PickupManager {
         this.pickups = [];
         this.nextId = 1;
         this.killsWithoutDrop = 0;
-        this.killsWithoutAmmo = 0;
-        this.killsWithoutBuff = 0;
-        this.airdropTimer = 16;
+        this.airdropTimer = 22;
+
         this.geoBox = new THREE.BoxGeometry(0.4, 0.4, 0.4);
         this.geoOcta = new THREE.OctahedronGeometry(0.35);
-        this.geoBarrel = new THREE.BoxGeometry(0.75, 0.16, 0.18);
+        this.geoBarrel = new THREE.CylinderGeometry(0.08, 0.08, 0.65, 8);
         this.geoBeam = new THREE.CylinderGeometry(0.04, 0.1, 2.2, 6);
         this.geoRing = new THREE.TorusGeometry(0.48, 0.035, 4, 24);
     }
 
     spawnDrop(position, enemyType = 'walker') {
         this.killsWithoutDrop++;
-        this.killsWithoutAmmo++;
-        this.killsWithoutBuff++;
         let forcedType = null;
-        if (this.killsWithoutBuff >= BUFF_PITY_KILLS) {
-            forcedType = BUFF_TYPES[Math.floor(Math.random() * BUFF_TYPES.length)];
-            if (this.killsWithoutAmmo >= AMMO_PITY_KILLS) {
-                this.createPickup(position, 'ammo');
-                this.killsWithoutAmmo = 0;
-            }
-        } else if (this.killsWithoutAmmo >= AMMO_PITY_KILLS) forcedType = 'ammo';
-        if (!forcedType && enemyType !== 'boss' && this.killsWithoutDrop < DROP_PITY_KILLS && Math.random() >= DROP_CHANCE) return null;
+        if (enemyType === 'boss') {
+            forcedType = Math.random() < 0.5 ? 'weapon' : ATTACHMENT_SLOTS[Math.floor(Math.random() * ATTACHMENT_SLOTS.length)];
+        } else if (this.killsWithoutDrop >= DROP_PITY_KILLS) {
+            forcedType = ATTACHMENT_SLOTS[Math.floor(Math.random() * ATTACHMENT_SLOTS.length)];
+        }
+
+        if (!forcedType && Math.random() >= DROP_CHANCE) return null;
+
         let roll = Math.random();
         const definition = DROP_TYPES.find(drop => {
             roll -= drop.weight;
             return roll < 0;
-        }) || DROP_TYPES.at(-1);
+        }) || DROP_TYPES[0];
+
         const type = forcedType || definition.id;
         this.killsWithoutDrop = 0;
-        if (type === 'ammo') this.killsWithoutAmmo = 0;
-        if (BUFF_TYPES.includes(type)) this.killsWithoutBuff = 0;
         return this.createPickup(position, type);
     }
 
     createPickup(position, type, options = {}) {
         if (type === 'airdrop') return this.createAirdrop(position, options);
-        const definition = DROP_TYPES.find(drop => drop.id === type);
-        if (!definition) return null;
+        const definition = DROP_TYPES.find(drop => drop.id === type) || DROP_TYPES[0];
         const { color } = definition;
+
         const weaponSlot = type === 'weapon' ? (options.weaponSlot ?? Math.floor(Math.random() * RARE_WEAPON_CONFIGS.length)) : null;
         const label = type === 'weapon' ? RARE_WEAPON_CONFIGS[weaponSlot].name : definition.label;
+
         const mesh = new THREE.Group();
         mesh.position.copy(position);
         mesh.position.y = 0.7;
-        const material = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.8, roughness: 0.25 });
+
+        const material = new THREE.MeshStandardMaterial({
+            color,
+            emissive: color,
+            emissiveIntensity: 0.8,
+            roughness: 0.25
+        });
+
         const body = new THREE.Group();
         mesh.add(body);
-        if (type === 'multishot') {
-            for (let i = -1; i <= 1; i++) {
-                const shard = new THREE.Mesh(this.geoOcta, material);
-                shard.scale.setScalar(0.55);
-                shard.position.x = i * 0.3;
-                body.add(shard);
-            }
+
+        if (type === 'barrel') {
+            const cyl = new THREE.Mesh(this.geoBarrel, material);
+            cyl.rotation.z = Math.PI / 2;
+            body.add(cyl);
+        } else if (type === 'optic') {
+            const prism = new THREE.Mesh(this.geoOcta, material);
+            prism.scale.set(0.65, 0.65, 0.65);
+            body.add(prism);
+        } else if (type === 'magazine') {
+            const mag = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.55, 0.35), material);
+            body.add(mag);
+        } else if (type === 'grip') {
+            const gripMesh = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.45, 0.25), material);
+            gripMesh.rotation.x = 0.25;
+            body.add(gripMesh);
         } else if (type === 'weapon') {
-            const barrel = new THREE.Mesh(this.geoBarrel, material);
-            const grip = new THREE.Mesh(this.geoBox, material);
-            grip.scale.set(0.35, 0.8, 0.35);
-            grip.position.set(-0.16, -0.2, 0);
-            body.add(barrel, grip);
+            const b = new THREE.Mesh(this.geoBarrel, material);
+            const g = new THREE.Mesh(this.geoBox, material);
+            g.scale.set(0.35, 0.7, 0.35);
+            g.position.set(-0.16, -0.2, 0);
+            body.add(b, g);
         } else {
-            const core = new THREE.Mesh(['health', 'medkit', 'shield', 'ammo'].includes(type) ? this.geoBox : this.geoOcta, material);
+            const core = new THREE.Mesh(this.geoBox, material);
             body.add(core);
         }
+
         const ring = new THREE.Mesh(this.geoRing, material);
         ring.rotation.x = Math.PI / 2;
         ring.position.y = -0.5;
         mesh.add(ring);
-        const beam = new THREE.Mesh(this.geoBeam, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.22, depthWrite: false }));
+
+        const beam = new THREE.Mesh(this.geoBeam, new THREE.MeshBasicMaterial({
+            color,
+            transparent: true,
+            opacity: 0.22,
+            depthWrite: false
+        }));
         beam.position.y = 0.5;
         mesh.add(beam);
-        // Billboard labels let players identify a reward before collecting it.
+
+        // Billboard text nhãn rõ ràng, không dùng icon
         if (typeof document !== 'undefined') {
             const canvas = document.createElement('canvas');
             canvas.width = 512;
@@ -106,18 +127,31 @@ export class PickupManager {
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = 'rgba(8, 15, 24, 0.85)';
             ctx.fillRect(0, 0, 512, 80);
-            ctx.font = 'bold 40px sans-serif';
+            ctx.font = 'bold 36px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
             ctx.fillText(label, 256, 40, 490);
-            const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthWrite: false }));
+            const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: new THREE.CanvasTexture(canvas),
+                depthWrite: false
+            }));
             sprite.position.y = 1.3;
-            sprite.scale.set(3, 0.47, 1);
+            sprite.scale.set(2.8, 0.45, 1);
             mesh.add(sprite);
         }
+
         this.scene.add(mesh);
-        const pickup = { id: options.id ?? this.nextId++, mesh, body, type, color, weaponSlot, baseY: 0.7, life: type === 'weapon' ? 60 : 45 };
+        const pickup = {
+            id: options.id ?? this.nextId++,
+            mesh,
+            body,
+            type,
+            color,
+            weaponSlot,
+            baseY: 0.7,
+            life: type === 'weapon' ? 60 : 45
+        };
         this.pickups.push(pickup);
         return pickup;
     }
@@ -136,52 +170,127 @@ export class PickupManager {
         beacon.position.y = 1.35;
         group.add(crate, strap, beacon);
         this.scene.add(group);
-        const pickup = { id: options.id ?? this.nextId++, mesh: group, body: group, type: 'airdrop', color: 0xff5522,
-            weaponSlot: Math.floor(Math.random() * RARE_WEAPON_CONFIGS.length), baseY: 0.45, life: 90 };
+        const pickup = {
+            id: options.id ?? this.nextId++,
+            mesh: group,
+            body: group,
+            type: 'airdrop',
+            color: 0xff5522,
+            weaponSlot: Math.floor(Math.random() * RARE_WEAPON_CONFIGS.length),
+            baseY: 0.45,
+            life: 90
+        };
         this.pickups.push(pickup);
         return pickup;
     }
 
+    // Tự động gắn hoặc nâng cấp phụ kiện nhặt được lên súng
+    th_autoEquipAttachment(attachSlot, player, forcedTier = null) {
+        const weapons = player?.weapons;
+        if (!weapons) return '+1 PHỤ KIỆN';
+
+        // Xác định Tier rơi theo tiến trình ngẫu nhiên
+        let tier = forcedTier;
+        if (!tier) {
+            const r = Math.random();
+            if (r < 0.45) tier = 1;
+            else if (r < 0.75) tier = 2;
+            else if (r < 0.93) tier = 3;
+            else tier = 4;
+        }
+
+        const itemId = `${attachSlot}_t${tier}`;
+        const def = LOOT_ITEMS[itemId] || ATTACHMENT_DEFS[itemId];
+        const attachName = def?.name || `PHỤ KIỆN CẤP ${tier}`;
+        const currentGunIdx = weapons.currentSlotIndex === 1 ? 1 : 0;
+        const currentAttach = weapons.getAttachmentsForGun(currentGunIdx);
+        const currentModId = currentAttach[attachSlot];
+
+        // 1. Nếu súng chính còn trống slot -> Gắn luôn
+        if (!currentModId) {
+            weapons.attachMod(attachSlot, itemId, currentGunIdx);
+            sounds.play('switchWeapon', { volume: 0.95, rate: 1.35 });
+            return `ĐÃ LẮP: [${attachName.toUpperCase()}] LÊN SÚNG!`;
+        }
+
+        // 2. Nếu súng chính có cấp thấp hơn -> Swap nâng cấp luôn!
+        const currentTier = ATTACHMENT_DEFS[currentModId]?.tier || 1;
+        if (tier > currentTier) {
+            weapons.attachMod(attachSlot, itemId, currentGunIdx);
+            sounds.play('switchWeapon', { volume: 1.0, rate: 1.45 });
+            return `NÂNG CẤP THÀNH CÔNG: [${attachName.toUpperCase()}]`;
+        }
+
+        // 3. Kiểm tra súng phụ (Khẩu 2)
+        const secGunIdx = currentGunIdx === 0 ? 1 : 0;
+        const secAttach = weapons.getAttachmentsForGun(secGunIdx);
+        const secModId = secAttach[attachSlot];
+        if (!secModId) {
+            weapons.attachMod(attachSlot, itemId, secGunIdx);
+            sounds.play('switchWeapon', { volume: 0.9, rate: 1.3 });
+            return `ĐÃ LẮP [${attachName.toUpperCase()}] LÊN SÚNG PHỤ!`;
+        }
+
+        const secTier = ATTACHMENT_DEFS[secModId]?.tier || 1;
+        if (tier > secTier) {
+            weapons.attachMod(attachSlot, itemId, secGunIdx);
+            sounds.play('switchWeapon', { volume: 0.95, rate: 1.4 });
+            return `NÂNG CẤP CHO SÚNG PHỤ: [${attachName.toUpperCase()}]`;
+        }
+
+        // 4. Nếu cả 2 súng đều đã có đồ cấp cao hơn -> Thưởng điểm chiến lợi phẩm
+        if (window.game) window.game.score += 150;
+        return `PHỤ KIỆN CẤP THẤP HƠN TRANG BỊ → +150 ĐIỂM`;
+    }
+
     collect(pickup, player) {
         const weapons = player.weapons;
-        // Hòm tiếp tế chứa combo đầy đủ vật phẩm buff, đạn, hồi máu
+
+        // 1. Phụ kiện súng (Nòng, Băng đạn, Kính ngắm, Tay cầm)
+        if (ATTACHMENT_SLOTS.includes(pickup.type)) {
+            return this.th_autoEquipAttachment(pickup.type, player);
+        }
+
+        // 2. Hòm tiếp tế Airdrop: Tặng phụ kiện Cấp 4/5 + Túi cứu thương + Hồi máu & giáp
         if (pickup.type === 'airdrop') {
-            weapons.addAmmo(4); // +4 băng đạn
-            player.heal(40); // Hồi 40 máu
-            if (weapons.inventory.medkits < 5) weapons.inventory.medkits++; // +1 túi cứu thương
-            // Ngẫu nhiên nhận buff hoặc súng hiếm
-            const roll = Math.random();
-            if (roll < 0.28) {
-                weapons.equipRareWeapon(pickup.weaponSlot);
-                return 'HÒM TIẾP TẾ: +SÚNG HIẾM +4 BĂNG ĐẠN +HỒI MÁU!';
-            } else if (roll < 0.52) {
-                weapons.applyUpgrade('damage');
-                return 'HÒM TIẾP TẾ: +20% SÁT THƯƠNG +4 BĂNG ĐẠN +HỒI MÁU!';
-            } else if (roll < 0.76) {
-                weapons.applyUpgrade('rapid');
-                return 'HÒM TIẾP TẾ: +TỐC ĐỘ BẮN +4 BĂNG ĐẠN +HỒI MÁU!';
-            } else {
-                weapons.applyUpgrade('multishot');
-                return 'HÒM TIẾP TẾ: +ĐA TIA ĐẠN +4 BĂNG ĐẠN +HỒI MÁU!';
-            }
+            player.heal(50);
+            player.rechargeShield(50);
+            if (weapons.inventory.medkits < 10) weapons.inventory.medkits += 2;
+            const randomSlot = ATTACHMENT_SLOTS[Math.floor(Math.random() * ATTACHMENT_SLOTS.length)];
+            const highTier = Math.random() < 0.65 ? 4 : 5;
+            this.th_autoEquipAttachment(randomSlot, player, highTier);
+            return 'HÒM TIẾP TẾ: +PHỤ KIỆN CAO CẤP +2 TÚI CỨU THƯƠNG +HỒI PHỤC!';
         }
-        if (pickup.type === 'health') { player.heal(40); return '+40 MÁU'; }
+
+        // 3. Hồi máu nhanh
+        if (pickup.type === 'health') {
+            player.heal(40);
+            return '+40 MÁU KHẨN CẤP';
+        }
+
+        // 4. Giáp nạp
+        if (pickup.type === 'shield') {
+            player.rechargeShield(50);
+            return '+50 GIÁP BẢO VỆ';
+        }
+
+        // 5. Túi cứu thương PUBG
         if (pickup.type === 'medkit') {
-            if (weapons.inventory.medkits < 5) weapons.inventory.medkits++;
-            return '+1 TÚI CỨU THƯƠNG [PHÍM 3]';
+            weapons.inventory.medkits = (weapons.inventory.medkits || 0) + 1;
+            return '+1 TÚI CỨU THƯƠNG (BÁNH XE / PHÍM 3)';
         }
-        if (pickup.type === 'shield') { player.rechargeShield(50); return '+50 GIÁP'; }
-        if (pickup.type === 'ammo') { weapons.addAmmo(3); return '+3 BĂNG ĐẠN DỰ TRỮ • R ĐỂ NẠP'; }
+
+        // 6. Súng mới
         if (pickup.type === 'weapon') {
-            if (weapons.equipRareWeapon(pickup.weaponSlot)) return `ĐÃ TRANG BỊ ${weapons.getCurrentWeapon().name} • Ô 1`;
-            if (weapons.applyUpgrade('damage')) return 'SÚNG TRÙNG → +20% SÁT THƯƠNG';
-        } else if (weapons.applyUpgrade(pickup.type)) {
-            const level = weapons.upgrades[pickup.type];
-            return `${DROP_TYPES.find(drop => drop.id === pickup.type).label} • CẤP ${level}`;
+            if (weapons.equipRareWeapon(pickup.weaponSlot)) {
+                return `ĐÃ TRANG BỊ [${weapons.getCurrentWeapon().name.toUpperCase()}]`;
+            }
+            if (window.game) window.game.score += 300;
+            return 'SÚNG ĐÃ SỞ HỮU → +300 ĐIỂM';
         }
-        weapons.addAmmo(2);
-        player.rechargeShield(35);
-        return 'ĐÃ ĐẠT TỐI ĐA → +2 BĂNG ĐẠN +35 GIÁP';
+
+        player.rechargeShield(30);
+        return '+30 GIÁP';
     }
 
     update(delta, player, onPickupNotify, authoritative = true) {
@@ -189,7 +298,7 @@ export class PickupManager {
         if (authoritative && !Array.isArray(player)) {
             this.airdropTimer -= delta;
             if (this.airdropTimer <= 0) {
-                this.airdropTimer = 18 + Math.random() * 8;
+                this.airdropTimer = 24 + Math.random() * 12;
                 const centerP = Array.isArray(player) ? player[0] : player;
                 const px = centerP ? centerP.position.x : 0;
                 const pz = centerP ? centerP.position.z : 0;
@@ -201,10 +310,14 @@ export class PickupManager {
                 onPickupNotify?.('HÒM TIẾP TẾ ĐÃ RƠI XUỐNG CHIẾN TRƯỜNG!', 'airdrop', centerP);
             }
         }
+
         for (let i = this.pickups.length - 1; i >= 0; i--) {
             const pickup = this.pickups[i];
             pickup.life -= delta;
-            if (pickup.life <= 0) { this.remove(i); continue; }
+            if (pickup.life <= 0) {
+                this.remove(i);
+                continue;
+            }
             pickup.body.rotation.y += (pickup.type === 'airdrop' ? 0.4 : 2.2) * delta;
             pickup.mesh.position.y = pickup.baseY + Math.sin(performance.now() * 0.005 + i) * 0.15;
             const collector = authoritative && players.find(p => !p.isDead && Math.hypot(pickup.mesh.position.x - p.position.x, pickup.mesh.position.z - p.position.z) < 1.6);
@@ -233,7 +346,5 @@ export class PickupManager {
     clear() {
         while (this.pickups.length) this.remove(this.pickups.length - 1);
         this.killsWithoutDrop = 0;
-        this.killsWithoutAmmo = 0;
-        this.killsWithoutBuff = 0;
     }
 }

@@ -1,16 +1,247 @@
-/* Bright, readable combat interface with actual health, shield and ammunition. */
-#hud { font-family:'Nunito','Segoe UI',sans-serif; color:#fff; }
-.combat-panel { background:linear-gradient(145deg,#63567f,#453952); border:2px solid #302639; border-radius:13px; box-shadow:inset 0 2px #ffffff33,0 4px 0 #2c243dcc,0 9px 20px #17222130; }
-.combat-vitals { position:absolute; top:22px; left:22px; width:255px; padding:13px 16px 15px; }
-.combat-card-title { display:flex; justify-content:space-between; font-size:12px; font-weight:900; color:#e8ddfa; margin-bottom:12px; }.combat-score { color:#ffdb71; }
-.vital-label { display:flex; justify-content:space-between; font-size:12px; font-weight:900; margin-bottom:5px; }.vital-label strong { font-variant-numeric:tabular-nums; }.shield-label { color:#bdeaff; margin-top:10px; }
-.combat-meter { height:18px; width:100%; border:2px solid #30283f; border-radius:6px; overflow:hidden; background:#393044; box-sizing:border-box; }.combat-meter>div { height:100%; transition:width .12s linear; }.health-meter>div { background:linear-gradient(#a3f37d,#4ebd67); box-shadow:inset 0 2px #dcffc980; }.shield-meter { height:11px; }.shield-meter>div { background:linear-gradient(#9cecff,#428ddd); }.ammo-meter { height:7px; margin:5px 0; }.ammo-meter>div { background:#ffd06b; }
-.combat-wave { position:absolute; top:22px; left:50%; transform:translateX(-50%); min-width:170px; padding:9px 18px 12px; text-align:center; display:flex; flex-direction:column; gap:4px; }.combat-kicker { font-size:10px; font-weight:900; letter-spacing:1px; color:#e2d7f4; }.combat-wave>strong { font-size:29px; font-weight:1000; line-height:1.1; }.enemy-count { font-size:10px; color:#ffd9c0; font-weight:900; }.enemy-count b { display:inline-block; margin-left:6px; font-size:14px; color:white; }
-.combat-radar { position:absolute; right:22px; top:22px; display:flex; flex-direction:column; align-items:center; gap:5px; padding:10px; }.combat-radar #radar-canvas { display:block; width:112px; height:112px; border-radius:8px; }.radar-key { color:#71ffc2; font-size:8px; font-weight:900; }.radar-key i { color:#ff9a96; font-style:normal; margin-left:8px; }.combat-boss { position:absolute; top:145px; left:50%; transform:translateX(-50%); width:300px; text-align:center; font-size:13px; font-weight:900; text-shadow:0 2px #30283f; }.combat-boss .combat-meter { margin-top:5px; }.combat-boss .health-meter>div { background:linear-gradient(#ff9a90,#e94c6b); }
-.combat-loadout { position:absolute; bottom:42px; left:50%; transform:translateX(-50%); display:flex; gap:10px; align-items:stretch; pointer-events:auto; }.combat-weapon-info { width:190px; padding:10px 14px; }.combat-ammo { display:flex; align-items:baseline; gap:6px; }.combat-ammo>strong { font-size:31px; line-height:1.15; font-weight:1000; color:#ffdf8a; }.combat-ammo>span { font-size:17px; color:#ecdef8; }.combat-ammo small { font-size:7px; max-width:40px; color:#d0c4df; margin-left:auto; }#stamina-text { font-size:9px; font-weight:900; color:#ffe4ae; }
-.combat-slot { position:relative; width:86px; min-height:99px; display:flex; align-items:center; justify-content:center; flex-direction:column; padding:10px 4px 8px; gap:3px; border:2px solid #302639; border-radius:12px; background:linear-gradient(#8aabd8,#5279ae); color:white; box-shadow:inset 0 2px #ffffff55,0 4px 0 #30263dcc; font-family:inherit; cursor:pointer; }.combat-slot.active { background:linear-gradient(#ffe29b,#eaaa43); border-color:#fff1c2; color:#382b41; box-shadow:0 0 0 2px #49374f,0 5px 0 #49374f; }.combat-slot>kbd { position:absolute; top:5px; left:5px; min-width:0; padding:1px 5px; background:#362b49; color:white; font-size:10px; border-radius:4px; }.combat-slot>small { font-size:10px; font-weight:1000; }.combat-slot svg { width:48px; height:48px; }.combat-slot:focus-visible { outline:3px solid white; outline-offset:3px; }#th-active-silhouette { display:flex; width:64px; height:51px; align-items:center; justify-content:center; }#th-active-silhouette img { width:100%; height:100%; object-fit:contain; image-rendering:auto; filter:drop-shadow(0 3px 2px #231b4655); }.medkit-icon { display:grid; place-items:center; width:39px; height:37px; margin:7px 0; background:#fff0dd; color:#ed6665; border:2px solid #523a50; border-radius:7px; font-size:30px; line-height:1; }
-.combat-channel { position:absolute; bottom:calc(100% + 17px); left:50%; transform:translateX(-50%); width:270px; padding:10px 14px; font-size:12px; font-weight:900; }.combat-channel b { float:right; }.combat-channel .combat-meter { margin-top:8px; }.combat-upgrades { position:absolute; bottom:-24px; width:100%; text-align:center; color:#fff5de; font-size:10px; font-weight:900; text-shadow:0 2px 3px #29352c; white-space:nowrap; }.combat-controls { position:absolute; bottom:20px; left:22px; font-size:10px; font-weight:800; color:white; text-shadow:0 2px 3px #243322; }.combat-controls kbd { min-width:0; padding:3px 4px; font-size:9px; margin-left:7px; }.combat-controls kbd:first-child { margin-left:0; }
-#hud .team-roster-panel { top:205px; left:22px; }#hud .announcement-banner { font:1000 24px 'Nunito','Segoe UI',sans-serif; color:#fff8db; background:#63507ae8; border:2px solid #32263f; border-radius:10px; padding:10px 24px; text-shadow:0 2px #32263f; }#hud .pickup-alert { color:#fff2bb; font-family:inherit; }#hud .crosshair { filter:drop-shadow(0 1px 1px #22302b); }#hud .cross-dot,#hud .cross-line { background:#fff5d5; box-shadow:none; }
+/* ============================================================
+   TACTICAL DARK GLASSMORPHISM HUD - PUBG / EFT STYLE
+   Palette: #000a12 bg · #00e5ff accent · #ff4444 danger · #ffd600 gold
+   ============================================================ */
+
+/* Biến màu toàn cục HUD */
+#hud {
+  font-family:'Rajdhani','Orbitron','Segoe UI',sans-serif;
+  color:#e8eaf0;
+  --hud-bg: rgba(4, 8, 14, 0.82);
+  --hud-border: rgba(0, 229, 255, 0.22);
+  --hud-accent: #00e5ff;
+  --hud-gold: #ffd600;
+  --hud-danger: #ff4444;
+  --hud-green: #00e676;
+  --hud-text: #ccd6f6;
+  --hud-muted: #607d8b;
+}
+
+/* Panel nền kính mờ chuẩn chiến thuật */
+.combat-panel {
+  background: var(--hud-bg);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid var(--hud-border);
+  border-radius: 6px;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.5),
+    0 8px 32px rgba(0,0,0,0.7),
+    inset 0 1px 0 rgba(0,229,255,0.08);
+}
+
+/* ── VITALS: Máu & Khiên ─────────────────────────────── */
+.combat-vitals {
+  position:absolute; top:18px; left:18px; width:240px;
+  padding:10px 14px 12px;
+}
+.combat-card-title {
+  display:flex; justify-content:space-between;
+  font-size:10px; font-weight:700; letter-spacing:1.5px;
+  color:var(--hud-muted); text-transform:uppercase; margin-bottom:10px;
+}
+.combat-score { color:var(--hud-gold); font-weight:800; }
+
+.vital-label {
+  display:flex; justify-content:space-between;
+  font-size:11px; font-weight:600; letter-spacing:0.5px;
+  margin-bottom:4px; color:var(--hud-text);
+}
+.vital-label strong { font-variant-numeric:tabular-nums; color:#fff; font-weight:700; }
+.shield-label { color:#80d8ff; margin-top:9px; }
+
+/* Thanh tiến trình chiến thuật */
+.combat-meter {
+  height:5px; width:100%;
+  border:none; border-radius:2px;
+  overflow:hidden; background:rgba(255,255,255,0.07);
+  box-sizing:border-box; position:relative;
+}
+.combat-meter::after {
+  content:''; position:absolute; inset:0;
+  background:repeating-linear-gradient(90deg, transparent, transparent 19px, rgba(0,0,0,0.35) 19px, rgba(0,0,0,0.35) 20px);
+  pointer-events:none;
+}
+.combat-meter > div { height:100%; transition:width .15s linear; }
+.health-meter { height:7px; }
+.health-meter > div {
+  background:linear-gradient(90deg, #00c853, #00e676);
+  box-shadow:0 0 6px rgba(0,230,118,0.5);
+}
+.shield-meter { height:5px; margin-top:1px; }
+.shield-meter > div {
+  background:linear-gradient(90deg, #0288d1, #00e5ff);
+  box-shadow:0 0 6px rgba(0,229,255,0.4);
+}
+.ammo-meter { height:3px; margin:5px 0 2px; }
+.ammo-meter > div {
+  background:var(--hud-gold);
+  box-shadow:0 0 4px rgba(255,214,0,0.4);
+}
+
+/* ── WAVE COUNTER ──────────────────────────────────────── */
+.combat-wave {
+  position:absolute; top:18px; left:50%; transform:translateX(-50%);
+  min-width:160px; padding:8px 20px 10px;
+  text-align:center; display:flex; flex-direction:column; gap:2px;
+}
+.combat-kicker {
+  font-size:9px; font-weight:700; letter-spacing:2px;
+  color:var(--hud-muted); text-transform:uppercase;
+}
+.combat-wave > strong {
+  font-size:32px; font-weight:700; line-height:1;
+  color:#fff; letter-spacing:-1px;
+  text-shadow:0 0 20px rgba(0,229,255,0.4);
+}
+.enemy-count { font-size:9px; color:var(--hud-muted); font-weight:600; letter-spacing:0.5px; }
+.enemy-count b { display:inline-block; margin-left:4px; font-size:13px; color:var(--hud-danger); font-weight:700; }
+
+/* ── RADAR ─────────────────────────────────────────────── */
+.combat-radar {
+  position:absolute; right:18px; top:18px;
+  display:flex; flex-direction:column; align-items:center;
+  gap:5px; padding:8px;
+}
+.combat-radar #radar-canvas {
+  display:block; width:104px; height:104px;
+  border-radius:4px;
+  border:1px solid rgba(0,229,255,0.2);
+  box-shadow:0 0 12px rgba(0,229,255,0.1);
+}
+.radar-key { color:var(--hud-green); font-size:8px; font-weight:700; letter-spacing:0.5px; }
+.radar-key i { color:var(--hud-danger); font-style:normal; margin-left:8px; }
+
+/* Boss health */
+.combat-boss {
+  position:absolute; top:140px; left:50%; transform:translateX(-50%);
+  width:300px; text-align:center; font-size:11px; font-weight:700;
+  color:var(--hud-danger); letter-spacing:1px; text-transform:uppercase;
+}
+.combat-boss .combat-meter { margin-top:5px; height:8px; }
+.combat-boss .health-meter > div {
+  background:linear-gradient(90deg, #b71c1c, #ff4444);
+  box-shadow:0 0 8px rgba(255,68,68,0.6);
+}
+
+/* ── LOADOUT / HOTBAR ─────────────────────────────────── */
+.combat-loadout {
+  position:absolute; bottom:38px; left:50%; transform:translateX(-50%);
+  display:flex; gap:6px; align-items:stretch; pointer-events:auto;
+}
+
+/* Panel thông tin vũ khí */
+.combat-weapon-info {
+  width:180px; padding:10px 14px;
+  display:flex; flex-direction:column; justify-content:center;
+}
+.combat-ammo { display:flex; align-items:baseline; gap:5px; }
+.combat-ammo > strong {
+  font-size:38px; line-height:1; font-weight:700;
+  color:#fff; letter-spacing:-1px;
+  text-shadow:0 0 16px rgba(0,229,255,0.3);
+}
+.combat-ammo > span { font-size:16px; color:var(--hud-muted); font-weight:600; }
+.combat-ammo small {
+  font-size:8px; max-width:45px; color:var(--hud-muted);
+  margin-left:auto; letter-spacing:0.5px; text-transform:uppercase;
+}
+#stamina-text {
+  font-size:9px; font-weight:600; color:var(--hud-muted);
+  letter-spacing:0.5px; text-transform:uppercase; margin-top:3px;
+}
+
+/* Slot vũ khí / vật phẩm */
+.combat-slot {
+  position:relative;
+  width:76px; min-height:88px;
+  display:flex; align-items:center; justify-content:center;
+  flex-direction:column; padding:8px 4px 6px; gap:3px;
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:5px;
+  background:rgba(4, 8, 14, 0.80);
+  backdrop-filter:blur(10px);
+  color:var(--hud-text); font-family:inherit; cursor:pointer;
+  transition:all .18s ease;
+}
+.combat-slot:hover {
+  border-color:rgba(0,229,255,0.4);
+  background:rgba(0,20,30,0.90);
+}
+.combat-slot.active {
+  background:rgba(0, 30, 40, 0.92);
+  border-color:var(--hud-accent);
+  box-shadow:
+    0 0 0 1px rgba(0,229,255,0.12),
+    0 0 16px rgba(0,229,255,0.2),
+    inset 0 0 8px rgba(0,229,255,0.06);
+  color:#fff;
+}
+.combat-slot > kbd {
+  position:absolute; top:4px; left:4px; min-width:0;
+  padding:1px 4px;
+  background:rgba(0,0,0,0.6);
+  border:1px solid rgba(255,255,255,0.15);
+  color:var(--hud-muted); font-size:9px; border-radius:3px;
+}
+.combat-slot > small {
+  font-size:9px; font-weight:600; letter-spacing:0.8px;
+  text-transform:uppercase; color:var(--hud-muted);
+}
+.combat-slot.active > small { color:var(--hud-accent); }
+.combat-slot svg { width:44px; height:44px; }
+.combat-slot:focus-visible { outline:2px solid var(--hud-accent); outline-offset:2px; }
+#th-active-silhouette { display:flex; width:60px; height:48px; align-items:center; justify-content:center; }
+#th-active-silhouette img {
+  width:100%; height:100%; object-fit:contain; image-rendering:auto;
+  filter:brightness(1.1) drop-shadow(0 2px 8px rgba(0,229,255,0.3));
+}
+.medkit-icon {
+  display:grid; place-items:center;
+  width:36px; height:34px; margin:6px 0;
+  background:rgba(0,200,100,0.12);
+  color:var(--hud-green);
+  border:1px solid rgba(0,230,118,0.3);
+  border-radius:4px; font-size:26px; line-height:1;
+}
+
+/* Channel / cast bar */
+.combat-channel {
+  position:absolute; bottom:calc(100% + 14px); left:50%; transform:translateX(-50%);
+  width:260px; padding:8px 14px; font-size:11px; font-weight:700;
+}
+.combat-channel b { float:right; color:var(--hud-accent); }
+.combat-channel .combat-meter { margin-top:6px; }
+
+.combat-upgrades {
+  position:absolute; bottom:-22px; width:100%; text-align:center;
+  color:var(--hud-muted); font-size:9px; font-weight:600;
+  letter-spacing:0.5px; text-transform:uppercase; white-space:nowrap;
+}
+.combat-controls {
+  position:absolute; bottom:16px; left:18px;
+  font-size:10px; font-weight:600; color:rgba(255,255,255,0.35);
+}
+.combat-controls kbd {
+  min-width:0; padding:2px 4px; font-size:9px; margin-left:6px;
+  background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12);
+  border-radius:3px; color:rgba(255,255,255,0.55);
+}
+.combat-controls kbd:first-child { margin-left:0; }
+
+/* Announcement & pickup */
+#hud .team-roster-panel { top:200px; left:18px; }
+#hud .announcement-banner {
+  font:700 20px 'Rajdhani','Segoe UI',sans-serif;
+  color:#fff; letter-spacing:1px; text-transform:uppercase;
+  background:rgba(0,8,16,0.88);
+  border:1px solid var(--hud-accent);
+  border-radius:5px; padding:10px 24px;
+  box-shadow:0 0 20px rgba(0,229,255,0.2);
+}
+#hud .pickup-alert { color:var(--hud-gold); font-family:inherit; letter-spacing:0.5px; }
+#hud .crosshair { filter:none; }
+#hud .cross-dot, #hud .cross-line { background:rgba(255,255,255,0.9); box-shadow:none; }
 /* Vòng nạp đạn ôm sát con trỏ ngắm */
 .crosshair-reload-ring { position:absolute; top:50%; left:50%; width:60px; height:60px; transform:translate(-50%,-50%); pointer-events:none; opacity:0; transition:opacity .15s ease; z-index:101; }
 .crosshair-reload-ring.active { opacity:1; }
@@ -19,26 +250,127 @@
 .crosshair-reload-ring.almost-ready .reload-ring-bar { stroke:#00f0ff; filter:drop-shadow(0 0 6px #00f0ff); animation:reloadRingPulse .35s ease infinite alternate; }
 .crosshair-reload-ring.ready-burst .reload-ring-bar { stroke:#10b981; filter:drop-shadow(0 0 10px #10b981); }
 /* Loading thay đạn ở giữa màn hình */
-.hud-center-reload { position:absolute; top:calc(50% + 55px); left:50%; transform:translate(-50%,0); width:210px; padding:8px 14px; background:linear-gradient(145deg,rgba(82,69,107,0.95),rgba(48,38,57,0.95)); border:2px solid #ffbe57; border-radius:12px; box-shadow:0 4px 18px rgba(0,0,0,0.6),inset 0 2px rgba(255,255,255,0.2); pointer-events:none; z-index:120; text-align:center; backdrop-filter:blur(4px); transition:border-color .2s,box-shadow .2s,transform .15s ease; }
-.hud-center-reload.almost-ready { border-color:#00f0ff; box-shadow:0 0 16px rgba(0,240,255,0.6),inset 0 2px rgba(255,255,255,0.3); animation:reloadPulseCard .35s ease infinite alternate; }
-.hud-center-reload.ready-burst { border-color:#10b981; box-shadow:0 0 24px rgba(16,185,129,0.85),inset 0 2px rgba(255,255,255,0.4); transform:translate(-50%,0) scale(1.04); }
-.reload-panel-header { display:flex; justify-content:space-between; align-items:center; font-size:11px; font-weight:900; color:#ffdf8a; letter-spacing:0.5px; }
-.hud-center-reload.almost-ready .reload-panel-title { color:#00f0ff; }
-.hud-center-reload.ready-burst .reload-panel-title { color:#a7f3d0; }
-.reload-panel-pct { font-size:13px; font-weight:1000; color:#ffffff; font-variant-numeric:tabular-nums; }
-.reload-panel-bar { height:9px; width:100%; border:1.5px solid #302639; border-radius:6px; overflow:hidden; background:#2b2336; margin:6px 0 5px; position:relative; }
-.reload-fill-inner { height:100%; width:0%; background:linear-gradient(90deg,#ff9e42,#ffd06b); border-radius:4px; transition:width .05s linear; box-shadow:0 0 8px rgba(255,179,66,0.8); }
-.hud-center-reload.almost-ready .reload-fill-inner { background:linear-gradient(90deg,#06b6d4,#00f0ff); box-shadow:0 0 12px #00f0ff; }
-.hud-center-reload.ready-burst .reload-fill-inner { background:linear-gradient(90deg,#10b981,#34d399); box-shadow:0 0 16px #34d399; }
-.reload-panel-sub { font-size:9px; font-weight:800; color:#e2d7f4; opacity:0.85; letter-spacing:0.5px; }
-.hud-center-reload.almost-ready .reload-panel-sub { color:#bae6fd; font-weight:900; }
-.hud-center-reload.ready-burst .reload-panel-sub { color:#d1fae5; font-weight:900; }
-@keyframes reloadRingPulse { 0% { filter:drop-shadow(0 0 4px #00f0ff); opacity:0.8; } 100% { filter:drop-shadow(0 0 10px #00f0ff); opacity:1; } }
-@keyframes reloadPulseCard { 0% { transform:translate(-50%,0) scale(0.99); } 100% { transform:translate(-50%,0) scale(1.02); } }
-#screen-pause,#screen-gameover { background:#2b233b99; backdrop-filter:blur(5px); font-family:'Nunito','Segoe UI',sans-serif; }#screen-pause .menu-box,#screen-gameover .menu-box { background:linear-gradient(#77618e,#514061); border:2px solid #302639; box-shadow:0 6px 0 #302639; border-radius:17px; }#screen-pause .menu-heading,#screen-gameover .menu-heading { font:1000 27px 'Nunito','Segoe UI',sans-serif; color:#fff3db; text-shadow:0 3px #302639; letter-spacing:0; }#screen-pause button,#screen-gameover button { font-family:inherit; border:2px solid #302639; border-radius:9px; box-shadow:0 4px 0 #302639; background:linear-gradient(#ffe39a,#eeb34e); color:#382c44; font-weight:1000; }#screen-pause .btn-toggle { background:#8aaddd; }
-@media(max-width:1050px) { .combat-controls { display:none; }.combat-vitals { width:220px; }.combat-loadout { bottom:35px; } }
-@media(max-width:650px) { .combat-vitals { top:10px; left:10px; width:160px; padding:9px; }.combat-card-title { font-size:9px; margin-bottom:7px; }.vital-label { font-size:10px; }.combat-meter { height:14px; }.shield-meter { height:9px; }.combat-wave { top:10px; left:auto; right:10px; transform:none; min-width:100px; padding:8px; }.combat-wave>strong { font-size:23px; }.combat-kicker { font-size:8px; }.enemy-count { font-size:8px; }.combat-radar { top:120px; right:10px; padding:5px; }.combat-radar #radar-canvas { width:75px; height:75px; }.radar-key { display:none; }.combat-loadout { width:calc(100% - 20px); gap:6px; bottom:35px; }.combat-weapon-info { flex:1; min-width:0; width:auto; padding:8px; }.combat-slot { width:61px; min-height:89px; flex-shrink:0; }.combat-slot>small { font-size:8px; }#th-active-silhouette { width:50px; }.combat-ammo small { display:none; }.combat-ammo>strong { font-size:26px; }.combat-ammo>span { font-size:13px; }.combat-upgrades { font-size:8px; }.combat-boss { top:115px; width:180px; left:10px; transform:none; }#hud .team-roster-panel { top:165px; left:10px; }#hud .announcement-banner { font-size:15px; padding:8px 12px; } }
-@media(max-height:550px) and (min-width:651px) { .combat-vitals { top:10px; left:10px; padding:8px 12px; width:185px; }.combat-wave { top:10px; }.combat-radar { top:10px; right:10px; }.combat-radar #radar-canvas { width:75px; height:75px; }.combat-loadout { bottom:28px; }.combat-slot { min-height:75px; }.combat-weapon-info { padding:5px 12px; } }
+/* Reload center HUD - tactical style */
+.hud-center-reload {
+  position:absolute; top:calc(50% + 55px); left:50%; transform:translate(-50%,0);
+  width:200px; padding:8px 14px;
+  background:rgba(0,6,12,0.90);
+  border:1px solid rgba(0,229,255,0.4);
+  border-radius:5px;
+  box-shadow:0 4px 24px rgba(0,0,0,0.8), 0 0 16px rgba(0,229,255,0.1);
+  pointer-events:none; z-index:120; text-align:center;
+  backdrop-filter:blur(10px);
+  transition:border-color .2s,box-shadow .2s,transform .15s ease;
+}
+.hud-center-reload.almost-ready {
+  border-color:rgba(0,229,255,0.8);
+  box-shadow:0 0 20px rgba(0,229,255,0.4),0 4px 24px rgba(0,0,0,0.8);
+  animation:reloadPulseCard .4s ease infinite alternate;
+}
+.hud-center-reload.ready-burst {
+  border-color:var(--hud-green);
+  box-shadow:0 0 24px rgba(0,230,118,0.5),0 4px 24px rgba(0,0,0,0.8);
+  transform:translate(-50%,0) scale(1.02);
+}
+.reload-panel-header {
+  display:flex; justify-content:space-between; align-items:center;
+  font-size:10px; font-weight:700; color:var(--hud-muted);
+  letter-spacing:1.5px; text-transform:uppercase;
+}
+.hud-center-reload.almost-ready .reload-panel-title { color:var(--hud-accent); }
+.hud-center-reload.ready-burst .reload-panel-title { color:var(--hud-green); }
+.reload-panel-pct { font-size:14px; font-weight:700; color:#fff; font-variant-numeric:tabular-nums; }
+.reload-panel-bar {
+  height:4px; width:100%;
+  border:none; border-radius:2px;
+  overflow:hidden; background:rgba(255,255,255,0.08);
+  margin:7px 0 5px; position:relative;
+}
+.reload-fill-inner {
+  height:100%; width:0%;
+  background:linear-gradient(90deg,#0288d1,#00e5ff);
+  border-radius:2px; transition:width .05s linear;
+  box-shadow:0 0 6px rgba(0,229,255,0.6);
+}
+.hud-center-reload.almost-ready .reload-fill-inner {
+  background:linear-gradient(90deg,#00acc1,#00e5ff);
+  box-shadow:0 0 10px rgba(0,229,255,0.8);
+}
+.hud-center-reload.ready-burst .reload-fill-inner {
+  background:linear-gradient(90deg,#00c853,#00e676);
+  box-shadow:0 0 12px rgba(0,230,118,0.7);
+}
+.reload-panel-sub { font-size:8px; font-weight:600; color:var(--hud-muted); letter-spacing:0.8px; text-transform:uppercase; }
+.hud-center-reload.almost-ready .reload-panel-sub { color:var(--hud-accent); }
+.hud-center-reload.ready-burst .reload-panel-sub { color:var(--hud-green); }
+@keyframes reloadRingPulse {
+  0% { filter:drop-shadow(0 0 4px #00e5ff); opacity:0.7; }
+  100% { filter:drop-shadow(0 0 10px #00e5ff); opacity:1; }
+}
+@keyframes reloadPulseCard {
+  0% { transform:translate(-50%,0) scale(0.99); }
+  100% { transform:translate(-50%,0) scale(1.01); }
+}
+/* Pause / Gameover - tactical dark */
+#screen-pause, #screen-gameover {
+  background:rgba(0,4,10,0.85);
+  backdrop-filter:blur(14px);
+  font-family:'Rajdhani','Segoe UI',sans-serif;
+}
+#screen-pause .menu-box, #screen-gameover .menu-box {
+  background:rgba(4,10,18,0.96);
+  border:1px solid rgba(0,229,255,0.25);
+  box-shadow:0 0 40px rgba(0,0,0,0.9), 0 0 20px rgba(0,229,255,0.08);
+  border-radius:8px;
+}
+#screen-pause .menu-heading, #screen-gameover .menu-heading {
+  font:700 24px 'Rajdhani','Segoe UI',sans-serif;
+  color:#fff; text-shadow:none; letter-spacing:2px; text-transform:uppercase;
+}
+#screen-pause button, #screen-gameover button {
+  font-family:inherit; font-weight:700; letter-spacing:1px; text-transform:uppercase;
+  border:1px solid rgba(0,229,255,0.3); border-radius:5px;
+  box-shadow:none;
+  background:rgba(0,30,42,0.8); color:#fff;
+  transition:all .15s ease;
+}
+#screen-pause button:hover, #screen-gameover button:hover {
+  background:rgba(0,50,65,0.9); border-color:rgba(0,229,255,0.6);
+  box-shadow:0 0 12px rgba(0,229,255,0.2);
+}
+#screen-pause .btn-toggle {
+  background:rgba(0,100,140,0.4);
+  border-color:rgba(0,229,255,0.3);
+}
+@media(max-width:1050px) { .combat-controls { display:none; }.combat-vitals { width:210px; }.combat-loadout { bottom:32px; } }
+@media(max-width:650px) {
+  .combat-vitals { top:10px; left:10px; width:150px; padding:8px; }
+  .combat-card-title { font-size:8px; margin-bottom:6px; }
+  .vital-label { font-size:10px; }.combat-meter { height:6px; }.shield-meter { height:4px; }
+  .combat-wave { top:10px; left:auto; right:10px; transform:none; min-width:90px; padding:6px 8px; }
+  .combat-wave > strong { font-size:22px; }.combat-kicker { font-size:7px; }
+  .enemy-count { font-size:7px; }
+  .combat-radar { top:115px; right:10px; padding:5px; }
+  .combat-radar #radar-canvas { width:72px; height:72px; }.radar-key { display:none; }
+  .combat-loadout { width:calc(100% - 20px); gap:5px; bottom:30px; }
+  .combat-weapon-info { flex:1; min-width:0; width:auto; padding:7px; }
+  .combat-slot { width:58px; min-height:82px; flex-shrink:0; }
+  .combat-slot > small { font-size:8px; }
+  #th-active-silhouette { width:46px; }
+  .combat-ammo small { display:none; }
+  .combat-ammo > strong { font-size:28px; }.combat-ammo > span { font-size:12px; }
+  .combat-upgrades { font-size:8px; }
+  .combat-boss { top:110px; width:160px; left:10px; transform:none; }
+  #hud .team-roster-panel { top:160px; left:10px; }
+  #hud .announcement-banner { font-size:13px; padding:7px 12px; }
+}
+@media(max-height:550px) and (min-width:651px) {
+  .combat-vitals { top:10px; left:10px; padding:7px 10px; width:180px; }
+  .combat-wave { top:10px; }.combat-radar { top:10px; right:10px; }
+  .combat-radar #radar-canvas { width:72px; height:72px; }
+  .combat-loadout { bottom:24px; }.combat-slot { min-height:70px; }
+  .combat-weapon-info { padding:5px 10px; }
+}
 
 /* Gợi ý tương tác mở hòm [F] */
 .container-prompt { position:absolute; pointer-events:none; z-index:110; display:flex; align-items:center; gap:8px; padding:6px 14px; background:rgba(30,24,43,0.92); border:2px solid #ffbe57; border-radius:9px; box-shadow:0 4px 15px rgba(0,0,0,0.6); transform:translate(-50%,-100%); transition:opacity .15s ease; }
@@ -563,5 +895,553 @@
   .tactical-dock-grid { grid-template-columns:28% 42% 30%; gap:8px; }
   .weapon-card-body { height:64px; }
 }
+
+/* ==========================================================================
+   2. GIAO DIỆN NHẶT ĐỒ HÒM PHONG CÁCH PUBG MINI (IN-WORLD CRATE UI)
+   Hiển thị ngay bên dưới thanh đếm ngược tiến trình lục hòm, giữ góc nhìn thông thoáng
+   ========================================================================== */
+.pubg-mini-crate {
+  position:absolute;
+  bottom:145px;
+  left:50%;
+  transform:translateX(-50%);
+  width:440px;
+  max-width:94vw;
+  background:rgba(8, 14, 24, 0.45);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  border:1px solid rgba(0, 240, 255, 0.38);
+  border-radius:8px;
+  box-shadow:0 8px 32px rgba(0, 0, 0, 0.65), inset 0 0 16px rgba(0, 240, 255, 0.08);
+  z-index:130;
+  pointer-events:auto;
+  font-family:'Orbitron','Rajdhani',sans-serif;
+  user-select:none;
+  padding:8px 12px;
+  box-sizing:border-box;
+  animation:pubgFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pubgFadeIn {
+  from { opacity:0; transform:translateX(-50%) translateY(8px); }
+  to { opacity:1; transform:translateX(-50%) translateY(0); }
+}
+
+.pubg-crate-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding-bottom:6px;
+  margin-bottom:6px;
+  border-bottom:1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pubg-crate-title-wrap {
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.pubg-crate-tag {
+  background:rgba(0, 240, 255, 0.22);
+  color:#00f0ff;
+  border:1px solid #00f0ff;
+  font-size:9px;
+  font-weight:900;
+  padding:2px 6px;
+  border-radius:3px;
+  letter-spacing:1px;
+}
+
+.pubg-crate-name {
+  color:#fff;
+  font-size:11.5px;
+  font-weight:800;
+  letter-spacing:0.5px;
+}
+
+.pubg-crate-hint {
+  color:#ffd06b;
+  font-size:9.5px;
+  font-weight:900;
+  letter-spacing:0.5px;
+}
+
+.pubg-crate-items {
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  max-height:190px;
+  overflow-y:auto;
+  padding-right:2px;
+}
+
+.pubg-crate-items::-webkit-scrollbar {
+  width:4px;
+}
+.pubg-crate-items::-webkit-scrollbar-thumb {
+  background:rgba(0, 240, 255, 0.3);
+  border-radius:2px;
+}
+
+.pubg-crate-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  height:38px;
+  padding:0 10px;
+  background:rgba(255, 255, 255, 0.04);
+  border-radius:5px;
+  border-left:3.5px solid #94a3b8;
+  cursor:pointer;
+  transition:all 0.12s ease;
+  box-sizing:border-box;
+}
+
+.pubg-crate-row:hover, .pubg-crate-row.focused {
+  background:rgba(0, 240, 255, 0.16);
+  box-shadow:inset 0 0 10px rgba(0, 240, 255, 0.2);
+  transform:translateX(2px);
+}
+
+.pubg-item-left {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex:1;
+  min-width:0;
+  overflow:hidden;
+}
+
+.pubg-tier-badge {
+  font-size:8.5px;
+  font-weight:900;
+  padding:1px 5px;
+  border-radius:3px;
+  letter-spacing:0.5px;
+  flex-shrink:0;
+}
+
+.pubg-item-details {
+  display:flex;
+  flex-direction:column;
+  flex:1;
+  min-width:0;
+  overflow:hidden;
+}
+
+.pubg-item-name {
+  color:#fff;
+  font-size:10.5px;
+  font-weight:700;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  letter-spacing:0.3px;
+}
+
+.pubg-item-stat {
+  color:#94a3b8;
+  font-size:9px;
+  font-weight:600;
+  font-family:'Rajdhani',sans-serif;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.pubg-item-action {
+  flex-shrink:0;
+}
+
+.pubg-action-btn {
+  font-size:8.5px;
+  font-weight:900;
+  padding:3px 7px;
+  border-radius:3px;
+  letter-spacing:0.4px;
+  text-transform:uppercase;
+  display:inline-flex;
+  align-items:center;
+  white-space:nowrap;
+}
+
+.badge-equip {
+  background:rgba(34, 197, 94, 0.25);
+  color:#22c55e;
+  border:1px solid #22c55e;
+}
+
+.badge-swap {
+  background:rgba(0, 240, 255, 0.25);
+  color:#00f0ff;
+  border:1px solid #00f0ff;
+  box-shadow:0 0 8px rgba(0, 240, 255, 0.35);
+}
+
+.badge-gun {
+  background:rgba(168, 85, 247, 0.25);
+  color:#c084fc;
+  border:1px solid #a855f7;
+}
+
+.badge-med {
+  background:rgba(16, 185, 129, 0.25);
+  color:#34d399;
+  border:1px solid #10b981;
+}
+
+.badge-locked {
+  background:rgba(100, 116, 139, 0.18);
+  color:#64748b;
+  border:1px solid #475569;
+  opacity:0.6;
+}
+
+/* ==========================================================================
+   3. BÁNH XE THAO TÁC NHANH TRONG SUỐT Ở GIỮA MÀN HÌNH (RADIAL MENU)
+   Cố định Screen Center, Donut 8 Múi SVG Trong Suốt, Viền Vàng Kim & Lỗ Tâm Rỗng
+   ========================================================================== */
+.radial-menu-overlay {
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:320;
+  pointer-events:auto;
+  user-select:none;
+  font-family:'Orbitron','Rajdhani',sans-serif;
+  animation:radialFadeIn 0.12s ease-out;
+  background:rgba(0, 0, 0, 0.15);
+}
+
+@keyframes radialFadeIn {
+  from { opacity:0; transform:scale(0.96); }
+  to { opacity:1; transform:scale(1); }
+}
+
+.radial-menu-container {
+  position:relative;
+  width:400px;
+  height:400px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* Vòng tròn vàng neon mảnh ngoài cùng bao quanh toàn bộ bánh xe */
+.radial-outer-gold-ring {
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%, -50%);
+  width:426px;
+  height:426px;
+  border-radius:50%;
+  border:2px solid rgba(234, 179, 8, 0.65);
+  box-shadow:0 0 16px rgba(234, 179, 8, 0.4), inset 0 0 14px rgba(234, 179, 8, 0.2);
+  pointer-events:none;
+  z-index:1;
+}
+
+/* Lỗ tâm rỗng tròn trong suốt 100% - Nhân vật 3D & zombie hiện rõ nét */
+.radial-center-hole {
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%, -50%);
+  width:150px;
+  height:150px;
+  border-radius:50%;
+  border:1.5px solid rgba(0, 240, 255, 0.45);
+  box-shadow:0 0 12px rgba(0, 240, 255, 0.25), inset 0 0 8px rgba(0, 240, 255, 0.15);
+  background:transparent;
+  pointer-events:none;
+  z-index:5;
+}
+
+/* SVG Wheel 8 Múi Vành Khăn Annular Sectors */
+.radial-svg-wheel {
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  z-index:2;
+  overflow:visible;
+}
+
+.radial-wedge {
+  cursor:pointer;
+  pointer-events:all;
+  transition:fill 0.12s ease, stroke 0.12s ease, filter 0.12s ease;
+}
+
+/* Màu mặc định của các múi: Xanh đen quân sự mờ */
+.radial-wedge {
+  fill:rgba(18, 32, 26, 0.78);
+  stroke:#0d1813;
+  stroke-width:2.5px;
+}
+
+/* Múi Bắc (RED DOT): Viền cyan mờ mặc định */
+.radial-wedge.wedge-north {
+  fill:rgba(0, 240, 255, 0.22);
+  stroke:#00f0ff;
+  stroke-width:2.5px;
+}
+.radial-wedge.wedge-north:hover,
+.radial-wedge.wedge-north.active {
+  fill:rgba(0, 240, 255, 0.42);
+  stroke:#38bdf8;
+  stroke-width:3.5px;
+  filter:drop-shadow(0 0 16px rgba(0, 240, 255, 0.85));
+}
+
+/* Múi Đông (ĐỔI SÚNG): Khi Active sáng rực vàng kim hổ phách y như ảnh mẫu! */
+.radial-wedge.wedge-east:hover,
+.radial-wedge.wedge-east.active {
+  fill:rgba(234, 179, 8, 0.45);
+  stroke:#ffd06b;
+  stroke-width:3.5px;
+  filter:drop-shadow(0 0 20px rgba(234, 179, 8, 0.95));
+}
+
+/* Múi Nam (MED KIT): Xanh ngọc lục bảo khi active */
+.radial-wedge.wedge-south:hover,
+.radial-wedge.wedge-south.active {
+  fill:rgba(16, 185, 129, 0.4);
+  stroke:#34d399;
+  stroke-width:3.5px;
+  filter:drop-shadow(0 0 16px rgba(52, 211, 153, 0.85));
+}
+
+/* Múi Tây (TĂNG CƯỜNG): Cam hổ phách khi active */
+.radial-wedge.wedge-west:hover,
+.radial-wedge.wedge-west.active {
+  fill:rgba(245, 158, 11, 0.4);
+  stroke:#f59e0b;
+  stroke-width:3.5px;
+  filter:drop-shadow(0 0 16px rgba(245, 158, 11, 0.85));
+}
+
+/* 4 Múi Ô Chờ Chiến Thuật */
+.radial-wedge.wedge-tactical {
+  fill:rgba(14, 25, 20, 0.72);
+  stroke:#0a1410;
+  stroke-width:2px;
+}
+.radial-wedge.wedge-tactical:hover,
+.radial-wedge.wedge-tactical.active {
+  fill:rgba(30, 50, 42, 0.85);
+  stroke:#38bdf8;
+  stroke-width:2.5px;
+}
+
+/* Tia Laser chỉ hướng chuột thời gian thực */
+.radial-pointer-line {
+  position:absolute;
+  top:50%;
+  left:50%;
+  width:0px;
+  height:2px;
+  background:linear-gradient(90deg, rgba(0, 240, 255, 0.85), transparent);
+  transform-origin:0 50%;
+  pointer-events:none;
+  z-index:8;
+  box-shadow:0 0 8px #00f0ff;
+  transition:width 0.05s ease;
+}
+
+/* Lớp Nội Dung Hiển Thị (HTML Labels & Weapon Assets) */
+.radial-content-layer {
+  position:absolute;
+  inset:0;
+  z-index:4;
+  pointer-events:none;
+}
+
+.radial-slot {
+  position:absolute;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  transform:translate(-50%, -50%);
+  pointer-events:none;
+  user-select:none;
+}
+
+/* Tọa độ chính xác theo SVG Sector Center (midX, midY) */
+.slot-north {
+  top:70px;
+  left:200px;
+  width:105px;
+}
+
+.slot-ne {
+  top:108px;
+  left:292px;
+}
+
+.slot-east {
+  top:200px;
+  left:330px;
+  width:125px;
+}
+
+.slot-se {
+  top:292px;
+  left:292px;
+}
+
+.slot-south {
+  top:330px;
+  left:200px;
+  width:130px;
+}
+
+.slot-sw {
+  top:292px;
+  left:108px;
+}
+
+.slot-west {
+  top:200px;
+  left:70px;
+  width:105px;
+}
+
+.slot-nw {
+  top:108px;
+  left:108px;
+}
+
+/* Asset ảnh & Text trong slot */
+.slot-icon-box {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin-bottom:2px;
+}
+
+.slot-icon-box img {
+  width:38px;
+  height:38px;
+  object-fit:contain;
+  filter:drop-shadow(0 2px 6px rgba(0, 0, 0, 0.85));
+}
+
+.slot-gun-img-box {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin-bottom:2px;
+}
+
+.slot-gun-img-box img {
+  width:95px;
+  max-height:38px;
+  object-fit:contain;
+  filter:drop-shadow(0 3px 6px rgba(0, 0, 0, 0.9));
+}
+
+.slot-text-box {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  line-height:1.15;
+}
+
+.slot-title {
+  font-family:'Orbitron', sans-serif;
+  font-size:10.5px;
+  font-weight:900;
+  color:#ffffff;
+  letter-spacing:0.5px;
+  text-transform:uppercase;
+  text-shadow:0 0 6px rgba(0, 0, 0, 0.95), 0 1px 2px rgba(0, 0, 0, 0.8);
+  white-space:nowrap;
+}
+
+.slot-sub-line {
+  font-family:'Rajdhani', sans-serif;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:0.5px;
+  text-transform:uppercase;
+  margin-top:1px;
+}
+
+/* Màu sắc đặc trưng của từng slot */
+.slot-north .slot-title {
+  color:#ffffff;
+  text-shadow:0 0 8px rgba(0, 240, 255, 0.85);
+}
+.slot-north .slot-sub-line {
+  color:#38bdf8;
+  line-height:1.15;
+}
+
+.slot-east .slot-title {
+  font-size:9.5px;
+  color:#fff8e1;
+  background:rgba(0, 0, 0, 0.45);
+  padding:2px 6px;
+  border-radius:4px;
+  border:1px solid rgba(234, 179, 8, 0.35);
+  box-shadow:0 2px 6px rgba(0, 0, 0, 0.8);
+  text-shadow:0 0 8px rgba(234, 179, 8, 0.85);
+}
+
+.slot-south .slot-title {
+  color:#ffffff;
+}
+.slot-south .slot-sub-line {
+  color:#34d399;
+}
+
+.slot-west .slot-title {
+  color:#ffffff;
+}
+.slot-west .slot-sub-line {
+  color:#fbbf24;
+}
+
+/* Múi Đông Nam: Hộp đạn 7.62mm */
+.slot-ammo-box {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+}
+.slot-ammo-box img {
+  width:32px;
+  height:32px;
+  object-fit:contain;
+  filter:drop-shadow(0 2px 4px rgba(0, 0, 0, 0.9));
+}
+.ammo-tag {
+  font-family:'Rajdhani', sans-serif;
+  font-size:8.5px;
+  font-weight:800;
+  color:#e4e4e7;
+  letter-spacing:0.4px;
+  margin-top:1px;
+}
+
+/* Biểu tượng tâm ngắm chiến thuật cho các ô chờ */
+.tactical-mark-img {
+  width:26px;
+  height:26px;
+  object-fit:contain;
+  opacity:0.45;
+  filter:drop-shadow(0 1px 3px rgba(0, 0, 0, 0.8));
+}
+
 
 

@@ -1,18 +1,18 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../libs/loaders/GLTFLoader.js';
-import { sounds } from './audio.js?v=16';
-import { ParticleSystem } from './particles.js?v=16';
-import { Arena } from './arena.js?v=16';
-import { WeaponSystem, getStartingWeapon } from './weapons.js?v=16';
-import { PlayerController } from './player.js?v=16';
-import { WaveManager, Zombie } from './enemies.js?v=16';
-import { PickupManager } from './pickups.js?v=16';
-import { UIManager } from './ui.js?v=16';
-import { NetworkRoom, makeRemotePlayer } from './network.js?v=16';
-import { normalizeCharacter } from './characters.js?v=16';
-import { RoomLobby } from './lobby.js?v=16';
-import { HomeMenu } from './home.js?v=16';
-import { LootingSystem } from './looting.js?v=16';
+import { sounds } from './audio.js?v=22';
+import { ParticleSystem } from './particles.js?v=22';
+import { Arena } from './arena.js?v=22';
+import { WeaponSystem, getStartingWeapon } from './weapons.js?v=22';
+import { PlayerController } from './player.js?v=22';
+import { WaveManager, Zombie } from './enemies.js?v=22';
+import { PickupManager } from './pickups.js?v=22';
+import { UIManager } from './ui.js?v=22';
+import { NetworkRoom, makeRemotePlayer } from './network.js?v=22';
+import { normalizeCharacter } from './characters.js?v=22';
+import { RoomLobby } from './lobby.js?v=22';
+import { HomeMenu } from './home.js?v=22';
+import { LootingSystem } from './looting.js?v=22';
 import { RenderQuality } from './performance.js';
 
 class CyberArenaGame {
@@ -90,6 +90,7 @@ class CyberArenaGame {
         this.waveManager = new WaveManager(this.scene, this.gltfLoader, this.weapons, this.particles, this.arena);
         this.pickups = new PickupManager(this.scene, this.particles);
         this.ui = new UIManager();
+        this.player.ui = this.ui;
         this.lootingSystem = new LootingSystem(this.scene, this.particles, this.player, this.waveManager, this.ui);
         this.coopPlayers = [this.player];
     }
@@ -123,8 +124,7 @@ class CyberArenaGame {
         this.roomStart?.addEventListener('click', () => this.network.start().catch(e => this.showRoomError(e.message)));
         this.roomLeave?.addEventListener('click', () => this.network.leave());
         this.homeMenu = new HomeMenu(this);
-        document.getElementById('hud-pause').addEventListener('click', () => this.pauseGame());
-        document.getElementById('hud-backpack').addEventListener('click', () => this.lootingSystem.toggleBackpack());
+        document.getElementById('hud-pause')?.addEventListener('click', () => this.pauseGame());
         document.querySelectorAll('[data-return-home]').forEach(button => button.addEventListener('click', () => this.returnToMenu()));
 
         this.finalScoreEl = document.getElementById('final-score');
