@@ -72,6 +72,7 @@ export class PlayerController {
         this.keys = {};
         this.mouseButtons = { left: false, right: false };
         this.inputEnabled = false;
+        this.isBackpackOpen = false;
         this.stepTimer = 0;
 
         // 3D Model & Animation
@@ -413,6 +414,9 @@ export class PlayerController {
         }
         if (this.weapons?.isUsingMedkit) {
             currentSpeed *= 0.55; // Vừa sơ cứu vừa di chuyển cẩn thận
+        }
+        if (this.isBackpackOpen) {
+            currentSpeed *= 0.65; // Vừa xem balo vừa bước đi cẩn thận quan sát
         }
 
         const moveDir = this.getMovementInput();

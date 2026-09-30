@@ -1171,7 +1171,10 @@ export class LootingSystem {
     openBackpack() {
         this.isBackpackOpen = true;
         this.ui?.openSmartInventory(this.inventory, this.activeContainer, this);
-        if (this.player) this.player.setInputEnabled(false);
+        if (this.player) {
+            this.player.isBackpackOpen = true;
+            this.player.domElement.style.cursor = 'default';
+        }
     }
 
     // Sinh hòm đồ mới trong bản đồ
@@ -1318,7 +1321,10 @@ export class LootingSystem {
         container.isOpen = true;
         this.isBackpackOpen = true;
         this.ui?.openSmartInventory(this.inventory, container, this);
-        if (this.player) this.player.setInputEnabled(false);
+        if (this.player) {
+            this.player.isBackpackOpen = true;
+            this.player.domElement.style.cursor = 'default';
+        }
     }
 
     // Đóng giao diện hòm đồ / balo
@@ -1340,7 +1346,8 @@ export class LootingSystem {
         this.revealTimer = 0;
         this.ui?.closeSmartInventory();
         if (this.player && window.game?.state === 'PLAYING') {
-            this.player.setInputEnabled(true);
+            this.player.isBackpackOpen = false;
+            this.player.domElement.style.cursor = 'none';
         }
     }
 
