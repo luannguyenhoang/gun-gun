@@ -105,7 +105,7 @@ export class PlayerController {
 
             if (e.code === 'KeyQ') this.tryDodge();
             if (e.code === 'KeyE') this.reviveRequested = true;
-            if (e.code === 'KeyB') this.toggleBotRequested = true;
+            if (e.code === 'KeyP') this.toggleBotRequested = true;
         });
 
         window.addEventListener('keyup', (e) => {

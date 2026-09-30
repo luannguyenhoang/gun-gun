@@ -1,18 +1,18 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../libs/loaders/GLTFLoader.js';
-import { sounds } from './audio.js?v=7';
-import { ParticleSystem } from './particles.js?v=7';
-import { Arena } from './arena.js?v=7';
-import { WeaponSystem, getStartingWeapon } from './weapons.js?v=7';
-import { PlayerController } from './player.js?v=7';
-import { WaveManager, Zombie } from './enemies.js?v=7';
-import { PickupManager } from './pickups.js?v=7';
-import { UIManager } from './ui.js?v=7';
-import { NetworkRoom, makeRemotePlayer } from './network.js?v=7';
-import { normalizeCharacter } from './characters.js?v=7';
-import { RoomLobby } from './lobby.js?v=7';
-import { HomeMenu } from './home.js?v=7';
-import { LootingSystem } from './looting.js?v=7';
+import { sounds } from './audio.js?v=8';
+import { ParticleSystem } from './particles.js?v=8';
+import { Arena } from './arena.js?v=8';
+import { WeaponSystem, getStartingWeapon } from './weapons.js?v=8';
+import { PlayerController } from './player.js?v=8';
+import { WaveManager, Zombie } from './enemies.js?v=8';
+import { PickupManager } from './pickups.js?v=8';
+import { UIManager } from './ui.js?v=8';
+import { NetworkRoom, makeRemotePlayer } from './network.js?v=8';
+import { normalizeCharacter } from './characters.js?v=8';
+import { RoomLobby } from './lobby.js?v=8';
+import { HomeMenu } from './home.js?v=8';
+import { LootingSystem } from './looting.js?v=8';
 import { RenderQuality } from './performance.js';
 
 class CyberArenaGame {
@@ -151,8 +151,8 @@ class CyberArenaGame {
         // Pause Key (ESC)
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Escape') {
-                // Nếu đang mở hòm đồ, ưu tiên đóng hòm đồ trước và không mở menu pause
-                if (this.lootingSystem?.activeContainer?.isOpen) {
+                // Nếu đang mở hòm đồ hoặc balo, ưu tiên đóng trước và không mở menu pause
+                if (this.lootingSystem?.isBackpackOpen || this.lootingSystem?.activeContainer?.isOpen) {
                     this.lootingSystem.closeContainerUI();
                     return;
                 }

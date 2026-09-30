@@ -54,41 +54,338 @@
 .search-meter-fill { height:100%; width:0%; background:linear-gradient(90deg,#ff9e42,#ffd06b); transition:width .05s linear; }
 .search-warning { font-size:8px; font-weight:800; color:#ff9a90; letter-spacing:0.5px; }
 
-/* Giao diện Hòm đồ hai bên (Dual-Grid Inventory UI) */
-.dual-inventory-overlay { position:fixed; inset:0; background:rgba(16,12,24,0.78); backdrop-filter:blur(8px); z-index:200; display:flex; align-items:center; justify-content:center; pointer-events:auto; font-family:'Nunito','Segoe UI',sans-serif; }
-.dual-inventory-window { width:780px; max-width:95vw; max-height:90vh; padding:18px 24px; border:2px solid #5a4b70; border-radius:16px; background:linear-gradient(155deg,#4f4165,#2f253b); box-shadow:0 12px 40px rgba(0,0,0,0.8),inset 0 2px rgba(255,255,255,0.2); display:flex; flex-direction:column; gap:14px; }
-.dual-inv-header { display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #4a3a5e; padding-bottom:10px; }
-.inv-badge { font-size:9px; font-weight:1000; letter-spacing:1.5px; color:#00f0ff; background:rgba(0,240,255,0.12); padding:2px 8px; border-radius:4px; border:1px solid rgba(0,240,255,0.3); }
-.dual-inv-title h2 { margin:4px 0 0; font-size:20px; font-weight:1000; color:#fff8e8; letter-spacing:0.5px; }
-.dual-inv-close { background:#e94c6b; color:white; border:none; width:32px; height:32px; border-radius:8px; font-size:16px; font-weight:bold; cursor:pointer; }
-.dual-inv-columns { display:grid; grid-template-columns:1fr 140px 1fr; gap:16px; align-items:start; }
-.inv-column { background:rgba(26,20,36,0.65); border:1.5px solid #413352; border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:10px; }
-.column-header { display:flex; justify-content:space-between; font-size:11px; font-weight:1000; color:#e6daf7; }
-.inv-grid { display:grid; gap:8px; }
-.grid-player { grid-template-columns:repeat(4,1fr); }
-.grid-container { grid-template-columns:repeat(3,1fr); }
-.inv-slot { aspect-ratio:1; min-height:56px; border:1.5px solid #3c2f4d; border-radius:8px; background:rgba(48,38,63,0.7); display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; cursor:pointer; transition:all .15s ease; user-select:none; }
-.inv-slot:hover { border-color:#ffd06b; background:rgba(72,58,94,0.85); transform:translateY(-2px); }
-.inv-slot.empty { cursor:default; opacity:0.45; border-style:dashed; }
-.inv-slot.empty:hover { transform:none; border-color:#3c2f4d; background:rgba(48,38,63,0.7); }
-.slot-unrevealed { background:rgba(22,17,30,0.85); border-color:#2b2039; color:#88789e; font-size:22px; font-weight:1000; }
-.slot-unrevealed:hover { border-color:#00f0ff; color:#00f0ff; box-shadow:0 0 10px rgba(0,240,255,0.3); }
-.slot-item-icon { font-size:15px; font-weight:1000; line-height:1; letter-spacing:-0.5px; }
-.slot-item-name { font-size:8px; font-weight:800; text-align:center; max-width:90%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:3px; }
-.slot-item-count { position:absolute; bottom:3px; right:5px; font-size:9px; font-weight:1000; color:#fff; text-shadow:0 1px 2px #000; }
-.inv-slot.rarity-common { border-color:#64748b; }
-.inv-slot.rarity-rare { border-color:#0284c7; box-shadow:inset 0 0 8px rgba(2,132,199,0.2); }
-.inv-slot.rarity-epic { border-color:#9333ea; box-shadow:inset 0 0 10px rgba(147,51,234,0.25); }
-.inv-slot.rarity-legendary { border-color:#f59e0b; box-shadow:inset 0 0 12px rgba(245,158,11,0.35); }
-.inv-middle-actions { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; height:100%; }
-.loot-all-btn { width:100%; padding:12px 6px; font-size:12px; display:flex; flex-direction:column; gap:4px; align-items:center; }
-.quick-action-tips { font-size:9px; color:#d0c4df; display:flex; flex-direction:column; gap:5px; font-weight:700; text-align:center; }
-.quick-action-tips kbd { font-size:8px; padding:2px 4px; }
-.item-inspect-panel { background:rgba(18,14,26,0.7); border:1.5px solid #3c2f4d; border-radius:10px; padding:10px 14px; min-height:52px; }
-.inspect-title { font-size:12px; font-weight:1000; color:#ffdf8a; margin-bottom:3px; }
-.inspect-desc { font-size:10px; font-weight:700; color:#cfc2df; line-height:1.35; }
-.slot-item-thumb { width:34px; height:34px; display:flex; align-items:center; justify-content:center; }
-.slot-item-img { max-width:100%; max-height:100%; object-fit:contain; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5)); transition:transform .15s ease; }
-.inv-slot:hover .slot-item-img { transform:scale(1.12); }
-.combat-slot>img { width:52px; height:48px; object-fit:contain; filter:drop-shadow(0 2px 2px #30263955); }
+/* ==========================================================
+   SMART 3-PANEL EXTRACTION INVENTORY & WEAPON MODDING [PHÍM B]
+   ========================================================== */
+.smart-inventory-overlay {
+  position:fixed; inset:0;
+  background:rgba(12, 9, 18, 0.85);
+  backdrop-filter:blur(10px);
+  z-index:220;
+  display:flex; align-items:center; justify-content:center;
+  pointer-events:auto;
+  font-family:'Nunito','Segoe UI',sans-serif;
+  user-select:none;
+}
+
+.smart-inventory-window {
+  width:1120px; max-width:96vw; max-height:92vh;
+  padding:16px 20px;
+  border:2px solid #5a4870;
+  border-radius:16px;
+  background:linear-gradient(155deg,#3c304d,#201928);
+  box-shadow:0 16px 50px rgba(0,0,0,0.9), inset 0 2px rgba(255,255,255,0.15);
+  display:flex; flex-direction:column; gap:12px;
+  overflow-y:auto;
+}
+
+/* Header Bar */
+.inv-top-bar {
+  display:flex; justify-content:space-between; align-items:center;
+  border-bottom:1.5px solid #4a3a5e;
+  padding-bottom:8px;
+}
+.inv-title-group { display:flex; flex-direction:column; gap:2px; }
+.inv-kicker {
+  font-size:9px; font-weight:1000; letter-spacing:1.5px;
+  color:#00f0ff; background:rgba(0,240,255,0.12);
+  padding:2px 8px; border-radius:4px; border:1px solid rgba(0,240,255,0.3);
+  display:inline-block; align-self:flex-start;
+}
+.inv-title-group h2 { margin:0; font-size:19px; font-weight:1000; color:#fff8e8; letter-spacing:0.5px; }
+
+.inv-header-tabs { display:flex; gap:8px; align-items:center; }
+.inv-tab-btn {
+  background:rgba(48,38,63,0.7);
+  border:1.5px solid #4a3a5e; border-radius:8px;
+  color:#d0c4df; font-weight:900; font-size:11px;
+  padding:6px 14px; cursor:pointer; transition:all .15s ease;
+}
+.inv-tab-btn.active, .inv-tab-btn:hover {
+  background:linear-gradient(145deg,#ffe29b,#eaaa43);
+  color:#2b1d33; border-color:#fff1c2;
+  box-shadow:0 2px 8px rgba(234,170,67,0.4);
+}
+
+.inv-header-controls { display:flex; align-items:center; gap:10px; }
+.inv-key-hint { font-size:10px; font-weight:800; color:#bda8d6; }
+.inv-key-hint kbd { background:#362b49; color:#ffdf8a; padding:2px 5px; border-radius:4px; font-size:9px; }
+.inv-close-btn {
+  background:#e94c6b; color:white; border:none;
+  width:32px; height:32px; border-radius:8px;
+  font-size:16px; font-weight:bold; cursor:pointer;
+  transition:transform .1s ease, background .15s ease;
+}
+.inv-close-btn:hover { background:#ff2a5f; transform:scale(1.05); }
+
+/* Main 3-Column Layout */
+.inv-main-layout {
+  display:grid;
+  grid-template-columns:260px 1fr 340px;
+  gap:14px;
+  align-items:stretch;
+}
+
+.inv-col {
+  background:rgba(24, 18, 33, 0.75);
+  border:1.5px solid #413352;
+  border-radius:12px;
+  padding:12px;
+  display:flex; flex-direction:column; gap:10px;
+}
+
+.col-header {
+  display:flex; justify-content:space-between; align-items:center;
+  border-bottom:1px solid #3c2f4d; padding-bottom:6px;
+}
+.col-title { font-size:11px; font-weight:1000; color:#e6daf7; letter-spacing:0.5px; }
+.char-badge { font-size:9px; font-weight:900; background:#00f0ff22; color:#00f0ff; border:1px solid #00f0ff55; padding:2px 6px; border-radius:4px; }
+.capacity-pill { font-size:10px; font-weight:900; color:#ffd06b; }
+
+/* Cột Trái: Character Preview & Equipment Slots */
+.character-preview-card {
+  display:flex; gap:10px; align-items:center;
+  background:rgba(38,29,51,0.6); border:1px solid #3f3152;
+  border-radius:10px; padding:8px 10px;
+}
+.char-avatar-box {
+  width:46px; height:46px; border-radius:8px;
+  background:linear-gradient(145deg,#392b4d,#241a33);
+  border:1.5px solid #00f0ff;
+  display:flex; align-items:center; justify-content:center;
+  color:#00f0ff;
+}
+.char-avatar-box svg { width:30px; height:30px; }
+.char-summary-stats { display:flex; flex-direction:column; gap:2px; font-size:10px; color:#cfc0e2; font-weight:800; }
+.char-stat-row { display:flex; justify-content:space-between; gap:12px; }
+.char-stat-row strong { color:#fff; }
+
+.equipment-slots-list { display:flex; flex-direction:column; gap:8px; }
+.equip-slot-item {
+  background:rgba(36,27,48,0.7);
+  border:1.5px solid #3c2f4d; border-radius:10px;
+  padding:8px 10px; cursor:pointer;
+  transition:all .15s ease;
+}
+.equip-slot-item:hover, .equip-slot-item.active-equip {
+  border-color:#00f0ff; background:rgba(49,38,66,0.9);
+  box-shadow:0 0 10px rgba(0,240,255,0.25);
+}
+.equip-slot-label { font-size:9px; font-weight:900; color:#ffd06b; margin-bottom:5px; }
+.equip-slot-label kbd { background:#302540; color:#fff; padding:1px 4px; border-radius:3px; }
+.equip-slot-body { display:flex; align-items:center; gap:10px; }
+.equip-slot-body img { width:42px; height:34px; object-fit:contain; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
+.equip-icon-text {
+  width:36px; height:34px; border-radius:6px;
+  background:#2e223d; border:1px solid #4a3a60;
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:1000; color:#00f0ff;
+}
+.equip-weapon-text { display:flex; flex-direction:column; }
+.equip-weapon-text strong { font-size:12px; font-weight:1000; color:#fff; }
+.equip-weapon-text small { font-size:9px; color:#bfaed7; }
+
+/* Cột Giữa: Weapon Inspector & Modding Window */
+.modding-panel-wrapper { display:flex; flex-direction:column; gap:12px; height:100%; }
+.modding-hint { font-size:9px; font-weight:800; color:#93c5fd; }
+
+.weapon-workbench {
+  position:relative;
+  min-height:190px;
+  background:radial-gradient(ellipse at center, rgba(38,48,77,0.7) 0%, rgba(20,15,28,0.95) 100%);
+  border:1.5px solid #3c4b69; border-radius:12px;
+  padding:12px;
+  display:grid;
+  grid-template-columns:120px 1fr 120px;
+  grid-template-rows:1fr 1fr;
+  gap:10px;
+  align-items:center;
+  box-shadow:inset 0 0 20px rgba(0,240,255,0.06);
+}
+
+.weapon-blueprint {
+  grid-column:2; grid-row:1 / span 2;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  position:relative; padding:10px;
+}
+.weapon-blueprint img {
+  max-width:210px; max-height:110px; object-fit:contain;
+  filter:drop-shadow(0 8px 14px rgba(0,0,0,0.85));
+  transition:transform .2s ease;
+}
+.weapon-blueprint:hover img { transform:scale(1.04); }
+.blueprint-grid-lines {
+  position:absolute; inset:0;
+  background-image:linear-gradient(rgba(0,240,255,0.05) 1px, transparent 1px),
+                   linear-gradient(90deg, rgba(0,240,255,0.05) 1px, transparent 1px);
+  background-size:16px 16px; pointer-events:none;
+}
+.blueprint-weapon-title {
+  margin-top:6px; font-size:14px; font-weight:1000; color:#00f0ff;
+  letter-spacing:1px; text-shadow:0 0 8px rgba(0,240,255,0.4);
+}
+
+/* Các Socket phụ kiện quanh súng */
+.attach-socket {
+  background:rgba(30, 24, 43, 0.85);
+  border:1.5px dashed #4f4166;
+  border-radius:9px;
+  padding:6px;
+  display:flex; flex-direction:column; gap:4px;
+  min-height:74px;
+  cursor:pointer;
+  transition:all .15s ease;
+}
+.attach-socket:hover {
+  border-color:#00f0ff; background:rgba(44, 34, 61, 0.95);
+  box-shadow:0 0 10px rgba(0,240,255,0.25);
+}
+.attach-socket.socket-filled {
+  border-style:solid; border-color:#00f0ff;
+  background:linear-gradient(145deg, rgba(38,48,77,0.85), rgba(24,20,36,0.9));
+  box-shadow:0 0 12px rgba(0,240,255,0.3);
+}
+.socket-tag { font-size:8px; font-weight:1000; color:#ffdf8a; letter-spacing:0.5px; }
+.socket-content {
+  display:flex; align-items:center; gap:6px; flex:1;
+}
+.socket-empty-text { font-size:10px; font-weight:800; color:#78698f; margin:auto; }
+
+.socket-item-badge {
+  display:flex; align-items:center; gap:6px; width:100%;
+}
+.socket-item-badge img { width:28px; height:28px; object-fit:contain; }
+.socket-item-info { display:flex; flex-direction:column; overflow:hidden; }
+.socket-item-info strong { font-size:9px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.socket-item-info small { font-size:7.5px; color:#00f0ff; font-weight:800; }
+
+/* Real-time Stat Bars */
+.weapon-stats-board {
+  background:rgba(26,20,36,0.7);
+  border:1px solid #3c2f4d; border-radius:10px;
+  padding:10px 14px;
+  display:flex; flex-direction:column; gap:8px;
+}
+.stat-bar-row { display:flex; flex-direction:column; gap:3px; }
+.stat-bar-header { display:flex; justify-content:space-between; font-size:10px; font-weight:900; color:#d8cced; }
+.stat-bar-header strong { font-variant-numeric:tabular-nums; color:#fff; }
+.stat-track { height:7px; width:100%; background:#241b30; border-radius:4px; overflow:hidden; border:1px solid #362846; }
+.stat-fill { height:100%; background:linear-gradient(90deg,#ff9e42,#ffd06b); border-radius:3px; transition:width .2s ease, background .2s ease; }
+.stat-fill.fill-cyan { background:linear-gradient(90deg,#06b6d4,#00f0ff); }
+.stat-fill.fill-gold { background:linear-gradient(90deg,#f59e0b,#fbbf24); }
+.stat-fill.fill-emerald { background:linear-gradient(90deg,#10b981,#34d399); }
+
+/* Panel Ngăn Chứa Hòm Đồ */
+.container-panel-wrapper { display:flex; flex-direction:column; gap:10px; height:100%; }
+.grid-container-smart { grid-template-columns:repeat(5, 1fr); gap:6px; }
+.container-quick-bar {
+  margin-top:auto; display:flex; flex-direction:column; gap:6px; align-items:center;
+}
+.btn-smart-loot {
+  width:100%; padding:10px; font-size:12px; font-weight:1000;
+  display:flex; justify-content:center; align-items:center; gap:8px;
+}
+.container-quick-bar small { font-size:9px; color:#bfaed7; text-align:center; }
+
+/* Cột Phải: Backpack Grid 5x6 */
+.col-backpack { display:flex; flex-direction:column; gap:10px; }
+.grid-backpack-5x6 {
+  display:grid;
+  grid-template-columns:repeat(5, 1fr);
+  gap:6px;
+}
+
+.inv-slot {
+  aspect-ratio:1; min-height:50px;
+  border:1.5px solid #3c2f4d; border-radius:7px;
+  background:rgba(44,35,59,0.7);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  position:relative; cursor:pointer;
+  transition:all .12s ease; user-select:none;
+}
+.inv-slot:hover {
+  border-color:#00f0ff; background:rgba(65,52,87,0.85);
+  transform:translateY(-1px);
+}
+.inv-slot.empty {
+  cursor:default; opacity:0.35; border-style:dashed;
+}
+.inv-slot.empty:hover {
+  transform:none; border-color:#3c2f4d; background:rgba(44,35,59,0.7);
+}
+.inv-slot.slot-selected {
+  border-color:#ffd06b; box-shadow:0 0 10px rgba(255,208,107,0.5);
+}
+
+.slot-unrevealed {
+  background:rgba(22,17,30,0.85); border-color:#2b2039;
+  color:#88789e; font-size:18px; font-weight:1000;
+}
+.slot-unrevealed:hover {
+  border-color:#00f0ff; color:#00f0ff;
+}
+
+.slot-item-thumb { width:30px; height:30px; display:flex; align-items:center; justify-content:center; }
+.slot-item-img { max-width:100%; max-height:100%; object-fit:contain; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
+.slot-item-icon { font-size:13px; font-weight:1000; line-height:1; }
+.slot-item-name {
+  font-size:7.5px; font-weight:800; text-align:center;
+  max-width:92%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  margin-top:2px; color:#ede4f7;
+}
+.slot-item-count {
+  position:absolute; bottom:2px; right:4px;
+  font-size:8.5px; font-weight:1000; color:#fff; text-shadow:0 1px 2px #000;
+}
+
+.backpack-footer-actions {
+  display:flex; flex-direction:column; gap:6px; margin-top:auto;
+}
+.btn-autosort {
+  padding:9px; font-size:11px; font-weight:1000;
+  display:flex; justify-content:center; align-items:center; gap:6px;
+}
+.backpack-tip-row {
+  display:flex; justify-content:space-between; font-size:8.5px; font-weight:700; color:#bcaad4;
+}
+
+/* Tooltip & Inspector Panel với So Sánh Chỉ Số Xanh / Đỏ */
+.smart-inspect-card {
+  background:rgba(18,14,26,0.85);
+  border:1.5px solid #4a3a5e; border-radius:10px;
+  padding:8px 14px;
+  display:flex; justify-content:space-between; align-items:center; gap:16px;
+  min-height:50px;
+}
+.inspect-main-info { display:flex; flex-direction:column; gap:2px; flex:1; }
+.inspect-item-title { font-size:12px; font-weight:1000; color:#ffdf8a; }
+.inspect-item-desc { font-size:9.5px; font-weight:700; color:#cfc2df; line-height:1.3; }
+
+.inspect-item-comparison {
+  display:flex; gap:12px; align-items:center; flex-shrink:0;
+}
+.comp-badge {
+  font-size:10px; font-weight:1000; padding:3px 7px; border-radius:5px;
+  display:flex; align-items:center; gap:4px;
+}
+.comp-badge.better {
+  background:rgba(16,185,129,0.2); color:#10b981; border:1px solid #10b98166;
+}
+.comp-badge.worse {
+  background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid #ef444466;
+}
+.comp-badge.neutral {
+  background:rgba(148,163,184,0.15); color:#94a3b8; border:1px solid #94a3b844;
+}
+
+/* Drag & Drop Feedback */
+.inv-slot.dragging { opacity:0.35; transform:scale(0.95); }
+.inv-slot.drag-over { border-color:#00f0ff; background:rgba(0,240,255,0.2); box-shadow:0 0 10px #00f0ff; }
+.attach-socket.drag-over { border-color:#10b981; background:rgba(16,185,129,0.2); }
+
+@media(max-width:1050px) {
+  .inv-main-layout { grid-template-columns:1fr 1fr; }
+  .col-character { display:none; }
+}
+
 

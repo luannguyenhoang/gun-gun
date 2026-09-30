@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="zappets.css"><link rel="stylesheet" href="combat.css?v=6"><link rel="stylesheet" href="showroom.css">
+    <link rel="stylesheet" href="zappets.css"><link rel="stylesheet" href="combat.css?v=8"><link rel="stylesheet" href="showroom.css">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script type="importmap">
     {
@@ -97,64 +97,238 @@
         </div>
       </div>
 
-      <!-- Giao diện Hòm đồ hai bên (Dual-Grid Inventory UI) -->
-      <div id="dual-inventory-overlay" class="dual-inventory-overlay" style="display:none;">
-        <div class="dual-inventory-window combat-panel">
-          <div class="dual-inv-header">
-            <div class="dual-inv-title">
-              <span class="inv-badge">EXTRACTION LOOTING</span>
-              <h2 id="dual-inv-container-name">THÙNG HÀNG CHIẾN THUẬT</h2>
+      <!-- Giao diện Balo Túi Đồ & Độ Súng Thông Minh [B] (Smart Extraction Inventory HUD) -->
+      <div id="smart-inventory-overlay" class="smart-inventory-overlay" style="display:none;">
+        <div class="smart-inventory-window">
+          <!-- Thanh tiêu đề và điều hướng -->
+          <div class="inv-top-bar">
+            <div class="inv-title-group">
+              <span class="inv-kicker">TACTICAL EXTRACTION SYSTEM</span>
+              <h2 id="inv-main-heading">TÚI ĐỒ CHIẾN THUẬT &amp; ĐỘ SÚNG [PHÍM B]</h2>
             </div>
-            <button id="dual-inv-close-btn" class="dual-inv-close" title="Đóng [ESC]">✕</button>
-          </div>
-
-          <div class="dual-inv-columns">
-            <!-- Cột trái: Túi đồ của Người chơi -->
-            <div class="inv-column player-column">
-              <div class="column-header">
-                <span>TÚI ĐỒ CHIẾN BINH</span>
-                <small id="player-capacity-text">0 / 16 Ô</small>
-              </div>
-              <div id="player-grid" class="inv-grid grid-player">
-                <!-- 16 ô túi đồ -->
-              </div>
+            <div class="inv-header-tabs">
+              <button id="tab-modding-view" class="inv-tab-btn active">CỬA SỔ ĐỘ SÚNG</button>
+              <button id="tab-container-view" class="inv-tab-btn" style="display:none;">NGĂN CHỨA HÒM ĐỒ</button>
             </div>
-
-            <!-- Cột giữa: Thao tác nhanh & Hướng dẫn -->
-            <div class="inv-middle-actions">
-              <button id="btn-loot-all" class="toy-button orange loot-all-btn" title="Nhặt toàn bộ [Space]">
-                <span>NHẶT TẤT CẢ</span>
-                <kbd>SPACE</kbd>
-              </button>
-              <div class="quick-action-tips">
-                <div><kbd>SHIFT + CLICK</kbd> Chuyển nhanh</div>
-                <div><kbd>CLICK</kbd> Nhận diện [?] (0.5s)</div>
-                <div><kbd>CHUỘT PHẢI</kbd> Dùng ngay</div>
-                <div><kbd>ESC / F</kbd> Đóng hòm</div>
-              </div>
-            </div>
-
-            <!-- Cột phải: Ngăn chứa của Hòm đồ -->
-            <div class="inv-column container-column">
-              <div class="column-header">
-                <span id="container-column-title">NGĂN CHỨA HÒM</span>
-                <small id="container-capacity-text">0 / 8 Ô</small>
-              </div>
-              <div id="container-grid" class="inv-grid grid-container">
-                <!-- Các ô hòm đồ -->
-              </div>
+            <div class="inv-header-controls">
+              <span class="inv-key-hint"><kbd>B</kbd> / <kbd>ESC</kbd> Đóng</span>
+              <button id="btn-inv-close" class="inv-close-btn" title="Đóng [ESC]">✕</button>
             </div>
           </div>
 
-          <!-- Chi tiết vật phẩm đang được chọn / hover -->
-          <div id="item-inspect-panel" class="item-inspect-panel">
-            <div id="inspect-title" class="inspect-title">HÃY CHỌN HOẶC RÊ CHUỘT VÀO VẬT PHẨM ĐỂ XEM CHI TIẾT</div>
-            <div id="inspect-desc" class="inspect-desc">Vật phẩm có dấu chấm hỏi [?] cần 0.5s để nhận diện trước khi lấy.</div>
+          <!-- 3 Cột chính -->
+          <div class="inv-main-layout">
+            <!-- CỘT TRÁI: Character & Equipment -->
+            <div class="inv-col col-character">
+              <div class="col-header">
+                <span class="col-title">CHIẾN BINH &amp; TRANG BỊ</span>
+                <span id="char-name-badge" class="char-badge">LÍNH</span>
+              </div>
+
+              <div class="character-preview-card">
+                <div class="char-avatar-box" id="char-avatar-box">
+                  <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C8 2 4.5 4.5 4 8.5v3c0 4.5 3.5 8 8 8.5 4.5-.5 8-4 8-8.5v-3C19.5 4.5 16 2 12 2zm0 3c2.5 0 5 1.5 5.5 3.5H6.5C7 6.5 9.5 5 12 5zm-6 6.5c0-.8.2-1.5.5-2h11c.3.5.5 1.2.5 2 0 3-2.5 5.5-6 6-3.5-.5-6-3-6-6z"/></svg>
+                </div>
+                <div class="char-summary-stats">
+                  <div class="char-stat-row"><span>MÁU:</span><strong id="char-stat-hp">100 / 100</strong></div>
+                  <div class="char-stat-row"><span>GIÁP:</span><strong id="char-stat-shield">100 / 100</strong></div>
+                  <div class="char-stat-row"><span>TỐC ĐỘ:</span><strong>7.5 m/s</strong></div>
+                </div>
+              </div>
+
+              <div class="equipment-slots-list">
+                <!-- Slot Súng chính (Primary) -->
+                <div class="equip-slot-item active-equip" id="slot-primary" data-slot="primary" title="Click đúp hoặc chọn để mở Cửa sổ độ súng">
+                  <div class="equip-slot-label"><kbd>1</kbd> SÚNG CHÍNH (CLICK ĐỘ SÚNG)</div>
+                  <div class="equip-slot-body">
+                    <img id="primary-weapon-img" src="assets/previews/kenney-blaster/blaster-a.png" alt="Súng chính">
+                    <div class="equip-weapon-text">
+                      <strong id="primary-weapon-name">BLASTER-X</strong>
+                      <small id="primary-weapon-cal">Đạn 7.62mm tiêu chuẩn</small>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Slot Súng phụ / Dao (Secondary) -->
+                <div class="equip-slot-item" id="slot-secondary" data-slot="secondary">
+                  <div class="equip-slot-label"><kbd>2</kbd> VŨ KHÍ PHỤ / CẬN CHIẾN</div>
+                  <div class="equip-slot-body">
+                    <img id="secondary-weapon-img" src="assets/previews/kenney-food/cooking-knife.png" alt="Dao găm">
+                    <div class="equip-weapon-text">
+                      <strong>DAO BẾP CHIẾN ĐẤU</strong>
+                      <small>Sát thương cận chiến</small>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Slot Mũ bảo hộ (Helmet) -->
+                <div class="equip-slot-item" id="slot-helmet" data-slot="helmet">
+                  <div class="equip-slot-label">MŨ BẢO HỘ (HEADGEAR)</div>
+                  <div class="equip-slot-body">
+                    <span class="equip-icon-text">HLM</span>
+                    <div class="equip-weapon-text">
+                      <strong id="equip-helmet-name">MŨ FAST-MT CẤP 3</strong>
+                      <small id="equip-helmet-desc">+40 Giáp đầu</small>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Slot Áo giáp (Body Armor) -->
+                <div class="equip-slot-item" id="slot-armor" data-slot="armor">
+                  <div class="equip-slot-label">ÁO GIÁP CHỐNG ĐẠN (BODY ARMOR)</div>
+                  <div class="equip-slot-body">
+                    <span class="equip-icon-text">LV4</span>
+                    <div class="equip-weapon-text">
+                      <strong id="equip-armor-name">GIÁP KEVLAR CẤP 4</strong>
+                      <small id="equip-armor-desc">+60 Giáp ngực</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CỘT GIỮA: Weapon Inspector / Modding Window HOẶC Container Grid khi mở hòm -->
+            <div class="inv-col col-middle" id="col-middle">
+              <!-- Giao diện Độ súng (Weapon Inspector & Modding) -->
+              <div id="panel-modding" class="modding-panel-wrapper">
+                <div class="col-header">
+                  <span class="col-title">CỬA SỔ ĐỘ SÚNG (WEAPON MODDING)</span>
+                  <small class="modding-hint">KÉO THẢ HOẶC SHIFT+CLICK ĐỂ LẮP MOD</small>
+                </div>
+
+                <!-- Khung mô hình súng ngang và 4 slot phụ kiện -->
+                <div class="weapon-workbench">
+                  <!-- Slot Đầu nòng (Muzzle) -->
+                  <div class="attach-socket socket-muzzle" id="socket-muzzle" data-attach="muzzle" title="Kéo phụ kiện Đầu nòng (Muzzle) vào đây">
+                    <div class="socket-tag">ĐẦU NÒNG (MUZZLE)</div>
+                    <div class="socket-content" id="socket-muzzle-content">
+                      <span class="socket-empty-text">TRỐNG</span>
+                    </div>
+                  </div>
+
+                  <!-- Slot Kính ngắm (Optic / Sight) -->
+                  <div class="attach-socket socket-optic" id="socket-optic" data-attach="optic" title="Kéo phụ kiện Kính ngắm (Optic / Sight) vào đây">
+                    <div class="socket-tag">ỐNG NGẮM (OPTIC)</div>
+                    <div class="socket-content" id="socket-optic-content">
+                      <span class="socket-empty-text">TRỐNG</span>
+                    </div>
+                  </div>
+
+                  <!-- Khung hình ảnh khẩu súng nằm ngang -->
+                  <div class="weapon-blueprint">
+                    <img id="modding-weapon-img" src="assets/previews/kenney-blaster/blaster-a.png" alt="Vũ khí">
+                    <div class="blueprint-grid-lines"></div>
+                    <div id="modding-weapon-title" class="blueprint-weapon-title">BLASTER-X</div>
+                  </div>
+
+                  <!-- Slot Băng đạn (Magazine) -->
+                  <div class="attach-socket socket-magazine" id="socket-magazine" data-attach="magazine" title="Kéo phụ kiện Băng đạn (Magazine) vào đây">
+                    <div class="socket-tag">BĂNG ĐẠN (MAG)</div>
+                    <div class="socket-content" id="socket-magazine-content">
+                      <span class="socket-empty-text">TRỐNG</span>
+                    </div>
+                  </div>
+
+                  <!-- Slot Tay cầm / Báng (Grip / Stock) -->
+                  <div class="attach-socket socket-grip" id="socket-grip" data-attach="grip" title="Kéo phụ kiện Tay cầm (Grip / Stock) vào đây">
+                    <div class="socket-tag">TAY CẦM / BÁNG (GRIP)</div>
+                    <div class="socket-content" id="socket-grip-content">
+                      <span class="socket-empty-text">TRỐNG</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bảng chỉ số súng thời gian thực (Real-time Stat Bars) -->
+                <div class="weapon-stats-board">
+                  <div class="stat-bar-row">
+                    <div class="stat-bar-header">
+                      <span>SÁT THƯƠNG (DAMAGE)</span>
+                      <strong id="stat-val-dmg">28</strong>
+                    </div>
+                    <div class="stat-track"><div id="stat-bar-dmg" class="stat-fill" style="width:45%;"></div></div>
+                  </div>
+
+                  <div class="stat-bar-row">
+                    <div class="stat-bar-header">
+                      <span>ĐỘ CHÍNH XÁC / TẢN ĐẠN (ACCURACY)</span>
+                      <strong id="stat-val-acc">78%</strong>
+                    </div>
+                    <div class="stat-track"><div id="stat-bar-acc" class="stat-fill fill-cyan" style="width:78%;"></div></div>
+                  </div>
+
+                  <div class="stat-bar-row">
+                    <div class="stat-bar-header">
+                      <span>KIỂM SOÁT ĐỘ GIẬT (RECOIL CONTROL)</span>
+                      <strong id="stat-val-recoil">65%</strong>
+                    </div>
+                    <div class="stat-track"><div id="stat-bar-recoil" class="stat-fill fill-gold" style="width:65%;"></div></div>
+                  </div>
+
+                  <div class="stat-bar-row">
+                    <div class="stat-bar-header">
+                      <span>TỐC ĐỘ NẠP ĐẠN (RELOAD SPEED)</span>
+                      <strong id="stat-val-reload">1.15s</strong>
+                    </div>
+                    <div class="stat-track"><div id="stat-bar-reload" class="stat-fill fill-emerald" style="width:72%;"></div></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Giao diện Ngăn chứa Hòm đồ (Container Grid khi tương tác hòm) -->
+              <div id="panel-container" class="container-panel-wrapper" style="display:none;">
+                <div class="col-header">
+                  <span class="col-title" id="container-name-title">NGĂN CHỨA HÒM ĐỒ</span>
+                  <small id="container-capacity-badge">0 / 10 Ô</small>
+                </div>
+                <div id="smart-container-grid" class="inv-grid grid-container-smart">
+                  <!-- Các ô hòm đồ -->
+                </div>
+                <div class="container-quick-bar">
+                  <button id="btn-smart-loot-all" class="toy-button orange btn-smart-loot">
+                    <span>NHẶT TẤT CẢ VÀO BALO</span>
+                    <kbd>SPACE</kbd>
+                  </button>
+                  <small>Shift + Click hoặc Click đúp để tự động lắp thẳng vào súng nếu trống slot!</small>
+                </div>
+              </div>
+            </div>
+
+            <!-- CỘT PHẢI: Backpack Grid (5 Cột x 6 Hàng = 30 Ô) -->
+            <div class="inv-col col-backpack">
+              <div class="col-header">
+                <span class="col-title">BALO TÚI ĐỒ (BACKPACK)</span>
+                <span id="backpack-capacity-badge" class="capacity-pill">0 / 30 Ô</span>
+              </div>
+
+              <div id="smart-backpack-grid" class="inv-grid grid-backpack-5x6">
+                <!-- 30 ô vuông 5x6 -->
+              </div>
+
+              <div class="backpack-footer-actions">
+                <button id="btn-smart-autosort" class="toy-button blue btn-autosort" title="Tự động sắp xếp, gom đạn và xếp gọn phụ kiện">
+                  <span>TỰ ĐỘNG SẮP XẾP</span>
+                  <small>AUTO-SORT</small>
+                </button>
+                <div class="backpack-tip-row">
+                  <span>Shift+Click: Chuyển / Lắp súng</span>
+                  <span>Chuột phải: Dùng ngay</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bảng so sánh chỉ số phụ kiện & chi tiết vật phẩm (Tooltip Inspector) -->
+          <div id="smart-inspect-card" class="smart-inspect-card">
+            <div class="inspect-main-info">
+              <div id="inspect-item-title" class="inspect-item-title">RÊ CHUỘT LÊN PHỤ KIỆN HOẶC VẬT PHẨM ĐỂ SO SÁNH CHỈ SỐ</div>
+              <div id="inspect-item-desc" class="inspect-item-desc">Hệ thống hỗ trợ kéo thả trực quan và so sánh chỉ số xanh lá (Tăng) / đỏ (Giảm) theo thời gian thực.</div>
+            </div>
+            <div id="inspect-item-comparison" class="inspect-item-comparison"></div>
           </div>
         </div>
       </div>
 
-      <div class="combat-controls"><kbd>WASD</kbd> Di chuyển <kbd>R</kbd> Nạp đạn <kbd>Q</kbd> Né <kbd>F</kbd> Lục hòm <kbd>ESC</kbd> Tạm dừng</div>
+      <div class="combat-controls"><kbd>WASD</kbd> Di chuyển <kbd>R</kbd> Nạp đạn <kbd>Q</kbd> Né <kbd>B</kbd> Balo &amp; Độ súng <kbd>F</kbd> Lục hòm <kbd>ESC</kbd> Tạm dừng</div>
       <div id="teammate-indicators" class="teammate-indicators-container"></div>
     </div>
     <!-- Screen 1: Loading Screen -->
@@ -268,7 +442,7 @@
             <div class="menu-buttons">
                 <button id="btn-resume" class="btn-action">TIẾP TỤC</button>
                 <button id="btn-restart-pause" class="btn-action secondary">CHƠI LẠI</button>
-                <button id="btn-toggle-bot" class="btn-toggle">ĐỒNG ĐỘI BOT: BẬT (PHÍM B)</button>
+                <button id="btn-toggle-bot" class="btn-toggle">ĐỒNG ĐỘI BOT: BẬT (PHÍM P)</button>
                 <div class="toggle-row">
                     <button id="toggle-sound" class="btn-toggle">SOUND: ON</button>
                     <button id="toggle-music" class="btn-toggle">MUSIC: ON</button>
@@ -300,6 +474,6 @@
     </div>
 
     <!-- Main Game Script -->
-    <script src="libs/qrcode.min.js"></script><script type="module" src="src/main.js?v=7"></script>
+    <script src="libs/qrcode.min.js"></script><script type="module" src="src/main.js?v=8"></script>
 </body>
 </html>

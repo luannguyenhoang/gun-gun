@@ -508,6 +508,108 @@ class SoundManager {
         }
         return this.enabled;
     }
+
+    // Tiếng cơ khí khóa chốt khi lắp phụ kiện vào súng (Satisfying Weapon Modding Clack)
+    playAttachmentEquip() {
+        if (!this.enabled || !this.ctx) return;
+        this.resume();
+
+        const t = this.ctx.currentTime;
+        // Chuỗi âm thanh 2 nấc cơ khí: lẫy trượt + khóa chốt kim loại
+        const osc1 = this.ctx.createOscillator();
+        const gain1 = this.ctx.createGain();
+        osc1.type = 'triangle';
+        osc1.frequency.setValueAtTime(540, t);
+        osc1.frequency.exponentialRampToValueAtTime(180, t + 0.05);
+        gain1.gain.setValueAtTime(0.4, t);
+        gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+        osc1.connect(gain1);
+        gain1.connect(this.masterGain);
+        osc1.start(t);
+        osc1.stop(t + 0.05);
+
+        const osc2 = this.ctx.createOscillator();
+        const gain2 = this.ctx.createGain();
+        osc2.type = 'square';
+        osc2.frequency.setValueAtTime(880, t + 0.05);
+        osc2.frequency.exponentialRampToValueAtTime(320, t + 0.12);
+        gain2.gain.setValueAtTime(0.45, t + 0.05);
+        gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        osc2.connect(gain2);
+        gain2.connect(this.masterGain);
+        osc2.start(t + 0.05);
+        osc2.stop(t + 0.12);
+    }
+
+    // Tiếng lẫy trượt mở chốt khi tháo phụ kiện khỏi súng
+    playAttachmentDetach() {
+        if (!this.enabled || !this.ctx) return;
+        this.resume();
+
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(420, t);
+        osc.frequency.exponentialRampToValueAtTime(680, t + 0.08);
+        gain.gain.setValueAtTime(0.35, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(t);
+        osc.stop(t + 0.09);
+    }
+
+    // Tiếng kéo khóa túi Balo quân dụng Tactical (Zipper sound)
+    playBackpackToggle(isOpen = true) {
+        if (!this.enabled || !this.ctx) return;
+        this.resume();
+
+        const t = this.ctx.currentTime;
+        const bufferSize = Math.floor(this.ctx.sampleRate * 0.12);
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.sin((i / bufferSize) * Math.PI);
+        }
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(isOpen ? 1800 : 2400, t);
+        filter.frequency.exponentialRampToValueAtTime(isOpen ? 2800 : 1400, t + 0.12);
+        filter.Q.setValueAtTime(3.0, t);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.25, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+        noise.start(t);
+    }
+
+    // Tiếng di chuyển hoặc gắp vật phẩm trong lưới
+    playItemMove() {
+        if (!this.enabled || !this.ctx) return;
+        this.resume();
+
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(620, t);
+        osc.frequency.exponentialRampToValueAtTime(840, t + 0.05);
+        gain.gain.setValueAtTime(0.2, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(t);
+        osc.stop(t + 0.05);
+    }
 }
 
 export const sounds = new SoundManager();

@@ -24,7 +24,352 @@ function getOrLoadModel(path, onLoad) {
 
 // Danh mục vật phẩm chuẩn Hardcore Extraction Shooter
 export const LOOT_ITEMS = {
-    // 1. Vũ khí quân dụng (Weapons)
+    // 1. Phụ kiện súng (Weapon Attachments / Mods)
+    // --- 1.1 Đầu nòng (Muzzle) ---
+    attach_compensator: {
+        id: 'attach_compensator',
+        name: 'Nòng Giảm Giật Compensator',
+        category: 'attachment',
+        slot: 'muzzle',
+        rarity: 'rare',
+        color: '#00d0ff',
+        icon: 'COMP',
+        iconImage: 'assets/previews/kenney-blaster/silencer-small.png',
+        description: 'Bộ tản khí đầu nòng: Giảm 25% độ giật súng, tăng 15% tốc độ co tâm hồi phục.',
+        value: 750,
+        stackMax: 1,
+        size: [1, 1],
+        effects: { recoil: -0.25, recovery: 0.15 }
+    },
+    attach_silencer: {
+        id: 'attach_silencer',
+        name: 'Ống Giảm Thanh Tactical Silencer',
+        category: 'attachment',
+        slot: 'muzzle',
+        rarity: 'epic',
+        color: '#b026ff',
+        icon: 'SIL',
+        iconImage: 'assets/previews/kenney-blaster/silencer-larger.png',
+        description: 'Ống triệt âm đặc nhiệm: Giảm 60% bán kính tiếng ồn báo động zombie, giảm 10% độ giật.',
+        value: 1250,
+        stackMax: 1,
+        size: [1, 1],
+        effects: { soundRadius: -0.60, recoil: -0.10 }
+    },
+    attach_flash_hider: {
+        id: 'attach_flash_hider',
+        name: 'Loa Che Lửa Flash Hider',
+        category: 'attachment',
+        slot: 'muzzle',
+        rarity: 'common',
+        color: '#94a3b8',
+        icon: 'FH',
+        iconImage: 'assets/previews/kenney-blaster/silencer-small.png',
+        description: 'Loa triệt tiêu ánh chớp đầu nòng: Triệt tiêu tia lửa khi bắn, giảm 12% độ giật, tăng 10% độ chụm ADS.',
+        value: 400,
+        stackMax: 1,
+        size: [1, 1],
+        effects: { recoil: -0.12, adsSpread: -0.10 }
+    },
+
+    // --- 1.2 Kính ngắm (Optic / Sight) ---
+    attach_red_dot: {
+        id: 'attach_red_dot',
+        name: 'Kính Ngắm Phản Xạ Red Dot',
+        category: 'attachment',
+        slot: 'optic',
+        rarity: 'rare',
+        color: '#00d0ff',
+        icon: 'RDS',
+        iconImage: 'assets/previews/kenney-blaster/scope-small.png',
+        description: 'Kính ngắm điểm đỏ chấm phản xạ: Tăng nhẹ tầm nhìn khi ngắm ADS (x1.35), giảm 20% góc tản đạn.',
+        value: 600,
+        stackMax: 1,
+        size: [1, 1],
+        effects: { adsZoom: 1.35, adsSpread: -0.20 }
+    },
+    attach_scope_x2: {
+        id: 'attach_scope_x2',
+        name: 'Ống Ngắm Tác Chiến Scope x2',
+        category: 'attachment',
+        slot: 'optic',
+        rarity: 'epic',
+        color: '#b026ff',
+        icon: '2X',
+        iconImage: 'assets/previews/kenney-blaster/scope-large-a.png',
+        description: 'Ống ngắm quang học cự ly trung bình: Mở rộng tầm nhìn x2.0, giảm 40% góc tản đạn ADS, làm chậm 15% tốc độ xoay.',
+        value: 1100,
+        stackMax: 1,
+        size: [1, 1],
+        effects: { adsZoom: 2.0, adsSpread: -0.40, turnPenalty: -0.15 }
+    },
+    attach_scope_x4: {
+        id: 'attach_scope_x4',
+        name: 'Ống Ngắm Bắn Tỉa Scope x4',
+        category: 'attachment',
+        slot: 'optic',
+        rarity: 'legendary',
+        color: '#ffaa00',
+        icon: '4X',
+        iconImage: 'assets/previews/kenney-blaster/scope-large-b.png',
+        description: 'Ống ngắm bắn tỉa tầm xa phóng đại x3.5: Giảm 60% tản đạn ngắm tĩnh, nhưng làm chậm 30% tốc độ xoay người.',
+        value: 1900,
+        stackMax: 1,
+        size: [1, 1],
+        effects: { adsZoom: 3.5, adsSpread: -0.60, turnPenalty: -0.30 }
+    },
+
+    // --- 1.3 Băng đạn (Magazine) ---
+    attach_ext_mag: {
+        id: 'attach_ext_mag',
+        name: 'Băng Đạn Mở Rộng Extended Mag',
+        category: 'attachment',
+        slot: 'magazine',
+        rarity: 'rare',
+        color: '#00d0ff',
+        icon: 'EXT',
+        iconImage: 'assets/previews/kenney-blaster/clip-large.png',
+        description: 'Hộp tiếp đạn mở rộng sức chứa: Tăng +50% sức chứa băng đạn (tăng từ 16 lên 24-30 viên).',
+        value: 850,
+        stackMax: 1,
+        size: [1, 1],
+        effects: { magBonus: 14 }
+    },
+    attach_quickdraw_mag: {
+        id: 'attach_quickdraw_mag',
+        name: 'Băng Nạp Nhanh Quick-draw Mag',
+        category: 'attachment',
+        slot: 'magazine',
+        rarity: 'epic',
+        color: '#b026ff',
+        icon: 'QDM',
+        iconImage: 'assets/previews/kenney-blaster/clip-small.png',
+        description: 'Băng đạn kẹp trợ lực nạp siêu tốc: Giảm 30% thời gian nạp đạn cho súng.',
+        value: 950,
+        stackMax: 1,
+        size: [1, 1],
+        effects: { reloadTime: -0.30 }
+    },
+
+    // --- 1.4 Tay cầm / Báng súng (Grip / Stock) ---
+    attach_grip_tactical: {
+        id: 'attach_grip_tactical',
+        name: 'Tay Cầm Tác Chiến Tactical Grip',
+        category: 'attachment',
+        slot: 'grip',
+        rarity: 'rare',
+        color: '#00d0ff',
+        icon: 'GRP',
+        iconImage: 'assets/previews/kenney-blaster/blaster-a.png',
+        description: 'Tay cầm dọc dã chiến: Tăng 35% tốc độ co tâm (Recoil Recovery), giảm 30% độ tản đạn khi vừa chạy vừa bắn.',
+        value: 700,
+        stackMax: 1,
+        size: [1, 1],
+        effects: { recovery: 0.35, runSpread: -0.30 }
+    },
+    attach_stock_heavy: {
+        id: 'attach_stock_heavy',
+        name: 'Báng Súng Hấp Thụ Giật Heavy Stock',
+        category: 'attachment',
+        slot: 'grip',
+        rarity: 'epic',
+        color: '#b026ff',
+        icon: 'STK',
+        iconImage: 'assets/previews/kenney-blaster/blaster-d.png',
+        description: 'Báng tỳ đầm chắc cao cấp: Giảm 20% độ giật súng, tăng 20% tốc độ ổn định đường ngắm.',
+        value: 1050,
+        stackMax: 1,
+        size: [1, 1],
+        effects: { recoil: -0.20, recovery: 0.20 }
+    },
+
+    // 2. Đạn dược chuyên dụng (Ammunition)
+    ammo_hollow: {
+        id: 'ammo_hollow',
+        name: 'Hộp Đạn Hollow Point HP (Mô Mềm)',
+        category: 'ammo',
+        rarity: 'rare',
+        color: '#00d0ff',
+        icon: 'HP',
+        iconImage: 'assets/previews/kenney-blaster/bullet-foam-tip.png',
+        description: 'Đạn nở khoang rỗng khi va chạm: Tăng 40% sát thương chí mạng crit lên quái không mặc giáp.',
+        value: 450,
+        stackMax: 3,
+        size: [1, 1],
+        effect: { type: 'crit_boost', duration: 30, value: 0.4 }
+    },
+    ammo_standard: {
+        id: 'ammo_standard',
+        name: 'Băng Đạn Quân Dụng Tiêu Chuẩn FMJ',
+        category: 'ammo',
+        rarity: 'common',
+        color: '#94a3b8',
+        icon: 'FMJ',
+        iconImage: 'assets/previews/kenney-blaster/clip-small.png',
+        description: 'Đạn bọc kim loại toàn phần FMJ cân bằng, nạp đầy 4 băng đạn dự trữ cho mọi loại súng.',
+        value: 200,
+        stackMax: 5,
+        size: [1, 1],
+        effect: { type: 'add_ammo', packs: 4 }
+    },
+    ammo_ap: {
+        id: 'ammo_ap',
+        name: 'Hộp Đạn Xuyên Giáp AP (Armor Piercing)',
+        category: 'ammo',
+        rarity: 'epic',
+        color: '#b026ff',
+        icon: 'AP',
+        iconImage: 'assets/previews/kenney-blaster/bullet-foam-tip-thick.png',
+        description: 'Đạn lõi vonfram mật độ cao: Tăng 100% xuyên thấu giáp và xé rách mô cứng đột biến của Mutant.',
+        value: 650,
+        stackMax: 3,
+        size: [1, 1],
+        effect: { type: 'damage_boost', duration: 45, value: 0.35 }
+    },
+
+    // 3. Vật phẩm Y tế / Sinh tồn (Meds & Stims)
+    bandage_field: {
+        id: 'bandage_field',
+        name: 'Băng Gạc Ép Dã Chiến',
+        category: 'medical',
+        rarity: 'common',
+        color: '#94a3b8',
+        icon: 'BNG',
+        description: 'Băng cuộn cầm máu nhanh: Hồi phục tức thì 35 Máu và ngăn chảy máu mô.',
+        value: 220,
+        stackMax: 4,
+        size: [1, 1],
+        effect: { type: 'heal', amount: 35 }
+    },
+    medkit_military: {
+        id: 'medkit_military',
+        name: 'Túi Cứu Thương Dã Chiến IFAK',
+        category: 'medical',
+        rarity: 'rare',
+        color: '#10b981',
+        icon: 'MED',
+        description: 'Bộ cấp cứu tiêu chuẩn đặc nhiệm: Cầm máu tức thì, hồi phục 75 Máu và giải trừ độc tính axit.',
+        value: 500,
+        stackMax: 3,
+        size: [2, 1],
+        effect: { type: 'heal', amount: 75 }
+    },
+    painkiller_morphine: {
+        id: 'painkiller_morphine',
+        name: 'Ống Tiêm Giảm Đau Morphine',
+        category: 'medical',
+        rarity: 'rare',
+        color: '#00d0ff',
+        icon: 'MOR',
+        description: 'Xóa bỏ mọi cảm giác đau đớn, tăng 35% tốc độ di chuyển trong 20 giây.',
+        value: 400,
+        stackMax: 4,
+        size: [1, 1],
+        effect: { type: 'speed_boost', duration: 20, multiplier: 1.35 }
+    },
+    stimpack_adrenaline: {
+        id: 'stimpack_adrenaline',
+        name: 'Huyết Thanh Kích Thích Adrenaline Combat',
+        category: 'medical',
+        rarity: 'epic',
+        color: '#b026ff',
+        icon: 'ADR',
+        description: 'Kích thích phản xạ thần kinh: Tăng 25% tốc độ xả đạn và hồi 30 Máu khẩn cấp.',
+        value: 750,
+        stackMax: 2,
+        size: [1, 1],
+        effect: { type: 'rapid_stim', duration: 25, fireRateMultiplier: 1.25, heal: 30 }
+    },
+
+    // 4. Phế liệu nâng cấp & Chế tạo (Scraps / Gun Parts)
+    scrap_metal: {
+        id: 'scrap_metal',
+        name: 'Phế Liệu Kim Loại Vũ Khí',
+        category: 'scrap',
+        rarity: 'common',
+        color: '#94a3b8',
+        icon: 'SCR',
+        iconImage: 'assets/previews/kenney-blaster/target-fragment-small.png',
+        description: 'Các mảnh hợp kim dùng để bảo trì vũ khí, gia cố giáp hoặc quy đổi 300 Điểm sinh tồn.',
+        value: 300,
+        stackMax: 10,
+        size: [1, 1],
+        effect: { type: 'score', points: 300 }
+    },
+    gun_parts: {
+        id: 'gun_parts',
+        name: 'Cụm Linh Kiện Vũ Khí Quân Dụng',
+        category: 'scrap',
+        rarity: 'rare',
+        color: '#00d0ff',
+        icon: 'PRT',
+        iconImage: 'assets/previews/kenney-blaster/target-fragment-large.png',
+        description: 'Linh kiện cơ khí chính xác dùng để độ súng và thay thế phụ tùng, quy đổi 650 Điểm sinh tồn.',
+        value: 650,
+        stackMax: 5,
+        size: [1, 1],
+        effect: { type: 'score', points: 650 }
+    },
+    weapon_parts_core: {
+        id: 'weapon_parts_core',
+        name: 'Khối Cơ Khí Chế Tạo Vũ Khí',
+        category: 'scrap',
+        rarity: 'epic',
+        color: '#b026ff',
+        icon: 'COR',
+        iconImage: 'assets/previews/kenney-blaster/target-detail.png',
+        description: 'Khối cơ cấu khóa nòng cao cấp của kho khí tài quân sự. Quy đổi 1200 Điểm sinh tồn.',
+        value: 1200,
+        stackMax: 3,
+        size: [1, 1],
+        effect: { type: 'score', points: 1200 }
+    },
+
+    // 5. Mũ & Giáp bảo hộ (Equipment / Armor & Helmet)
+    helmet_tactical: {
+        id: 'helmet_tactical',
+        name: 'Mũ Chống Đạn Đặc Nhiệm FAST-MT',
+        category: 'equipment',
+        slot: 'helmet',
+        rarity: 'rare',
+        color: '#00d0ff',
+        icon: 'HLM',
+        description: 'Mũ bảo hộ polyme carbon tăng +40 Giáp tối đa và giảm sát thương chí mạng vào đầu.',
+        value: 700,
+        stackMax: 1,
+        size: [1, 1],
+        effect: { type: 'equip_armor', bonusShield: 40 }
+    },
+    armor_vest_lvl4: {
+        id: 'armor_vest_lvl4',
+        name: 'Áo Giáp Chống Đạn Kevlar Cấp 4',
+        category: 'equipment',
+        slot: 'armor',
+        rarity: 'rare',
+        color: '#00d0ff',
+        icon: 'LV4',
+        description: 'Áo giáp sợi aramid tăng thêm +60 Giáp tối đa và lập tức sạc đầy lớp khiên phòng hộ.',
+        value: 900,
+        stackMax: 1,
+        size: [2, 1],
+        effect: { type: 'equip_armor', bonusShield: 60 }
+    },
+    armor_vest_lvl6: {
+        id: 'armor_vest_lvl6',
+        name: 'Áo Giáp Gốm Titan Cấp 6 (Heavy Armor)',
+        category: 'equipment',
+        slot: 'armor',
+        rarity: 'legendary',
+        color: '#ffaa00',
+        icon: 'LV6',
+        description: 'Giáp tấm gốm cao cấp cấp độ đặc nhiệm: Tăng +120 Giáp tối đa và giảm 25% sát thương nhận vào.',
+        value: 2800,
+        stackMax: 1,
+        size: [2, 2],
+        effect: { type: 'equip_armor', bonusShield: 120, damageReduction: 0.25 }
+    },
+
+    // 6. Vũ khí nhặt được (Weapons)
     weapon_assault: {
         id: 'weapon_assault',
         name: 'Súng Trường Tấn Công AK-CYBER',
@@ -36,6 +381,7 @@ export const LOOT_ITEMS = {
         description: 'Vũ khí tự động quân dụng 7.62mm, uy lực cao, độ giật đầm, tàn phá mục tiêu bọc giáp.',
         value: 1200,
         stackMax: 1,
+        size: [3, 1],
         weaponSlotId: 1
     },
     weapon_sniper: {
@@ -49,6 +395,7 @@ export const LOOT_ITEMS = {
         description: 'Súng bắn tỉa hạng nặng công phá cao, đạn xuyên thấu mọi lớp vỏ bảo hộ của zombie khổng lồ.',
         value: 2500,
         stackMax: 1,
+        size: [3, 2],
         weaponSlotId: 2
     },
     weapon_shotgun: {
@@ -62,6 +409,7 @@ export const LOOT_ITEMS = {
         description: 'Shotgun tác chiến cự ly gần với chùm đạn đa tia diện rộng, đẩy lùi đàn zombie hung hãn.',
         value: 800,
         stackMax: 1,
+        size: [3, 1],
         weaponSlotId: 0
     },
     weapon_titan: {
@@ -75,51 +423,11 @@ export const LOOT_ITEMS = {
         description: 'Khẩu đại pháo 4 họng xả cực mạnh từ kho khí tài Airdrop, phát bắn nổ chấn động xóa sổ mọi mục tiêu.',
         value: 3500,
         stackMax: 1,
+        size: [3, 2],
         weaponSlotId: 0
     },
 
-    // 2. Đạn dược chuyên dụng (Ammunition)
-    ammo_ap: {
-        id: 'ammo_ap',
-        name: 'Hộp Đạn Xuyên Giáp AP (Armor Piercing)',
-        category: 'ammo',
-        rarity: 'epic',
-        color: '#b026ff',
-        icon: 'AP',
-        iconImage: 'assets/previews/kenney-blaster/clip-large.png',
-        description: 'Đạn lõi vonfram mật độ cao, tăng 100% xuyên thấu giáp và xé rách mô cứng đột biến.',
-        value: 650,
-        stackMax: 3,
-        effect: { type: 'damage_boost', duration: 45, value: 0.35 }
-    },
-    ammo_standard: {
-        id: 'ammo_standard',
-        name: 'Băng Đạn Quân Dụng Tiêu Chuẩn',
-        category: 'ammo',
-        rarity: 'common',
-        color: '#94a3b8',
-        icon: 'STD',
-        iconImage: 'assets/previews/kenney-blaster/clip-small.png',
-        description: 'Băng đạn tiêu chuẩn nạp đầy 4 băng đạn dự trữ cho mọi loại súng tác chiến.',
-        value: 200,
-        stackMax: 5,
-        effect: { type: 'add_ammo', packs: 4 }
-    },
-    ammo_hollow: {
-        id: 'ammo_hollow',
-        name: 'Hộp Đạn Sát Thương Mô Mềm HP',
-        category: 'ammo',
-        rarity: 'rare',
-        color: '#00d0ff',
-        icon: 'HP',
-        iconImage: 'assets/previews/kenney-blaster/bullet-foam-tip.png',
-        description: 'Đạn nở khi va chạm, tăng 40% sát thương chí mạng crit lên quái không mặc giáp.',
-        value: 450,
-        stackMax: 3,
-        effect: { type: 'crit_boost', duration: 30, value: 0.4 }
-    },
-
-    // 3. Vật phẩm ném & Chiến thuật (Grenades & Tactical)
+    // 7. Lựu đạn & Đồ chiến thuật
     grenade_explosive: {
         id: 'grenade_explosive',
         name: 'Lựu Đạn Nổ Phá GRENADE-A',
@@ -131,6 +439,7 @@ export const LOOT_ITEMS = {
         description: 'Lựu đạn nổ dã chiến: Chuột phải để ném kích nổ tức thì 260 sát thương trong bán kính 6.5m.',
         value: 600,
         stackMax: 3,
+        size: [1, 1],
         effect: { type: 'explosive_grenade', damage: 260, radius: 6.5 }
     },
     grenade_smoke: {
@@ -144,74 +453,11 @@ export const LOOT_ITEMS = {
         description: 'Tạo màn khói chiến thuật dày đặc trong 10 giây, làm chậm 60% tốc độ di chuyển của bầy zombie.',
         value: 500,
         stackMax: 3,
+        size: [1, 1],
         effect: { type: 'smoke_grenade', duration: 10, slow: 0.6 }
     },
 
-    // 4. Giáp bảo hộ & Phòng vệ (Armor & Defense)
-    armor_vest_lvl4: {
-        id: 'armor_vest_lvl4',
-        name: 'Áo Giáp Chống Đạn Kevlar Cấp 4',
-        category: 'armor',
-        rarity: 'rare',
-        color: '#00d0ff',
-        icon: 'LV4',
-        description: 'Áo giáp sợi aramid tăng thêm +60 Giáp tối đa và lập tức sạc đầy lớp khiên phòng hộ.',
-        value: 900,
-        stackMax: 1,
-        effect: { type: 'equip_armor', bonusShield: 60 }
-    },
-    armor_vest_lvl6: {
-        id: 'armor_vest_lvl6',
-        name: 'Áo Giáp Gốm Titan Cấp 6 (Heavy Armor)',
-        category: 'armor',
-        rarity: 'legendary',
-        color: '#ffaa00',
-        icon: 'LV6',
-        description: 'Giáp tấm gốm cao cấp cấp độ đặc nhiệm, tăng +120 Giáp tối đa và giảm 25% sát thương nhận vào.',
-        value: 2800,
-        stackMax: 1,
-        effect: { type: 'equip_armor', bonusShield: 120, damageReduction: 0.25 }
-    },
-
-    // 4. Y tế & Sinh tồn (Medical & Stimulants)
-    medkit_military: {
-        id: 'medkit_military',
-        name: 'Túi Cứu Thương Dã Chiến IFAK',
-        category: 'medical',
-        rarity: 'rare',
-        color: '#10b981',
-        icon: 'MED',
-        description: 'Bộ cấp cứu tiêu chuẩn NATO: cầm máu tức thì, hồi phục 75 Máu và giải trừ độc tính axit.',
-        value: 500,
-        stackMax: 3,
-        effect: { type: 'heal', amount: 75 }
-    },
-    painkiller_morphine: {
-        id: 'painkiller_morphine',
-        name: 'Ống Tiêm Giảm Đau Morphine',
-        category: 'medical',
-        rarity: 'rare',
-        color: '#00d0ff',
-        icon: 'MOR',
-        description: 'Xóa bỏ mọi cảm giác đau đớn, tăng 35% tốc độ di chuyển trong 20 giây.',
-        value: 400,
-        stackMax: 4,
-        effect: { type: 'speed_boost', duration: 20, multiplier: 1.35 }
-    },
-    stimpack_adrenaline: {
-        id: 'stimpack_adrenaline',
-        name: 'Huyết Thanh Kích Thích Adrenaline Combat',
-        category: 'medical',
-        rarity: 'epic',
-        color: '#b026ff',
-        icon: 'ADR',
-        description: 'Kích thích phản xạ thần kinh: tăng 25% tốc độ xả đạn và hồi 30 Máu khẩn cấp.',
-        value: 750,
-        stackMax: 2,
-        effect: { type: 'rapid_stim', duration: 25, fireRateMultiplier: 1.25, heal: 30 }
-    },
-
-    // 5. Đồ quý giá & Tài liệu mật (Valuables)
+    // 8. Đồ quý giá & Tài liệu mật (Valuables)
     gold_bar: {
         id: 'gold_bar',
         name: 'Thỏi Vàng Quân Quỹ 9999 (1kg)',
@@ -222,6 +468,7 @@ export const LOOT_ITEMS = {
         description: 'Tài sản thanh khoản cực cao từ kho dự trữ ngầm. Quy đổi trực tiếp 3000 Điểm sinh tồn.',
         value: 3000,
         stackMax: 5,
+        size: [1, 1],
         effect: { type: 'score', points: 3000 }
     },
     military_flashdrive: {
@@ -234,6 +481,7 @@ export const LOOT_ITEMS = {
         description: 'Chứa sơ đồ trạm nghiên cứu sinh học ngầm. Quy đổi 1800 Điểm sinh tồn.',
         value: 1800,
         stackMax: 3,
+        size: [1, 1],
         effect: { type: 'score', points: 1800 }
     },
     classified_intel: {
@@ -246,29 +494,35 @@ export const LOOT_ITEMS = {
         description: 'Hồ sơ nghiên cứu gen đột biến Mutant Overlord. Quy đổi 2200 Điểm sinh tồn.',
         value: 2200,
         stackMax: 2,
+        size: [1, 1],
         effect: { type: 'score', points: 2200 }
     }
 };
 
-// Cấu hình các loại hòm đồ tương tác trong sàn đấu
+// Cấu hình các loại hòm đồ tương tác trong sàn đấu (Loot Tables mở rộng)
 export const CONTAINER_CONFIGS = {
     wooden_crate: {
         id: 'wooden_crate',
         name: 'Thùng Gỗ Quân Trang',
         searchDuration: 1.2,
         interactionRadius: 3.6,
-        capacity: 8,
+        capacity: 10,
         meshColor: 0x8b5a2b,
         accentColor: 0x4a3525,
         promptLabel: 'VÙNG MỞ THÙNG GỖ (ĐỨNG TRONG VÒNG ĐỂ MỞ)',
         lootTable: [
             { itemId: 'ammo_standard', chance: 0.85, min: 1, max: 2 },
-            { itemId: 'ammo_hollow', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'grenade_explosive', chance: 0.30, min: 1, max: 1 },
-            { itemId: 'grenade_smoke', chance: 0.25, min: 1, max: 1 },
-            { itemId: 'medkit_military', chance: 0.45, min: 1, max: 1 },
-            { itemId: 'painkiller_morphine', chance: 0.40, min: 1, max: 1 },
-            { itemId: 'armor_vest_lvl4', chance: 0.20, min: 1, max: 1 },
+            { itemId: 'ammo_hollow', chance: 0.40, min: 1, max: 1 },
+            { itemId: 'bandage_field', chance: 0.65, min: 1, max: 2 },
+            { itemId: 'medkit_military', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'painkiller_morphine', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'scrap_metal', chance: 0.70, min: 1, max: 3 },
+            { itemId: 'attach_flash_hider', chance: 0.45, min: 1, max: 1 },
+            { itemId: 'attach_compensator', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'attach_red_dot', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'attach_grip_tactical', chance: 0.30, min: 1, max: 1 },
+            { itemId: 'attach_ext_mag', chance: 0.25, min: 1, max: 1 },
+            { itemId: 'helmet_tactical', chance: 0.25, min: 1, max: 1 },
             { itemId: 'weapon_shotgun', chance: 0.15, min: 1, max: 1 }
         ]
     },
@@ -277,18 +531,23 @@ export const CONTAINER_CONFIGS = {
         name: 'Két Sắt Quân Sự Chống Đạn',
         searchDuration: 2.0,
         interactionRadius: 3.6,
-        capacity: 6,
+        capacity: 10,
         meshColor: 0x334155,
         accentColor: 0x0284c7,
         promptLabel: 'VÙNG MỞ KÉT SẮT (ĐỨNG TRONG VÒNG ĐỂ MỞ)',
         lootTable: [
-            { itemId: 'ammo_ap', chance: 0.75, min: 1, max: 2 },
-            { itemId: 'grenade_explosive', chance: 0.45, min: 1, max: 2 },
+            { itemId: 'ammo_ap', chance: 0.85, min: 1, max: 2 },
+            { itemId: 'attach_silencer', chance: 0.60, min: 1, max: 1 },
+            { itemId: 'attach_scope_x2', chance: 0.55, min: 1, max: 1 },
+            { itemId: 'attach_scope_x4', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'attach_quickdraw_mag', chance: 0.50, min: 1, max: 1 },
+            { itemId: 'attach_stock_heavy', chance: 0.45, min: 1, max: 1 },
+            { itemId: 'gun_parts', chance: 0.75, min: 1, max: 2 },
+            { itemId: 'weapon_parts_core', chance: 0.50, min: 1, max: 1 },
             { itemId: 'armor_vest_lvl6', chance: 0.35, min: 1, max: 1 },
             { itemId: 'gold_bar', chance: 0.50, min: 1, max: 2 },
             { itemId: 'military_flashdrive', chance: 0.60, min: 1, max: 1 },
-            { itemId: 'classified_intel', chance: 0.45, min: 1, max: 1 },
-            { itemId: 'weapon_assault', chance: 0.40, min: 1, max: 1 },
+            { itemId: 'weapon_assault', chance: 0.45, min: 1, max: 1 },
             { itemId: 'weapon_titan', chance: 0.25, min: 1, max: 1 }
         ]
     },
@@ -297,20 +556,23 @@ export const CONTAINER_CONFIGS = {
         name: 'Thi Thể Đặc Nhiệm Tử Trận',
         searchDuration: 1.4,
         interactionRadius: 3.6,
-        capacity: 8,
+        capacity: 10,
         meshColor: 0x475569,
         accentColor: 0xef4444,
         promptLabel: 'VÙNG KHÁM XÁC (ĐỨNG TRONG VÒNG ĐỂ MỞ)',
         lootTable: [
-            { itemId: 'ammo_standard', chance: 0.70, min: 1, max: 2 },
-            { itemId: 'grenade_explosive', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'grenade_smoke', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'ammo_standard', chance: 0.75, min: 1, max: 2 },
+            { itemId: 'ammo_hollow', chance: 0.45, min: 1, max: 1 },
+            { itemId: 'bandage_field', chance: 0.60, min: 1, max: 2 },
             { itemId: 'medkit_military', chance: 0.50, min: 1, max: 1 },
-            { itemId: 'stimpack_adrenaline', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'painkiller_morphine', chance: 0.45, min: 1, max: 1 },
-            { itemId: 'armor_vest_lvl4', chance: 0.25, min: 1, max: 1 },
-            { itemId: 'military_flashdrive', chance: 0.30, min: 1, max: 1 },
-            { itemId: 'weapon_shotgun', chance: 0.20, min: 1, max: 1 }
+            { itemId: 'stimpack_adrenaline', chance: 0.40, min: 1, max: 1 },
+            { itemId: 'painkiller_morphine', chance: 0.50, min: 1, max: 1 },
+            { itemId: 'scrap_metal', chance: 0.60, min: 1, max: 3 },
+            { itemId: 'attach_red_dot', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'attach_compensator', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'attach_grip_tactical', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'armor_vest_lvl4', chance: 0.30, min: 1, max: 1 },
+            { itemId: 'helmet_tactical', chance: 0.35, min: 1, max: 1 }
         ]
     },
     airdrop_crate: {
@@ -318,37 +580,49 @@ export const CONTAINER_CONFIGS = {
         name: 'Hòm Thính Tiếp Tế Chiến Thuật',
         searchDuration: 2.5,
         interactionRadius: 4.0,
-        capacity: 12,
+        capacity: 14,
         meshColor: 0xd97706,
         accentColor: 0x06b6d4,
         promptLabel: 'VÙNG HÒM THÍNH (ĐỨNG TRONG VÒNG ĐỂ MỞ)',
         lootTable: [
-            { itemId: 'weapon_titan', chance: 0.60, min: 1, max: 1 },
-            { itemId: 'weapon_sniper', chance: 0.65, min: 1, max: 1 },
-            { itemId: 'weapon_assault', chance: 0.75, min: 1, max: 1 },
-            { itemId: 'armor_vest_lvl6', chance: 0.80, min: 1, max: 1 },
-            { itemId: 'grenade_explosive', chance: 0.70, min: 1, max: 2 },
-            { itemId: 'ammo_ap', chance: 0.90, min: 2, max: 3 },
-            { itemId: 'stimpack_adrenaline', chance: 0.85, min: 1, max: 2 },
+            { itemId: 'weapon_titan', chance: 0.65, min: 1, max: 1 },
+            { itemId: 'weapon_sniper', chance: 0.70, min: 1, max: 1 },
+            { itemId: 'weapon_assault', chance: 0.80, min: 1, max: 1 },
+            { itemId: 'attach_scope_x4', chance: 0.80, min: 1, max: 1 },
+            { itemId: 'attach_silencer', chance: 0.85, min: 1, max: 1 },
+            { itemId: 'attach_quickdraw_mag', chance: 0.80, min: 1, max: 1 },
+            { itemId: 'attach_stock_heavy', chance: 0.80, min: 1, max: 1 },
+            { itemId: 'armor_vest_lvl6', chance: 0.85, min: 1, max: 1 },
+            { itemId: 'ammo_ap', chance: 0.95, min: 2, max: 3 },
+            { itemId: 'stimpack_adrenaline', chance: 0.90, min: 2, max: 2 },
             { itemId: 'medkit_military', chance: 0.95, min: 2, max: 3 },
-            { itemId: 'gold_bar', chance: 0.70, min: 1, max: 2 },
-            { itemId: 'classified_intel', chance: 0.60, min: 1, max: 1 }
+            { itemId: 'gold_bar', chance: 0.75, min: 2, max: 3 },
+            { itemId: 'weapon_parts_core', chance: 0.85, min: 1, max: 2 }
         ]
     }
 };
 
-// Quản lý Túi đồ của Người chơi (Player Inventory Grid)
+// Quản lý Túi đồ của Người chơi (Smart Grid Backpack: 5 Cột x 6 Hàng = 30 Ô)
 export class PlayerInventory {
-    constructor(slotsCount = 16) {
-        this.slotsCount = slotsCount;
-        this.slots = new Array(slotsCount).fill(null);
+    constructor(cols = 5, rows = 6) {
+        this.cols = cols;
+        this.rows = rows;
+        this.capacity = cols * rows; // 30 ô vuông
+        this.slotsCount = this.capacity;
+        this.slots = new Array(this.capacity).fill(null);
         this.initDefaultLoadout();
     }
 
     // Đồ khởi đầu cơ bản của chiến binh
     initDefaultLoadout() {
-        this.slots[0] = { itemId: 'ammo_standard', count: 2, revealed: true };
-        this.slots[1] = { itemId: 'medkit_military', count: 1, revealed: true };
+        this.slots[0] = { itemId: 'ammo_standard', count: 3, revealed: true };
+        this.slots[1] = { itemId: 'bandage_field', count: 2, revealed: true };
+        this.slots[2] = { itemId: 'medkit_military', count: 1, revealed: true };
+        this.slots[3] = { itemId: 'attach_red_dot', count: 1, revealed: true };
+        this.slots[4] = { itemId: 'attach_compensator', count: 1, revealed: true };
+        this.slots[5] = { itemId: 'attach_ext_mag', count: 1, revealed: true };
+        this.slots[6] = { itemId: 'attach_grip_tactical', count: 1, revealed: true };
+        this.slots[7] = { itemId: 'scrap_metal', count: 4, revealed: true };
     }
 
     // Thêm vật phẩm vào ô trống đầu tiên hoặc gộp stack
@@ -357,12 +631,13 @@ export class PlayerInventory {
         if (!itemDef) return 0;
 
         let remaining = count;
+        const stackLimit = itemDef.stackMax || 1;
 
         // 1. Thử gộp vào các ô có cùng itemId chưa đầy stack
-        for (let i = 0; i < this.slotsCount; i++) {
+        for (let i = 0; i < this.capacity; i++) {
             const slot = this.slots[i];
-            if (slot && slot.itemId === itemId && slot.count < itemDef.stackMax) {
-                const space = itemDef.stackMax - slot.count;
+            if (slot && slot.itemId === itemId && slot.count < stackLimit) {
+                const space = stackLimit - slot.count;
                 const add = Math.min(space, remaining);
                 slot.count += add;
                 remaining -= add;
@@ -371,9 +646,9 @@ export class PlayerInventory {
         }
 
         // 2. Cho vào ô trống đầu tiên
-        for (let i = 0; i < this.slotsCount; i++) {
+        for (let i = 0; i < this.capacity; i++) {
             if (!this.slots[i]) {
-                const add = Math.min(itemDef.stackMax, remaining);
+                const add = Math.min(stackLimit, remaining);
                 this.slots[i] = { itemId, count: add, revealed: true };
                 remaining -= add;
                 if (remaining <= 0) return count;
@@ -397,6 +672,127 @@ export class PlayerInventory {
 
     hasFreeSlot() {
         return this.slots.some(s => s === null);
+    }
+
+    // Hoán đổi hoặc di chuyển vật phẩm giữa 2 ô trong lưới
+    swapSlots(fromIdx, toIdx) {
+        if (fromIdx < 0 || fromIdx >= this.capacity || toIdx < 0 || toIdx >= this.capacity) return false;
+        if (fromIdx === toIdx) return false;
+
+        const itemA = this.slots[fromIdx];
+        const itemB = this.slots[toIdx];
+
+        // Nếu cùng itemId và có thể gộp stack
+        if (itemA && itemB && itemA.itemId === itemB.itemId) {
+            const def = LOOT_ITEMS[itemA.itemId];
+            const maxStack = def?.stackMax || 1;
+            if (itemB.count < maxStack) {
+                const space = maxStack - itemB.count;
+                const transfer = Math.min(space, itemA.count);
+                itemB.count += transfer;
+                itemA.count -= transfer;
+                if (itemA.count <= 0) this.slots[fromIdx] = null;
+                return true;
+            }
+        }
+
+        this.slots[fromIdx] = itemB;
+        this.slots[toIdx] = itemA;
+        return true;
+    }
+
+    // Tự động sắp xếp (Auto-sort Button): Gom nhóm các hộp đạn và xếp phụ kiện, vật phẩm theo thứ tự tối ưu
+    autoSort() {
+        const gathered = [];
+
+        // 1. Thu thập tất cả các vật phẩm hiện có
+        for (let i = 0; i < this.capacity; i++) {
+            if (this.slots[i]) {
+                gathered.push({ ...this.slots[i] });
+                this.slots[i] = null;
+            }
+        }
+
+        // 2. Gom nhóm các item cùng loại có thể gộp stack
+        const consolidated = [];
+        for (const item of gathered) {
+            const def = LOOT_ITEMS[item.itemId];
+            const max = def?.stackMax || 1;
+            let placed = false;
+
+            if (max > 1) {
+                for (const existing of consolidated) {
+                    if (existing.itemId === item.itemId && existing.count < max) {
+                        const space = max - existing.count;
+                        const add = Math.min(space, item.count);
+                        existing.count += add;
+                        item.count -= add;
+                        if (item.count <= 0) {
+                            placed = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (item.count > 0) {
+                consolidated.push(item);
+            }
+        }
+
+        // 3. Phân loại theo danh mục ưu tiên chiến thuật
+        const categoryPriority = {
+            weapon: 1,
+            equipment: 2,
+            attachment: 3,
+            ammo: 4,
+            medical: 5,
+            grenade: 6,
+            scrap: 7,
+            valuable: 8
+        };
+
+        consolidated.sort((a, b) => {
+            const defA = LOOT_ITEMS[a.itemId];
+            const defB = LOOT_ITEMS[b.itemId];
+            const pA = categoryPriority[defA?.category] || 99;
+            const pB = categoryPriority[defB?.category] || 99;
+            if (pA !== pB) return pA - pB;
+            // Nếu cùng danh mục, xếp theo giá trị hoặc tên
+            return (defB?.value || 0) - (defA?.value || 0);
+        });
+
+        // 4. Đặt lại vào lưới tuần tự từ ô đầu tiên
+        for (let i = 0; i < Math.min(this.capacity, consolidated.length); i++) {
+            this.slots[i] = consolidated[i];
+        }
+
+        sounds.play('switchWeapon', { volume: 0.8, rate: 1.4 });
+        return true;
+    }
+
+    // Thử lắp trực tiếp phụ kiện vào vũ khí đang cầm nếu slot tương thích còn trống
+    tryAutoEquipAttachment(slotIndex, weaponSystem) {
+        const slot = this.slots[slotIndex];
+        if (!slot || !weaponSystem) return false;
+
+        const def = LOOT_ITEMS[slot.itemId];
+        if (def?.category !== 'attachment' || !def.slot) return false;
+
+        const attachSlot = def.slot; // 'muzzle', 'optic', 'magazine', 'grip'
+
+        // Kiểm tra xem slot trên súng có đang trống không hoặc thay thế
+        const currentMod = weaponSystem.attachments[attachSlot];
+        const removedMod = weaponSystem.attachMod(attachSlot, slot.itemId);
+
+        // Gỡ bỏ phụ kiện khỏi balo, nếu có phụ kiện cũ thì đưa lại vào ô này
+        if (removedMod) {
+            this.slots[slotIndex] = { itemId: removedMod, count: 1, revealed: true };
+        } else {
+            this.slots[slotIndex] = null;
+        }
+
+        return true;
     }
 }
 
@@ -708,11 +1104,12 @@ export class LootingSystem {
         this.waveManager = waveManager;
         this.ui = ui;
 
-        this.inventory = new PlayerInventory(16);
+        this.inventory = new PlayerInventory(5, 6);
         this.containers = [];
         this.airdropDrops = [];
 
-        // Trạng thái lục hòm hiện thời
+        // Trạng thái Balo và Lục hòm hiện thời
+        this.isBackpackOpen = false;
         this.activeContainer = null;
         this.isSearching = false;
         this.searchTimer = 0;
@@ -733,26 +1130,48 @@ export class LootingSystem {
 
     initEventListeners() {
         window.addEventListener('keydown', (e) => {
+            // Phím [B] để bật / tắt Giao diện Balo Túi Đồ [Backpack Grid & Weapon Modding]
+            if (e.code === 'KeyB') {
+                if (window.game?.state === 'PLAYING') {
+                    this.toggleBackpack();
+                }
+            }
             // Phím [F] để bắt đầu lục hòm hoặc đóng hòm nếu đang mở
             if (e.code === 'KeyF') {
                 if (this.isSearching) {
                     this.cancelSearch();
-                } else if (this.activeContainer?.isOpen) {
+                } else if (this.isBackpackOpen) {
                     this.closeContainerUI();
                 } else {
                     this.tryStartSearch();
                 }
             }
             // Phím [Space] để nhặt toàn bộ đồ khi đang mở hòm
-            if (e.code === 'Space' && this.activeContainer?.isOpen) {
+            if (e.code === 'Space' && this.isBackpackOpen && this.activeContainer?.isOpen) {
                 e.preventDefault();
                 this.lootAll();
             }
-            // Phím [Escape] để đóng hòm đồ
-            if (e.code === 'Escape' && this.activeContainer?.isOpen) {
+            // Phím [Escape] để đóng hòm đồ / balo
+            if (e.code === 'Escape' && this.isBackpackOpen) {
                 this.closeContainerUI();
             }
         });
+    }
+
+    // Bật tắt Balo túi đồ [Phím B]
+    toggleBackpack() {
+        if (this.isBackpackOpen) {
+            this.closeContainerUI();
+        } else {
+            this.openBackpack();
+        }
+    }
+
+    // Mở Balo túi đồ người chơi
+    openBackpack() {
+        this.isBackpackOpen = true;
+        this.ui?.openSmartInventory(this.inventory, this.activeContainer, this);
+        if (this.player) this.player.setInputEnabled(false);
     }
 
     // Sinh hòm đồ mới trong bản đồ
@@ -877,7 +1296,7 @@ export class LootingSystem {
         this.ui?.showPickupAlert('ĐÃ RỜI KHỎI PHẠM VI MỞ HÒM');
     }
 
-    // Hoàn tất mở hòm: Thu thập đồ trực tiếp và dọn hòm nếu trống
+    // Hoàn tất mở hòm: Mở giao diện Looting to Backpack Loop
     completeSearch() {
         this.isSearching = false;
         this.player.isSearching = false;
@@ -888,51 +1307,21 @@ export class LootingSystem {
         container.isOpen = true;
         sounds.playClearJam(); // Tiếng khóa mở hòm cơ khí
 
-        // Tự động thu thập toàn bộ vật phẩm trong hòm nạp thẳng vào túi đồ / vũ khí
-        let collectedCount = 0;
-        for (let i = 0; i < container.slots.length; i++) {
-            const slot = container.slots[i];
-            if (!slot) continue;
-            slot.revealed = true;
-
-            const itemDef = LOOT_ITEMS[slot.itemId];
-            if (itemDef?.category === 'ammo' || itemDef?.effect?.type === 'add_ammo') {
-                // Tự động nạp đầy 4 băng đạn
-                this.player.weapons?.addAmmo(slot.count * 3);
-                collectedCount += slot.count;
-                container.slots[i] = null;
-            } else if (itemDef?.effect?.type === 'score') {
-                // Tự động cộng điểm sinh tồn
-                if (typeof window.game !== 'undefined') {
-                    window.game.score += itemDef.effect.points * slot.count;
-                }
-                collectedCount += slot.count;
-                container.slots[i] = null;
-            } else {
-                // Đưa vào túi đồ người chơi
-                const added = this.inventory.addItem(slot.itemId, slot.count, true);
-                if (added > 0) {
-                    slot.count -= added;
-                    collectedCount += added;
-                    if (slot.count <= 0) container.slots[i] = null;
-                }
-            }
-        }
-
-        sounds.playLootTransferSound?.();
-        this.ui?.showPickupAlert(`ĐÃ MỞ ${container.name.toUpperCase()}! THU THẬP ${collectedCount} VẬT PHẨM`);
-
-        // Dọn hòm nếu đã lấy sạch đồ
-        if (container.checkEmpty()) {
-            const idx = this.containers.indexOf(container);
-            if (idx !== -1) {
-                container.dispose();
-                this.containers.splice(idx, 1);
-            }
-        }
+        // Mở giao diện Hòm đồ kết hợp Balo (Looting to Backpack Loop)
+        this.openContainerUI(container);
     }
 
-    // Đóng giao diện hòm đồ
+    // Mở giao diện Hòm đồ
+    openContainerUI(container) {
+        if (!container) return;
+        this.activeContainer = container;
+        container.isOpen = true;
+        this.isBackpackOpen = true;
+        this.ui?.openSmartInventory(this.inventory, container, this);
+        if (this.player) this.player.setInputEnabled(false);
+    }
+
+    // Đóng giao diện hòm đồ / balo
     closeContainerUI() {
         if (this.activeContainer) {
             this.activeContainer.isOpen = false;
@@ -946,9 +1335,13 @@ export class LootingSystem {
             }
             this.activeContainer = null;
         }
+        this.isBackpackOpen = false;
         this.revealingSlotIndex = -1;
         this.revealTimer = 0;
-        this.ui?.closeDualInventory();
+        this.ui?.closeSmartInventory();
+        if (this.player && window.game?.state === 'PLAYING') {
+            this.player.setInputEnabled(true);
+        }
     }
 
     // Nhận diện từng ô vật phẩm (Item Reveal - 0.5s Search Time mỗi ô)
@@ -963,25 +1356,50 @@ export class LootingSystem {
         this.ui?.updateRevealingProgress(slotIndex, 0);
     }
 
+    // Thao tác nhặt đồ thông minh (Smart QoL Action): Shift + Click hoặc Double Click
+    smartLootItem(slotIndex) {
+        if (!this.activeContainer) return;
+        const slot = this.activeContainer.slots[slotIndex];
+        if (!slot) return;
+        slot.revealed = true;
+
+        const def = LOOT_ITEMS[slot.itemId];
+        // 1. Nếu là phụ kiện súng: kiểm tra xem súng còn trống slot tương ứng không
+        if (def?.category === 'attachment' && def.slot && this.player?.weapons) {
+            const attachSlot = def.slot;
+            if (!this.player.weapons.attachments[attachSlot]) {
+                // Slot súng đang trống: Lắp thẳng lên súng!
+                this.player.weapons.attachMod(attachSlot, slot.itemId);
+                this.activeContainer.slots[slotIndex] = null;
+                sounds.play('switchWeapon', { volume: 0.95, rate: 1.4 });
+                this.ui?.showPickupAlert(`ĐÃ TỰ ĐỘNG LẮP [${def.name.toUpperCase()}] LÊN SÚNG!`);
+                this.activeContainer.checkEmpty();
+                this.ui?.refreshSmartInventory();
+                return;
+            }
+        }
+
+        // 2. Nếu không phải phụ kiện hoặc slot súng đã có: Chuyển vào Balo
+        const added = this.inventory.addItem(slot.itemId, slot.count, true);
+        if (added > 0) {
+            slot.count -= added;
+            if (slot.count <= 0) {
+                this.activeContainer.slots[slotIndex] = null;
+            }
+            sounds.playLootTransferSound?.();
+            this.activeContainer.checkEmpty();
+            this.ui?.refreshSmartInventory();
+        } else {
+            this.ui?.showPickupAlert('TÚI ĐỒ ĐÃ ĐẦY! KHÔNG THỂ NHẶT THÊM');
+        }
+    }
+
     // Chuyển thẳng vật phẩm sang túi bên kia (Shift + Click)
     transferItem(fromSide, slotIndex) {
         if (!this.activeContainer) return;
 
         if (fromSide === 'container') {
-            const slot = this.activeContainer.slots[slotIndex];
-            if (!slot || !slot.revealed) return;
-            const added = this.inventory.addItem(slot.itemId, slot.count, true);
-            if (added > 0) {
-                slot.count -= added;
-                if (slot.count <= 0) {
-                    this.activeContainer.slots[slotIndex] = null;
-                }
-                sounds.playLootTransferSound?.();
-                this.activeContainer.checkEmpty();
-                this.ui?.refreshDualInventory();
-            } else {
-                this.ui?.showPickupAlert('TÚI ĐỒ ĐÃ ĐẦY! KHÔNG THỂ CHUYỂN');
-            }
+            this.smartLootItem(slotIndex);
         } else if (fromSide === 'player') {
             const slot = this.inventory.slots[slotIndex];
             if (!slot) return;
@@ -992,7 +1410,7 @@ export class LootingSystem {
                 this.inventory.slots[slotIndex] = null;
                 sounds.playLootTransferSound?.();
                 this.activeContainer.checkEmpty();
-                this.ui?.refreshDualInventory();
+                this.ui?.refreshSmartInventory();
             } else {
                 this.ui?.showPickupAlert('HÒM ĐỒ ĐÃ CHẬT CHỖ!');
             }
@@ -1007,8 +1425,20 @@ export class LootingSystem {
         for (let i = 0; i < this.activeContainer.slots.length; i++) {
             const slot = this.activeContainer.slots[i];
             if (!slot) continue;
-            // Nhặt toàn bộ thì tự động mở nhận diện luôn
             slot.revealed = true;
+
+            const def = LOOT_ITEMS[slot.itemId];
+            // Thử lắp phụ kiện lên súng trước nếu còn trống slot
+            if (def?.category === 'attachment' && def.slot && this.player?.weapons) {
+                const attachSlot = def.slot;
+                if (!this.player.weapons.attachments[attachSlot]) {
+                    this.player.weapons.attachMod(attachSlot, slot.itemId);
+                    this.activeContainer.slots[i] = null;
+                    transferred++;
+                    continue;
+                }
+            }
+
             const added = this.inventory.addItem(slot.itemId, slot.count, true);
             if (added > 0) {
                 slot.count -= added;
@@ -1022,8 +1452,8 @@ export class LootingSystem {
         if (transferred > 0) {
             sounds.playLootTransferSound?.();
             this.activeContainer.checkEmpty();
-            this.ui?.refreshDualInventory();
-            this.ui?.showPickupAlert(`ĐÃ NHẶT TOÀN BỘ ĐỒ VÀO TÚI`);
+            this.ui?.refreshSmartInventory();
+            this.ui?.showPickupAlert(`ĐÃ NHẶT TOÀN BỘ VẬT PHẨM`);
         }
     }
 

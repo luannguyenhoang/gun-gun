@@ -209,6 +209,14 @@ export class WeaponSystem {
         this.projectiles = [];
         this.nextProjectileId = 1;
 
+        // Cấu hình phụ kiện mod vũ khí (Attachments Ecosystem)
+        this.attachments = {
+            muzzle: null,    // Đầu nòng (Compensator, Silencer, Flash Hider)
+            optic: null,     // Kính ngắm (Red Dot, Scope x2, Scope x4)
+            magazine: null,  // Băng đạn (Extended Mag, Quick-draw Mag)
+            grip: null       // Tay cầm / Báng súng (Tactical Grip, Heavy Stock)
+        };
+
         // Shared geometries & materials pool
         this.bulletGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.7, 6);
         this.bulletGeo.rotateX(Math.PI / 2);
@@ -316,6 +324,12 @@ export class WeaponSystem {
         this.medkitPlayerRef = null;
         this.currentCaliberIndex = 0;
         this.upgrades = { damage: 0, rapid: 0, multishot: 0 };
+        this.attachments = {
+            muzzle: null,
+            optic: null,
+            magazine: null,
+            grip: null
+        };
         this.isReloading = false;
         this.reloadTimer = 0;
         this.fireCooldown = 0;
@@ -328,6 +342,129 @@ export class WeaponSystem {
     get fireRateBoost() { return 1 + this.upgrades.rapid * 0.125; }
     get beamCount() { return 1 + this.upgrades.multishot * 2; }
 
+    // Tính toán chỉ số vũ khí hiệu dụng sau khi gắn phụ kiện (Real-time Weapon Stats)
+    getModifiedStats(weapon = null) {
+        const w = weapon || this.getCurrentWeapon();
+        if (!w || w.isKnife || w.isUtility) {
+            return {
+                damage: w?.damage || 0,
+                magSize: w?.magSize || 0,
+                reloadTime: w?.reloadTime || 1.0,
+                recoilPitch: w?.recoilPitch || 0,
+                cursorKick: w?.cursorKick || 0,
+                screenShake: w?.screenShake || 0,
+                spreadRecoveryRate: w?.spreadRecoveryRate || 20,
+                moveSpreadPenalty: w?.moveSpreadPenalty || 2.5,
+                baseSpreadDegHip: w?.baseSpreadDegHip || 2.0,
+                baseSpreadDegADS: w?.baseSpreadDegADS || 0.5,
+                adsZoom: 1.0,
+                soundRadius: 26.0,
+                attachments: { ...this.attachments }
+            };
+        }
+
+        // Giá trị cơ bản ban đầu
+        let damage = w.damage;
+        let magSize = w.magSize;
+        let reloadTime = w.reloadTime;
+        let recoilFactor = 1.0;
+        let spreadRecoveryBonus = 0;
+        let runSpreadFactor = 1.0;
+        let adsSpreadFactor = 1.0;
+        let adsZoom = 1.0;
+        let soundRadius = 26.0;
+        let turnPenalty = 0;
+
+        // 1. Phụ kiện Đầu nòng (Muzzle)
+        if (this.attachments.muzzle === 'attach_compensator') {
+            // Nòng giảm giật: giảm 25% recoil, hỗ trợ hồi tâm +15%
+            recoilFactor -= 0.25;
+            spreadRecoveryBonus += 0.15;
+        } else if (this.attachments.muzzle === 'attach_silencer') {
+            // Nòng giảm thanh: giảm 60% bán kính phát hiện tiếng ồn, giảm giật nhẹ 10%
+            soundRadius *= 0.40;
+            recoilFactor -= 0.10;
+        } else if (this.attachments.muzzle === 'attach_flash_hider') {
+            // Loa che lửa: giảm chớp lửa, giảm giật 12%, tăng độ chụm 10%
+            recoilFactor -= 0.12;
+            adsSpreadFactor -= 0.10;
+        }
+
+        // 2. Phụ kiện Kính ngắm (Optic / Sight)
+        if (this.attachments.optic === 'attach_red_dot') {
+            // Red Dot: Tăng nhẹ tầm nhìn ngắm ADS, giảm góc tản đạn ADS 20%
+            adsZoom = 1.35;
+            adsSpreadFactor -= 0.20;
+        } else if (this.attachments.optic === 'attach_scope_x2') {
+            // Scope x2: Phóng đại x2 khi ADS, độ chụm cao nhưng chậm xoay 15%
+            adsZoom = 2.0;
+            adsSpreadFactor -= 0.40;
+            turnPenalty = 0.15;
+        } else if (this.attachments.optic === 'attach_scope_x4') {
+            // Scope x4: Phóng đại x4 khi ADS tầm xa, giảm tốc độ xoay 30%
+            adsZoom = 3.5;
+            adsSpreadFactor -= 0.60;
+            turnPenalty = 0.30;
+        }
+
+        // 3. Phụ kiện Băng đạn (Magazine)
+        if (this.attachments.magazine === 'attach_ext_mag') {
+            // Băng đạn mở rộng: tăng thêm 14 viên hoặc +50% sức chứa
+            magSize += Math.max(8, Math.round(w.magSize * 0.5));
+        } else if (this.attachments.magazine === 'attach_quickdraw_mag') {
+            // Băng nạp nhanh: giảm 30% thời gian thay đạn
+            reloadTime *= 0.70;
+        }
+
+        // 4. Phụ kiện Tay cầm / Báng súng (Grip / Stock)
+        if (this.attachments.grip === 'attach_grip_tactical') {
+            // Tay cầm dã chiến: giảm 30% rung lắc khi vừa chạy vừa bắn, hồi tâm +35%
+            runSpreadFactor -= 0.30;
+            spreadRecoveryBonus += 0.35;
+        } else if (this.attachments.grip === 'attach_stock_heavy') {
+            // Báng súng đầm: giảm giật 20%, hồi tâm +20%
+            recoilFactor -= 0.20;
+            spreadRecoveryBonus += 0.20;
+        }
+
+        return {
+            damage,
+            magSize,
+            reloadTime: Math.max(0.45, reloadTime),
+            recoilPitch: w.recoilPitch * Math.max(0.3, recoilFactor),
+            cursorKick: w.cursorKick * Math.max(0.3, recoilFactor),
+            screenShake: w.screenShake * Math.max(0.3, recoilFactor),
+            spreadRecoveryRate: (w.spreadRecoveryRate || 20) * (1 + spreadRecoveryBonus),
+            moveSpreadPenalty: (w.moveSpreadPenalty || 2.5) * Math.max(0.3, runSpreadFactor),
+            baseSpreadDegHip: w.baseSpreadDegHip,
+            baseSpreadDegADS: (w.baseSpreadDegADS || 0.5) * Math.max(0.2, adsSpreadFactor),
+            adsZoom,
+            soundRadius,
+            turnPenalty,
+            attachments: { ...this.attachments }
+        };
+    }
+
+    // Lắp phụ kiện vào ô chỉ định, trả về ID phụ kiện cũ (nếu có)
+    attachMod(slot, attachmentId) {
+        if (!['muzzle', 'optic', 'magazine', 'grip'].includes(slot)) return null;
+        const previousId = this.attachments[slot];
+        this.attachments[slot] = attachmentId;
+        sounds.play('switchWeapon', { volume: 0.85, rate: 1.35 });
+        return previousId;
+    }
+
+    // Tháo phụ kiện khỏi ô chỉ định
+    detachMod(slot) {
+        if (!['muzzle', 'optic', 'magazine', 'grip'].includes(slot)) return null;
+        const removed = this.attachments[slot];
+        this.attachments[slot] = null;
+        if (removed) {
+            sounds.play('switchWeapon', { volume: 0.7, rate: 0.95 });
+        }
+        return removed;
+    }
+
     getNetworkState() {
         return {
             gun: this.weaponSlots[0].id,
@@ -335,6 +472,7 @@ export class WeaponSystem {
             ammo: { ...this.ammo },
             reserve: { ...this.reserve },
             upgrades: { ...this.upgrades },
+            attachments: { ...this.attachments },
             isReloading: this.isReloading,
             reloadTimer: this.reloadTimer,
             currentSpreadDeg: this.currentSpreadDeg,
@@ -351,6 +489,7 @@ export class WeaponSystem {
         this.ammo = { ...state.ammo };
         this.reserve = { ...state.reserve };
         if (state.inventory) this.inventory = { ...state.inventory };
+        if (state.attachments) this.attachments = { ...state.attachments };
         this.upgrades = { ...state.upgrades };
         this.isReloading = !!state.isReloading;
         this.reloadTimer = state.reloadTimer || 0;
@@ -398,12 +537,13 @@ export class WeaponSystem {
         if (w.isUtility) {
             return { current: this.inventory.medkits, max: this.inventory.medkits, reserve: 0, isUtility: true, isReloading: false, reloadProgress: 1 };
         }
+        const effective = this.getModifiedStats(w);
         return {
             current: this.ammo[w.id] ?? 0,
-            max: w.magSize,
+            max: effective.magSize,
             reserve: this.reserve[w.id] ?? 0,
             isReloading: this.isReloading,
-            reloadProgress: this.isReloading ? (1 - this.reloadTimer / w.reloadTime) : 1
+            reloadProgress: this.isReloading ? (1 - this.reloadTimer / effective.reloadTime) : 1
         };
     }
 
@@ -533,10 +673,11 @@ export class WeaponSystem {
     reload() {
         const w = this.getCurrentWeapon();
         if (w.isKnife || w.isUtility) return;
-        if (this.isReloading || this.ammo[w.id] >= w.magSize || !this.reserve[w.id]) return;
+        const effective = this.getModifiedStats(w);
+        if (this.isReloading || this.ammo[w.id] >= effective.magSize || !this.reserve[w.id]) return;
         if (this.onCommand) this.onCommand({ type: 'reload' });
         this.isReloading = true;
-        this.reloadTimer = w.reloadTime;
+        this.reloadTimer = effective.reloadTime;
         sounds.play('switchWeapon', { volume: 0.6, rate: 1.2 });
     }
 
@@ -732,6 +873,8 @@ export class WeaponSystem {
             return true;
         }
 
+        const effective = this.getModifiedStats(w);
+
         // Kiểm tra hết băng đạn
         if (this.ammo[w.id] <= 0) {
             this.reload();
@@ -742,18 +885,29 @@ export class WeaponSystem {
 
         this.ammo[w.id]--;
         this.fireCooldown = w.fireRate / this.fireRateBoost;
-        this.recoilOffset = w.recoilPitch;
+        this.recoilOffset = effective.recoilPitch;
 
-        // Tăng nón tản đạn sau mỗi phát bắn (Recoil Spread)
-        this.currentSpreadDeg = Math.min(w.maxSpreadDeg, this.currentSpreadDeg + (w.recoilSpreadPerShot || 0.8));
+        // Tăng nón tản đạn sau mỗi phát bắn (Recoil Spread có tính phụ kiện giảm giật)
+        const recoilSpread = (w.recoilSpreadPerShot || 0.8) * (effective.recoilPitch / Math.max(0.001, w.recoilPitch));
+        this.currentSpreadDeg = Math.min(w.maxSpreadDeg, this.currentSpreadDeg + recoilSpread);
 
         // Phản lực con trỏ và rung màn hình (Cursor Kickback & Screen Shake)
         if (playerRef?.applyKickbackAndShake) {
-            playerRef.applyKickbackAndShake(w.cursorKick, w.screenShake);
+            playerRef.applyKickbackAndShake(effective.cursorKick, effective.screenShake);
         }
 
-        sounds.playShot(w.id);
-        this.particles?.createMuzzleFlash?.(origin, new THREE.Vector3().subVectors(targetPoint, origin).normalize(), w.color);
+        // Hiệu ứng âm thanh giảm thanh hoặc mặc định
+        const isSilenced = this.attachments.muzzle === 'attach_silencer';
+        if (isSilenced) {
+            sounds.play('switchWeapon', { volume: 0.45, rate: 1.8 });
+        } else {
+            sounds.playShot(w.id);
+        }
+
+        // Nếu không trang bị Loa che lửa Flash Hider thì phụt tia lửa nòng
+        if (this.attachments.muzzle !== 'attach_flash_hider') {
+            this.particles?.createMuzzleFlash?.(origin, new THREE.Vector3().subVectors(targetPoint, origin).normalize(), w.color);
+        }
 
         const beams = isPlayer ? this.beamCount : 1;
         const spreadRad = THREE.MathUtils.degToRad(this.currentSpreadDeg);
@@ -876,15 +1030,16 @@ export class WeaponSystem {
 
         // Cập nhật nón tản đạn (Cone of Fire co nhỏ theo thời gian)
         if (mainPlayer && !currentW.isKnife && !currentW.isUtility) {
+            const effective = this.getModifiedStats(currentW);
             const isMoving = mainPlayer.velocity && (mainPlayer.velocity.x * mainPlayer.velocity.x + mainPlayer.velocity.z * mainPlayer.velocity.z > 0.05);
             const isADS = mainPlayer.isADS;
-            const targetMinSpread = (isADS ? currentW.baseSpreadDegADS : currentW.baseSpreadDegHip) + (isMoving ? currentW.moveSpreadPenalty : 0);
+            const targetMinSpread = (isADS ? effective.baseSpreadDegADS : effective.baseSpreadDegHip) + (isMoving ? effective.moveSpreadPenalty : 0);
 
             // Tự động co nhỏ lại về mức tối thiểu theo spreadRecoveryRate
             if (this.currentSpreadDeg > targetMinSpread) {
-                this.currentSpreadDeg = Math.max(targetMinSpread, this.currentSpreadDeg - (currentW.spreadRecoveryRate || 20) * delta);
+                this.currentSpreadDeg = Math.max(targetMinSpread, this.currentSpreadDeg - (effective.spreadRecoveryRate || 20) * delta);
             } else if (this.currentSpreadDeg < targetMinSpread) {
-                this.currentSpreadDeg = Math.min(targetMinSpread, this.currentSpreadDeg + (currentW.spreadRecoveryRate || 20) * delta);
+                this.currentSpreadDeg = Math.min(targetMinSpread, this.currentSpreadDeg + (effective.spreadRecoveryRate || 20) * delta);
             }
         }
 
@@ -897,7 +1052,8 @@ export class WeaponSystem {
             this.reloadTimer -= delta;
             if (this.reloadTimer <= 0) {
                 const w = this.getCurrentWeapon();
-                const amount = Math.min(w.magSize - (this.ammo[w.id] || 0), this.reserve[w.id] || 0);
+                const effective = this.getModifiedStats(w);
+                const amount = Math.min(effective.magSize - (this.ammo[w.id] || 0), this.reserve[w.id] || 0);
                 this.ammo[w.id] = (this.ammo[w.id] || 0) + amount;
                 this.reserve[w.id] -= amount;
                 this.isReloading = false;
