@@ -1,18 +1,18 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../libs/loaders/GLTFLoader.js';
-import { sounds } from './audio.js?v=6';
-import { ParticleSystem } from './particles.js?v=6';
-import { Arena } from './arena.js?v=6';
-import { WeaponSystem, getStartingWeapon } from './weapons.js?v=6';
-import { PlayerController } from './player.js?v=6';
-import { WaveManager, Zombie } from './enemies.js?v=6';
-import { PickupManager } from './pickups.js?v=6';
-import { UIManager } from './ui.js?v=6';
-import { NetworkRoom, makeRemotePlayer } from './network.js?v=6';
-import { normalizeCharacter } from './characters.js?v=6';
-import { RoomLobby } from './lobby.js?v=6';
-import { HomeMenu } from './home.js?v=6';
-import { LootingSystem } from './looting.js?v=6';
+import { sounds } from './audio.js?v=7';
+import { ParticleSystem } from './particles.js?v=7';
+import { Arena } from './arena.js?v=7';
+import { WeaponSystem, getStartingWeapon } from './weapons.js?v=7';
+import { PlayerController } from './player.js?v=7';
+import { WaveManager, Zombie } from './enemies.js?v=7';
+import { PickupManager } from './pickups.js?v=7';
+import { UIManager } from './ui.js?v=7';
+import { NetworkRoom, makeRemotePlayer } from './network.js?v=7';
+import { normalizeCharacter } from './characters.js?v=7';
+import { RoomLobby } from './lobby.js?v=7';
+import { HomeMenu } from './home.js?v=7';
+import { LootingSystem } from './looting.js?v=7';
 import { RenderQuality } from './performance.js';
 
 class CyberArenaGame {

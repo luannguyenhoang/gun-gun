@@ -1167,6 +1167,7 @@ export class LootingSystem {
         const nearest = this.getNearestInteractableContainer();
 
         // Tự động kích hoạt mở hòm ngay khi người chơi bước vào vùng sáng của hòm
+        // Không cần nhấn phím, không chặn bắn súng hay di chuyển
         if (nearest && !nearest.isOpen && !this.isSearching) {
             this.tryStartSearch(nearest);
         }
@@ -1213,11 +1214,11 @@ export class LootingSystem {
             }
         }
 
-        // 4. Hiển thị gợi ý tương tác [F] khi tới gần hòm
-        const nearest = this.getNearestInteractableContainer();
+        // 4. Hiển thị / ẩn gợi ý tương tác khi tới gần hòm
+        // Dùng lại biến nearest đã tính ở bước 2 để tránh khai báo trùng
         if (nearest && !this.isSearching && !nearest.isOpen) {
-            this.ui?.showContainerPrompt(nearest.config.promptLabel, nearest.position, this.player.camera);
-        } else {
+            this.ui?.showContainerPrompt(nearest.config?.promptLabel, nearest.position, this.player.camera);
+        } else if (!this.isSearching) {
             this.ui?.hideContainerPrompt();
         }
     }
