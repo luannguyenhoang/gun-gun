@@ -306,9 +306,6 @@ export class PlayerController {
         }
 
         if (amount > 0) {
-            if (this.isSearching) {
-                window.game?.lootingSystem?.cancelSearch();
-            }
             this.health -= amount;
             this.painTimer = 4.0;
             sounds.play('enemyHurt', { volume: 0.6, rate: 1.1 });
@@ -539,7 +536,7 @@ export class PlayerController {
     }
 
     handleShooting() {
-        if (!this.inputEnabled || !this.pointerInCanvas || this.isDead || this.isSearching) return;
+        if (!this.inputEnabled || !this.pointerInCanvas || this.isDead) return;
 
         const w = this.weapons.getCurrentWeapon();
         const shouldShoot = w.isAuto ? this.mouseButtons.left : (this.mouseButtons.left && this.weapons.fireCooldown <= 0);

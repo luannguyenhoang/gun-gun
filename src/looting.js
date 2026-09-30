@@ -255,11 +255,12 @@ export const CONTAINER_CONFIGS = {
     wooden_crate: {
         id: 'wooden_crate',
         name: 'Thùng Gỗ Quân Trang',
-        searchDuration: 1.8,
+        searchDuration: 1.2,
+        interactionRadius: 3.6,
         capacity: 8,
         meshColor: 0x8b5a2b,
         accentColor: 0x4a3525,
-        promptLabel: '[F] LỤC THÙNG GỖ',
+        promptLabel: 'VÙNG MỞ THÙNG GỖ (ĐỨNG TRONG VÒNG ĐỂ MỞ)',
         lootTable: [
             { itemId: 'ammo_standard', chance: 0.85, min: 1, max: 2 },
             { itemId: 'ammo_hollow', chance: 0.35, min: 1, max: 1 },
@@ -274,11 +275,12 @@ export const CONTAINER_CONFIGS = {
     military_safe: {
         id: 'military_safe',
         name: 'Két Sắt Quân Sự Chống Đạn',
-        searchDuration: 3.2,
+        searchDuration: 2.0,
+        interactionRadius: 3.6,
         capacity: 6,
         meshColor: 0x334155,
         accentColor: 0x0284c7,
-        promptLabel: '[F] MỞ KHÓA KÉT SẮT',
+        promptLabel: 'VÙNG MỞ KÉT SẮT (ĐỨNG TRONG VÒNG ĐỂ MỞ)',
         lootTable: [
             { itemId: 'ammo_ap', chance: 0.75, min: 1, max: 2 },
             { itemId: 'grenade_explosive', chance: 0.45, min: 1, max: 2 },
@@ -293,11 +295,12 @@ export const CONTAINER_CONFIGS = {
     dead_body: {
         id: 'dead_body',
         name: 'Thi Thể Đặc Nhiệm Tử Trận',
-        searchDuration: 2.2,
+        searchDuration: 1.4,
+        interactionRadius: 3.6,
         capacity: 8,
         meshColor: 0x475569,
         accentColor: 0xef4444,
-        promptLabel: '[F] KHÁM XÁC CHIẾN BINH',
+        promptLabel: 'VÙNG KHÁM XÁC (ĐỨNG TRONG VÒNG ĐỂ MỞ)',
         lootTable: [
             { itemId: 'ammo_standard', chance: 0.70, min: 1, max: 2 },
             { itemId: 'grenade_explosive', chance: 0.35, min: 1, max: 1 },
@@ -313,11 +316,12 @@ export const CONTAINER_CONFIGS = {
     airdrop_crate: {
         id: 'airdrop_crate',
         name: 'Hòm Thính Tiếp Tế Chiến Thuật',
-        searchDuration: 4.5,
+        searchDuration: 2.5,
+        interactionRadius: 4.0,
         capacity: 12,
         meshColor: 0xd97706,
         accentColor: 0x06b6d4,
-        promptLabel: '[F] MỞ HÒM THÍNH (4.5s)',
+        promptLabel: 'VÙNG HÒM THÍNH (ĐỨNG TRONG VÒNG ĐỂ MỞ)',
         lootTable: [
             { itemId: 'weapon_titan', chance: 0.60, min: 1, max: 1 },
             { itemId: 'weapon_sniper', chance: 0.65, min: 1, max: 1 },
@@ -496,19 +500,21 @@ export class LootContainer {
             group.add(beacon);
         }
 
-        // Vòng sáng tương tác dưới sàn
-        const ringGeo = new THREE.RingGeometry(1.2, 1.35, 24);
+        // Vòng sáng tương tác mở rộng dưới sàn (Bán kính 3.6m - 4.0m)
+        const ringRadius = this.config.interactionRadius || 3.6;
+        const ringGeo = new THREE.RingGeometry(ringRadius - 0.2, ringRadius, 36);
         const ringMat = new THREE.MeshBasicMaterial({
-            color: this.config.accentColor,
+            color: this.config.accentColor || 0x00d0ff,
             side: THREE.DoubleSide,
             transparent: true,
-            opacity: 0.4
+            opacity: 0.65
         });
         const ring = new THREE.Mesh(ringGeo, ringMat);
         ring.rotation.x = -Math.PI / 2;
         ring.position.y = 0.03;
         group.add(ring);
         this.interactRing = ring;
+        this.interactionRadius = ringRadius;
 
         this.scene.add(group);
         this.mesh = group;
@@ -821,15 +827,16 @@ export class LootingSystem {
         }
     }
 
-    // Tìm hòm đồ gần người chơi nhất trong bán kính tương tác (2.4m)
+    // Tìm hòm đồ gần người chơi nhất trong bán kính tương tác (3.8m)
     getNearestInteractableContainer() {
         if (!this.player || this.player.isDead) return null;
         let nearest = null;
-        let minDist = 2.4;
+        let minDist = 3.8;
 
         for (const c of this.containers) {
+            const range = (c.interactionRadius || 3.6);
             const d = this.player.position.distanceTo(c.position);
-            if (d < minDist) {
+            if (d <= range && d < minDist) {
                 minDist = d;
                 nearest = c;
             }
@@ -837,51 +844,92 @@ export class LootingSystem {
         return nearest;
     }
 
-    // Bắt đầu tiến trình lục hòm
-    tryStartSearch() {
-        const container = this.getNearestInteractableContainer();
-        if (!container || this.isSearching || container.isOpen) return false;
+    // Bắt đầu tiến trình mở hòm khi đứng trong phạm vi
+    tryStartSearch(targetContainer = null) {
+        const container = targetContainer || this.getNearestInteractableContainer();
+        if (!container || container.isOpen) return false;
+        if (this.isSearching && this.activeContainer === container) return true;
 
         this.activeContainer = container;
         this.isSearching = true;
         this.searchDuration = container.searchDuration;
         this.searchTimer = this.searchDuration;
 
-        // Cơ chế khóa nhân vật: khóa di chuyển và khóa bắn
-        this.player.isSearching = true;
-        this.player.velocity.set(0, 0, 0);
+        // Cơ chế mới: KHÔNG khóa di chuyển và KHÔNG khóa bắn súng
+        // Người chơi vẫn có thể chạy nhảy né đòn và xả súng tự do trong lúc mở hòm!
+        this.player.isSearching = false;
 
-        // Âm thanh sột soạt lục lọi và kích thích zombie gần đó
+        // Âm thanh mở hòm cơ khí
         sounds.playSearchSound?.();
-        this.alertEnemies(container.position, 8.5);
 
         // Hiển thị thanh thời gian đếm ngược trên UI
         this.ui?.showSearchProgress(this.searchDuration, container.name);
         return true;
     }
 
-    // Hủy tiến trình lục hòm ngay lập tức khi di chuyển, bấm chuột hoặc dính đòn
+    // Hủy tiến trình mở hòm khi người chơi chạy hẳn ra ngoài phạm vi
     cancelSearch() {
         if (!this.isSearching) return;
         this.isSearching = false;
         this.searchTimer = 0;
         this.player.isSearching = false;
         this.ui?.hideSearchProgress();
-        this.ui?.showPickupAlert('ĐÃ HỦY LỤC HÒM (DO DI CHUYỂN HOẶC HÀNH ĐỘNG)');
+        this.ui?.showPickupAlert('ĐÃ RỜI KHỎI PHẠM VI MỞ HÒM');
     }
 
-    // Hoàn tất lục hòm và mở giao diện Dual-Grid
+    // Hoàn tất mở hòm: Thu thập đồ trực tiếp và dọn hòm nếu trống
     completeSearch() {
         this.isSearching = false;
         this.player.isSearching = false;
         this.ui?.hideSearchProgress();
 
         if (!this.activeContainer) return;
-        this.activeContainer.isOpen = true;
+        const container = this.activeContainer;
+        container.isOpen = true;
         sounds.playClearJam(); // Tiếng khóa mở hòm cơ khí
 
-        // Mở giao diện hòm đồ hai bên
-        this.ui?.openDualInventory(this.inventory, this.activeContainer, this);
+        // Tự động thu thập toàn bộ vật phẩm trong hòm nạp thẳng vào túi đồ / vũ khí
+        let collectedCount = 0;
+        for (let i = 0; i < container.slots.length; i++) {
+            const slot = container.slots[i];
+            if (!slot) continue;
+            slot.revealed = true;
+
+            const itemDef = LOOT_ITEMS[slot.itemId];
+            if (itemDef?.category === 'ammo' || itemDef?.effect?.type === 'add_ammo') {
+                // Tự động nạp đầy 4 băng đạn
+                this.player.weapons?.addAmmo(slot.count * 3);
+                collectedCount += slot.count;
+                container.slots[i] = null;
+            } else if (itemDef?.effect?.type === 'score') {
+                // Tự động cộng điểm sinh tồn
+                if (typeof window.game !== 'undefined') {
+                    window.game.score += itemDef.effect.points * slot.count;
+                }
+                collectedCount += slot.count;
+                container.slots[i] = null;
+            } else {
+                // Đưa vào túi đồ người chơi
+                const added = this.inventory.addItem(slot.itemId, slot.count, true);
+                if (added > 0) {
+                    slot.count -= added;
+                    collectedCount += added;
+                    if (slot.count <= 0) container.slots[i] = null;
+                }
+            }
+        }
+
+        sounds.playLootTransferSound?.();
+        this.ui?.showPickupAlert(`ĐÃ MỞ ${container.name.toUpperCase()}! THU THẬP ${collectedCount} VẬT PHẨM`);
+
+        // Dọn hòm nếu đã lấy sạch đồ
+        if (container.checkEmpty()) {
+            const idx = this.containers.indexOf(container);
+            if (idx !== -1) {
+                container.dispose();
+                this.containers.splice(idx, 1);
+            }
+        }
     }
 
     // Đóng giao diện hòm đồ
@@ -1115,25 +1163,36 @@ export class LootingSystem {
             }
         }
 
-        // 2. Kiểm tra tiến trình lục hòm của người chơi
-        if (this.isSearching) {
-            // Nếu người chơi di chuyển hoặc bấm phím hành động -> Hủy tiến trình
-            const isMoving = this.player.keys['KeyW'] || this.player.keys['KeyS'] ||
-                             this.player.keys['KeyA'] || this.player.keys['KeyD'] ||
-                             this.player.mouseButtons.left || this.player.mouseButtons.right ||
-                             this.player.isDodging;
+        // 2. Kiểm tra tiến trình mở hòm theo phạm vi (Range-based Proximity Opening)
+        const nearest = this.getNearestInteractableContainer();
 
-            if (isMoving) {
+        // Tự động kích hoạt mở hòm ngay khi người chơi bước vào vùng sáng của hòm
+        if (nearest && !nearest.isOpen && !this.isSearching) {
+            this.tryStartSearch(nearest);
+        }
+
+        if (this.isSearching && this.activeContainer) {
+            const dist = this.player.position.distanceTo(this.activeContainer.position);
+            const maxRange = (this.activeContainer.interactionRadius || 3.6) + 0.6;
+
+            // Chỉ hủy tiến trình khi người chơi chạy hẳn ra ngoài phạm vi vòng sáng
+            if (dist > maxRange) {
                 this.cancelSearch();
-                return;
-            }
+            } else {
+                // Người chơi đang ở trong vòng: Tiến trình tiếp tục đếm, người chơi vẫn tự do chạy nhảy và xả súng
+                this.searchTimer -= delta;
+                const progress = 1 - Math.max(0, this.searchTimer / this.searchDuration);
+                this.ui?.updateSearchProgress(progress, this.searchTimer);
 
-            this.searchTimer -= delta;
-            const progress = 1 - (this.searchTimer / this.searchDuration);
-            this.ui?.updateSearchProgress(progress, this.searchTimer);
+                // Hiệu ứng vòng sáng xoay nhẹ thể hiện đang mở hòm
+                if (this.activeContainer.interactRing) {
+                    this.activeContainer.interactRing.rotation.z += delta * 1.8;
+                    this.activeContainer.interactRing.material.opacity = 0.5 + 0.3 * Math.sin(performance.now() * 0.009);
+                }
 
-            if (this.searchTimer <= 0) {
-                this.completeSearch();
+                if (this.searchTimer <= 0) {
+                    this.completeSearch();
+                }
             }
         }
 

@@ -687,6 +687,13 @@ export class WaveManager {
     startWave(phaseNum = 1) {
         this.currentPhase = phaseNum;
         this.isWaveInProgress = true;
+        // Tính tổng số lượng quái cho đợt (Đợt 1: 14 con, Đợt 2: 18 con, Đợt 3: 23 con...)
+        this.totalWaveEnemies = Math.floor(10 + phaseNum * 4.5);
+        this.remainingToSpawn = this.totalWaveEnemies;
+        // Giới hạn số quái tối đa cùng xuất hiện trên sân để không bị quá tải ngập màn hình
+        this.maxOnField = Math.min(14, 6 + Math.floor(phaseNum * 1.4));
+        this.batchInterval = Math.max(1.8, 2.8 - phaseNum * 0.12);
+        this.batchSpawnTimer = 0;
     }
 
     // Chon loai quai xuat hien dua tren moc thoi gian song sot (phut)
@@ -785,37 +792,30 @@ export class WaveManager {
         const targets = (Array.isArray(player) ? player : [player]).filter(p => !p.isDead);
         const primaryPlayer = targets[0] || (Array.isArray(player) ? player[0] : player);
 
-        // Cap nhat thoi gian song sot de tinh he so leo thang do kho
+        // Cập nhật thời gian sống sót
         if (primaryPlayer && !primaryPlayer.isDead) {
             this.survivalTimer += delta;
-            this.batchSpawnTimer += delta;
         }
 
         const survivalMinutes = this.survivalTimer / 60.0;
 
-        // 1. Thuat toan leo thang do kho theo thoi gian song:
-        // Tan suat spawn nhanh hon theo tung phut (tu 3.0s xuong toi thieu 1.2s)
-        const spawnInterval = Math.max(1.2, 3.2 - survivalMinutes * 0.35);
-
-        // So luong quai toi da tren san tang theo phut (50 con ban dau -> 180+ con)
-        const maxEnemiesOnMap = Math.min(180, Math.floor(45 + survivalMinutes * 28));
-
-        // So quai trong moi dot (Batch size tang dan tu 3-4 len 10-12 con)
-        const batchSize = Math.min(12, Math.floor(3 + survivalMinutes * 1.6));
-
-        // 2. Sinh quai theo chu ky (Continuous Wave Spawning)
-        if (primaryPlayer && !primaryPlayer.isDead && this.batchSpawnTimer >= spawnInterval) {
-            this.batchSpawnTimer = 0;
+        // 1. Quản lý sinh quai theo đợt có kiểm soát (Wave Spawning)
+        if (this.isWaveInProgress && primaryPlayer && !primaryPlayer.isDead) {
+            this.batchSpawnTimer += delta;
             const activeCount = this.enemies.filter(e => e.active && !e.isDead).length;
-            const spawnCapacity = maxEnemiesOnMap - activeCount;
-            const countToSpawn = Math.min(batchSize, spawnCapacity);
 
-            for (let i = 0; i < countToSpawn; i++) {
-                this.spawnSingleEnemy(primaryPlayer, survivalMinutes);
+            // Chỉ sinh thêm quái nếu số quái trên sân chưa chạm trần maxOnField và còn quái trong hàng đợi của đợt
+            if (this.remainingToSpawn > 0 && activeCount < this.maxOnField && this.batchSpawnTimer >= this.batchInterval) {
+                this.batchSpawnTimer = 0;
+                const canSpawn = Math.min(2, this.maxOnField - activeCount, this.remainingToSpawn);
+                for (let i = 0; i < canSpawn; i++) {
+                    this.spawnSingleEnemy(primaryPlayer, survivalMinutes);
+                    this.remainingToSpawn--;
+                }
             }
         }
 
-        // 3. Round-robin phan phoi ngan sach navigation
+        // 2. Round-robin phân phối ngân sách navigation
         this.navigationBudget.remaining = 2;
         this.navigationBudget.allowed.clear();
         for (let checked = 0; checked < this.enemies.length && this.navigationBudget.allowed.size < 2; checked++) {
@@ -826,7 +826,7 @@ export class WaveManager {
             }
         }
 
-        // 4. Cap nhat toan bo quai dang hoat dong
+        // 3. Cập nhật toàn bộ quái đang hoạt động
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const zombie = this.enemies[i];
             if (!zombie.active) {
@@ -850,11 +850,18 @@ export class WaveManager {
             }
         }
 
+        // 4. Kiểm tra hoàn thành đợt (Wave Cleared) -> Kích hoạt thời gian nghỉ ngơi
+        const activeRemaining = this.enemies.filter(e => e.active && !e.isDead).length;
+        if (this.isWaveInProgress && (this.remainingToSpawn || 0) <= 0 && activeRemaining === 0) {
+            this.isWaveInProgress = false;
+            return true; // Báo hiệu cho main.js bắt đầu 10 giây nghỉ
+        }
+
         return false;
     }
 
     getRemainingEnemiesCount() {
-        return this.enemies.filter(e => e.active && !e.isDead).length;
+        return Math.max(0, this.remainingToSpawn || 0) + this.enemies.filter(e => e.active && !e.isDead).length;
     }
 
     getBoss() {
@@ -869,7 +876,8 @@ export class WaveManager {
             this.pool[i].deactivate();
         }
         this.enemies = [];
-        this.spawnQueue = [];
+        this.remainingToSpawn = 0;
+        this.isWaveInProgress = false;
         this.survivalTimer = 0;
         this.batchSpawnTimer = 0;
     }

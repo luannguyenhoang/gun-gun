@@ -642,10 +642,10 @@ class CyberArenaGame {
                 this.nextWaveTimer -= delta;
                 if (this.nextWaveTimer <= 0) {
                     this.waveManager.startWave(this.currentWave);
-                    const message = this.currentWave % 5 === 0 ? 'WARNING: MUTANT OVERLORD DETECTED!'
-                        : this.currentWave === 2 ? 'PHASE 2: TỐC HÀNH & PHUN AXIT'
-                        : this.currentWave === 3 ? 'PHASE 3: ZOMBIE KHỔNG LỒ XUẤT HIỆN'
-                        : `PHASE ${this.currentWave}: HORDE INCOMING`;
+                    const message = this.currentWave % 5 === 0 ? 'CẢNH BÁO: MUTANT OVERLORD XUẤT HIỆN!'
+                        : this.currentWave === 2 ? `ĐỢT ${this.currentWave}: FAST ZOMBIE XUẤT HIỆN!`
+                        : this.currentWave === 3 ? `ĐỢT ${this.currentWave}: TANKER ZOMBIE GIÁP NẶNG!`
+                        : `ĐỢT ${this.currentWave}: ĐÀN ZOMBIE TẤN CÔNG!`;
                     this.ui.showBanner(message);
                 }
             }
@@ -700,11 +700,11 @@ class CyberArenaGame {
 
             if (waveFinished) {
                 this.currentWave++;
-                this.score += 300 * this.currentWave;
+                this.score += 300 * (this.currentWave - 1);
                 sounds.play('land', { volume: 0.8 });
-                this.ui.showBanner(`PHASE CLEARED! PREPARE FOR PHASE ${this.currentWave}`);
+                this.ui.showBanner(`HOÀN THÀNH ĐỢT ${this.currentWave - 1}! NGHỈ NGƠI 10 GIÂY (MỞ HÒM & NẠP ĐẠN)`);
 
-                this.nextWaveTimer = 3.2;
+                this.nextWaveTimer = 10.0;
             }
 
             // Update Pickups
