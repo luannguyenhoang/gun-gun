@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="zappets.css"><link rel="stylesheet" href="combat.css?v=6">
+    <link rel="stylesheet" href="zappets.css"><link rel="stylesheet" href="combat.css?v=6"><link rel="stylesheet" href="showroom.css">
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script type="importmap">
     {
@@ -207,7 +207,6 @@
               <p id="room-status" role="status">Tạo phòng và gửi liên kết để rủ bạn cùng chiến đấu. Tối đa 4 người.</p>
             </section>
             <section data-panel="profile" hidden><label class="eyebrow" for="room-name">TÊN CỦA BẠN</label><input id="room-name" maxlength="24" placeholder="Tên của bạn" value="Người chơi"><p>Tên sẽ hiển thị khi bạn tham gia phòng mới.</p><button id="save-profile" class="toy-button yellow wide-button">LƯU HỒ SƠ</button></section>
-            <section data-panel="characters" hidden><p>Chọn chiến binh cho trận đấu tiếp theo.</p><div class="character-options"><button class="toy-button character-option selected" data-character="soldier" aria-pressed="true"><span class="character-silhouette soldier-silhouette"></span>LÍNH</button><button class="toy-button character-option" data-character="skeleton" aria-pressed="false"><span class="character-silhouette skeleton-silhouette"></span>KHUNG XƯƠNG</button><button class="toy-button character-option" data-character="vampire" aria-pressed="false"><span class="character-silhouette vampire-silhouette"></span>MA CÀ RỒNG</button></div></section>
             <section data-panel="help" hidden><div class="help-row"><kbd>W A S D</kbd><span>Di chuyển</span></div><div class="help-row"><kbd>CHUỘT</kbd><span>Ngắm · Giữ chuột trái để bắn</span></div><div class="help-row"><kbd>SPACE / Q</kbd><span>Nhảy / Lướt né</span></div><div class="help-row"><kbd>1 / 2 / R</kbd><span>Súng / Dao / Nạp đạn</span></div><div class="help-row"><kbd>E / B</kbd><span>Cứu đồng đội / Bật tắt bot</span></div><div class="help-row"><kbd>ESC</kbd><span>Tạm dừng trận đấu</span></div><p>Nhặt đạn và nâng cấp từ zombie. Hết đạn? Chuyển sang dao để tiếp tục sống sót!</p></section>
             <section data-panel="settings" hidden><button id="home-sound" class="toy-button blue wide-button">ÂM THANH: BẬT</button><button id="home-music" class="toy-button purple wide-button">NHẠC: BẬT</button><p>Cài đặt được áp dụng ngay trong trận đấu.</p></section>
             <section data-panel="records" hidden><p class="eyebrow">ĐIỂM CAO NHẤT TRÊN THIẾT BỊ NÀY</p><div class="record-value">★ <span id="record-score">0</span></div><p>Chiến đấu, sống sót và phá kỷ lục của chính bạn.</p></section>
@@ -215,6 +214,53 @@
         </dialog>
       </main>
     </div>
+    <dialog id="character-screen" aria-labelledby="character-screen-title">
+      <header class="character-header">
+        <button class="toy-button blue character-back" data-character-back aria-label="Trở về sảnh">←</button>
+        <div><small>ĐỘI HÌNH CỦA BẠN</small><h2 id="character-screen-title">NHÂN VẬT</h2></div>
+        <nav class="showroom-tabs" aria-label="Trang bị nhân vật"><button data-showroom-tab="characters" aria-pressed="true">NHÂN VẬT</button><button data-showroom-tab="weapons" aria-pressed="false">VŨ KHÍ</button></nav>
+        <span class="character-collection">✦ <b>3 / 3</b> ĐÃ SỞ HỮU</span>
+      </header>
+      <div class="character-showcase">
+        <span id="character-watermark" aria-hidden="true">LÍNH</span>
+        <div class="character-ground" aria-hidden="true"></div>
+        <div id="character-stage" tabindex="0" role="img" aria-label="Xem nhân vật 3D. Kéo hoặc dùng phím mũi tên trái, phải để xoay."><span id="character-load-status" role="status">ĐANG TẢI NHÂN VẬT…</span></div>
+        <span class="character-rotate-hint">↔ KÉO ĐỂ XOAY NHÂN VẬT</span>
+      </div>
+      <section class="character-info" aria-label="Thông tin nhân vật">
+        <header><div><h1 id="character-name">LÍNH</h1><span id="character-subtitle">CHIẾN BINH TIỀN TUYẾN</span></div><span class="character-owned">✓ SỞ HỮU</span></header>
+        <div class="character-info-body">
+          <div class="character-stats">
+            <div><span class="stat-symbol health-symbol">♥</span><small>MÁU</small><b id="character-health">100</b><em>ĐIỂM MÁU</em></div>
+            <div><span class="stat-symbol shield-symbol">⛨</span><small>GIÁP</small><b id="character-shield">100</b><em>ĐIỂM GIÁP</em></div>
+            <div><span class="stat-symbol damage-symbol">✹</span><small>SÁT THƯƠNG</small><b id="character-damage">28</b><em>MỖI VIÊN</em></div>
+            <div><span class="stat-symbol move-symbol">»</span><small>TỐC ĐỘ</small><b id="character-speed">7.5</b><em>MÉT / GIÂY</em></div>
+          </div>
+          <div class="character-ability"><img id="character-weapon-icon" src="assets/previews/kenney-blaster/blaster-a.png" alt=""><div><h3><span id="character-weapon-name">BLASTER-X</span> <small>VŨ KHÍ KHỞI ĐẦU</small></h3><p id="character-weapon-detail">28 sát thương · 16 viên / băng</p></div><kbd>1</kbd></div>
+          <div class="character-ability"><span class="ability-icon dash-icon">➜</span><div><h3>LƯỚT NÉ <small>KỸ NĂNG</small></h3><p>Né theo hướng di chuyển, hồi sau 1 giây.</p></div><kbd>Q</kbd></div>
+          <div class="character-ability"><span class="ability-icon revive-icon">✚</span><div><h3>TIẾP SỨC <small>ĐỒNG ĐỘI</small></h3><p>Đến gần đồng đội bị hạ để hồi sinh.</p></div><kbd>E</kbd></div>
+          <p id="character-description" class="character-description"></p>
+          <p class="character-balance-note">Mọi nhân vật có cùng chỉ số khởi đầu.</p>
+        </div>
+      </section>
+      <section id="armory-info" class="character-info" aria-label="Thông tin vũ khí">
+        <header><div><h1 id="armory-name">BLASTER-X</h1><span id="armory-category">SÚNG CHÍNH</span></div><span class="character-owned">KHỞI ĐẦU</span></header>
+        <div class="character-info-body">
+          <div class="armory-product"><img id="armory-image" alt="Model súng Kenney Blaster Kit"><span>KENNEY · BLASTER KIT</span></div>
+          <div class="character-stats"><div><small>SÁT THƯƠNG</small><b id="armory-damage">28</b><em>MỖI PHÁT</em></div><div><small>TỐC ĐỘ BẮN</small><b id="armory-rate">5.6</b><em>PHÁT / GIÂY</em></div><div><small>BĂNG ĐẠN</small><b id="armory-ammo">16</b><em>VIÊN</em></div><div><small>NẠP ĐẠN</small><b id="armory-reload">1.15s</b><em>THỜI GIAN</em></div></div>
+          <div class="armory-tags"><span id="armory-fire-mode">BÁN TỰ ĐỘNG</span><span id="armory-reserve">96 VIÊN DỰ TRỮ</span></div>
+          <p id="armory-description" class="character-description"></p>
+          <p class="character-balance-note">Súng đã trang bị sẽ theo bạn vào trận mới. Dao và túi cứu thương vẫn được giữ lại.</p>
+        </div>
+      </section>
+      <nav id="weapon-cards" class="character-cards" aria-label="Chọn súng để xem"></nav>
+      <nav id="character-cards" class="character-cards" aria-label="Chọn nhân vật để xem">
+        <button class="character-card" data-preview-character="soldier" aria-pressed="true" style="--card-color:#72b598"><span class="character-card-portrait"><img alt="Lính" hidden></span><strong>LÍNH</strong><span class="character-card-status">ĐANG DÙNG</span></button>
+        <button class="character-card" data-preview-character="skeleton" aria-pressed="false" style="--card-color:#a182d2"><span class="character-card-portrait"><img alt="Khung xương" hidden></span><strong>KHUNG XƯƠNG</strong><span class="character-card-status">ĐÃ SỞ HỮU</span></button>
+        <button class="character-card" data-preview-character="vampire" aria-pressed="false" style="--card-color:#df7489"><span class="character-card-portrait"><img alt="Ma cà rồng" hidden></span><strong>MA CÀ RỒNG</strong><span class="character-card-status">ĐÃ SỞ HỮU</span></button>
+      </nav>
+      <div class="character-action"><button id="character-confirm" class="toy-button">✓ ĐANG SỬ DỤNG</button><span>Chọn chiến binh cho trận đấu tiếp theo</span></div>
+    </dialog>
     <!-- Screen 3: Pause Menu -->
     <div id="screen-pause" class="screen-overlay" style="display: none;">
         <div class="menu-box">

@@ -3,7 +3,7 @@ import { GLTFLoader } from '../libs/loaders/GLTFLoader.js';
 import { sounds } from './audio.js?v=6';
 import { ParticleSystem } from './particles.js?v=6';
 import { Arena } from './arena.js?v=6';
-import { WeaponSystem } from './weapons.js?v=6';
+import { WeaponSystem, getStartingWeapon } from './weapons.js?v=6';
 import { PlayerController } from './player.js?v=6';
 import { WaveManager, Zombie } from './enemies.js?v=6';
 import { PickupManager } from './pickups.js?v=6';
@@ -13,6 +13,7 @@ import { normalizeCharacter } from './characters.js?v=6';
 import { RoomLobby } from './lobby.js?v=6';
 import { HomeMenu } from './home.js?v=6';
 import { LootingSystem } from './looting.js?v=6';
+import { RenderQuality } from './performance.js';
 
 class CyberArenaGame {
     constructor() {
@@ -29,6 +30,8 @@ class CyberArenaGame {
         this.remotePlayers = new Map();
         this.remoteProjectiles = new Map();
         this.practiceBot = null;
+        this.animate = this.animate.bind(this);
+        this.radarElapsed = 0;
 
         this.initThree();
         this.initSubsystems();
@@ -55,7 +58,8 @@ class CyberArenaGame {
             powerPreference: 'high-performance'
         });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+        this.renderQuality = new RenderQuality(window.devicePixelRatio);
+        this.renderer.setPixelRatio(this.renderQuality.ratio);
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -78,6 +82,7 @@ class CyberArenaGame {
         this.particles = new ParticleSystem(this.scene);
         this.arena = new Arena(this.scene, this.gltfLoader);
         this.weapons = new WeaponSystem(this.scene, this.gltfLoader, this.particles);
+        this.weapons.startingWeaponId = getStartingWeapon(localStorage.getItem('cyber_arena_weapon')).id;
         this.player = new PlayerController(this.camera, this.canvas, this.arena, this.weapons, true, this.characterId);
         this.waveManager = new WaveManager(this.scene, this.gltfLoader, this.weapons, this.particles, this.arena);
         this.pickups = new PickupManager(this.scene, this.particles);
@@ -223,6 +228,7 @@ class CyberArenaGame {
     }
 
     startGame(fromRoom = false) {
+        this.homeMenu?.showroom.dialog.close();
         this.homeMenu?.dialog.close();
         sounds.init();
         sounds.startMusic();
@@ -335,6 +341,16 @@ class CyberArenaGame {
             option.classList.toggle('selected', selected);
             option.setAttribute('aria-pressed', selected ? 'true' : 'false');
         });
+    }
+
+    selectWeapon(id) {
+        if (this.state !== 'MENU') return false;
+        const weapon = getStartingWeapon(id);
+        if (!this.weapons.models[weapon.modelFile]) return false;
+        this.weapons.resetRun(weapon.id);
+        localStorage.setItem('cyber_arena_weapon', weapon.id);
+        this.network.changeWeapon(weapon.id);
+        return true;
     }
 
     showRoomError(message) { if (this.roomStatus) this.roomStatus.textContent = message; }
@@ -604,16 +620,19 @@ class CyberArenaGame {
     }
 
     animate() {
-        requestAnimationFrame(() => this.animate());
+        requestAnimationFrame(this.animate);
 
-        const delta = Math.min(this.clock.getDelta(), 0.05);
+        const frameDelta = this.clock.getDelta();
+        const delta = Math.min(frameDelta, 0.05);
         // Room polling continues while a teammate waits in the lobby.
         this.network.update(delta);
+        if (document.hidden) { this.renderQuality.reset(); return; }
 
         if (this.state === 'PLAYING') {
+            if (this.renderQuality.sample(frameDelta)) this.renderer.setPixelRatio(this.renderQuality.ratio);
             // Shadow bounds follow the player to avoid clipping in large maps
             if (this.arena.sunLight && this.player) {
-                this.arena.sunLight.position.copy(this.player.position).add(new THREE.Vector3(25, 38, 20));
+                this.arena.sunLight.position.set(this.player.position.x + 25, this.player.position.y + 38, this.player.position.z + 20);
                 this.arena.sunLight.target.position.copy(this.player.position);
             }
 
@@ -702,14 +721,23 @@ class CyberArenaGame {
             this.ui.updateStats(this.player, this.waveManager, this.score);
             this.ui.updateTeammateIndicators(teammates, this.player, this.camera);
             this.ui.updateTeamRoster(teammates, this.player);
-            this.ui.drawRadar(this.player, this.waveManager.enemies, this.pickups.pickups, this.arena.getPortals(), teammates, this.lootingSystem.activeAirdropZone);
+            this.radarElapsed += delta;
+            if (this.radarElapsed >= 0.05) {
+                this.radarElapsed %= 0.05;
+                this.ui.drawRadar(this.player, this.waveManager.enemies, this.pickups.pickups, this.arena.getPortals(), teammates, this.lootingSystem.activeAirdropZone);
+            }
         } else if (this.state === 'MENU' || this.state === 'LOADING') {
+            this.renderQuality.reset();
             this.player.updateCamera(delta);
             this.particles.update(delta);
         }
 
         // Render 3D Scene
-        if (this.state === 'MENU') this.roomLobby?.render(delta);
+        if (this.state === 'MENU') {
+            if (this.homeMenu?.showroom.dialog.open) this.homeMenu.showroom.render(delta);
+            else this.roomLobby?.render(delta);
+            return; // The opaque menu only needs its character/lobby scene.
+        }
         this.renderer.render(this.scene, this.camera);
     }
 }

@@ -3,6 +3,10 @@ import * as THREE from 'three';
 const _tempLosDir = new THREE.Vector3();
 const _tempLosRay = new THREE.Ray();
 const _tempLosHit = new THREE.Vector3();
+const _navigationRay = new THREE.Ray();
+const _navigationBox = new THREE.Box3();
+const _navigationHit = new THREE.Vector3();
+const _movementProbe = new THREE.Vector3();
 
 export class Arena {
     constructor(scene, gltfLoader) {
@@ -427,6 +431,7 @@ export class Arena {
     moveCharacter(position, dx, dz, radius) {
         // Resolve existing overlap first (spawn, knockback or a network correction).
         for (let pass = 0; pass < 4; pass++) {
+            let corrected = false;
             for (const box of this.colliders) {
                 if (box.max.y <= position.y + 0.1 || box.min.y >= position.y + 1.9) continue;
                 const x = Math.max(box.min.x, Math.min(position.x, box.max.x));
@@ -434,6 +439,7 @@ export class Arena {
                 const ox = position.x - x, oz = position.z - z;
                 const distance = Math.hypot(ox, oz);
                 if (distance >= radius) continue;
+                corrected = true;
                 if (distance > 0.00001) {
                     position.x += ox / distance * (radius - distance + 0.001);
                     position.z += oz / distance * (radius - distance + 0.001);
@@ -447,9 +453,10 @@ export class Arena {
                     position[sides[0][1]] = sides[0][2];
                 }
             }
+            if (!corrected) break;
         }
         const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (radius * 0.45)));
-        const probe = position.clone();
+        const probe = _movementProbe;
         for (let step = 0; step < steps; step++) {
             probe.copy(position); probe.x += dx / steps;
             if (!this.checkCollision(probe, radius)) position.x = probe.x;
@@ -459,14 +466,16 @@ export class Arena {
     }
 
     navigationClear(from, to, radius) {
-        const direction = new THREE.Vector3().subVectors(to, from);
+        const direction = _navigationRay.direction.subVectors(to, from);
         direction.y = 0;
         const length = direction.length();
-        const ray = new THREE.Ray(new THREE.Vector3(from.x, 1, from.z), direction.normalize());
-        const hit = new THREE.Vector3();
+        direction.normalize();
+        const ray = _navigationRay;
+        ray.origin.set(from.x, 1, from.z);
+        const hit = _navigationHit;
         for (const collider of this.colliders) {
             if (collider.max.y <= 0.1 || collider.min.y >= 1.9) continue;
-            const box = collider.clone();
+            const box = _navigationBox.copy(collider);
             box.min.x -= radius; box.max.x += radius;
             box.min.z -= radius; box.max.z += radius;
             box.min.y = 0; box.max.y = 2;

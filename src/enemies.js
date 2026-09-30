@@ -353,7 +353,7 @@ export class Zombie {
         return { hit: false };
     }
 
-    update(delta, player, arena, allZombies) {
+    update(delta, player, arena, allZombies, navigationBudget = null) {
         if (this.isDead || !this.mesh) return;
         this.arena = arena;
 
@@ -401,9 +401,10 @@ export class Zombie {
             if (other === this || other.isDead) continue;
             _tempDiff.subVectors(this.position, other.position);
             _tempDiff.y = 0;
-            const d = _tempDiff.length();
             const minSpace = this.radius + other.radius;
-            if (d > 0.01 && d < minSpace) {
+            const distanceSq = _tempDiff.lengthSq();
+            if (distanceSq > 0.0001 && distanceSq < minSpace * minSpace) {
+                const d = Math.sqrt(distanceSq);
                 _tempDiff.multiplyScalar((minSpace - d) / (minSpace * d));
                 _tempSeparation.add(_tempDiff);
                 neighborCount++;
@@ -424,12 +425,14 @@ export class Zombie {
             // Follow persistent corner waypoints rather than randomly switching sides.
             this.pathTimer = (this.pathTimer || 0) - delta;
             if (arena.findNavigationPath && !(canSpit && dist < 9)) {
-                if (this.pathTimer <= 0 || !this.navigationPath) {
+                if ((this.pathTimer <= 0 || !this.navigationPath) &&
+                    (!navigationBudget || (navigationBudget.remaining > 0 && navigationBudget.allowed.has(this)))) {
+                    if (navigationBudget) navigationBudget.remaining--;
                     this.navigationPath = arena.findNavigationPath(this.position, player.position, this.radius);
                     this.pathTimer = 0.9;
                 }
-                while (this.navigationPath.length && this.position.distanceTo(this.navigationPath[0]) < 0.25) this.navigationPath.shift();
-                if (this.navigationPath.length) _tempDesiredDir.subVectors(this.navigationPath[0], this.position).setY(0).normalize();
+                while (this.navigationPath?.length && this.position.distanceToSquared(this.navigationPath[0]) < 0.0625) this.navigationPath.shift();
+                if (this.navigationPath?.length) _tempDesiredDir.subVectors(this.navigationPath[0], this.position).setY(0).normalize();
             }
             // Flanking behavior for sprinters
             if (this.type === 'sprinter' && dist > 5 && !(this.navigationPath?.length > 1)) {
@@ -556,6 +559,8 @@ export class WaveManager {
         this.spawnInterval = 0.75;
         this.lastSpawnTime = 0;
         this.nextId = 1;
+        this.navigationBudget = { remaining: 0, allowed: new Set() };
+        this.navigationCursor = 0;
     }
 
     async init() {
@@ -651,10 +656,20 @@ export class WaveManager {
         }
 
         // Update active zombies
+        this.navigationBudget.remaining = 2;
+        this.navigationBudget.allowed.clear();
+        // Round-robin grants prevent the same enemies monopolizing the budget in large hordes.
+        for (let checked = 0; checked < this.enemies.length && this.navigationBudget.allowed.size < 2; checked++) {
+            this.navigationCursor %= this.enemies.length;
+            const candidate = this.enemies[this.navigationCursor++];
+            if (!candidate.isDead && (!candidate.navigationPath || (candidate.pathTimer || 0) <= delta)) {
+                this.navigationBudget.allowed.add(candidate);
+            }
+        }
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const zombie = this.enemies[i];
             const target = targets.reduce((nearest, p) => !nearest || p.position.distanceToSquared(zombie.position) < nearest.position.distanceToSquared(zombie.position) ? p : nearest, null);
-            if (target) zombie.update(delta, target, arena, this.enemies);
+            if (target) zombie.update(delta, target, arena, this.enemies, this.navigationBudget);
 
             if (zombie.isDead) {
                 if (onEnemyKilled) {

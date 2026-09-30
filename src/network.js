@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import * as SkeletonUtils from '../libs/SkeletonUtils.js';
 import { HealthBar3D } from './healthbar.js';
 import { CHARACTER_CONFIGS, normalizeCharacter } from './characters.js';
+import { getStartingWeapon } from './weapons.js';
 
 export class NetworkRoom {
     constructor(game) {
@@ -33,7 +34,7 @@ export class NetworkRoom {
                 this.playerId = 'host';
                 this.epoch = Date.now();
                 this.connections = [];
-                this.players = [{ id: 'host', name, character }];
+                this.players = [{ id: 'host', name, character, weapon: this.game.weapons.startingWeaponId }];
                 
                 this.game.player.setCharacter(character);
                 this.game.player.cooperative = true;
@@ -58,7 +59,7 @@ export class NetworkRoom {
                     if (data.type === 'join') {
                         pName = data.name;
                         pChar = data.character;
-                        this.players.push({ id: pId, name: pName, character: pChar });
+                        this.players.push({ id: pId, name: pName, character: pChar, weapon: getStartingWeapon(data.weapon).id });
                         conn.send({ type: 'accept', you: pId, epoch: this.epoch, players: this.players, host: 'host' });
                         this.broadcastRoster();
                     } else if (data.type === 'character') {
@@ -67,6 +68,9 @@ export class NetworkRoom {
                             p.character = data.character;
                             this.broadcastRoster();
                         }
+                    } else if (data.type === 'weapon' && this.game.state === 'MENU') {
+                        const p = this.players.find(pl => pl.id === pId);
+                        if (p) { p.weapon = getStartingWeapon(data.weapon).id; this.broadcastRoster(); }
                     } else if (data.type === 'sync') {
                         clientState.input = data.input;
                         if (data.commands && data.commands.length > 0) {
@@ -100,7 +104,7 @@ export class NetworkRoom {
                 this.conn = this.peer.connect('gungun-room-' + code);
                 
                 this.conn.on('open', () => {
-                    this.conn.send({ type: 'join', name, character });
+                    this.conn.send({ type: 'join', name, character, weapon: this.game.weapons.startingWeaponId });
                 });
                 
                 this.conn.on('data', (data) => {
@@ -246,7 +250,13 @@ export class NetworkRoom {
     updateRoster(players) {
         const ids = new Set(players.map(p => p.id));
         for (const player of players) {
-            if (player.id !== this.playerId) this.game.ensureCoopPlayer(player.id, player.name, player.character);
+            if (player.id !== this.playerId) {
+                const remote = this.game.ensureCoopPlayer(player.id, player.name, player.character);
+                if (this.game.state === 'MENU' && remote?.weapons) {
+                    const weapon = getStartingWeapon(player.weapon);
+                    if (remote.weapons.startingWeaponId !== weapon.id) remote.weapons.resetRun(weapon.id);
+                }
+            }
         }
         for (const [id] of this.game.remotePlayers) {
             if (!ids.has(id)) this.game.removeCoopPlayer(id);
@@ -264,6 +274,15 @@ export class NetworkRoom {
         } else if (this.conn && this.conn.open) {
             this.conn.send({ type: 'character', character });
         }
+    }
+
+    changeWeapon(id) {
+        if (!this.active || this.game.state !== 'MENU') return;
+        const weapon = getStartingWeapon(id).id;
+        if (this.host) {
+            const player = this.players.find(p => p.id === this.playerId);
+            if (player) { player.weapon = weapon; this.broadcastRoster(); }
+        } else if (this.conn?.open) this.conn.send({ type: 'weapon', weapon });
     }
 
     leave() {

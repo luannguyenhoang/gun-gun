@@ -97,6 +97,10 @@ export const RARE_WEAPON_CONFIGS = [
     { ...WEAPON_CONFIGS[2], id: 'nova', name: 'NOVA SHOTGUN', modelFile: 'kenney-blaster/blaster-g.glb', icon: 'assets/previews/kenney-blaster/blaster-g.png', damage: 22, penPower: 3, pellets: 8, fireRate: 0.45, magSize: 12, baseSpreadDegHip: 7.5, baseSpreadDegADS: 3.5, screenShake: 0.45, cursorKick: 8.0, color: 0xff6633, tier: 1 }
 ];
 
+export function getStartingWeapon(id) {
+    return WEAPON_CONFIGS.find(weapon => weapon.id === id) || WEAPON_CONFIGS[0];
+}
+
 export const KNIFE_CONFIG = {
     id: 'knife',
     name: 'DAO BẾP',
@@ -270,21 +274,23 @@ export class WeaponSystem {
         this.resetRun();
     }
 
-    resetRun() {
+    resetRun(weaponId = this.startingWeaponId) {
+        const starter = getStartingWeapon(weaponId);
+        this.startingWeaponId = starter.id;
         this.clear();
         // 3 ô trang bị tối giản: [1] Súng chính, [2] Dao cận chiến, [3] Túi cứu thương (mất 5s sơ cứu)
         this.weaponSlots = [
-            WEAPON_CONFIGS[0], // 0: BLASTER-X
+            starter, // Selected primary weapon
             KNIFE_CONFIG,      // 1: COMBAT KNIFE
             MEDKIT_CONFIG      // 2: TÚI CỨU THƯƠNG
         ];
         this.currentSlotIndex = 0;
         this.ammo = {
-            [WEAPON_CONFIGS[0].id]: WEAPON_CONFIGS[0].magSize
+            [starter.id]: starter.magSize
         };
         // Tăng số lượng băng đạn khởi đầu lên 6 băng đạn dự trữ (16 x 6 = 96 viên)
         this.reserve = {
-            [WEAPON_CONFIGS[0].id]: WEAPON_CONFIGS[0].magSize * 6
+            [starter.id]: starter.magSize * 6
         };
         this.inventory = {
             medkits: 3
@@ -299,7 +305,7 @@ export class WeaponSystem {
         this.reloadTimer = 0;
         this.fireCooldown = 0;
         this.recoilOffset = 0;
-        this.currentSpreadDeg = WEAPON_CONFIGS[0].baseSpreadDegHip;
+        this.currentSpreadDeg = starter.baseSpreadDegHip;
         if (this.handNode) this.attachToArm(this.handNode);
     }
 
@@ -538,6 +544,10 @@ export class WeaponSystem {
         if (!handNode) return;
         for (const mesh of Object.values(this.weaponMeshes || {})) {
             mesh.removeFromParent();
+            if (mesh.userData.ownsMaterials) mesh.traverse(child => {
+                const materials = Array.isArray(child.material) ? child.material : [child.material];
+                for (const material of materials) material?.dispose();
+            });
         }
         this.handNode = handNode;
         this.weaponMeshes = {};
@@ -557,6 +567,7 @@ export class WeaponSystem {
             if (!base) return;
 
             const mesh = base.clone(true);
+            mesh.userData.ownsMaterials = true;
             mesh.traverse(child => {
                 if (!child.isMesh) return;
                 if (Array.isArray(child.material)) {

@@ -1,9 +1,11 @@
 import { sounds } from './audio.js?v=4';
+import { CharacterShowroom } from './showroom.js';
 
 export class HomeMenu {
     constructor(game) {
         this.game = game;
         this.dialog = document.getElementById('home-dialog');
+        this.showroom = new CharacterShowroom(game);
         this.titles = { friends: 'CHƠI CÙNG BẠN BÈ', profile: 'HỒ SƠ CỦA BẠN', characters: 'CHỌN NHÂN VẬT', help: 'CÁCH CHƠI', settings: 'CÀI ĐẶT', records: 'KỶ LỤC CỦA BẠN' };
         document.querySelectorAll('[data-open]').forEach(button => button.addEventListener('click', () => this.open(button.dataset.open)));
         this.dialog.querySelector('.close-dialog').addEventListener('click', () => this.dialog.close());
@@ -28,6 +30,7 @@ export class HomeMenu {
         this.preview();
     }
     open(panel) {
+        if (panel === 'characters') { this.showroom.open(); return; }
         document.getElementById('dialog-title').textContent = this.titles[panel];
         this.dialog.querySelectorAll('[data-panel]').forEach(section => section.hidden = section.dataset.panel !== panel);
         document.getElementById('record-score').textContent = this.game.highScore.toLocaleString();
