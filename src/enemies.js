@@ -451,17 +451,22 @@ export class Zombie {
     checkHit(startPos, endPos, ray) {
         if (!this.mesh || this.isDead || !this.active) return { hit: false };
 
-        _tempCenter.copy(this.position);
-        _tempCenter.y += (this.scale * 0.45);
+        const height = this.scale * 1.7; // Tinh chieu cao tuong doi cua zombie
+        
+        // Dung Bounding Box hinh tru thay vi hinh cau de cover toan bo chieu cao
+        const boxMin = new THREE.Vector3(this.position.x - this.radius, this.position.y, this.position.z - this.radius);
+        const boxMax = new THREE.Vector3(this.position.x + this.radius, this.position.y + height, this.position.z + this.radius);
+        
+        // Dùng biến tạm để tránh rác bộ nhớ (Zero GC)
+        if (!this._hitBox) this._hitBox = new THREE.Box3();
+        this._hitBox.min.copy(boxMin);
+        this._hitBox.max.copy(boxMax);
 
-        _tempSphere.center.copy(_tempCenter);
-        _tempSphere.radius = this.radius;
-
-        const hit = ray.intersectSphere(_tempSphere, _tempHitPoint);
+        const hit = ray.intersectBox(this._hitBox, _tempHitPoint);
 
         if (hit && startPos.distanceTo(_tempHitPoint) <= startPos.distanceTo(endPos)) {
-            // Headshot nam o 32% phan dau tren cung
-            const isCrit = (_tempHitPoint.y > _tempCenter.y + this.radius * 0.32);
+            // Headshot nam o 20% phan dau tren cung
+            const isCrit = (_tempHitPoint.y > this.position.y + height * 0.8);
             return { hit: true, point: _tempHitPoint.clone(), isCrit: isCrit };
         }
 
