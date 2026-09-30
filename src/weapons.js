@@ -765,22 +765,33 @@ export class WeaponSystem {
                     }
                 }
             });
-            // Kenney guns are ~0.8 model units long. Normalize to a readable
-            // 0.95–1.15 world units instead of shrinking them again on the arm.
+            // Tự động scale vũ khí về chuẩn 1 mét bất kể model gốc quay hướng nào
             const bounds = new THREE.Box3().setFromObject(mesh);
             handNode.updateWorldMatrix(true, false);
-            const armScale = handNode.getWorldScale(new THREE.Vector3()).z;
-            const worldLength = w.modelFile.includes('blaster-a') ? 0.95 : 1.15;
-            const scale = worldLength / ((bounds.max.z - bounds.min.z) * armScale);
+            const armScale = handNode.getWorldScale(new THREE.Vector3()).z || 1.0;
+            const size = bounds.getSize(new THREE.Vector3());
+            const maxLength = Math.max(size.x, size.y, size.z);
+            const scale = 1.0 / (maxLength * armScale);
+            
             mesh.scale.setScalar(scale);
             mesh.userData.barrelForward = -1;
-            mesh.userData.gripOffset = new THREE.Vector3(0, 0.14, -0.18).multiplyScalar(scale);
-            mesh.userData.handOffset = w.offset.clone();
-            mesh.rotation.set(0, -Math.PI / 3, 0);
+            
+            // Mặc định, Styloo guns thường hướng về +Z hoặc +X, chúng ta dùng rotOffset trong config
+            mesh.rotation.copy(w.rotOffset || new THREE.Euler(0, -Math.PI / 3, 0));
+            
+            // Tính lại bounds sau khi scale & rotate để xác định vị trí nòng súng
+            mesh.updateMatrixWorld(true);
+            const scaledBounds = new THREE.Box3().setFromObject(mesh);
+            
+            mesh.userData.gripOffset = new THREE.Vector3(0, 0.1, 0.0);
+            mesh.userData.handOffset = w.offset ? w.offset.clone() : new THREE.Vector3(-0.24, -0.05, 0.02);
+            
             mesh.position.copy(mesh.userData.gripOffset).applyQuaternion(mesh.quaternion).add(mesh.userData.handOffset);
+            
             const muzzle = new THREE.Object3D();
             muzzle.name = 'weapon-muzzle';
-            muzzle.position.set(0, 0.04, bounds.min.z - 0.025);
+            // Nòng súng ở đầu phía -Z (sau khi đã xoay)
+            muzzle.position.set(0, 0.04, -0.5); 
             mesh.add(muzzle);
             mesh.visible = false;
             handNode.add(mesh);
