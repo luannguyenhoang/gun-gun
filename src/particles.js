@@ -58,15 +58,16 @@ export class ParticleSystem {
         });
     }
 
-    createKnifeSlash(position, direction, color = 0x99e6ff) {
+    createKnifeSlash(position, direction, color = 0x99e6ff, range = 1.1) {
         if (this.muzzleFlashes.length >= 24) return;
+        const startPosition = position.clone();
         const thrustGroup = new THREE.Group();
-        thrustGroup.position.copy(position).addScaledVector(direction, 0.5);
+        thrustGroup.position.copy(position);
         
         // Mũi nhọn đâm tới (Thrust Cone)
-        const coneGeo = new THREE.ConeGeometry(0.5, 3.5, 8);
+        const coneGeo = new THREE.ConeGeometry(0.18, range * 0.8, 8);
         coneGeo.rotateX(Math.PI / 2); // Chỉa về trục Z
-        coneGeo.translate(0, 0, 1.75); // Đưa gốc về tay
+        coneGeo.translate(0, 0, range * 0.4);
         
         const coneMat = new THREE.MeshBasicMaterial({
             color: color,
@@ -77,9 +78,9 @@ export class ParticleSystem {
         const coneMesh = new THREE.Mesh(coneGeo, coneMat);
 
         // Lõi sáng trắng bên trong
-        const coreGeo = new THREE.ConeGeometry(0.2, 3.2, 8);
+        const coreGeo = new THREE.ConeGeometry(0.07, range * 0.7, 8);
         coreGeo.rotateX(Math.PI / 2);
-        coreGeo.translate(0, 0, 1.6);
+        coreGeo.translate(0, 0, range * 0.35);
         const coreMat = new THREE.MeshBasicMaterial({
             color: 0xffffff,
             transparent: true,
@@ -95,7 +96,7 @@ export class ParticleSystem {
 
         this.scene.add(thrustGroup);
         
-        this.createImpactSparks(position.clone().addScaledVector(direction, 1.8), direction, color, 6);
+        this.createImpactSparks(position.clone().addScaledVector(direction, range), direction, color, 6);
 
         this.muzzleFlashes.push({
             obj: thrustGroup,
@@ -103,9 +104,9 @@ export class ParticleSystem {
             extraMat: coreMat,
             onUpdate: (delta, progress) => {
                 // Động tác đâm lao về phía trước
-                thrustGroup.position.addScaledVector(direction, delta * 22 * progress);
+                thrustGroup.position.copy(startPosition).addScaledVector(direction, range * 0.2 * (1 - progress));
                 const scale = 0.6 + progress * 0.4;
-                thrustGroup.scale.set(scale * 0.4, scale * 0.4, scale * 1.5);
+                thrustGroup.scale.setScalar(scale);
             },
             life: 0.12,
             maxLife: 0.12

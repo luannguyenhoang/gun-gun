@@ -219,7 +219,7 @@ test('rare weapon pickup upgrades the single gun slot, keeps the knife, and rese
 
 test('empty gun falls back to a usable knife attack', () => {
     const { arena, weapons, zombie, player } = fixture();
-    const target = zombie('walker', new THREE.Vector3(0, 0, 1.7));
+    const target = zombie('walker', new THREE.Vector3(0, 0, 1.0));
     weapons.ammo.blaster = 0;
     weapons.reserve.blaster = 0;
     weapons.fireCooldown = 0;
@@ -232,7 +232,7 @@ test('empty gun falls back to a usable knife attack', () => {
     target.disposeVisuals();
 });
 
-test('every drop is reachable in the weighted table, drops are 10%, and pickups apply once', () => {
+test('every drop is reachable in the weighted table, base drops are 25%, and pickups apply once', () => {
     const { scene, player, weapons } = fixture();
     const pickups = new PickupManager(scene, particles);
     const original = Math.random;
