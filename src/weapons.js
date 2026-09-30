@@ -343,13 +343,22 @@ export class WeaponSystem {
         this.medkitPlayerRef = null;
         this.currentCaliberIndex = 0;
         this.upgrades = { damage: 0, rapid: 0, multishot: 0 };
-        this.attachments = {
+        this.primaryAttachments = {
             muzzle: null,
             optic: null,
             magazine: null,
-            grip: null,
-            stock: null
+            grip: null
         };
+        this.secondaryAttachments = {
+            muzzle: null,
+            optic: null,
+            magazine: null,
+            grip: null
+        };
+        this.attachments = this.primaryAttachments;
+        this.secondaryWeapon = WEAPON_CONFIGS[1];
+        this.ammo[this.secondaryWeapon.id] = this.secondaryWeapon.magSize;
+        this.reserve[this.secondaryWeapon.id] = this.secondaryWeapon.magSize * 4;
         this.isReloading = false;
         this.reloadTimer = 0;
         this.fireCooldown = 0;
@@ -362,9 +371,26 @@ export class WeaponSystem {
     get fireRateBoost() { return 1 + this.upgrades.rapid * 0.125; }
     get beamCount() { return 1 + this.upgrades.multishot * 2; }
 
+    // Lấy phụ kiện tương ứng theo súng (0: Súng chính, 1: Súng phụ)
+    getAttachmentsForGun(gunIndex = 0) {
+        return gunIndex === 1 ? this.secondaryAttachments : this.primaryAttachments;
+    }
+
+    // Tự động tìm khẩu súng có slot phụ kiện tương ứng còn trống
+    // Ưu tiên súng chính (Khẩu 1), nếu đã lắp thì kiểm tra tiếp súng phụ (Khẩu 2)
+    findEmptyAttachmentSlot(slotType) {
+        if (!['muzzle', 'optic', 'magazine', 'grip'].includes(slotType)) return null;
+        if (!this.primaryAttachments[slotType]) return 0;
+        if (!this.secondaryAttachments[slotType]) return 1;
+        return null;
+    }
+
     // Tính toán chỉ số vũ khí hiệu dụng sau khi gắn phụ kiện (Real-time Weapon Stats)
-    getModifiedStats(weapon = null) {
+    getModifiedStats(weapon = null, gunIndex = null) {
         const w = weapon || this.getCurrentWeapon();
+        const effectiveGunIdx = gunIndex !== null ? gunIndex : (w?.id === this.secondaryWeapon?.id ? 1 : 0);
+        const attachMap = this.getAttachmentsForGun(effectiveGunIdx);
+
         if (!w || w.isKnife || w.isUtility) {
             return {
                 damage: w?.damage || 0,
@@ -379,7 +405,7 @@ export class WeaponSystem {
                 baseSpreadDegADS: w?.baseSpreadDegADS || 0.5,
                 adsZoom: 1.0,
                 soundRadius: 26.0,
-                attachments: { ...this.attachments }
+                attachments: { ...attachMap }
             };
         }
 
@@ -396,62 +422,50 @@ export class WeaponSystem {
         let turnPenalty = 0;
 
         // 1. Phụ kiện Đầu nòng (Muzzle)
-        if (this.attachments.muzzle === 'attach_compensator') {
-            // Nòng giảm giật: giảm 25% recoil, hỗ trợ hồi tâm +15%
+        if (attachMap.muzzle === 'attach_compensator') {
             recoilFactor -= 0.25;
             spreadRecoveryBonus += 0.15;
-        } else if (this.attachments.muzzle === 'attach_silencer') {
-            // Nòng giảm thanh: giảm 60% bán kính phát hiện tiếng ồn, giảm giật nhẹ 10%
+        } else if (attachMap.muzzle === 'attach_silencer') {
             soundRadius *= 0.40;
             recoilFactor -= 0.10;
-        } else if (this.attachments.muzzle === 'attach_flash_hider') {
-            // Loa che lửa: giảm chớp lửa, giảm giật 12%, tăng độ chụm 10%
+        } else if (attachMap.muzzle === 'attach_flash_hider') {
             recoilFactor -= 0.12;
             adsSpreadFactor -= 0.10;
         }
 
         // 2. Phụ kiện Kính ngắm (Optic / Sight)
-        if (this.attachments.optic === 'attach_red_dot') {
+        if (attachMap.optic === 'attach_red_dot') {
             adsZoom = 1.35;
             adsSpreadFactor -= 0.20;
-        } else if (this.attachments.optic === 'attach_scope_x2') {
+        } else if (attachMap.optic === 'attach_scope_x2') {
             adsZoom = 2.0;
             adsSpreadFactor -= 0.40;
             turnPenalty = 0.15;
-        } else if (this.attachments.optic === 'attach_scope_x4') {
+        } else if (attachMap.optic === 'attach_scope_x4') {
             adsZoom = 3.5;
             adsSpreadFactor -= 0.60;
             turnPenalty = 0.30;
-        } else if (this.attachments.optic === 'attach_scope_x6') {
+        } else if (attachMap.optic === 'attach_scope_x6') {
             adsZoom = 4.5;
             adsSpreadFactor -= 0.70;
             turnPenalty = 0.35;
-        } else if (this.attachments.optic === 'attach_scope_x8') {
+        } else if (attachMap.optic === 'attach_scope_x8') {
             adsZoom = 6.0;
             adsSpreadFactor -= 0.80;
             turnPenalty = 0.45;
         }
 
         // 3. Phụ kiện Băng đạn (Magazine)
-        if (this.attachments.magazine === 'attach_ext_mag') {
+        if (attachMap.magazine === 'attach_ext_mag') {
             magSize += Math.max(8, Math.round(w.magSize * 0.5));
-        } else if (this.attachments.magazine === 'attach_quickdraw_mag') {
+        } else if (attachMap.magazine === 'attach_quickdraw_mag') {
             reloadTime *= 0.65;
         }
 
         // 4. Phụ kiện Tay cầm (Grip)
-        if (this.attachments.grip === 'attach_grip_tactical') {
+        if (attachMap.grip === 'attach_grip_tactical') {
             runSpreadFactor -= 0.30;
             spreadRecoveryBonus += 0.35;
-        }
-
-        // 5. Phụ kiện Báng súng (Stock)
-        if (this.attachments.stock === 'attach_stock_heavy') {
-            recoilFactor -= 0.20;
-            spreadRecoveryBonus += 0.20;
-        } else if (this.attachments.stock === 'attach_stock_tactical') {
-            recoilFactor -= 0.15;
-            spreadRecoveryBonus += 0.25;
         }
 
         return {
@@ -468,24 +482,26 @@ export class WeaponSystem {
             adsZoom,
             soundRadius,
             turnPenalty,
-            attachments: { ...this.attachments }
+            attachments: { ...attachMap }
         };
     }
 
-    // Lắp phụ kiện vào ô chỉ định, trả về ID phụ kiện cũ (nếu có)
-    attachMod(slot, attachmentId) {
+    // Lắp phụ kiện vào ô chỉ định của khẩu súng chỉ định (0: Khẩu 1, 1: Khẩu 2)
+    attachMod(slot, attachmentId, gunIndex = 0) {
         if (!['muzzle', 'optic', 'magazine', 'grip'].includes(slot)) return null;
-        const previousId = this.attachments[slot];
-        this.attachments[slot] = attachmentId;
+        const targetMap = this.getAttachmentsForGun(gunIndex);
+        const previousId = targetMap[slot];
+        targetMap[slot] = attachmentId;
         sounds.play('switchWeapon', { volume: 0.85, rate: 1.35 });
         return previousId;
     }
 
-    // Tháo phụ kiện khỏi ô chỉ định
-    detachMod(slot) {
+    // Tháo phụ kiện khỏi ô chỉ định của khẩu súng chỉ định
+    detachMod(slot, gunIndex = 0) {
         if (!['muzzle', 'optic', 'magazine', 'grip'].includes(slot)) return null;
-        const removed = this.attachments[slot];
-        this.attachments[slot] = null;
+        const targetMap = this.getAttachmentsForGun(gunIndex);
+        const removed = targetMap[slot];
+        targetMap[slot] = null;
         if (removed) {
             sounds.play('switchWeapon', { volume: 0.7, rate: 0.95 });
         }
