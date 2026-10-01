@@ -148,10 +148,12 @@ export class PlayerController {
             if (e.code === 'KeyR') {
                 this.weapons.reload();
             }
-            // Minimalist Survival Hotbar (khi menu đóng):
+            // Điều khiển vũ khí theo chuẩn PUBG:
+            // [1] Súng chính, [2] Súng phụ, [3] Sơ cứu Medkit, [4] hoặc [V] Dao cận chiến
             if (e.code === 'Digit1') this.weapons.switchWeapon(0, this);
-            if (e.code === 'Digit2' || e.code === 'KeyV') this.weapons.switchWeapon(1, this);
+            if (e.code === 'Digit2') this.weapons.switchWeapon(1, this);
             if (e.code === 'Digit3') this.weapons.startMedkitUse(this);
+            if (e.code === 'Digit4' || e.code === 'KeyV') this.weapons.switchWeapon(2, this);
 
             if (e.code === 'KeyQ') this.tryDodge();
             if (e.code === 'KeyE') this.reviveRequested = true;

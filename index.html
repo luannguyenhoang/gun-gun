@@ -71,13 +71,123 @@
           <div id="hud-reload-sub" class="reload-panel-sub">HÃY CHÚ Ý NÉ ĐÒN</div>
         </div>
       </div>
-      <div id="th-bottom-hud" class="combat-loadout">
-        <div class="combat-weapon-info combat-panel"><span class="combat-kicker" id="weapon-name">BLASTER-X</span><div class="combat-ammo"><strong id="th-ammo-cur">16</strong><span>/ <b id="th-ammo-reserve">96</b></span><small>ĐẠN DỰ TRỮ</small></div><div class="combat-meter ammo-meter"><div id="stamina-fill"></div></div><span id="stamina-text">BĂNG ĐẠN 16/16</span></div>
-        <button id="th-active-slot" class="combat-slot active" title="Súng chính [1]"><kbd>1</kbd><span id="th-active-silhouette"></span><small>SÚNG</small></button>
-        <button id="th-slot-2" class="combat-slot" title="Dao cận chiến [2]"><kbd>2</kbd><img src="assets/previews/kenney-food/cooking-knife.png" alt="Dao bếp Kenney"><small>DAO</small></button>
-        <button id="th-slot-3" class="combat-slot" title="Sơ cứu [3]"><kbd>3</kbd><span class="medkit-icon">✚</span><small>SƠ CỨU <b id="th-qty-medkit">x3</b></small></button>
-        <div id="th-medkit-channel" class="combat-channel combat-panel" style="display:none"><span>ĐANG SƠ CỨU <b id="th-medkit-countdown">5.0s</b></span><div class="combat-meter health-meter"><div id="th-medkit-channel-fill"></div></div></div>
-        <div id="upgrade-stats" class="combat-upgrades"></div>
+      <div id="th-bottom-hud" class="pubg-bottom-hud">
+        <!-- Vệ tinh bên trái: Vật phẩm hồi máu [3] & Mũ/Giáp -->
+        <div class="pubg-left-cluster">
+          <button id="th-slot-3" class="pubg-med-btn" title="Sơ cứu / Hồi máu [3]">
+            <span class="pubg-key-badge">3</span>
+            <div class="pubg-med-icon-wrap">
+              <svg viewBox="0 0 24 24" class="pubg-med-svg" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="6" width="18" height="15" rx="3" fill="#22c55e" fill-opacity="0.2" stroke="#22c55e" />
+                <path d="M12 9v6M9 12h6" stroke="#fff" stroke-width="2.5" stroke-linecap="round" />
+                <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" stroke="#22c55e" />
+              </svg>
+            </div>
+            <span class="pubg-med-qty" id="th-qty-medkit">x3</span>
+          </button>
+          <div class="pubg-gear-hud" title="Tình trạng Giáp & Mũ">
+            <div class="pubg-gear-item" id="pubg-hud-helmet">
+              <svg viewBox="0 0 24 24" class="pubg-gear-svg" fill="none" stroke="currentColor">
+                <path d="M4 14a8 8 0 0 1 16 0v3a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2H8v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3z" fill="rgba(255,255,255,0.15)" stroke="#fff" stroke-width="1.8"/>
+                <path d="M8 12h8" stroke="#facc15" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <div class="pubg-gear-bars">
+                <div class="pubg-gear-bar-seg active"></div>
+                <div class="pubg-gear-bar-seg active"></div>
+                <div class="pubg-gear-bar-seg active"></div>
+              </div>
+            </div>
+            <div class="pubg-gear-item" id="pubg-hud-vest">
+              <svg viewBox="0 0 24 24" class="pubg-gear-svg" fill="none" stroke="currentColor">
+                <path d="M6 4h4l2 3 2-3h4v8l-2 8H8L6 12V4z" fill="rgba(255,255,255,0.15)" stroke="#fff" stroke-width="1.8"/>
+                <path d="M8 8h8M8 12h8M8 16h8" stroke="#38bdf8" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <div class="pubg-gear-bars">
+                <div class="pubg-gear-bar-seg active"></div>
+                <div class="pubg-gear-bar-seg active"></div>
+                <div class="pubg-gear-bar-seg active"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cụm trung tâm: 2 Khung Súng Song Song & Thanh Máu Dưới Đáy -->
+        <div class="pubg-center-cluster">
+          <!-- Nhãn chế độ bắn nhô lên trên súng đang chọn (tự trượt sang súng active) -->
+          <div id="pubg-fire-mode-badge" class="pubg-fire-mode-badge at-slot-1">
+            <span id="pubg-fire-mode-text">AUTO</span>
+            <span class="pubg-fire-mode-arrow">➔</span>
+          </div>
+
+          <!-- Hàng 2 Slot Súng Chính & Phụ -->
+          <div class="pubg-weapons-row">
+            <!-- SLOT 1: Súng chính [1] -->
+            <button id="th-active-slot" class="pubg-gun-slot active" title="Súng chính [1]">
+              <div class="pubg-slot-header">
+                <span class="pubg-key-badge">1</span>
+                <span class="pubg-gun-name" id="pubg-gun1-name">BLASTER-X</span>
+              </div>
+              <div class="pubg-gun-silhouette-wrap" id="th-active-silhouette">
+                <img src="assets/previews/kenney-blaster/blaster-a.png" alt="Súng chính" class="pubg-silhouette-img">
+              </div>
+              <div class="pubg-gun-ammo-box">
+                <span class="pubg-ammo-cur" id="pubg-gun1-cur">16</span>
+                <span class="pubg-ammo-sep">/</span>
+                <span class="pubg-ammo-res" id="pubg-gun1-res">∞</span>
+              </div>
+            </button>
+
+            <!-- SLOT 2: Súng phụ [2] -->
+            <button id="th-slot-2" class="pubg-gun-slot" title="Súng phụ [2]">
+              <div class="pubg-slot-header">
+                <span class="pubg-key-badge">2</span>
+                <span class="pubg-gun-name" id="pubg-gun2-name">REPEATER-9</span>
+              </div>
+              <div class="pubg-gun-silhouette-wrap" id="pubg-gun2-silhouette">
+                <img src="assets/previews/kenney-blaster/blaster-d.png" alt="Súng phụ" class="pubg-silhouette-img">
+              </div>
+              <div class="pubg-gun-ammo-box">
+                <span class="pubg-ammo-cur" id="pubg-gun2-cur">32</span>
+                <span class="pubg-ammo-sep">/</span>
+                <span class="pubg-ammo-res" id="pubg-gun2-res">∞</span>
+              </div>
+            </button>
+          </div>
+
+          <!-- Thanh Máu PUBG nằm ngang sát dưới 2 súng -->
+          <div class="pubg-hp-container" title="Lượng máu hiện tại">
+            <div id="pubg-hp-bar" class="pubg-hp-bar">
+              <div id="pubg-hp-fill" class="pubg-hp-fill" style="width: 100%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vệ tinh bên phải: Vũ khí cận chiến Dao/Chảo [4] hoặc [V] -->
+        <div class="pubg-right-cluster">
+          <button id="th-slot-melee" class="pubg-melee-btn" title="Dao cận chiến [4] hoặc [V]">
+            <span class="pubg-key-badge">4</span>
+            <div class="pubg-melee-icon-wrap">
+              <img src="assets/previews/kenney-food/cooking-knife.png" alt="Cận chiến" class="pubg-melee-img">
+            </div>
+            <span class="pubg-melee-label">DAO</span>
+          </button>
+        </div>
+
+        <!-- Tiến trình sơ cứu Medkit Channeling 5s -->
+        <div id="th-medkit-channel" class="combat-channel combat-panel pubg-channel-popup" style="display:none">
+          <span>ĐANG SƠ CỨU <b id="th-medkit-countdown">5.0s</b></span>
+          <div class="combat-meter health-meter"><div id="th-medkit-channel-fill"></div></div>
+        </div>
+
+        <!-- Các phần tử ẩn phục vụ tương thích ngược hệ thống cũ -->
+        <div style="display:none;" aria-hidden="true">
+          <span id="weapon-name">BLASTER-X</span>
+          <strong id="th-ammo-cur">16</strong>
+          <b id="th-ammo-reserve">96</b>
+          <div id="stamina-fill"></div>
+          <span id="stamina-text">BĂNG ĐẠN 16/16</span>
+          <div id="upgrade-stats"></div>
+        </div>
       </div>
       <!-- Gợi ý tương tác mở hòm [F] -->
       <div id="container-prompt" class="container-prompt" style="display:none;">

@@ -191,11 +191,7 @@
 .combat-slot.active > small { color:var(--hud-accent); }
 .combat-slot svg { width:44px; height:44px; }
 .combat-slot:focus-visible { outline:2px solid var(--hud-accent); outline-offset:2px; }
-#th-active-silhouette { display:flex; width:60px; height:48px; align-items:center; justify-content:center; }
-#th-active-silhouette img {
-  width:100%; height:100%; object-fit:contain; image-rendering:auto;
-  filter:brightness(1.1) drop-shadow(0 2px 8px rgba(0,229,255,0.3));
-}
+#th-active-silhouette { display:flex; align-items:center; justify-content:center; }
 .medkit-icon {
   display:grid; place-items:center;
   width:36px; height:34px; margin:6px 0;
@@ -203,6 +199,465 @@
   color:var(--hud-green);
   border:1px solid rgba(0,230,118,0.3);
   border-radius:4px; font-size:26px; line-height:1;
+}
+
+/* ── PUBG MOBILE WEAPON HUD (BOTTOM BAR) ─────────────── */
+.pubg-bottom-hud {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: auto;
+  z-index: 100;
+  user-select: none;
+}
+
+/* Vệ tinh bên trái: Nút thuốc/medkit & Giáp/Mũ */
+.pubg-left-cluster {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pubg-med-btn {
+  position: relative;
+  width: 52px;
+  height: 66px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 4px;
+  backdrop-filter: blur(8px);
+  transition: all 0.15s ease;
+  overflow: hidden;
+}
+
+.pubg-med-btn:hover {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(34, 197, 94, 0.5);
+  transform: translateY(-2px);
+}
+
+.pubg-med-btn.active {
+  border-color: #22c55e;
+  box-shadow: 0 0 14px rgba(34, 197, 94, 0.45);
+}
+
+.pubg-med-icon-wrap {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pubg-med-svg {
+  width: 28px;
+  height: 28px;
+}
+
+.pubg-med-qty {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  margin-top: 2px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+
+/* Cụm Giáp & Mũ */
+.pubg-gear-hud {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 5px 6px;
+  background: rgba(15, 23, 42, 0.68);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  backdrop-filter: blur(8px);
+}
+
+.pubg-gear-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pubg-gear-svg {
+  width: 18px;
+  height: 18px;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));
+}
+
+.pubg-gear-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pubg-gear-bar-seg {
+  width: 14px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 1px;
+  transition: background 0.2s ease;
+}
+
+.pubg-gear-bar-seg.active {
+  background: #38bdf8;
+  box-shadow: 0 0 4px rgba(56, 189, 248, 0.5);
+}
+
+/* Cụm trung tâm: Chế độ bắn, 2 Khung Súng, Thanh Máu */
+.pubg-center-cluster {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Badge Chế độ bắn nổi lên - Tự trượt mượt mà sang vị trí súng đang active */
+.pubg-fire-mode-badge {
+  position: absolute;
+  top: -24px;
+  left: 25%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 14px;
+  background: rgba(20, 24, 30, 0.95);
+  border: 1.5px solid rgba(234, 179, 8, 0.6);
+  border-bottom: none;
+  border-radius: 5px 5px 0 0;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  clip-path: polygon(8% 0, 92% 0, 100% 100%, 0% 100%);
+  backdrop-filter: blur(8px);
+  z-index: 10;
+  transition: left 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.pubg-fire-mode-badge.at-slot-1 {
+  left: 25%;
+}
+
+.pubg-fire-mode-badge.at-slot-2 {
+  left: 75%;
+}
+
+.pubg-fire-mode-arrow {
+  color: #facc15;
+  font-size: 11px;
+}
+
+/* Hàng 2 slot súng */
+.pubg-weapons-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 3px;
+  border-radius: 6px 6px 0 0;
+}
+
+/* Khung từng slot súng chuẩn phong cách PUBG */
+.pubg-gun-slot {
+  position: relative;
+  width: 184px;
+  height: 72px;
+  background: rgba(18, 22, 28, 0.82);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 6px 9px;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  color: #fff;
+  font-family: inherit;
+  transition: all 0.16s ease;
+  overflow: hidden;
+}
+
+.pubg-gun-slot:hover {
+  background: rgba(28, 34, 44, 0.9);
+  border-color: rgba(250, 204, 21, 0.4);
+}
+
+/* Khi Active: Viền vàng sắc nét bao quanh ô súng chuẩn ảnh */
+.pubg-gun-slot.active {
+  background: rgba(24, 30, 42, 0.94);
+  border: 2px solid #eab308;
+  box-shadow: 
+    0 0 0 1px rgba(234, 179, 8, 0.3),
+    0 0 16px rgba(234, 179, 8, 0.4),
+    inset 0 0 12px rgba(234, 179, 8, 0.1);
+}
+
+.pubg-slot-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  z-index: 2;
+}
+
+/* Badge số phím nhỏ gọn, không bị ảnh hưởng bởi thẻ kbd toàn cục */
+.pubg-key-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  max-width: 18px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 3px;
+  color: #cbd5e1;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.pubg-gun-slot.active .pubg-key-badge {
+  background: #eab308;
+  color: #000;
+  border-color: #facc15;
+}
+
+.pubg-gun-name {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  flex: 1;
+}
+
+.pubg-gun-slot.active .pubg-gun-name {
+  color: #fff;
+}
+
+/* Silhouette súng ở giữa */
+.pubg-gun-silhouette-wrap {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 95px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.pubg-gun-slot.active .pubg-gun-silhouette-wrap {
+  opacity: 1;
+}
+
+.pubg-silhouette-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  /* Hiển thị rõ ràng các rãnh súng và chi tiết kim loại trắng sáng */
+  filter: grayscale(1) brightness(1.9) contrast(1.25) drop-shadow(0 2px 4px rgba(0,0,0,0.85));
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.pubg-gun-slot.active .pubg-silhouette-img {
+  filter: grayscale(1) brightness(2.3) contrast(1.35) drop-shadow(0 0 6px rgba(255,255,255,0.4)) drop-shadow(0 3px 8px rgba(0,0,0,0.9));
+  transform: scale(1.04);
+}
+
+/* Hộp đạn: 17 / 11 */
+.pubg-gun-ammo-box {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  z-index: 2;
+  margin-top: auto;
+}
+
+.pubg-ammo-cur {
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  letter-spacing: -0.5px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+.pubg-ammo-sep {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.pubg-ammo-res {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.pubg-gun-slot.active .pubg-ammo-cur {
+  color: #ffffff;
+  text-shadow: 0 0 10px rgba(250, 204, 21, 0.4);
+}
+
+/* Thanh máu PUBG nằm ngang dưới 2 súng */
+.pubg-hp-container {
+  width: 100%;
+  height: 9px;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 0 0 4px 4px;
+  overflow: hidden;
+  padding: 1px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-top: none;
+}
+
+.pubg-hp-bar {
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.15);
+  position: relative;
+}
+
+.pubg-hp-fill {
+  height: 100%;
+  background: #ffffff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.7);
+  transition: width 0.1s linear, background 0.2s ease;
+}
+
+.pubg-hp-fill.low-hp {
+  background: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
+}
+
+/* Vệ tinh bên phải: Nút Melee Dao/Chảo */
+.pubg-right-cluster {
+  display: flex;
+  align-items: flex-end;
+  margin-bottom: 8px;
+}
+
+.pubg-melee-btn {
+  position: relative;
+  width: 52px;
+  height: 66px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 4px;
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.pubg-melee-btn:hover {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(250, 204, 21, 0.4);
+  transform: translateY(-2px);
+}
+
+.pubg-melee-btn.active {
+  background: rgba(24, 30, 42, 0.94);
+  border-color: #eab308;
+  box-shadow: 0 0 14px rgba(234, 179, 8, 0.45);
+}
+
+.pubg-melee-icon-wrap {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pubg-melee-img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+}
+
+.pubg-melee-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.pubg-melee-btn.active .pubg-melee-label {
+  color: #eab308;
+}
+
+.pubg-channel-popup {
+  position: absolute;
+  bottom: calc(100% + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+@media (max-width: 768px) {
+  .pubg-bottom-hud {
+    bottom: 14px;
+    gap: 6px;
+    max-width: calc(100vw - 16px);
+  }
+  .pubg-gun-slot {
+    width: 130px;
+    height: 60px;
+    padding: 4px 6px;
+  }
+  .pubg-gun-silhouette-wrap {
+    width: 70px;
+    height: 34px;
+  }
+  .pubg-ammo-cur {
+    font-size: 16px;
+  }
+  .pubg-med-btn, .pubg-melee-btn {
+    width: 44px;
+    height: 56px;
+  }
+  .pubg-med-icon-wrap, .pubg-melee-icon-wrap {
+    width: 26px;
+    height: 26px;
+  }
+  .pubg-gear-hud {
+    display: none;
+  }
 }
 
 /* Channel / cast bar */

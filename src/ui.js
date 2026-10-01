@@ -120,6 +120,21 @@ export class UIManager {
         this.thSlot3 = document.getElementById('th-slot-3');
         this.thQtyMedkit = document.getElementById('th-qty-medkit');
 
+        // Các thành phần của PUBG Mobile Bottom HUD
+        this.pubgGun1Name = document.getElementById('pubg-gun1-name');
+        this.pubgGun1Cur = document.getElementById('pubg-gun1-cur');
+        this.pubgGun1Res = document.getElementById('pubg-gun1-res');
+        this.pubgGun2Name = document.getElementById('pubg-gun2-name');
+        this.pubgGun2Cur = document.getElementById('pubg-gun2-cur');
+        this.pubgGun2Res = document.getElementById('pubg-gun2-res');
+        this.pubgGun2Silhouette = document.getElementById('pubg-gun2-silhouette');
+        this.pubgFireModeBadge = document.getElementById('pubg-fire-mode-badge');
+        this.pubgFireModeText = document.getElementById('pubg-fire-mode-text');
+        this.pubgHpFill = document.getElementById('pubg-hp-fill');
+        this.thSlotMelee = document.getElementById('th-slot-melee');
+        this.pubgHudHelmet = document.getElementById('pubg-hud-helmet');
+        this.pubgHudVest = document.getElementById('pubg-hud-vest');
+
         // Thanh tiến trình sơ cứu Medkit 5 giây
         this.thMedkitChannel = document.getElementById('th-medkit-channel');
         this.thMedkitCountdown = document.getElementById('th-medkit-countdown');
@@ -590,7 +605,66 @@ export class UIManager {
                 this.thCircleEnergy.style.opacity = player.isDodging ? '0.5' : '1';
             }
 
-            // CỤM 2: Thông tin hộp đạn lớn & Silhouette súng kích hoạt
+            // CỤM 2: Thông tin đạn và Silhouette cho cả Súng 1 và Súng 2 (Phong cách PUBG Mobile)
+            const gun1 = player.weapons?.weaponSlots?.[0];
+            const gun2 = player.weapons?.weaponSlots?.[1];
+            const ammo1 = player.weapons?.getSlotAmmo ? player.weapons.getSlotAmmo(0) : null;
+            const ammo2 = player.weapons?.getSlotAmmo ? player.weapons.getSlotAmmo(1) : null;
+            const cSlot = player.weapons?.currentSlotIndex ?? 0;
+
+            // Cập nhật Súng 1 (Súng chính)
+            if (gun1) {
+                if (this.pubgGun1Name && this._lastGun1Name !== gun1.name) {
+                    this._lastGun1Name = gun1.name;
+                    this.pubgGun1Name.textContent = gun1.name;
+                }
+                const cur1 = ammo1 ? String(ammo1.current) : '16';
+                const res1 = (ammo1 && ammo1.reserve === Infinity) ? '∞' : (ammo1 ? String(ammo1.reserve) : '∞');
+                if (this.pubgGun1Cur && this._lastGun1Cur !== cur1) {
+                    this._lastGun1Cur = cur1;
+                    this.pubgGun1Cur.textContent = cur1;
+                }
+                if (this.pubgGun1Res && this._lastGun1Res !== res1) {
+                    this._lastGun1Res = res1;
+                    this.pubgGun1Res.textContent = res1;
+                }
+                if (this.thActiveSilhouette && gun1.icon && this._lastActiveWeaponSilh !== gun1.icon) {
+                    this._lastActiveWeaponSilh = gun1.icon;
+                    const image = document.createElement('img');
+                    image.src = gun1.icon;
+                    image.alt = gun1.name;
+                    image.className = 'pubg-silhouette-img';
+                    this.thActiveSilhouette.replaceChildren(image);
+                }
+            }
+
+            // Cập nhật Súng 2 (Súng phụ)
+            if (gun2) {
+                if (this.pubgGun2Name && this._lastGun2Name !== gun2.name) {
+                    this._lastGun2Name = gun2.name;
+                    this.pubgGun2Name.textContent = gun2.name;
+                }
+                const cur2 = ammo2 ? String(ammo2.current) : '0';
+                const res2 = (ammo2 && ammo2.reserve === Infinity) ? '∞' : (ammo2 ? String(ammo2.reserve) : '∞');
+                if (this.pubgGun2Cur && this._lastGun2Cur !== cur2) {
+                    this._lastGun2Cur = cur2;
+                    this.pubgGun2Cur.textContent = cur2;
+                }
+                if (this.pubgGun2Res && this._lastGun2Res !== res2) {
+                    this._lastGun2Res = res2;
+                    this.pubgGun2Res.textContent = res2;
+                }
+                if (this.pubgGun2Silhouette && gun2.icon && this._lastGun2Icon !== gun2.icon) {
+                    this._lastGun2Icon = gun2.icon;
+                    const image = document.createElement('img');
+                    image.src = gun2.icon;
+                    image.alt = gun2.name;
+                    image.className = 'pubg-silhouette-img';
+                    this.pubgGun2Silhouette.replaceChildren(image);
+                }
+            }
+
+            // Duy trì tương thích ngược cho các phần tử đạn cũ
             const curAmmoStr = curWeapon.isKnife ? '∞' : String(ammoInfo.current);
             const resAmmoStr = curWeapon.isKnife ? '∞' : String(ammoInfo.reserve);
             if (curAmmoStr !== this._lastAmmoCurText || resAmmoStr !== this._lastAmmoResText) {
@@ -600,32 +674,48 @@ export class UIManager {
                 if (this.thAmmoReserve) this.thAmmoReserve.textContent = resAmmoStr;
             }
 
-            // Slot 1 always represents the equipped gun, even while using the knife.
-            const gun = player.weapons.weaponSlots[0];
-            if (gun?.id !== this._lastActiveWeaponSilh) {
-                this._lastActiveWeaponSilh = gun?.id;
-                if (this.thActiveSilhouette && gun?.icon) {
-                    const image = document.createElement('img');
-                    image.src = gun.icon;
-                    image.alt = gun.name;
-                    this.thActiveSilhouette.replaceChildren(image);
+            // Cập nhật trạng thái Active và Chế độ bắn (Auto / Single)
+            if (this.thActiveSlot) this.thActiveSlot.classList.toggle('active', cSlot === 0);
+            if (this.thSlot2) this.thSlot2.classList.toggle('active', cSlot === 1);
+            if (this.thSlotMelee) this.thSlotMelee.classList.toggle('active', cSlot === 2);
+
+            // Cập nhật Badge Chế độ bắn gắn trên vũ khí đang chọn
+            if (this.pubgFireModeBadge && this.pubgFireModeText) {
+                this.pubgFireModeBadge.classList.toggle('at-slot-1', cSlot === 0);
+                this.pubgFireModeBadge.classList.toggle('at-slot-2', cSlot === 1);
+                this.pubgFireModeBadge.style.display = (cSlot === 2) ? 'none' : 'inline-flex';
+                const activeGun = cSlot === 1 ? gun2 : gun1;
+                if (activeGun) {
+                    this.pubgFireModeText.textContent = activeGun.isAuto ? 'AUTO' : 'SINGLE';
                 }
             }
-            // CỤM 3: Hotbar 3 ô [1] Súng, [2] Dao, [3] Medkit
+
+            // Cập nhật Thanh máu PUBG Mobile nằm sát dưới 2 súng
+            const hpPct = Math.max(0, Math.min(100, (player.health / player.maxHealth) * 100));
+            if (this.pubgHpFill) {
+                this.pubgHpFill.style.width = `${hpPct}%`;
+                this.pubgHpFill.classList.toggle('low-hp', hpPct <= 30);
+            }
+
+            // Cập nhật độ bền Giáp & Mũ hiển thị vạch phân đoạn
+            if (this.pubgHudHelmet) {
+                const helmetBars = this.pubgHudHelmet.querySelectorAll('.pubg-gear-bar-seg');
+                const helmetLevel = Math.ceil((player.health / player.maxHealth) * 3);
+                helmetBars.forEach((bar, idx) => bar.classList.toggle('active', idx < helmetLevel));
+            }
+            if (this.pubgHudVest) {
+                const vestBars = this.pubgHudVest.querySelectorAll('.pubg-gear-bar-seg');
+                const vestLevel = player.maxShield > 0 ? Math.ceil((player.shield / player.maxShield) * 3) : 0;
+                vestBars.forEach((bar, idx) => bar.classList.toggle('active', idx < vestLevel));
+            }
+
+            // Cập nhật ô vật phẩm hồi máu [3]
             const inv = player.weapons?.inventory || {};
             const isUsingMed = !!player.weapons?.isUsingMedkit;
-            const survKey = `${player.weapons.currentSlotIndex}_${inv.medkits}_${isUsingMed}`;
-            if (survKey !== this._lastSurvivalSlotKey) {
-                this._lastSurvivalSlotKey = survKey;
-                if (this.thQtyMedkit) this.thQtyMedkit.textContent = `x${inv.medkits ?? 0}`;
-                if (this.thSlot3) {
-                    this.thSlot3.style.opacity = (inv.medkits > 0) ? '1' : '0.45';
-                    this.thSlot3.classList.toggle('active', isUsingMed);
-                }
-
-                const cSlot = player.weapons.currentSlotIndex;
-                if (this.thActiveSlot) this.thActiveSlot.classList.toggle('active', cSlot === 0);
-                if (this.thSlot2) this.thSlot2.classList.toggle('active', cSlot === 1);
+            if (this.thQtyMedkit) this.thQtyMedkit.textContent = `x${inv.medkits ?? 0}`;
+            if (this.thSlot3) {
+                this.thSlot3.style.opacity = (inv.medkits > 0) ? '1' : '0.45';
+                this.thSlot3.classList.toggle('active', isUsingMed);
             }
 
             // Hiển thị thanh tiến trình sơ cứu Medkit 5 giây
@@ -642,11 +732,13 @@ export class UIManager {
                 }
             }
 
+            // Gắn sự kiện click đổi vũ khí và sơ cứu trực tiếp
             if (!this._thClicksBound) {
                 this._thClicksBound = true;
                 if (this.thActiveSlot) this.thActiveSlot.addEventListener('click', () => player.weapons?.switchWeapon(0, player));
                 if (this.thSlot2) this.thSlot2.addEventListener('click', () => player.weapons?.switchWeapon(1, player));
                 if (this.thSlot3) this.thSlot3.addEventListener('click', () => player.weapons?.startMedkitUse(player));
+                if (this.thSlotMelee) this.thSlotMelee.addEventListener('click', () => player.weapons?.switchWeapon(2, player));
             }
         }
     }

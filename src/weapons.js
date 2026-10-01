@@ -730,12 +730,6 @@ export class WeaponSystem {
             this.cancelMedkitUse();
         }
 
-        // Bấm vào ô 2 (Túi cứu thương Medkit - Phím 3) -> Bắt đầu tiến trình sơ cứu 5 giây
-        if (index === 2) {
-            this.startMedkitUse(player);
-            return;
-        }
-
         if (index === this.currentSlotIndex) return;
 
         if (this.onCommand) this.onCommand({ type: 'switch', slot: index });
@@ -744,11 +738,33 @@ export class WeaponSystem {
         this.fireCooldown = 0.18;
         sounds.play('switchWeapon', { volume: 0.7 });
 
+        // Cập nhật mô hình vũ khí hiển thị trên tay nhân vật
+        this.updateEquippedMesh();
+
         // Tự động nạp đạn nếu chuyển sang vũ khí đang hết đạn trong băng
         const nextW = this.getCurrentWeapon();
         if (nextW && !nextW.isKnife && !nextW.isUtility && (this.ammo[nextW.id] || 0) <= 0 && (this.reserve[nextW.id] || 0) > 0) {
             this.reload();
         }
+    }
+
+    // Lấy thông tin đạn và trạng thái theo từng ô vũ khí cho giao diện HUD
+    getSlotAmmo(index) {
+        const w = this.weaponSlots[index];
+        if (!w) return null;
+        if (w.isKnife) {
+            return { current: '∞', max: '∞', reserve: '∞', isKnife: true, name: w.name, icon: w.icon };
+        }
+        const effective = this.getModifiedStats(w);
+        return {
+            current: this.ammo[w.id] ?? 0,
+            max: effective.magSize,
+            reserve: this.reserve[w.id] ?? 0,
+            name: w.name,
+            icon: w.icon,
+            isAuto: !!w.isAuto,
+            tier: w.tier || 1
+        };
     }
 
     // Cơ chế Channeling sơ cứu vết thương trong 5.0 giây
