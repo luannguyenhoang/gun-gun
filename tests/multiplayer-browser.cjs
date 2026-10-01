@@ -40,6 +40,14 @@ const assert = require('node:assert/strict');
         const enemyId = await host.evaluate(() => game.waveManager.enemies[0].id);
         await guest.waitForFunction(id => game.waveManager.enemies.some(e => e.id === id && e.mesh?.visible && e.mesh.parent === game.scene), enemyId);
         console.log('PASS: guest receives and renders the host zombie through real PeerJS');
+        await host.evaluate(() => {
+            game.waveManager.spawnSingleEnemy(game.player,0,'spitter');
+            game.waveManager.spawnSingleEnemy(game.player,0,'bomber');
+            game.waveManager.bombs.spawn(game.player.position,35);
+        });
+        await guest.waitForFunction(() => game.waveManager.bombs.items.size > 0);
+        await guest.waitForFunction(() => ['spitter','bomber'].every(type => game.waveManager.enemies.some(e => e.type === type && e.mesh?.visible)));
+        console.log('PASS: acid/bomber species and bomb warnings replicate to guest');
 
         for (const [sender, receiver] of [[host, guest], [guest, host]]) {
             const id = await sender.evaluate(() => game.network.playerId);

@@ -2281,7 +2281,7 @@ export class WeaponSystem {
                 }
             } else {
                 // 3. Đạn quái va chạm người chơi
-                const targets = Array.isArray(player) ? player : [player];
+                const targets = this.enemyTargets || (Array.isArray(player) ? player : [player]);
                 for (const target of targets) {
                     if (!target || target.isDead) continue;
                     const hitInfo = target.checkHit(startPos, _tempNextPos, _tempRay);

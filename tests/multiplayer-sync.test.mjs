@@ -7,6 +7,7 @@ registerHooks({resolve(s,c,next){return s==='three'?{url:new URL('../libs/three.
 const THREE=await import('three');
 const { NetworkRoom, makeRemotePlayer }=await import('../src/network.js');
 const { WeaponSystem, WEAPON_CONFIGS }=await import('../src/weapons.js');
+const { SkyBombs }=await import('../src/skybombs.js');
 const { Zombie }=await import('../src/enemies.js');
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').split('// Instantiate game on page load')[0];
 const Game=vm.runInNewContext(source+'\nCyberArenaGame;', {THREE,Zombie,performance});
@@ -14,7 +15,7 @@ function weapons(scene){const w=new WeaponSystem(scene,null,{createMuzzleFlash()
 function game(){
  const scene=new THREE.Scene(), w=weapons(scene);
  const g={scene,weapons:w,player:{health:100,shield:100},network:{seq:0},remoteProjectiles:new Map(),remotePlayers:new Map(),currentWave:1,score:0,
- waveManager:{enemies:[],models:{'character-zombie':{scene:new THREE.Group(),animations:[]}}},pickups:{pickups:[]}};
+ waveManager:{bombs:new SkyBombs(scene),enemies:[],models:{'character-zombie':{scene:new THREE.Group(),animations:[]}}},pickups:{pickups:[]}};
  g.ensureCoopPlayer=(id)=>{if(!g.remotePlayers.has(id)){const p=makeRemotePlayer(scene,null,id,id);p.weapons=weapons(scene);g.remotePlayers.set(id,p);}return g.remotePlayers.get(id);};
  return g;
 }

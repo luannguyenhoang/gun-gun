@@ -3,10 +3,10 @@ import { GLTFLoader } from '../libs/loaders/GLTFLoader.js';
 import { sounds } from './audio.js';
 import { ParticleSystem } from './particles.js?v=22';
 import { Arena } from './arena.js?v=22';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS } from './weapons.js?v=35';
-import { PlayerController } from './player.js?v=35';
-import { WaveManager, Zombie } from './enemies.js?v=22';
-import { PickupManager } from './pickups.js?v=22';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS } from './weapons.js?v=39';
+import { PlayerController } from './player.js?v=22';
+import { WaveManager, Zombie } from './enemies.js?v=39';
+import { PickupManager } from './pickups.js?v=38';
 import { UIManager } from './ui.js?v=36';
 import { NetworkRoom, makeRemotePlayer } from './network.js?v=33';
 import { normalizeCharacter } from './characters.js?v=22';
@@ -753,7 +753,7 @@ class CyberArenaGame {
     }
 
     makeCoopSnapshot() {
-        return { state: this.state, wave: this.currentWave, score: this.score,
+        return { bombs: this.waveManager.bombs.snapshot(), state: this.state, wave: this.currentWave, score: this.score,
             projectiles: this.coopPlayers.flatMap(player => (player.weapons?.projectiles || []).filter(p => p.mesh).map(p => ({ id: `${player.id || this.network.playerId}:${p.id}`, owner: player.id || this.network.playerId, position: p.mesh.position.toArray(), direction: p.direction.toArray(), speed: p.speed, color: p.color }))),
             players: this.coopPlayers.map(player => ({ id: player.id || this.network.playerId, name: player.name || 'Bạn', character: player.characterId || this.characterId, position: player.position.toArray(), health: player.health, shield: player.shield, isDead: player.isDead, isDowned: player.isDowned, aim: player.aimYaw, ads: !!player.isADS, moving: player === this.player ? player.velocity.lengthSq() > 0.1 : player.moving, weapons: player.weapons?.getNetworkState(), processedSeq: player.processedSeq || 0 })),
             enemies: this.waveManager.enemies.filter(enemy => !enemy.isDead).map(enemy => ({ id: enemy.id, type: enemy.type, position: enemy.position.toArray(), health: enemy.health, maxHealth: enemy.maxHealth, yaw: enemy.mesh?.rotation.y || 0 })),
@@ -762,6 +762,7 @@ class CyberArenaGame {
 
     applyCoopSnapshot(snapshot, localId) {
         if (!snapshot) return;
+        this.waveManager.bombs.applySnapshot(snapshot.bombs || []);
         const sampleTime = performance.now();
         const projectileIds = new Set();
         for (const state of snapshot.projectiles || []) {
@@ -902,6 +903,7 @@ class CyberArenaGame {
 
             // Update Weapons & Projectiles
             if (!this.network.active || this.network.host) {
+                this.weapons.enemyTargets = this.coopPlayers;
                 this.weapons.update(delta, this.arena, this.waveManager.enemies, this.player,
                     (dmg, crit, pt, hitResult) => this.onHitEnemy(dmg, crit, pt, hitResult));
                 for (const remote of this.remotePlayers.values()) {
@@ -909,6 +911,7 @@ class CyberArenaGame {
                     remote.weapons.update(delta, this.arena, this.waveManager.enemies, remote);
                 }
             } else {
+                this.waveManager.bombs.update(delta, [], false);
                 // Client prediction: animate shots and tick cooldowns without applying damage.
                 // Truyền this.player thay vì [] để client áp dụng đúng cơ chế ngắm bắn (ADS) và nón tản đạn
                 this.weapons.update(delta, this.arena, [], this.player);

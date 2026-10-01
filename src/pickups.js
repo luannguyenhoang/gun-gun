@@ -16,7 +16,6 @@ export const DROP_TYPES = [
 ];
 
 export const DROP_CHANCE = 0.08;
-export const DROP_PITY_KILLS = 6;
 const ATTACHMENT_SLOTS = ['barrel', 'magazine', 'optic', 'grip'];
 
 export class PickupManager {
@@ -25,7 +24,6 @@ export class PickupManager {
         this.particles = particles;
         this.pickups = [];
         this.nextId = 1;
-        this.killsWithoutDrop = 0;
         this.airdropTimer = 22;
 
         this.geoBox = new THREE.BoxGeometry(0.4, 0.4, 0.4);
@@ -36,15 +34,12 @@ export class PickupManager {
     }
 
     spawnDrop(position, enemyType = 'walker') {
-        this.killsWithoutDrop++;
+        // Each ordinary kill rolls independently; no guaranteed drop after a dry streak.
+        if (enemyType !== 'boss' && Math.random() >= DROP_CHANCE) return null;
         let forcedType = null;
         if (enemyType === 'boss') {
             forcedType = Math.random() < 0.5 ? 'weapon' : ATTACHMENT_SLOTS[Math.floor(Math.random() * ATTACHMENT_SLOTS.length)];
-        } else if (this.killsWithoutDrop >= DROP_PITY_KILLS) {
-            forcedType = ATTACHMENT_SLOTS[Math.floor(Math.random() * ATTACHMENT_SLOTS.length)];
         }
-
-        if (!forcedType && Math.random() >= DROP_CHANCE) return null;
 
         let roll = Math.random();
         const definition = DROP_TYPES.find(drop => {
@@ -53,7 +48,6 @@ export class PickupManager {
         }) || DROP_TYPES[0];
 
         const type = forcedType || definition.id;
-        this.killsWithoutDrop = 0;
         return this.createPickup(position, type);
     }
 
@@ -345,6 +339,5 @@ export class PickupManager {
 
     clear() {
         while (this.pickups.length) this.remove(this.pickups.length - 1);
-        this.killsWithoutDrop = 0;
     }
 }

@@ -1,3 +1,4 @@
+import { SkyBombs } from './skybombs.js';
 import * as THREE from 'three';
 import * as SkeletonUtils from '../libs/SkeletonUtils.js';
 import { sounds } from './audio.js';
@@ -11,6 +12,7 @@ const ZOMBIE_RADII = {
     boss: 2.2,
     giant: 1.65,
     spitter: 0.7,
+    bomber: 0.8,
     crawler: 0.4,
     boomer: 1.05
 };
@@ -62,6 +64,8 @@ export class Zombie {
 
         this.flashTimer = 0;
         this.spitCharge = 0;
+        this.rangedCooldown = 1.5;
+        this.acidTarget = null;
         this.acidTarget = null;
         this.navigationPath = null;
         this.pathTimer = 0;
@@ -128,6 +132,11 @@ export class Zombie {
             this.attackCooldown = 1.7;
             this.knockbackResistance = 0.95;
             this.scoreValue = 500;
+        } else if (type === 'bomber') {
+            this.baseHealth = 300; this.baseArmor = 70; this.armorClass = 1;
+            this.speed = Math.min(3.2, maxAllowedSpeed); this.scale = 1.95;
+            this.damage = Math.round(35 * dmgMult); this.attackRange = 1.4;
+            this.attackCooldown = 1.5; this.knockbackResistance = 0.3; this.scoreValue = 260;
         } else if (type === 'spitter') {
             this.baseHealth = 220;
             this.baseArmor = 60;
@@ -222,6 +231,8 @@ export class Zombie {
 
                 if (this.type === 'giant') {
                     child.material.color.setHex(0x996044);
+                } else if (this.type === 'bomber') {
+                    child.material.color.setHex(0x9d4aab);
                 } else if (this.type === 'spitter') {
                     child.material.color.setHex(0x709d28);
                 } else if (this.type === 'tank') {
@@ -273,7 +284,10 @@ export class Zombie {
             return part;
         };
 
-        if (this.type === 'spitter') {
+        if (this.type === 'bomber') {
+            add(new THREE.SphereGeometry(0.2, 8, 6), -0.2, 0.25, -0.2);
+            add(new THREE.SphereGeometry(0.2, 8, 6), 0.2, 0.25, -0.2);
+        } else if (this.type === 'spitter') {
             add(new THREE.IcosahedronGeometry(0.16, 1), -0.17, 0.17, -0.16);
             add(new THREE.IcosahedronGeometry(0.16, 1), 0.17, 0.17, -0.16);
             this.spitMouth = add(new THREE.IcosahedronGeometry(0.075, 1), 0, 0.16, 0.19, 'head');
@@ -307,12 +321,18 @@ export class Zombie {
         this.combatTimer = 0;
         this.flashTimer = 0;
         this.spitCharge = 0;
+        this.rangedCooldown = 1.5;
+        this.acidTarget = null;
         this.bossSkillTimer = 4.0;
         this.bossPhase = phaseNum;
         this.navigationPath = null;
         this.pathTimer = 0;
 
+        // Rebuild visuals when a pooled zombie changes species.
+        if (this.type !== type) this.disposeVisuals();
+        this.active = true; this.isDead = false;
         this.applyStats(type, phaseNum, survivalMinutes, playerSpeed);
+        if (!this.mesh) this.setupVisuals(this.gltfModels);
 
         if (this.mesh) {
             this.mesh.position.copy(this.position);
@@ -514,6 +534,29 @@ export class Zombie {
         _tempToPlayer.y = 0;
         const dist = _tempToPlayer.length();
         if (dist > 0.0001) _tempToPlayer.multiplyScalar(1 / dist);
+
+        this.rangedCooldown = Math.max(0, this.rangedCooldown - delta);
+        if (this.type === 'spitter' && this.weapons && this.combatState !== ZombieCombatState.STUNNED) {
+            if (this.spitCharge > 0) {
+                this.spitCharge -= delta;
+                this.setEmissiveColor(0x99ff22, .9);
+                if (this.spitCharge <= 0) {
+                    const origin = this.position.clone().add(new THREE.Vector3(0,1.2,0));
+                    if (!arena?.hasLineOfSight || arena.hasLineOfSight(origin,this.acidTarget))
+                        this.weapons.shootEnemyBolt(origin,this.acidTarget,this.damage,12,true);
+                    this.rangedCooldown = 2.8; this.setEmissiveColor(0,0);
+                }
+            } else if (this.rangedCooldown <= 0 && dist >= 3 && dist <= 18 &&
+                (!arena?.hasLineOfSight || arena.hasLineOfSight(this.position,player.position))) {
+                this.acidTarget = player.position.clone().add(new THREE.Vector3(0,.8,0));
+                this.spitCharge = .65;
+            }
+        }
+        if (this.type === 'bomber' && this.bombs && this.rangedCooldown <= 0 && dist <= 22 &&
+            this.combatState !== ZombieCombatState.STUNNED) {
+            this.bombs.spawn(player.position, this.damage);
+            this.rangedCooldown = 5.5;
+        }
 
         // 2. Swarm separation: Thuat toan day mem chong chong lan quai, giup bay tu dan hang ngang
         _tempSeparation.set(0, 0, 0);
@@ -737,6 +780,7 @@ export class WaveManager {
         this.particles = particles;
         this.arena = arena;
         this.models = {};
+        this.bombs = new SkyBombs(scene, particles);
 
         // Danh sach quan ly quai tren san va Pool tai su dung
         this.enemies = [];
@@ -790,6 +834,8 @@ export class WaveManager {
     // Chon loai quai xuat hien dua tren moc thoi gian song sot (phut)
     determineArchetype(survivalMinutes) {
         const roll = Math.random();
+        if ((this.currentPhase >= 3 || survivalMinutes >= 1.5) && roll < .10) return 'bomber';
+        if ((this.currentPhase >= 2 || survivalMinutes >= .75) && roll >= .10 && roll < .28) return 'spitter';
         if (survivalMinutes < 2.0) {
             return roll < 0.3 ? 'crawler' : 'walker';
         } else if (survivalMinutes < 4.0) {
@@ -877,6 +923,7 @@ export class WaveManager {
 
         zombie.id = this.nextId++;
         zombie.arena = this.arena;
+        zombie.bombs = this.bombs;
         zombie.activate(position, type, survivalMinutes, playerSpeed, this.currentPhase);
         return zombie;
     }
@@ -915,6 +962,7 @@ export class WaveManager {
 
     update(delta, player, arena, onEnemyKilled) {
         const targets = (Array.isArray(player) ? player : [player]).filter(p => !p.isDead);
+        this.bombs.update(delta, targets);
         const primaryPlayer = targets[0] || (Array.isArray(player) ? player[0] : player);
 
         // Cập nhật thời gian sống sót
@@ -1011,6 +1059,7 @@ export class WaveManager {
     }
 
     clear() {
+        this.bombs.clear();
         for (let i = 0; i < this.enemies.length; i++) {
             this.enemies[i].deactivate();
         }
