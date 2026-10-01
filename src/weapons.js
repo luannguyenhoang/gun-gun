@@ -1220,7 +1220,8 @@ export class WeaponSystem {
             secondaryAttachments: { ...this.secondaryAttachments },
             slot: this.currentSlotIndex,
             ammo: { ...this.ammo },
-            reserve: { ...this.reserve },
+            // PeerJS BinaryPack rejects Infinity. Use -1 only on the wire for unlimited ammo.
+            reserve: Object.fromEntries(Object.entries(this.reserve).map(([id, count]) => [id, count === Infinity ? -1 : count])),
             upgrades: { ...this.upgrades },
             attachments: { ...this.attachments },
             isReloading: this.isReloading,
@@ -1247,7 +1248,7 @@ export class WeaponSystem {
         if (state.primaryAttachments) this.primaryAttachments = { ...state.primaryAttachments };
         if (state.secondaryAttachments) this.secondaryAttachments = { ...state.secondaryAttachments };
         this.ammo = { ...state.ammo };
-        this.reserve = { ...state.reserve };
+        this.reserve = Object.fromEntries(Object.entries(state.reserve || {}).map(([id, count]) => [id, count === -1 ? Infinity : count]));
         if (state.inventory) this.inventory = { ...state.inventory };
         this.attachments = this.currentSlotIndex === 1 ? this.secondaryAttachments : this.primaryAttachments;
         this.upgrades = { ...state.upgrades };

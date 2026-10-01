@@ -92,3 +92,19 @@ test('Peer transport delivers host enemies and guest movement in a shared snapsh
   assert.deepEqual(guest.remotePlayers.get('host').position.toArray(),[2,0,3]);
  } finally { globalThis.window=previousWindow; }
 });
+
+test('unlimited reserve is finite on the wire and restored after transfer', () => {
+ const a=weapons(new THREE.Scene()),b=weapons(new THREE.Scene());
+ a.reserve[a.weaponSlots[0].id]=Infinity;
+ a.reserve[a.weaponSlots[1].id]=17;
+ const snapshot=a.getNetworkState();
+ function assertFinite(value){
+  if(typeof value==='number') assert.ok(Number.isFinite(value),'PeerJS cannot pack non-finite numbers');
+  else if(value && typeof value==='object') Object.values(value).forEach(assertFinite);
+ }
+ assertFinite(snapshot);
+ assert.equal(snapshot.reserve[a.weaponSlots[0].id],-1);
+ b.applyNetworkState(structuredClone(snapshot));
+ assert.equal(b.reserve[a.weaponSlots[0].id],Infinity);
+ assert.equal(b.reserve[a.weaponSlots[1].id],17);
+});
