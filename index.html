@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="zappets.css"><link rel="stylesheet" href="combat.css?v=24"><link rel="stylesheet" href="showroom.css?v=32">
+    <link rel="stylesheet" href="zappets.css"><link rel="stylesheet" href="combat.css?v=36"><link rel="stylesheet" href="showroom.css?v=32">
     <link rel="stylesheet" href="ux.css">
     <style>
       #armory-grid-section { display: none; }
@@ -258,11 +258,11 @@
       <nav class="hud-actions" aria-label="Thao tác trong trận"><button id="hud-pause" title="Tạm dừng khi chơi đơn [Esc]">Ⅱ <span>TẠM DỪNG</span></button></nav>
       <section class="combat-vitals combat-panel" aria-label="Máu và khiên">
         <div class="combat-card-title"><span>CHIẾN BINH</span><span class="combat-score">★ <b id="score-value">0</b></span></div>
-        <div class="vital-label"><span>♥ MÁU</span><strong id="health-text">100 / 100</strong></div>
-        <div class="combat-meter health-meter"><div id="health-fill" style="width:100%"></div></div>
-        <div class="vital-label shield-label"><span>⬡ KHIÊN</span><strong id="shield-text">100 / 100</strong></div>
-        <div class="combat-meter shield-meter"><div id="shield-fill" style="width:100%"></div></div>
       </section>
+      <div id="player-overhead-vitals" class="player-overhead-vitals" hidden aria-label="Máu và khiên nhân vật">
+        <div class="overhead-health"><div id="health-fill"></div><strong id="health-text">100</strong></div>
+        <div class="overhead-shield"><div id="shield-fill"></div></div>
+      </div>
       <section class="combat-wave combat-panel"><span class="combat-kicker">SINH TỒN VÔ TẬN</span><strong>ĐỢT <span id="wave-value">1</span></strong><span class="enemy-count">ZOMBIE CÒN LẠI <b id="enemies-value">0</b></span></section>
       <section class="combat-radar combat-panel"><span class="combat-kicker">BẢN ĐỒ</span><canvas id="radar-canvas" width="140" height="140"></canvas><span class="radar-key">● BẠN <i>● ZOMBIE</i></span></section>
       <div id="boss-health-container" class="combat-boss" style="display:none"><span>TRÙM ĐỘT BIẾN</span><div class="combat-meter health-meter"><div id="boss-health-fill"></div></div></div>
@@ -408,12 +408,6 @@
             </button>
           </div>
 
-          <!-- Thanh Máu PUBG nằm ngang sát dưới 2 súng -->
-          <div class="pubg-hp-container" title="Lượng máu hiện tại">
-            <div id="pubg-hp-bar" class="pubg-hp-bar">
-              <div id="pubg-hp-fill" class="pubg-hp-fill" style="width: 100%;"></div>
-            </div>
-          </div>
         </div>
 
         <!-- Vệ tinh bên phải: Vũ khí cận chiến Dao [V] -->
@@ -1070,6 +1064,6 @@
     </div>
 
     <!-- Main Game Script -->
-    <script src="libs/qrcode.min.js"></script><script type="module" src="src/main.js?v=35"></script>
+    <script src="libs/qrcode.min.js"></script><script type="module" src="src/main.js?v=36"></script>
 </body>
 </html>

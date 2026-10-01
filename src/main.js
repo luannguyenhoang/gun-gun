@@ -7,11 +7,11 @@ import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS } from './weapons.js?v=
 import { PlayerController } from './player.js?v=35';
 import { WaveManager, Zombie } from './enemies.js?v=22';
 import { PickupManager } from './pickups.js?v=22';
-import { UIManager } from './ui.js?v=35';
+import { UIManager } from './ui.js?v=36';
 import { NetworkRoom, makeRemotePlayer } from './network.js?v=33';
 import { normalizeCharacter } from './characters.js?v=22';
-import { RoomLobby } from './lobby.js?v=22';
-import { HomeMenu } from './home.js?v=35';
+import { RoomLobby } from './lobby.js?v=35';
+import { HomeMenu } from './home.js?v=32';
 import { LootingSystem } from './looting.js?v=22';
 import { RenderQuality } from './performance.js';
 
@@ -950,6 +950,7 @@ class CyberArenaGame {
             // Update UI & Radar with 4 Portals, Teammates, and Tactical Airdrop Zone
             const teammates = Array.from(this.remotePlayers.values());
             this.ui.updateStats(this.player, this.waveManager, this.score);
+            this.ui.updateOverheadVitals(this.player, this.camera, this.renderer.domElement);
             this.ui.updateTeammateIndicators(teammates, this.player, this.camera);
             this.ui.updateTeamRoster(teammates, this.player);
             this.radarElapsed += delta;

@@ -125,6 +125,19 @@ export class RoomLobby {
     position(member) {
         member.model?.scale.setScalar(this.solo ? 4.4 : 2.7);
         member.model?.position.set(this.solo ? 0 : (member.index - 1.5) * 2.7, 0.1, 0);
+        if (this.solo || !member.model || !this.stage?.clientWidth) return;
+        const label = this.labels.children[member.index];
+        if (!label) return;
+        // Anchor each model's feet to its actual nameplate, including responsive grid gaps.
+        const stage = this.stage.getBoundingClientRect();
+        const card = label.getBoundingClientRect();
+        const point = new THREE.Vector3(
+            ((card.left + card.width / 2 - stage.left) / stage.width) * 2 - 1,
+            1 - ((card.top - 18 - stage.top) / stage.height) * 2,
+            0.5
+        ).unproject(this.camera);
+        const direction = point.sub(this.camera.position);
+        member.model.position.copy(this.camera.position).addScaledVector(direction, -this.camera.position.z / direction.z);
     }
     remove(member) {
         member.mixer?.stopAllAction();
@@ -142,7 +155,11 @@ export class RoomLobby {
         }
         this.camera.position.set(0, this.solo ? 3.2 : 4.7, this.solo ? Math.max(7.8, 5.5 / this.camera.aspect) : Math.max(13.5, 17 / this.camera.aspect));
         this.camera.lookAt(0, this.solo ? 2.1 : 1, 0);
-        for (const member of this.members.values()) member.mixer?.update(delta);
+        this.camera.updateMatrixWorld();
+        for (const member of this.members.values()) {
+            this.position(member);
+            member.mixer?.update(delta);
+        }
         this.renderer.render(this.scene, this.camera);
     }
 }
