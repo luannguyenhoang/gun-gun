@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as SkeletonUtils from '../libs/SkeletonUtils.js';
 import { CHARACTER_CONFIGS } from './characters.js';
-import { WEAPON_CONFIGS, getStartingWeapon, updateHeldWeaponPose, BOMB_CONFIGS, getBombConfig, th_UPGRADE_TIER_CONFIG, th_getWeaponTier, th_getWeaponEnchant, th_ELEMENTAL_EFFECTS } from './weapons.js?v=44';
+import { WEAPON_CONFIGS, getStartingWeapon, updateHeldWeaponPose, BOMB_CONFIGS, getBombConfig, th_UPGRADE_TIER_CONFIG, th_getWeaponTier, th_getWeaponEnchant, th_ELEMENTAL_EFFECTS, th_getWeaponParts, th_getPartTier, TH_PART_META, ATTACHMENT_DEFS } from './weapons.js?v=46';
 
 const DETAILS = {
     soldier: { title: 'LÍNH', subtitle: 'CHIẾN BINH TIỀN TUYẾN', color: '#75bca1', description: 'Giữ vững vị trí. Sẵn sàng đối đầu với bất kỳ đợt zombie nào.' },
@@ -277,32 +277,25 @@ export class CharacterShowroom {
         if (!item) {
             if (this.th_upBtnForge) { this.th_upBtnForge.disabled = true; setEl('th_btn_upgrade_text', 'CHƯA CHỌN VŨ KHÍ'); }
             if (this.th_upBtnGacha) { this.th_upBtnGacha.disabled = true; }
+            // Ẩn popup nếu đang mở
+            this.th_closePartPopup();
             return;
         }
 
         const isUnlocked = this.game.isWeaponUnlocked(id);
-        const tier = th_getWeaponTier(id);
         const enchant = th_getWeaponEnchant(id);
-        const upCfg = th_UPGRADE_TIER_CONFIG[tier];
+        const parts = th_getWeaponParts(id);
 
-        // 1. CỘT GIỮA: Preview Súng, Watermark, Bay Code, Ô phụ kiện
+        // 1. CỘT GIỮA: Preview Súng + Watermark
         const previewImg = document.getElementById('th_up_preview_img');
         if (previewImg) previewImg.src = item.icon;
         setEl('th_up_watermark', item.name.toUpperCase());
-        setEl('th_up_bay_code', `BAY-${tier.toString().padStart(2, '0')} :: ${item.name.toUpperCase()} CALIBER 5.56`);
+        setEl('th_up_bay_code', `GUN-ID :: ${item.name.toUpperCase()} | ${item.category}`);
 
-        // Phụ kiện thay đổi theo tier súng
-        const opticNames = ['IRON SIGHTS', 'REFLEX SIGHT', 'HOLO OPTIC T3', 'ACOG 4X T4', 'THERMAL SCOPE T5'];
-        const barrelNames = ['STOCK BARREL', 'COMPENSATOR T2', 'FLASH HIDER T3', 'HEAVY SUPPRESSOR T4', 'TITANIUM SILENCER T5'];
-        const gripNames = ['STANDARD GRIP', 'ANGLED FOREGRIP', 'TACTICAL VERTICAL', 'SKELETONIZED T4', 'CARBON COMPACT T5'];
-        const magNames = ['STD 30-RND', 'EXTENDED 40-RND', 'DRUM 50-RND', 'TITANIUM QUICKMAG', 'OVERDRIVE DUAL-MAG'];
+        // 2. Cập nhật 4 Slot Bộ phận với tier thực từ dữ liệu người dùng
+        this.th_renderPartSlots(id, parts, isUnlocked);
 
-        setEl('th_mod_optic_val', opticNames[tier - 1] || 'TACTICAL OPTIC');
-        setEl('th_mod_barrel_val', barrelNames[tier - 1] || 'TACTICAL BARREL');
-        setEl('th_mod_grip_val', gripNames[tier - 1] || 'TACTICAL GRIP');
-        setEl('th_mod_mag_val', magNames[tier - 1] || 'EXTENDED MAG');
-
-        // Trạng thái lõi đạn đặc biệt (Ammo Chip)
+        // 3. Trạng thái lõi đạn đặc biệt (Ammo Chip)
         const ammoStatusEl = document.getElementById('th_ammo_status_text');
         if (ammoStatusEl) {
             ammoStatusEl.textContent = enchant ? `TRẠNG THÁI: ĐÃ KÍCH HOẠT [${enchant.name}]` : 'TRẠNG THÁI: KHÔNG CÓ LÕI';
@@ -315,90 +308,60 @@ export class CharacterShowroom {
             chip.classList.toggle('th_current', isActive);
         });
 
-        // 2. CỘT PHẢI: Summary panel
+        // 4. CỘT PHẢI: Summary panel
         setEl('th_up_name', item.name);
         setEl('th_up_cat_tag', item.category);
-        setEl('th_up_grade_tag', `CẤP HIỆN TẠI: TIER ${tier}`);
 
+        // Tính tổng tier để hiển thị badge tổng hợp
+        const avgTier = Math.floor((parts.optic + parts.barrel + parts.grip + parts.magazine) / 4);
         const tierBadge = document.getElementById('th_up_tier_badge');
         if (tierBadge) {
-            tierBadge.textContent = `TIER ${tier}`;
-            tierBadge.className = `th_tactical-tier-badge tier-${tier}`;
+            tierBadge.textContent = `BUILD T${avgTier}`;
+            tierBadge.className = `th_tactical-tier-badge tier-${avgTier}`;
         }
+        setEl('th_up_grade_tag', `BỘ PHẬN: O:T${parts.optic} B:T${parts.barrel} G:T${parts.grip} M:T${parts.magazine}`);
 
-        // 3. Stats bars: Trước vs Sau
-        const currentDmg = item.damage;
-        const currentRange = item.range || 24;
+        // 5. Stats bars: hiển thị stats THỰC sau khi cộng bộ phận
+        const bDef = ATTACHMENT_DEFS[`barrel_t${parts.barrel}`] || {};
+        const oDef = ATTACHMENT_DEFS[`optic_t${parts.optic}`] || {};
+        const mDef = ATTACHMENT_DEFS[`magazine_t${parts.magazine}`] || {};
+        const gDef = ATTACHMENT_DEFS[`grip_t${parts.grip}`] || {};
+
+        const finalDmg   = item.damage + (bDef.flatDmg || 0);
+        const finalRange = Math.round((item.range || 20) * (1 + (bDef.rangeBonusPct || 0) + (oDef.rangeBonusPct || 0)));
+        const finalMag   = Math.floor((item.magSize || 30) * (1 + (mDef.magBonusPct || 0)));
+        const finalRecoil = Math.round((gDef.recoilReduction || 0) * 100);
         const currentRpm = Math.round((1 / (item.fireRate || 0.1)) * 60);
-        const currentRecoil = (tier * 5);
 
-        if (tier >= 5) {
-            setEl('th_up_dmg_cur', currentDmg);
-            setEl('th_up_dmg_nxt', 'MAX');
-            setEl('th_up_range_cur', `${currentRange}m`);
-            setEl('th_up_range_nxt', 'MAX');
-            setEl('th_up_rpm_cur', `${currentRpm} RPM`);
-            setEl('th_up_rpm_nxt', 'MAX');
-            setEl('th_up_recoil_cur', `-${currentRecoil}%`);
-            setEl('th_up_recoil_nxt', 'MAX');
+        setEl('th_up_dmg_cur', item.damage);
+        setEl('th_up_dmg_nxt', finalDmg > item.damage ? `+${finalDmg}` : finalDmg);
+        setEl('th_up_range_cur', `${item.range || 20}m`);
+        setEl('th_up_range_nxt', `${finalRange}m`);
+        setEl('th_up_rpm_cur', `${currentRpm} RPM`);
+        setEl('th_up_rpm_nxt', `${finalMag} ĐẠN`);
+        setEl('th_up_recoil_cur', '0%');
+        setEl('th_up_recoil_nxt', finalRecoil > 0 ? `-${finalRecoil}%` : '0%');
 
-            const setWidth = (id2, w) => { const el = document.getElementById(id2); if (el) el.style.width = w; };
-            setWidth('th_stat_dmg_fill', '100%');
-            setWidth('th_stat_dmg_bonus', '0%');
-            setWidth('th_stat_range_fill', '100%');
-            setWidth('th_stat_range_bonus', '0%');
-            setWidth('th_stat_recoil_fill', '100%');
-            setWidth('th_stat_recoil_bonus', '0%');
+        const setWidth = (id2, w) => { const el = document.getElementById(id2); if (el) el.style.width = w; };
+        setWidth('th_stat_dmg_fill',    `${Math.min(90, (item.damage / 80) * 70)}%`);
+        setWidth('th_stat_dmg_bonus',   `${Math.min(25, (bDef.flatDmg || 0) / 80 * 70)}%`);
+        setWidth('th_stat_range_fill',  `${Math.min(90, ((item.range || 20) / 40) * 70)}%`);
+        setWidth('th_stat_range_bonus', `${Math.min(20, (bDef.rangeBonusPct || 0) * 30)}%`);
+        setWidth('th_stat_recoil_fill', `${Math.min(90, (gDef.recoilReduction || 0) * 100)}%`);
+        setWidth('th_stat_recoil_bonus','0%');
 
-            setEl('th_up_forge_rate', 'CẤP TỐI ĐA (MAX)');
-            setEl('th_cost_gold_val', '0 VÀNG');
-            setEl('th_cost_parts_val', '0 LINH KIỆN');
+        // Ẩn phần chi phí upgrade cũ (giờ dùng popup bộ phận)
+        setEl('th_up_forge_rate', '');
+        setEl('th_cost_gold_val', '');
+        setEl('th_cost_parts_val', '');
 
-            if (this.th_upBtnForge) {
-                this.th_upBtnForge.disabled = true;
-                setEl('th_btn_upgrade_text', '✓ ĐÃ ĐẠT CẤP TỐI ĐA (MAX)');
-            }
-        } else {
-            const nextCfg = th_UPGRADE_TIER_CONFIG[tier];
-            const nextDmg = Math.round(currentDmg * (1 + nextCfg.bonusDmgPct));
-            const nextRange = currentRange + 4;
-            const nextRecoil = currentRecoil + 10;
-            const successPct = Math.round(nextCfg.successRate * 100);
-            const partsCost = tier * 7 + 8; // Tier 1->2: 15 linh kiện, v.v.
-
-            setEl('th_up_dmg_cur', currentDmg);
-            setEl('th_up_dmg_nxt', nextDmg);
-            setEl('th_up_range_cur', `${currentRange}m`);
-            setEl('th_up_range_nxt', `${nextRange}m`);
-            setEl('th_up_rpm_cur', `${currentRpm} RPM`);
-            setEl('th_up_rpm_nxt', `${currentRpm} RPM`);
-            setEl('th_up_recoil_cur', `-${currentRecoil}%`);
-            setEl('th_up_recoil_nxt', `-${nextRecoil}%`);
-
-            const setWidth = (id2, w) => { const el = document.getElementById(id2); if (el) el.style.width = w; };
-            setWidth('th_stat_dmg_fill', `${Math.min(90, tier * 18)}%`);
-            setWidth('th_stat_dmg_bonus', `${Math.round(nextCfg.bonusDmgPct * 25)}%`);
-            setWidth('th_stat_range_fill', `${Math.min(90, tier * 16 + 20)}%`);
-            setWidth('th_stat_range_bonus', '10%');
-            setWidth('th_stat_recoil_fill', `${Math.min(90, tier * 15 + 15)}%`);
-            setWidth('th_stat_recoil_bonus', '15%');
-
-            setEl('th_up_forge_rate', `TỶ LỆ: ${successPct}%`);
-            setEl('th_cost_gold_val', `${nextCfg.cost.toLocaleString()} VÀNG`);
-            setEl('th_cost_parts_val', `${partsCost} LINH KIỆN T${tier + 1}`);
-
-            if (this.th_upBtnForge) {
-                if (!isUnlocked) {
-                    this.th_upBtnForge.disabled = true;
-                    setEl('th_btn_upgrade_text', 'CHƯA SỞ HỮU VŨ KHÍ');
-                } else {
-                    this.th_upBtnForge.disabled = (this.game.coins < nextCfg.cost);
-                    setEl('th_btn_upgrade_text', `NÂNG CẤP LÊN TIER ${tier + 1} - ${nextCfg.cost.toLocaleString()} VÀNG`);
-                }
-            }
+        // Ẩn nút Forge cũ (thay bằng click slot)
+        if (this.th_upBtnForge) {
+            this.th_upBtnForge.disabled = true;
+            setEl('th_btn_upgrade_text', isUnlocked ? 'CLICK VÀO BỘ PHẬN ĐỂ NÂNG CẤP' : 'CHƯA SỞ HỮU VŨ KHÍ');
         }
 
-        // Nút Ép Lõi Đạn Đặc Biệt
+        // 6. Nút Ép Lõi Đạn Đặc Biệt (giữ nguyên)
         if (this.th_upBtnGacha) {
             if (!isUnlocked) {
                 this.th_upBtnGacha.disabled = true;
@@ -409,6 +372,149 @@ export class CharacterShowroom {
                 this.th_upBtnGacha.innerHTML = `<span class="th_btn-label">${enchant ? 'ĐỔI LÕI ĐẠN ĐẶC BIỆT' : 'KHẢM LÕI ĐẠN ĐẶC BIỆT'} [${gachaCost} VÀNG]</span>`;
             }
         }
+    }
+
+    // Render 4 slot bộ phận trong cột giữa với tier thực
+    th_renderPartSlots(weaponId, parts, isUnlocked) {
+        const SLOT_ELEMENTS = {
+            optic:    { valId: 'th_mod_optic_val',   slotEl: document.querySelector('.th_mod-slot-optic, [data-mod-slot="optic"]') },
+            barrel:   { valId: 'th_mod_barrel_val',  slotEl: document.querySelector('.th_mod-slot-barrel, [data-mod-slot="barrel"]') },
+            grip:     { valId: 'th_mod_grip_val',    slotEl: document.querySelector('.th_mod-slot-grip, [data-mod-slot="grip"]') },
+            magazine: { valId: 'th_mod_mag_val',     slotEl: document.querySelector('.th_mod-slot-mag, [data-mod-slot="mag"]') },
+        };
+
+        const PART_NAMES = {
+            optic:    ['IRON SIGHTS', 'REFLEX T2', 'HOLO T3', 'ACOG 4X T4', 'THERMAL T5'],
+            barrel:   ['STOCK BARREL', 'COMP T2', 'FLASH T3', 'SUPPRESSOR T4', 'TITANIUM T5'],
+            grip:     ['STD GRIP', 'ANGLED T2', 'TACTICAL T3', 'SKELETON T4', 'CARBON T5'],
+            magazine: ['STD MAG', 'EXTENDED T2', 'DRUM T3', 'QUICKMAG T4', 'OVERDRIVE T5'],
+        };
+
+        for (const [slot, info] of Object.entries(SLOT_ELEMENTS)) {
+            const tier = parts[slot];
+            const meta = TH_PART_META[slot];
+            const valEl = document.getElementById(info.valId);
+            if (valEl) {
+                valEl.innerHTML = `<span class="th_part-tier-badge tier-${tier}">T${tier}</span> ${PART_NAMES[slot][tier - 1] || ''}`;
+            }
+
+            // Gắn click event vào slot card
+            if (info.slotEl) {
+                info.slotEl.onclick = isUnlocked
+                    ? () => this.th_showPartPopup(weaponId, slot, tier)
+                    : null;
+                info.slotEl.style.cursor = isUnlocked ? 'pointer' : 'default';
+                info.slotEl.classList.toggle('th_slot-unlocked', isUnlocked);
+                info.slotEl.classList.toggle('th_slot-maxed', tier >= 5);
+            }
+        }
+    }
+
+    // Hiển thị popup nâng cấp bộ phận
+    th_showPartPopup(weaponId, slot, currentTier) {
+        const meta = TH_PART_META[slot];
+        if (!meta) return;
+
+        // Xoá popup cũ nếu có
+        this.th_closePartPopup();
+
+        const isMax = currentTier >= 5;
+        const cost = isMax ? 0 : meta.costs[currentTier];
+        const rate = isMax ? 0 : meta.rates[currentTier];
+        const nextTier = isMax ? 5 : currentTier + 1;
+        const canAfford = !isMax && this.game.coins >= cost;
+
+        const bDef_cur = ATTACHMENT_DEFS[`${slot}_t${currentTier}`] || {};
+        const bDef_nxt = ATTACHMENT_DEFS[`${slot}_t${nextTier}`] || {};
+
+        // Tạo stat comparison rows
+        const statRows = this.th_buildPartStatComparison(slot, bDef_cur, bDef_nxt, isMax);
+
+        const popup = document.createElement('div');
+        popup.className = 'th_part-upgrade-popup';
+        popup.id = 'th_part_popup';
+        popup.innerHTML = `
+            <div class="th_popup-header">
+                <span class="th_popup-title">${meta.label}</span>
+                <span class="th_popup-tier tier-${currentTier}">T${currentTier}${!isMax ? ` → T${nextTier}` : ' MAX'}</span>
+                <button class="th_popup-close" id="th_popup_close_btn">✕</button>
+            </div>
+            <div class="th_popup-stats">
+                ${statRows}
+            </div>
+            ${!isMax ? `
+            <div class="th_popup-cost">
+                <span class="th_popup-cost-label">CHI PHÍ</span>
+                <span class="th_popup-cost-value" style="color:${canAfford ? '#ffd700' : '#ff4444'}">${cost.toLocaleString()} VÀNG</span>
+                <span class="th_popup-rate-label">TỶ LỆ</span>
+                <span class="th_popup-rate-value" style="color:${rate >= 0.8 ? '#00F0FF' : rate >= 0.6 ? '#ffd700' : '#ff6b35'}">${Math.round(rate * 100)}%</span>
+            </div>
+            <button class="th_popup-upgrade-btn${canAfford ? '' : ' th_disabled'}" id="th_part_upgrade_btn" ${!canAfford ? 'disabled' : ''}>
+                ${canAfford ? `NÂNG CẤP T${currentTier} → T${nextTier}` : 'KHÔNG ĐỦ VÀNG'}
+            </button>
+            ` : `
+            <div class="th_popup-maxed">ĐÃ ĐẠT CẤP TỐI ĐA</div>
+            `}
+        `;
+
+        // Chèn popup vào workbench bay
+        const bay = document.querySelector('.th_tactical-workbench-bay');
+        if (bay) bay.appendChild(popup);
+
+        // Gắn events
+        document.getElementById('th_popup_close_btn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.th_closePartPopup();
+        });
+        const upgradeBtn = document.getElementById('th_part_upgrade_btn');
+        if (upgradeBtn && !isMax && canAfford) {
+            upgradeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const result = this.game.th_upgradePart(weaponId, slot);
+                this.th_closePartPopup();
+                this.th_renderUpgradeWeaponList();
+                this.th_syncUpgradeUI();
+
+                // Hiệu ứng forge
+                if (bay) {
+                    bay.classList.add('th_animating');
+                    setTimeout(() => bay.classList.remove('th_animating'), 900);
+                }
+            });
+        }
+
+        // Animate in
+        requestAnimationFrame(() => popup.classList.add('th_popup-visible'));
+    }
+
+    th_buildPartStatComparison(slot, cur, nxt, isMax) {
+        const rows = [];
+        if (slot === 'barrel') {
+            rows.push({ label: 'Sát thương', cur: `+${cur.flatDmg || 0}`, nxt: isMax ? 'MAX' : `+${nxt.flatDmg || 0}`, positive: true });
+            rows.push({ label: 'Tầm bắn', cur: `+${Math.round((cur.rangeBonusPct || 0) * 100)}%`, nxt: isMax ? 'MAX' : `+${Math.round((nxt.rangeBonusPct || 0) * 100)}%`, positive: true });
+        } else if (slot === 'optic') {
+            rows.push({ label: 'Crit Chance', cur: `+${Math.round((cur.critChance || 0) * 100)}%`, nxt: isMax ? 'MAX' : `+${Math.round((nxt.critChance || 0) * 100)}%`, positive: true });
+            rows.push({ label: 'Bạo kích', cur: `+${(cur.critDmgMod || 0).toFixed(2)}x`, nxt: isMax ? 'MAX' : `+${(nxt.critDmgMod || 0).toFixed(2)}x`, positive: true });
+        } else if (slot === 'grip') {
+            rows.push({ label: 'Giảm giật', cur: `-${Math.round((cur.recoilReduction || 0) * 100)}%`, nxt: isMax ? 'MAX' : `-${Math.round((nxt.recoilReduction || 0) * 100)}%`, positive: true });
+            rows.push({ label: 'Gom đạn', cur: `-${Math.round((cur.spreadReduction || 0) * 100)}%`, nxt: isMax ? 'MAX' : `-${Math.round((nxt.spreadReduction || 0) * 100)}%`, positive: true });
+        } else if (slot === 'magazine') {
+            rows.push({ label: 'Băng đạn', cur: `+${Math.round((cur.magBonusPct || 0) * 100)}%`, nxt: isMax ? 'MAX' : `+${Math.round((nxt.magBonusPct || 0) * 100)}%`, positive: true });
+            rows.push({ label: 'Nạp nhanh', cur: `-${Math.round((cur.reloadSpeedBonus || 0) * 100)}%`, nxt: isMax ? 'MAX' : `-${Math.round((nxt.reloadSpeedBonus || 0) * 100)}%`, positive: true });
+        }
+        return rows.map(r => `
+            <div class="th_popup-stat-row">
+                <span class="th_stat-label">${r.label}</span>
+                <span class="th_stat-cur">${r.cur}</span>
+                <span class="th_stat-arrow">→</span>
+                <span class="th_stat-nxt" style="color:${r.positive ? '#00F0FF' : '#ff6b35'}">${r.nxt}</span>
+            </div>
+        `).join('');
+    }
+
+    th_closePartPopup() {
+        const existing = document.getElementById('th_part_popup');
+        if (existing) existing.remove();
     }
 
     th_handleForge() {
@@ -437,10 +543,12 @@ export class CharacterShowroom {
             bay.classList.add('th_animating');
             setTimeout(() => bay.classList.remove('th_animating'), 900);
         }
+        this.th_closePartPopup();
         this.th_renderUpgradeWeaponList();
         this.th_syncUpgradeUI();
         this.game.updateCoinsUI?.();
     }
+
 
     getItem(id) {
         return BOMB_CONFIGS.find(b => b.id === id) || WEAPON_CONFIGS.find(w => w.id === id) || WEAPON_CONFIGS[0];

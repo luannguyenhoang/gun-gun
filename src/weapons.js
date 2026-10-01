@@ -87,7 +87,7 @@ export function th_getWeaponTier(weaponId) {
                 return Math.max(1, Math.min(5, parsed[weaponId]));
             }
         }
-    } catch {}
+    } catch { }
     return 1;
 }
 
@@ -101,7 +101,7 @@ export function th_getWeaponEnchant(weaponId) {
                 return th_ELEMENTAL_EFFECTS[parsed[weaponId]];
             }
         }
-    } catch {}
+    } catch { }
     return null;
 }
 
@@ -115,6 +115,94 @@ export function th_rollElementalEffect() {
     const rolledId = pool[Math.floor(Math.random() * pool.length)];
     return th_ELEMENTAL_EFFECTS[rolledId];
 }
+
+// ============================================================
+// HỆ THỐNG NÂNG CẤP TỪNG BỘ PHẬN VŨ KHÍ (Part-based Upgrade)
+// ============================================================
+
+/**
+ * Lấy tier hiện tại của một bộ phận cụ thể của súng
+ * @param {string} weaponId - ID súng
+ * @param {string} slot - 'optic' | 'barrel' | 'grip' | 'magazine'
+ * @returns {number} 1-5
+ */
+export function th_getPartTier(weaponId, slot) {
+    if (!weaponId || !slot) return 1;
+    try {
+        const raw = localStorage.getItem('th_weapon_parts');
+        if (raw) {
+            const data = JSON.parse(raw);
+            const wData = data[weaponId];
+            if (wData && typeof wData[slot] === 'number') {
+                return Math.max(1, Math.min(5, wData[slot]));
+            }
+        }
+    } catch { }
+    return 1;
+}
+
+/**
+ * Lấy toàn bộ tier bộ phận của một khẩu súng
+ * @param {string} weaponId
+ * @returns {{ optic: number, barrel: number, grip: number, magazine: number }}
+ */
+export function th_getWeaponParts(weaponId) {
+    return {
+        optic: th_getPartTier(weaponId, 'optic'),
+        barrel: th_getPartTier(weaponId, 'barrel'),
+        grip: th_getPartTier(weaponId, 'grip'),
+        magazine: th_getPartTier(weaponId, 'magazine'),
+    };
+}
+
+/**
+ * Tính final stats thực của súng sau khi cộng bonus từ tất cả bộ phận đã nâng cấp
+ * @param {object} weaponConfig - Config gốc từ WEAPON_CONFIGS
+ * @param {string} weaponId
+ * @returns {object} Stats đã tổng hợp bonus bộ phận
+ */
+export function th_computeWeaponFinalStats(weaponConfig, weaponId) {
+    const base = weaponConfig;
+    const parts = th_getWeaponParts(weaponId);
+
+    // Sẽ được resolve sau khi ATTACHMENT_DEFS được export
+    const _getDef = (key) => {
+        try {
+            // ATTACHMENT_DEFS được khai báo ở dưới, dùng dynamic access
+            return ATTACHMENT_DEFS[key] || {};
+        } catch { return {}; }
+    };
+
+    const bDef = _getDef(`barrel_t${parts.barrel}`);
+    const oDef = _getDef(`optic_t${parts.optic}`);
+    const gDef = _getDef(`grip_t${parts.grip}`);
+    const mDef = _getDef(`magazine_t${parts.magazine}`);
+
+    return {
+        damage: base.damage + (bDef.flatDmg || 0),
+        range: (base.range || 20) * (1 + (bDef.rangeBonusPct || 0) + (oDef.rangeBonusPct || 0)),
+        magSize: Math.floor((base.magSize || 30) * (1 + (mDef.magBonusPct || 0))),
+        reloadTime: (base.reloadTime || 1.5) * (1 - (mDef.reloadSpeedBonus || 0)),
+        critChance: (base.critChance || 0) + (oDef.critChance || 0),
+        critMultiplier: (base.critMultiplier || 2.0) + (oDef.critDmgMod || 0),
+        recoilFactor: 1 - (gDef.recoilReduction || 0),
+        spreadFactor: 1 - (gDef.spreadReduction || 0),
+        // Giữ lại các stats khác không bị ảnh hưởng
+        fireRate: base.fireRate,
+        bulletSpeed: base.bulletSpeed,
+        penPower: base.penPower,
+        pellets: base.pellets,
+        isAuto: base.isAuto,
+    };
+}
+
+// Metadata bộ phận để hiển thị UI
+export const TH_PART_META = {
+    optic: { label: 'KÍNH NGẮM', key: 'optic', costs: [0, 250, 600, 1200, 2400], rates: [1, 1.0, 0.80, 0.65, 0.45], statKey: 'Crit Chance' },
+    barrel: { label: 'NÒNG SÚNG', key: 'barrel', costs: [0, 200, 500, 1000, 2000], rates: [1, 1.0, 0.85, 0.70, 0.50], statKey: 'Sát thương' },
+    grip: { label: 'TAY CẦM', key: 'grip', costs: [0, 150, 400, 800, 1600], rates: [1, 1.0, 0.90, 0.75, 0.55], statKey: 'Giật' },
+    magazine: { label: 'BĂNG ĐẠN', key: 'magazine', costs: [0, 180, 450, 900, 1800], rates: [1, 1.0, 0.85, 0.70, 0.50], statKey: 'Băng đạn' },
+};
 
 // 4 Linh kiện Phụ kiện Nâng cấp Súng (Attachments Ecosystem theo 5 Tier)
 export const ATTACHMENT_DEFS = {

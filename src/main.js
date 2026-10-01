@@ -3,7 +3,7 @@ import { GLTFLoader } from '../libs/loaders/GLTFLoader.js';
 import { sounds } from './audio.js';
 import { ParticleSystem } from './particles.js?v=22';
 import { Arena } from './arena.js?v=22';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, th_UPGRADE_TIER_CONFIG, th_rollElementalEffect, th_getWeaponTier, th_getWeaponEnchant, th_ELEMENTAL_EFFECTS } from './weapons.js?v=41';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, th_UPGRADE_TIER_CONFIG, th_rollElementalEffect, th_getWeaponTier, th_getWeaponEnchant, th_ELEMENTAL_EFFECTS, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from './weapons.js?v=46';
 import { PlayerController } from './player.js?v=22';
 import { WaveManager, Zombie } from './enemies.js?v=39';
 import { PickupManager } from './pickups.js?v=40';
@@ -41,9 +41,11 @@ class CyberArenaGame {
         try {
             this.th_weaponTiers = JSON.parse(localStorage.getItem('th_arena_weapon_tiers') || '{}');
             this.th_weaponEnchants = JSON.parse(localStorage.getItem('th_arena_weapon_enchants') || '{}');
+            this.th_weaponParts = JSON.parse(localStorage.getItem('th_weapon_parts') || '{}');
         } catch {
             this.th_weaponTiers = {};
             this.th_weaponEnchants = {};
+            this.th_weaponParts = {};
         }
 
         if (this.developerMode) {
@@ -727,6 +729,7 @@ class CyberArenaGame {
             localStorage.setItem('arena_unlocked_weapons', JSON.stringify(this.unlockedWeapons));
             localStorage.setItem('th_arena_weapon_tiers', JSON.stringify(this.th_weaponTiers || {}));
             localStorage.setItem('th_arena_weapon_enchants', JSON.stringify(this.th_weaponEnchants || {}));
+            localStorage.setItem('th_weapon_parts', JSON.stringify(this.th_weaponParts || {}));
         } catch (e) {
             console.warn('Lỗi lưu tiến trình:', e);
         }
@@ -776,6 +779,58 @@ class CyberArenaGame {
             }
             return { success: false, tier: currentTier };
         }
+    }
+
+    // ============================================================
+    // NÂNG CẤP TỪNG BỘ PHẬN VŨ KHÍ
+    // ============================================================
+
+    /**
+     * Nâng cấp một bộ phận cụ thể của súng
+     * @param {string} weaponId
+     * @param {string} slot - 'optic' | 'barrel' | 'grip' | 'magazine'
+     */
+    th_upgradePart(weaponId, slot) {
+        const meta = TH_PART_META[slot];
+        if (!weaponId || !meta) return { success: false };
+
+        if (!this.th_weaponParts[weaponId]) {
+            this.th_weaponParts[weaponId] = {};
+        }
+
+        const currentTier = this.th_weaponParts[weaponId][slot] || 1;
+        if (currentTier >= 5) {
+            this.ui?.showPickupAlert?.(`${meta.label} ĐÃ ĐẠT CẤP TỐI ĐA!`);
+            return { success: false, max: true };
+        }
+
+        const cost = meta.costs[currentTier]; // costs[1] = T1→T2, costs[2] = T2→T3,...
+        if (this.coins < cost) {
+            this.ui?.showPickupAlert?.(`KHÔNG ĐỦ VÀNG! CẦN ${cost.toLocaleString()} VÀNG`);
+            return { success: false, notEnoughGold: true };
+        }
+
+        this.coins -= cost;
+        const rate = meta.rates[currentTier];
+        const success = Math.random() <= rate;
+
+        if (success) {
+            this.th_weaponParts[weaponId][slot] = currentTier + 1;
+            sounds.play('equip', { volume: 0.9, pitchVariation: 0.1 });
+            this.ui?.showPickupAlert?.(`NÂNG CẤP ${meta.label} THÀNH CÔNG → T${currentTier + 1}!`);
+        } else {
+            sounds.playArmorDeflect?.();
+            this.ui?.showPickupAlert?.(`NÂNG CẤP ${meta.label} THẤT BẠI! CẤP ĐỘ KHÔNG ĐỔI.`);
+        }
+
+        this.saveProgress();
+        this.updateCoinsUI();
+        return {
+            success,
+            slot,
+            tier: this.th_weaponParts[weaponId][slot] || currentTier,
+            cost
+        };
     }
 
     // Gacha Ép Khảm Hiệu Ứng Nguyên Tố (300 Vàng / lượt)
