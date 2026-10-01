@@ -36,6 +36,14 @@ export class ParticleSystem {
         });
         this.sparkGeo = new THREE.BoxGeometry(0.08, 0.08, 0.08);
         this.debrisGeo = new THREE.BoxGeometry(0.18, 0.18, 0.18);
+
+        // Geometries dùng chung cho hiệu ứng nổ (tránh tạo/hủy geometry liên tục gây lag)
+        this.fireballGeo = new THREE.IcosahedronGeometry(1.0, 2);
+        this.shockwaveGeo = new THREE.RingGeometry(0.2, 0.8, 32);
+        this.shockwaveGeo.rotateX(-Math.PI / 2);
+        this.smokeGeo = new THREE.IcosahedronGeometry(0.5, 1);
+        this.explosions = [];
+        this.maxExplosions = 12;
     }
 
     createMuzzleFlash(position, direction, color = 0x00f0ff) {
@@ -142,19 +150,135 @@ export class ParticleSystem {
         }
     }
 
-    createExplosion(position, color = 0xff6600, debrisCount = 18) {
+    createExplosion(position, color = 0xff6600, debrisCount = 18, radius = 4.0) {
         // Flash light
         const flashLight = new THREE.Object3D();
         flashLight.position.copy(position);
-        if (this.muzzleFlashes.length < 24) this.muzzleFlashes.push({
-            obj: flashLight,
-            lightColor: 0xffaa22,
-            life: 0.2,
-            maxLife: 0.2
-        });
+        if (this.muzzleFlashes.length < 24) {
+            this.muzzleFlashes.push({
+                obj: flashLight,
+                lightColor: color || 0xffaa22,
+                life: 0.22,
+                maxLife: 0.22
+            });
+        }
+
+        // Tạo chớp sáng cục bộ rực rỡ
+        if (this.effectLight) {
+            this.effectLight.color.setHex(color || 0xffaa22);
+            this.effectLight.intensity = 18;
+            this.effectLight.position.copy(position);
+        }
+
+        // Tạo cụm hiệu ứng thị giác nổ 3D (Fireball + Shockwave ring + Smoke billows)
+        if (this.explosions.length < this.maxExplosions) {
+            const expGroup = new THREE.Group();
+            expGroup.position.copy(position);
+
+            // 1. Quả cầu lửa lõi sáng trắng chớp tắt nhanh
+            const coreMat = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 1.0,
+                blending: THREE.AdditiveBlending
+            });
+            const coreMesh = new THREE.Mesh(this.fireballGeo, coreMat);
+            coreMesh.scale.setScalar(0.4);
+            expGroup.add(coreMesh);
+
+            // 2. Quả cầu lửa bùng nổ chính
+            const fireMat = new THREE.MeshBasicMaterial({
+                color: color || 0xff5500,
+                transparent: true,
+                opacity: 0.95,
+                blending: THREE.AdditiveBlending
+            });
+            const fireMesh = new THREE.Mesh(this.fireballGeo, fireMat);
+            fireMesh.scale.setScalar(0.6);
+            expGroup.add(fireMesh);
+
+            // 3. Các khối lửa phụ cuộn quanh tạo chùm nổ tự nhiên
+            const billows = [];
+            for (let b = 0; b < 3; b++) {
+                const bMat = new THREE.MeshBasicMaterial({
+                    color: color || 0xff6600,
+                    transparent: true,
+                    opacity: 0.8,
+                    blending: THREE.AdditiveBlending
+                });
+                const bMesh = new THREE.Mesh(this.fireballGeo, bMat);
+                bMesh.position.set(
+                    (Math.random() - 0.5) * 0.6,
+                    Math.random() * 0.4,
+                    (Math.random() - 0.5) * 0.6
+                );
+                bMesh.scale.setScalar(0.35 + Math.random() * 0.25);
+                expGroup.add(bMesh);
+                billows.push({ mesh: bMesh, mat: bMat });
+            }
+
+            // 4. Vòng sóng xung kích lan tỏa trên mặt đất (Ground Shockwave Ring)
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: color || 0xff7722,
+                transparent: true,
+                opacity: 0.85,
+                blending: THREE.AdditiveBlending,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            const ringMesh = new THREE.Mesh(this.shockwaveGeo, ringMat);
+            ringMesh.position.y = 0.05 - position.y; // Căn sát mặt đất world y ~ 0.05
+            ringMesh.scale.setScalar(0.5);
+            expGroup.add(ringMesh);
+
+            // 5. Cụm khói đen/xám bốc lên cuồn cuộn
+            const smokePuffs = [];
+            for (let s = 0; s < 5; s++) {
+                const sMat = new THREE.MeshBasicMaterial({
+                    color: 0x222226,
+                    transparent: true,
+                    opacity: 0.55
+                });
+                const sMesh = new THREE.Mesh(this.smokeGeo, sMat);
+                sMesh.position.set(
+                    (Math.random() - 0.5) * 0.8,
+                    Math.random() * 0.5,
+                    (Math.random() - 0.5) * 0.8
+                );
+                const sVel = new THREE.Vector3(
+                    (Math.random() - 0.5) * 1.5,
+                    1.2 + Math.random() * 1.8,
+                    (Math.random() - 0.5) * 1.5
+                );
+                expGroup.add(sMesh);
+                smokePuffs.push({
+                    mesh: sMesh,
+                    mat: sMat,
+                    velocity: sVel,
+                    rotVel: (Math.random() - 0.5) * 4
+                });
+            }
+
+            this.scene.add(expGroup);
+
+            this.explosions.push({
+                group: expGroup,
+                coreMesh,
+                coreMat,
+                fireMesh,
+                fireMat,
+                billows,
+                ringMesh,
+                ringMat,
+                smokePuffs,
+                age: 0,
+                maxLife: 0.85,
+                targetRadius: radius || 4.0
+            });
+        }
 
         // Sparks
-        this.createImpactSparks(position, new THREE.Vector3(0, 1, 0), 0xffaa00, 24);
+        this.createImpactSparks(position, new THREE.Vector3(0, 1, 0), color || 0xffaa00, 24);
 
         // Debris pieces
         const debrisColors = [0x333333, 0xff5500, 0x8899aa, 0x111111];
@@ -283,6 +407,81 @@ export class ParticleSystem {
                 d.mesh.scale.set(s, s, s);
             }
         }
+        // Update explosions
+        for (let i = this.explosions.length - 1; i >= 0; i--) {
+            const exp = this.explosions[i];
+            exp.age += delta;
+
+            if (exp.age >= exp.maxLife) {
+                this.scene.remove(exp.group);
+                exp.coreMat?.dispose();
+                exp.fireMat?.dispose();
+                exp.ringMat?.dispose();
+                for (const b of exp.billows) b.mat?.dispose();
+                for (const s of exp.smokePuffs) s.mat?.dispose();
+                this.explosions.splice(i, 1);
+                continue;
+            }
+
+            // Lõi trắng nở cực nhanh và tắt trong 0.2s
+            if (exp.coreMesh && exp.coreMat) {
+                if (exp.age < 0.2) {
+                    const coreT = exp.age / 0.2;
+                    const scale = 0.4 + (exp.targetRadius * 0.6) * (1 - Math.pow(1 - coreT, 2));
+                    exp.coreMesh.scale.setScalar(scale);
+                    exp.coreMat.opacity = 1 - coreT;
+                } else {
+                    exp.coreMesh.visible = false;
+                }
+            }
+
+            // Quả cầu lửa chính nở to và mờ dần trong 0.45s
+            if (exp.fireMesh && exp.fireMat) {
+                if (exp.age < 0.45) {
+                    const fireT = exp.age / 0.45;
+                    const scale = 0.6 + (exp.targetRadius * 0.85) * (1 - Math.pow(1 - fireT, 3));
+                    exp.fireMesh.scale.setScalar(scale);
+                    exp.fireMat.opacity = Math.max(0, 0.95 * (1 - fireT));
+                } else {
+                    exp.fireMesh.visible = false;
+                }
+            }
+
+            // Các khối lửa billow cuộn xoay nhẹ
+            for (const b of exp.billows) {
+                if (exp.age < 0.45) {
+                    const fireT = exp.age / 0.45;
+                    b.mesh.scale.setScalar((0.5 + exp.targetRadius * 0.6) * (1 - Math.pow(1 - fireT, 2.5)));
+                    b.mat.opacity = Math.max(0, 0.8 * (1 - fireT));
+                    b.mesh.rotation.y += delta * 2.0;
+                } else {
+                    b.mesh.visible = false;
+                }
+            }
+
+            // Vòng sóng xung kích lan tỏa trên mặt đất trong 0.38s
+            if (exp.ringMesh && exp.ringMat) {
+                if (exp.age < 0.38) {
+                    const ringT = exp.age / 0.38;
+                    const ringScale = 0.5 + (exp.targetRadius * 1.5) * (1 - Math.pow(1 - ringT, 2));
+                    exp.ringMesh.scale.setScalar(ringScale);
+                    exp.ringMat.opacity = Math.max(0, 0.85 * (1 - ringT * ringT));
+                } else {
+                    exp.ringMesh.visible = false;
+                }
+            }
+
+            // Khói bốc lên cuồn cuộn và tan dần
+            for (const s of exp.smokePuffs) {
+                s.mesh.position.addScaledVector(s.velocity, delta);
+                s.velocity.y += delta * 0.5;
+                s.mesh.rotation.y += s.rotVel * delta;
+                const smokeT = exp.age / exp.maxLife;
+                const sScale = 0.6 + (exp.targetRadius * 0.4) * (0.5 + smokeT * 1.5);
+                s.mesh.scale.setScalar(sScale);
+                s.mat.opacity = Math.max(0, 0.55 * (1 - smokeT));
+            }
+        }
     }
 
     clear() {
@@ -301,9 +500,18 @@ export class ParticleSystem {
                 c.material?.dispose();
             });
         }
+        for (const exp of this.explosions) {
+            this.scene.remove(exp.group);
+            exp.coreMat?.dispose();
+            exp.fireMat?.dispose();
+            exp.ringMat?.dispose();
+            for (const b of exp.billows) b.mat?.dispose();
+            for (const s of exp.smokePuffs) s.mat?.dispose();
+        }
         this.effectLight.intensity = 0;
         this.particles = [];
         this.debris = [];
         this.muzzleFlashes = [];
+        this.explosions = [];
     }
 }

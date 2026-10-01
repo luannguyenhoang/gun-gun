@@ -380,7 +380,7 @@ class CyberArenaGame {
             this.ui.showBanner('MUTANT OVERLORD DESTROYED!');
         } else if (enemy.type === 'boomer') {
             // Boomer Explosion
-            this.particles.createExplosion(enemy.position.clone().add(new THREE.Vector3(0, 1, 0)), 0x55aa33, 40);
+            this.particles.createExplosion(enemy.position.clone().add(new THREE.Vector3(0, 1, 0)), 0x55aa33, 40, explosionRadius);
             sounds.play('enemyDestroy', { volume: 1.0 });
             
             const explosionRadius = 4.5;

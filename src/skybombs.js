@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { sounds } from './audio.js';
 
 // Host owns damage; guests only render the replicated warning and falling bomb.
 export class SkyBombs {
@@ -18,20 +19,30 @@ export class SkyBombs {
         b.mesh.visible = b.remaining <= .8;
     }
     remove(id, explode = false) {
-        const b=this.items.get(id); if(!b)return;
-        if(explode)this.particles?.createExplosion?.(b.target,0xff6622,24);
-        for(const mesh of [b.ring,b.mesh]){mesh.removeFromParent();mesh.geometry.dispose();mesh.material.dispose();}
+        const b = this.items.get(id); if (!b) return;
+        if (explode) {
+            this.particles?.createExplosion?.(b.target, 0xff4411, 28, (b.radius || 2.5) * 1.5);
+            sounds?.play?.('enemyDestroy', { volume: 1.0, rate: 0.85 });
+        }
+        for (const mesh of [b.ring, b.mesh]) { mesh.removeFromParent(); mesh.geometry.dispose(); mesh.material.dispose(); }
         this.items.delete(id);
     }
     update(delta, players = [], authoritative = true) {
-        for(const b of this.items.values()) {
-            b.remaining = Math.max(0,b.remaining-delta); this.draw(b);
-            if(b.remaining>0 || !authoritative)continue;
-            for(const p of players) {
-                if(!p.isDead && Math.hypot(p.position.x-b.target.x,p.position.z-b.target.z)<=b.radius)
-                    p.takeDamage(b.damage,p.position.clone().sub(b.target).setY(0).normalize());
+        for (const b of this.items.values()) {
+            b.remaining = Math.max(0, b.remaining - delta); this.draw(b);
+            if (b.remaining > 0 || !authoritative) continue;
+            for (const p of players) {
+                if (!p.isDead) {
+                    const dist = Math.hypot(p.position.x - b.target.x, p.position.z - b.target.z);
+                    if (dist <= b.radius) {
+                        p.takeDamage(b.damage, p.position.clone().sub(b.target).setY(0).normalize());
+                        p.applyKickbackAndShake?.(3.5, 0.4);
+                    } else if (dist <= b.radius * 2.2) {
+                        p.applyKickbackAndShake?.(1.5, 0.2);
+                    }
+                }
             }
-            this.remove(b.id,true);
+            this.remove(b.id, true);
         }
     }
     snapshot(){return [...this.items.values()].map(b=>({id:b.id,position:b.target.toArray(),remaining:b.remaining,damage:b.damage}));}

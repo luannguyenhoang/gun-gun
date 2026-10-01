@@ -260,8 +260,9 @@ export class Arena {
 
     buildSpawnPortals() {
         // 8 cổng spawn xung quanh biên map mới (halfSize = 25)
-        // portalDist = 24.0 → nằm trong tường boundary, getPortalSpawnPosition trả về vị trí hợp lệ
-        const portalDist = 24.0;
+        // portalDist = halfSize + 1 = 26 → gate nằm đúng tại vị trí tile tường
+        const portalDist = 26;
+
         const offset = 10;
         const portalDefs = [
             { name: 'Cổng Bắc 1', pos: new THREE.Vector3(-offset, 0, -portalDist), rot: 0, spawnDir: new THREE.Vector3(0, 0, 1) },

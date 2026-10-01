@@ -550,20 +550,24 @@ body, html {
     font-size: 16px;
     font-weight: 800;
     color: #ffffff;
-    text-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+    text-shadow: 0 0 6px rgba(0, 0, 0, 0.9), 1px 1px 2px #000;
+    pointer-events: none;
+    user-select: none;
+    white-space: nowrap;
+    transform: translate(-50%, -50%);
     animation: floatUp 0.8s forwards ease-out;
 }
 
 .damage-popup.crit {
     font-size: 22px;
     color: var(--red);
-    text-shadow: 0 0 10px var(--red);
+    text-shadow: 0 0 10px var(--red), 0 0 4px #000;
 }
 
 @keyframes floatUp {
-    0% { transform: translateY(0) scale(0.8); opacity: 1; }
-    50% { transform: translateY(-25px) scale(1.1); opacity: 1; }
-    100% { transform: translateY(-50px) scale(0.9); opacity: 0; }
+    0% { transform: translate(-50%, -50%) translateY(0) scale(0.8); opacity: 1; }
+    40% { transform: translate(-50%, -50%) translateY(-22px) scale(1.15); opacity: 1; }
+    100% { transform: translate(-50%, -50%) translateY(-48px) scale(0.85); opacity: 0; }
 }
 
 /* Bottom Right: Weapon Card */
