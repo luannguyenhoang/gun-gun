@@ -8,219 +8,85 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="zappets.css"><link rel="stylesheet" href="combat.css?v=40"><link rel="stylesheet" href="showroom.css?v=32">
+    <link rel="stylesheet" href="zappets.css"><link rel="stylesheet" href="combat.css?v=43"><link rel="stylesheet" href="showroom.css?v=43">
     <link rel="stylesheet" href="ux.css">
     <style>
       #armory-grid-section { display: none; }
-      .weapon-mode .character-showcase { display: none !important; }
       .weapon-mode #character-cards { display: none !important; }
+
+      /* Khi ở Kho Vũ Khí: chuyển container sang chế độ absolute độc lập, vô hiệu hóa Grid của ux.css */
+      #character-screen[open].weapon-mode {
+        display: block !important;
+        position: fixed !important;
+      }
+
+      /* Sân khấu nhân vật 3D cùng 4 ô trang bị hiển thị rõ nét ở cột bên phải */
+      .weapon-mode .character-showcase {
+        display: block !important;
+        position: absolute !important;
+        top: 80px !important;
+        right: 24px !important;
+        bottom: 184px !important;
+        left: auto !important;
+        width: 38% !important;
+        max-width: 520px !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+        z-index: 5 !important;
+      }
+
+      .weapon-mode .armory-rig-overlay {
+        display: flex !important;
+      }
+
+      .weapon-mode .armory-mini-panel {
+        position: absolute !important;
+        right: 24px !important;
+        bottom: 96px !important;
+        width: 38% !important;
+        max-width: 520px !important;
+        display: flex !important;
+        z-index: 6 !important;
+      }
+
+      .weapon-mode .character-action {
+        position: absolute !important;
+        bottom: 24px !important;
+        right: 24px !important;
+        width: 38% !important;
+        max-width: 520px !important;
+        z-index: 6 !important;
+      }
+
       .weapon-mode #armory-grid-section {
         display: flex !important;
         flex-direction: column;
         position: absolute;
-        top: 84px;
+        top: 80px;
         left: 24px;
         bottom: 24px;
-        right: calc(31% + 44px) !important;
+        right: calc(38% + 36px) !important;
         width: auto !important;
         z-index: 10;
         box-sizing: border-box;
       }
+
+      /* Đảm bảo thẻ súng bị ẩn hoàn toàn khi bị lọc */
+      .weapon-card.filter-hidden {
+        display: none !important;
+      }
+
       @media (max-width: 1000px) and (min-width: 701px) {
         .weapon-mode #armory-grid-section {
-          right: calc(38% + 36px) !important;
+          right: calc(44% + 24px) !important;
         }
-      }
-      @media (max-height: 700px) and (min-width: 701px) {
-        .weapon-mode #armory-grid-section {
-          top: 72px !important;
-          bottom: 16px !important;
+        .weapon-mode .character-showcase,
+        .weapon-mode .armory-mini-panel,
+        .weapon-mode .character-action {
+          width: 44% !important;
         }
-      }
-      .armory-grid-toolbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-        padding: 6px 12px;
-        background: rgba(36, 26, 46, 0.88);
-        border: 2px solid #4a365b;
-        border-radius: 12px;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
-      }
-      .armory-filter-tabs {
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
-      }
-      .armory-filter-btn {
-        border: 1px solid #5a426f;
-        background: #322340;
-        color: #c4b5d4;
-        padding: 5px 12px;
-        border-radius: 8px;
-        font-size: 11px;
-        font-weight: 1000;
-        cursor: pointer;
-        transition: all 0.15s ease;
-      }
-      .armory-filter-btn:hover {
-        background: #47325b;
-        color: #fff;
-        border-color: #8b5cf6;
-      }
-      .armory-filter-btn.active {
-        background: #ffd079 !important;
-        color: #261b30 !important;
-        border-color: #ffd079 !important;
-        box-shadow: 0 2px 8px rgba(255, 208, 121, 0.4);
-      }
-      .armory-count-badge {
-        font-size: 11px;
-        font-weight: 1000;
-        color: #f7d381;
-        background: #23182e;
-        padding: 5px 12px;
-        border-radius: 8px;
-        border: 1px solid #4a365b;
-        white-space: nowrap;
-      }
-      #weapon-cards.armory-weapons-grid {
-        flex: 1;
-        width: 100%;
-        display: grid !important;
-        grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)) !important;
-        gap: 12px !important;
-        padding: 12px !important;
-        background: rgba(26, 18, 34, 0.82) !important;
-        border: 2px solid #443254 !important;
-        border-radius: 16px !important;
-        box-shadow: inset 0 3px 14px rgba(0, 0, 0, 0.55), 0 8px 24px rgba(0, 0, 0, 0.25) !important;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-        scrollbar-width: thin !important;
-        scrollbar-color: #ffd079 #261b30 !important;
-        align-content: start !important;
-        box-sizing: border-box !important;
-      }
-      #weapon-cards::-webkit-scrollbar { width: 8px; }
-      #weapon-cards::-webkit-scrollbar-track { background: #261b30; border-radius: 4px; }
-      #weapon-cards::-webkit-scrollbar-thumb { background: #ffd079; border-radius: 4px; }
-
-      .weapon-card {
-        width: 100% !important;
-        height: 176px !important;
-        position: relative !important;
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: space-between !important;
-        align-items: center !important;
-        padding: 8px 7px !important;
-        border-radius: 12px !important;
-        background: linear-gradient(150deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.35)), #2a1e35 !important;
-        border: 2px solid #4a365b !important;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35) !important;
-        cursor: pointer !important;
-        box-sizing: border-box !important;
-        transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease !important;
-        flex-shrink: 0 !important;
-      }
-      .weapon-card:hover {
-        transform: translateY(-4px) !important;
-        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5) !important;
-        border-color: #c084fc !important;
-      }
-      .weapon-card.previewing {
-        outline: 3px solid #facc15 !important;
-        outline-offset: 2px !important;
-        box-shadow: 0 0 16px rgba(250, 204, 21, 0.75), inset 0 0 10px rgba(250, 204, 21, 0.25) !important;
-        border-color: #fde047 !important;
-        transform: translateY(-2px) !important;
-      }
-      .weapon-card-header {
-        width: 100% !important;
-        display: flex !important;
-        justify-content: space-between !important;
-        align-items: center !important;
-        margin-bottom: 2px !important;
-      }
-      .weapon-tier-badge {
-        font-size: 8px !important;
-        font-weight: 1000 !important;
-        padding: 2px 6px !important;
-        border-radius: 4px !important;
-        text-transform: uppercase !important;
-        color: #fff !important;
-      }
-      .weapon-tier-badge.tier-1 { background: #64748b !important; }
-      .weapon-tier-badge.tier-2 { background: #16a34a !important; }
-      .weapon-tier-badge.tier-3 { background: #2563eb !important; }
-      .weapon-tier-badge.tier-4 { background: #9333ea !important; }
-      .weapon-tier-badge.tier-5 { background: #d97706 !important; }
-      .weapon-category-tag {
-        font-size: 8px !important;
-        font-weight: 800 !important;
-        color: #b7a4c7 !important;
-        max-width: 65px !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        white-space: nowrap !important;
-      }
-      .weapon-card-portrait {
-        width: 100% !important;
-        height: 76px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        position: relative !important;
-        border-radius: 8px !important;
-        background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08), transparent 70%) !important;
-      }
-      .weapon-card-portrait img {
-        max-width: 92% !important;
-        max-height: 92% !important;
-        object-fit: contain !important;
-        filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.6)) !important;
-        transform: none !important;
-        padding: 0 !important;
-      }
-      .weapon-card-name {
-        font-size: 11px !important;
-        font-weight: 1000 !important;
-        text-align: center !important;
-        width: 100% !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        color: #fff !important;
-        margin: 2px 0 !important;
-        position: static !important;
-        -webkit-text-stroke: 1px #22172d !important;
-        text-shadow: 0 1px 2px #000 !important;
-      }
-      .weapon-card-status {
-        width: 100% !important;
-        padding: 4px 0 !important;
-        text-align: center !important;
-        font-size: 9px !important;
-        font-weight: 1000 !important;
-        border-radius: 6px !important;
-        background: #1c1524 !important;
-        color: #c4b5d4 !important;
-        border: 1px solid #3d2b4b !important;
-        position: static !important;
-      }
-      .weapon-card.equipped { border-color: #22c55e !important; }
-      .weapon-card.equipped .weapon-card-status {
-        background: #14532d !important;
-        color: #86efac !important;
-        border-color: #22c55e !important;
-      }
-      .weapon-card.locked { filter: brightness(0.92) !important; }
-      .weapon-card.locked .weapon-card-status {
-        color: #fbbf24 !important;
-        background: #382414 !important;
-        border-color: #b45309 !important;
       }
       @media (max-width: 700px) {
         .weapon-mode #armory-grid-section {
@@ -942,6 +808,47 @@
         <div class="character-ground" aria-hidden="true"></div>
         <div id="character-stage" tabindex="0" role="img" aria-label="Xem nhân vật 3D. Kéo hoặc dùng phím mũi tên trái, phải để xoay."><span id="character-load-status" role="status">ĐANG TẢI NHÂN VẬT…</span></div>
         <span class="character-rotate-hint">↔ KÉO ĐỂ XOAY NHÂN VẬT</span>
+
+        <!-- 4 Ô Trang Bị Loadout Quanh Nhân Vật 3D (Bên trái: Chính & Phụ; Bên phải: Bom 1 & Bom 2) -->
+        <div class="armory-rig-overlay" id="armory-rig-overlay">
+          <!-- Cụm bên trái nhân vật: Súng chính (trên) & Súng phụ (dưới) -->
+          <div class="armory-rig-col rig-col-left">
+            <button class="rig-slot-card" data-rig-slot="primary" title="Bấm để xem và đổi Vũ khí chính [1]">
+              <span class="rig-slot-tag">VŨ KHÍ CHÍNH</span>
+              <div class="rig-slot-thumb">
+                <img id="rig-img-primary" src="assets/previews/kenney-blaster/blaster-c.png" alt="Súng chính">
+              </div>
+              <strong class="rig-slot-name" id="rig-name-primary">BLASTER-C</strong>
+            </button>
+
+            <button class="rig-slot-card" data-rig-slot="secondary" title="Bấm để xem và đổi Vũ khí phụ [2]">
+              <span class="rig-slot-tag">VŨ KHÍ PHỤ</span>
+              <div class="rig-slot-thumb">
+                <img id="rig-img-secondary" src="assets/previews/kenney-blaster/blaster-a.png" alt="Súng phụ">
+              </div>
+              <strong class="rig-slot-name" id="rig-name-secondary">BLASTER-A</strong>
+            </button>
+          </div>
+
+          <!-- Cụm bên phải nhân vật: Bom 1 (trên) & Bom 2 (dưới) -->
+          <div class="armory-rig-col rig-col-right">
+            <button class="rig-slot-card" data-rig-slot="bomb1" title="Bấm để xem và đổi Bom 1 [3]">
+              <span class="rig-slot-tag">BOM 1</span>
+              <div class="rig-slot-thumb">
+                <img id="rig-img-bomb1" src="assets/previews/kenney-blaster/grenade-a.png" alt="Bom 1">
+              </div>
+              <strong class="rig-slot-name" id="rig-name-bomb1">LỰU ĐẠN A</strong>
+            </button>
+
+            <button class="rig-slot-card" data-rig-slot="bomb2" title="Bấm để xem và đổi Bom 2 [4]">
+              <span class="rig-slot-tag">BOM 2</span>
+              <div class="rig-slot-thumb">
+                <img id="rig-img-bomb2" src="assets/previews/kenney-blaster/grenade-b.png" alt="Bom 2">
+              </div>
+              <strong class="rig-slot-name" id="rig-name-bomb2">LỰU ĐẠN B</strong>
+            </button>
+          </div>
+        </div>
       </div>
       <section class="character-info" aria-label="Thông tin nhân vật">
         <header><div><h1 id="character-name">LÍNH</h1><span id="character-subtitle">CHIẾN BINH TIỀN TUYẾN</span></div><span class="character-owned">✓ SỞ HỮU</span></header>
@@ -959,53 +866,33 @@
           <p class="character-balance-note">Mọi nhân vật có cùng chỉ số khởi đầu.</p>
         </div>
       </section>
-      <section id="armory-info" class="character-info" aria-label="Thông tin vũ khí">
-        <header><div><h1 id="armory-name">BLASTER-X</h1><span id="armory-category">SÚNG CHÍNH</span></div><span class="character-owned">KHỞI ĐẦU</span></header>
-        <div class="character-info-body">
-          <div class="armory-product"><img id="armory-image" alt="Model súng Kenney Blaster Kit"><span>KENNEY · BLASTER KIT</span></div>
-          <div class="character-stats"><div><small>SÁT THƯƠNG</small><b id="armory-damage">28</b><em>MỖI PHÁT</em></div><div><small>TỐC ĐỘ BẮN</small><b id="armory-rate">5.6</b><em>PHÁT / GIÂY</em></div><div><small>BĂNG ĐẠN</small><b id="armory-ammo">16</b><em>VIÊN</em></div><div><small>NẠP ĐẠN</small><b id="armory-reload">1.15s</b><em>THỜI GIAN</em></div><div><small>TẦM BẮN</small><b id="armory-range">16m</b><em>HIỆU DỤNG</em></div></div>
-          <div class="armory-tags"><span id="armory-fire-mode">BÁN TỰ ĐỘNG</span><span id="armory-reserve">96 VIÊN DỰ TRỮ</span></div>
-          <p id="armory-description" class="character-description"></p>
-          <p class="character-balance-note">Súng đã trang bị sẽ theo bạn vào trận mới. Dao và túi cứu thương vẫn được giữ lại.</p>
+
+      <!-- Bảng Thông Số Vũ Khí Nhỏ Gọn Đặt Dưới Chân Nhân Vật Khi Ở Kho Vũ Khí -->
+      <section id="armory-mini-panel" class="armory-mini-panel" aria-label="Thông số vũ khí">
+        <div class="mini-panel-header">
+          <div class="mini-title-wrap">
+            <h3 id="armory-name">BLASTER-C PHANTOM</h3>
+            <span id="armory-category" class="mini-cat-tag">SÚNG TRƯỜNG CHIẾN THUẬT · CẤP 2</span>
+          </div>
+          <span class="mini-status-badge" id="armory-status-badge">ĐÃ SỞ HỮU</span>
+        </div>
+        <div class="mini-stats-grid">
+          <div class="mini-stat-item"><small>SÁT THƯƠNG</small><b id="armory-damage">36</b></div>
+          <div class="mini-stat-item"><small>TỐC ĐỘ</small><b id="armory-rate">3.8</b></div>
+          <div class="mini-stat-item"><small>BĂNG ĐẠN</small><b id="armory-ammo">30</b></div>
+          <div class="mini-stat-item"><small>NẠP ĐẠN</small><b id="armory-reload">1.3s</b></div>
+          <div class="mini-stat-item"><small>TẦM BẮN</small><b id="armory-range">22m</b></div>
         </div>
       </section>
+
       <!-- Khu vực Kho Vũ Khí dạng Lưới Grid (Chỉ hiển thị khi ở tab VŨ KHÍ) -->
       <section id="armory-grid-section" class="armory-grid-section" aria-label="Danh sách vũ khí">
-        <!-- Thanh 4 Ô Trang Bị Loadout -->
-        <div class="armory-loadout-bar">
-          <div class="loadout-slot-box" data-loadout-slot="primary" title="Bấm để lọc danh sách Súng chính">
-            <span class="loadout-slot-tag">SÚNG CHÍNH [1]</span>
-            <div class="loadout-slot-thumb"><img id="loadout-img-primary" src="assets/previews/kenney-blaster/blaster-c.png" alt="Súng chính"></div>
-            <strong id="loadout-name-primary">BLASTER-C</strong>
-          </div>
-          <div class="loadout-slot-box" data-loadout-slot="secondary" title="Bấm để lọc danh sách Súng phụ (Lục)">
-            <span class="loadout-slot-tag">SÚNG PHỤ [2]</span>
-            <div class="loadout-slot-thumb"><img id="loadout-img-secondary" src="assets/previews/kenney-blaster/blaster-a.png" alt="Súng phụ"></div>
-            <strong id="loadout-name-secondary">BLASTER-A</strong>
-          </div>
-          <div class="loadout-slot-box" data-loadout-slot="bomb1" title="Bấm để lọc Bom 1">
-            <span class="loadout-slot-tag">Ô BOM 1 [3]</span>
-            <div class="loadout-slot-thumb"><img id="loadout-img-bomb1" src="assets/previews/kenney-blaster/grenade-a.png" alt="Bom 1"></div>
-            <strong id="loadout-name-bomb1">LỰU ĐẠN A</strong>
-          </div>
-          <div class="loadout-slot-box" data-loadout-slot="bomb2" title="Bấm để lọc Bom 2">
-            <span class="loadout-slot-tag">Ô BOM 2 [4]</span>
-            <div class="loadout-slot-thumb"><img id="loadout-img-bomb2" src="assets/previews/kenney-blaster/grenade-b.png" alt="Bom 2"></div>
-            <strong id="loadout-name-bomb2">LỰU ĐẠN B</strong>
-          </div>
-        </div>
-
-        <div class="armory-grid-toolbar">
-          <div class="armory-filter-tabs">
-            <button class="armory-filter-btn active" data-armory-filter="all">TẤT CẢ (20)</button>
-            <button class="armory-filter-btn" data-armory-filter="primary">SÚNG CHÍNH</button>
-            <button class="armory-filter-btn" data-armory-filter="secondary">SÚNG PHỤ (LỤC)</button>
-            <button class="armory-filter-btn" data-armory-filter="bomb">BOM &amp; LỰU ĐẠN</button>
-            <button class="armory-filter-btn" data-armory-filter="1">CẤP 1</button>
-            <button class="armory-filter-btn" data-armory-filter="2">CẤP 2</button>
-            <button class="armory-filter-btn" data-armory-filter="3">CẤP 3</button>
-            <button class="armory-filter-btn" data-armory-filter="4">CẤP 4</button>
-            <button class="armory-filter-btn" data-armory-filter="5">HUYỀN THOẠI</button>
+        <!-- 3 TAB LỚN PHÂN LOẠI: VŨ KHÍ CHÍNH | VŨ KHÍ PHỤ | TRANG BỊ KHÁC -->
+        <div class="armory-cat-bar">
+          <div class="armory-cat-buttons">
+            <button class="armory-cat-btn active" data-armory-cat="primary">VŨ KHÍ CHÍNH</button>
+            <button class="armory-cat-btn" data-armory-cat="secondary">VŨ KHÍ PHỤ</button>
+            <button class="armory-cat-btn" data-armory-cat="other">TRANG BỊ KHÁC</button>
           </div>
           <span class="armory-count-badge" id="armory-unlocked-count">SỞ HỮU: 5/20</span>
         </div>
@@ -1069,6 +956,6 @@
     </div>
 
     <!-- Main Game Script -->
-    <script src="libs/qrcode.min.js"></script><script type="module" src="src/main.js?v=40"></script>
+    <script src="libs/qrcode.min.js"></script><script type="module" src="src/main.js?v=43"></script>
 </body>
 </html>
