@@ -59,11 +59,11 @@
     display: block !important;
     position: absolute !important;
     top: 80px !important;
-    right: 24px !important;
+    right: 20px !important;
     bottom: 184px !important;
     left: auto !important;
-    width: 38% !important;
-    max-width: 520px !important;
+    width: 42% !important;
+    max-width: 580px !important;
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
@@ -110,11 +110,11 @@
 }
 
 .rig-slot-card {
-    width: 104px;
+    width: 94px;
     background: linear-gradient(145deg, rgba(46, 32, 60, 0.95), rgba(24, 16, 33, 0.95));
     border: 3px solid #ef4444; /* Viền đỏ bo góc nổi bật chuẩn ảnh phác thảo của user */
     border-radius: 14px;
-    padding: 7px 6px;
+    padding: 6px 4px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -183,10 +183,10 @@
 /* Bảng Thông Số Nhỏ Gọn Đặt Dưới Chân Nhân Vật (Cột Phải) */
 .armory-mini-panel {
     position: absolute;
-    right: 24px;
+    right: 20px;
     bottom: 96px;
-    width: 38%;
-    max-width: 520px;
+    width: 42%;
+    max-width: 580px;
     border: 2px solid #3d2b4f;
     border-radius: 12px;
     background: linear-gradient(135deg, rgba(38, 27, 49, 0.95), rgba(22, 15, 30, 0.95));
@@ -269,9 +269,9 @@
 .weapon-mode .character-action {
     position: absolute;
     bottom: 24px;
-    right: 24px;
-    width: 38%;
-    max-width: 520px;
+    right: 20px;
+    width: 42%;
+    max-width: 580px;
     z-index: 6;
 }
 
@@ -294,9 +294,9 @@
     flex-direction: column;
     position: absolute;
     top: 80px;
-    left: 24px;
+    left: 20px;
     bottom: 24px;
-    right: calc(38% + 36px);
+    right: calc(42% + 24px);
     width: auto;
     z-index: 5;
     box-sizing: border-box;

@@ -719,7 +719,7 @@ export const BOMB_CONFIGS = [
         isBomb: true,
         throwRange: 14.0,
         blastRadius: 5.0,
-        damage: 160,
+        damage: 1600,
         knockback: 10.0,
         fuseTime: 0.65,
         modelFile: 'kenney-blaster/grenade-a.glb',
@@ -734,7 +734,7 @@ export const BOMB_CONFIGS = [
         category: 'LỰU ĐẠN TÁC CHIẾN',
         slotType: 'bomb',
         tier: 3,
-        price: 350,
+        price: 3500,
         isBomb: true,
         throwRange: 14.0,
         blastRadius: 5.5,
@@ -862,7 +862,7 @@ export function updateHeldWeaponPose(mesh, hand, character) {
         _heldFacing.multiply(_barrelCorrection);
     }
     mesh.quaternion.copy(_heldParentRotation.invert().multiply(_heldFacing));
-    
+
     // Động tác thay đạn bằng Code (Procedural Reload Animation)
     if (mesh.userData.reloadProgress !== undefined && mesh.userData.reloadProgress < 1.0) {
         const p = mesh.userData.reloadProgress;
@@ -872,16 +872,16 @@ export function updateHeldWeaponPose(mesh, hand, character) {
         const reloadRot = new THREE.Quaternion().setFromEuler(new THREE.Euler(-dip * 1.0, 0, -dip * 0.5));
         mesh.quaternion.multiply(reloadRot);
     }
-    
+
     mesh.position.copy(mesh.userData.gripOffset).applyQuaternion(mesh.quaternion).add(mesh.userData.handOffset);
-    
+
     // Giật súng xuống thấp khi thay đạn
     if (mesh.userData.reloadProgress !== undefined && mesh.userData.reloadProgress < 1.0) {
         const dip = Math.sin(mesh.userData.reloadProgress * Math.PI);
-        mesh.position.y -= dip * 0.15; 
+        mesh.position.y -= dip * 0.15;
         mesh.position.z += dip * 0.1;
     }
-    
+
     mesh.updateWorldMatrix(false, true);
 }
 
@@ -2254,14 +2254,9 @@ export class WeaponSystem {
                             }
                         }
 
-                        // Hiệu ứng Đồ Huyền Thoại (Tier 5): Bắn lan (Area of Effect Splash Damage)
-                        if (p.hasLegendary) {
-                            this.particles?.createExplosion?.(hitInfo.point, 0xf59e0b, 16);
-                            for (const other of enemies) {
-                                if (other !== enemy && !other.isDead && other.position.distanceTo(hitInfo.point) <= 3.2) {
-                                    other.takeDamage(finalDamage * 0.45, 1, false, other.position.clone().sub(hitInfo.point).normalize());
-                                }
-                            }
+                        // Hiệu ứng Đồ Huyền Thoại (Tier 5): Tia lửa va chạm hoàng kim uy lực (Chỉ vũ khí isExplosive mới tạo vụ nổ AoE)
+                        if (p.hasLegendary && !p.isExplosive) {
+                            this.particles?.createImpactSparks?.(hitInfo.point, p.direction.clone().negate(), 0xf59e0b, 12);
                         }
 
                         sounds.playHitMarker(isCrit);

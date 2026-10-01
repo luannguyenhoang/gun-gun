@@ -89,7 +89,7 @@ export class CharacterShowroom {
         const key = new THREE.DirectionalLight(0xffffff, 3.2);
         key.position.set(-3, 6, 7);
         this.scene.add(key);
-        this.camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
+        this.camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
         this.confirm = document.getElementById('character-confirm');
         this.status = document.getElementById('character-load-status');
         this.dialog.querySelector('[data-character-back]').onclick = () => this.dialog.close();
@@ -274,6 +274,7 @@ export class CharacterShowroom {
             this.entries.set(id, entry);
             this.attachGun(entry);
             if (id === currentSelected) {
+                this.status.hidden = true;
                 if (this.mode === 'characters') this.preview(id);
                 else this.previewWeapon(this.weaponId);
             }
@@ -507,7 +508,7 @@ export class CharacterShowroom {
         const bounds = new THREE.Box3().setFromObject(gun);
         hand.updateWorldMatrix(true, false);
         const armScaleZ = hand.getWorldScale(new THREE.Vector3()).z || 1.0;
-        const targetShowroomLength = (weapon.targetLength || 1.1) * (3.8 / 1.7);
+        const targetShowroomLength = (weapon.targetLength || 1.1) * 1.95;
 
         // Kenney Blaster Kit chuẩn trục Z (-Z là hướng nòng súng)
         const scale = targetShowroomLength / (Math.max(0.01, bounds.max.z - bounds.min.z) * armScaleZ);
@@ -530,6 +531,11 @@ export class CharacterShowroom {
         // Mô hình nhân vật cầm vũ khí đang xem
         for (const entry of this.entries.values()) {
             if (entry) this.attachGun(entry);
+        }
+
+        const curChar = this.selected || this.game.characterId || 'soldier';
+        if (this.entries.get(curChar)) {
+            this.status.hidden = true;
         }
 
         const nameEl = document.getElementById('armory-name');
@@ -586,8 +592,11 @@ export class CharacterShowroom {
             this.height = height;
             this.renderer.setSize(width, height, false);
             this.camera.aspect = width / height;
-            this.camera.position.set(0, 2.8, Math.max(width < 500 ? 9.5 : 8.2, 5.2 / this.camera.aspect));
-            this.camera.lookAt(0, 1.9, 0);
+            const isWeaponsMode = (this.mode === 'weapons');
+            const camZ = Math.max(width < 500 ? 11.2 : (isWeaponsMode ? 10.0 : 8.6), (isWeaponsMode ? 6.0 : 5.2) / this.camera.aspect);
+            const camX = isWeaponsMode ? -0.20 : 0;
+            this.camera.position.set(camX, 2.75, camZ);
+            this.camera.lookAt(camX, 1.88, 0);
             this.camera.updateProjectionMatrix();
         }
         const entry = this.entries.get(currentSelected);
