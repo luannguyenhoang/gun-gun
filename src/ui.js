@@ -852,8 +852,13 @@ export class UIManager {
             this.floatingContainer.firstElementChild?.remove();
         }
 
-        const screenPos = worldPos.clone().project(camera);
-        if (screenPos.z > 1) return;
+        // Nâng điểm hiển thị lên tầm đầu zombie (~1.8 đơn vị) để số không bị lệch xuống sàn
+        const displayPos = worldPos.clone();
+        displayPos.y = Math.max(displayPos.y + 1.8, 1.8);
+
+        const screenPos = displayPos.project(camera);
+        // Loại bỏ nếu nằm ngoài viewport
+        if (screenPos.z > 1 || Math.abs(screenPos.x) > 1.15 || Math.abs(screenPos.y) > 1.15) return;
 
         const x = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
         const y = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
