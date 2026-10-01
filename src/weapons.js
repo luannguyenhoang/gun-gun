@@ -75,7 +75,7 @@ export const WEAPON_CONFIGS = [
         isStyloo: false,
         modelFile: 'kenney-blaster/blaster-a.glb',
         icon: 'assets/previews/kenney-blaster/blaster-a.png',
-        fireRate: 0.18,
+        fireRate: 0.36,
         damage: 28,
         penPower: 1,
         critMultiplier: 2.0,
@@ -110,7 +110,7 @@ export const WEAPON_CONFIGS = [
         isStyloo: false,
         modelFile: 'kenney-blaster/blaster-b.glb',
         icon: 'assets/previews/kenney-blaster/blaster-b.png',
-        fireRate: 0.12,
+        fireRate: 0.24,
         damage: 22,
         penPower: 1,
         critMultiplier: 2.0,
@@ -145,7 +145,7 @@ export const WEAPON_CONFIGS = [
         isStyloo: false,
         modelFile: 'kenney-blaster/blaster-c.glb',
         icon: 'assets/previews/kenney-blaster/blaster-c.png',
-        fireRate: 0.13,
+        fireRate: 0.26,
         damage: 36,
         penPower: 2,
         critMultiplier: 2.1,
@@ -180,7 +180,7 @@ export const WEAPON_CONFIGS = [
         isStyloo: false,
         modelFile: 'kenney-blaster/blaster-d.glb',
         icon: 'assets/previews/kenney-blaster/blaster-d.png',
-        fireRate: 0.09,
+        fireRate: 0.18,
         damage: 18,
         penPower: 1,
         critMultiplier: 2.0,
@@ -215,7 +215,7 @@ export const WEAPON_CONFIGS = [
         isStyloo: false,
         modelFile: 'kenney-blaster/blaster-e.glb',
         icon: 'assets/previews/kenney-blaster/blaster-e.png',
-        fireRate: 0.08,
+        fireRate: 0.16,
         damage: 32,
         penPower: 2,
         critMultiplier: 2.2,
@@ -250,7 +250,7 @@ export const WEAPON_CONFIGS = [
         isStyloo: false,
         modelFile: 'kenney-blaster/blaster-f.glb',
         icon: 'assets/previews/kenney-blaster/blaster-f.png',
-        fireRate: 0.65,
+        fireRate: 0.845,
         damage: 16,
         penPower: 2,
         critMultiplier: 1.9,
@@ -285,7 +285,7 @@ export const WEAPON_CONFIGS = [
         isStyloo: false,
         modelFile: 'kenney-blaster/blaster-g.glb',
         icon: 'assets/previews/kenney-blaster/blaster-g.png',
-        fireRate: 0.55,
+        fireRate: 0.715,
         damage: 14,
         penPower: 1,
         critMultiplier: 1.8,
@@ -320,7 +320,7 @@ export const WEAPON_CONFIGS = [
         isStyloo: false,
         modelFile: 'kenney-blaster/blaster-h.glb',
         icon: 'assets/previews/kenney-blaster/blaster-h.png',
-        fireRate: 0.065,
+        fireRate: 0.13,
         damage: 16,
         penPower: 1,
         critMultiplier: 1.9,
@@ -355,7 +355,7 @@ export const WEAPON_CONFIGS = [
         isStyloo: false,
         modelFile: 'kenney-blaster/blaster-i.glb',
         icon: 'assets/previews/kenney-blaster/blaster-i.png',
-        fireRate: 0.32,
+        fireRate: 0.416,
         damage: 68,
         penPower: 3,
         critMultiplier: 2.4,
@@ -390,7 +390,7 @@ export const WEAPON_CONFIGS = [
         isStyloo: false,
         modelFile: 'kenney-blaster/blaster-j.glb',
         icon: 'assets/previews/kenney-blaster/blaster-j.png',
-        fireRate: 0.15,
+        fireRate: 0.3,
         damage: 56,
         penPower: 4,
         critMultiplier: 2.3,
@@ -425,7 +425,7 @@ export const WEAPON_CONFIGS = [
         isStyloo: false,
         modelFile: 'kenney-blaster/blaster-k.glb',
         icon: 'assets/previews/kenney-blaster/blaster-k.png',
-        fireRate: 0.13,
+        fireRate: 0.26,
         damage: 26,
         penPower: 2,
         critMultiplier: 2.1,
@@ -460,7 +460,7 @@ export const WEAPON_CONFIGS = [
         isStyloo: false,
         modelFile: 'kenney-blaster/blaster-l.glb',
         icon: 'assets/previews/kenney-blaster/blaster-l.png',
-        fireRate: 0.10,
+        fireRate: 0.2,
         damage: 40,
         penPower: 3,
         critMultiplier: 2.2,
@@ -495,7 +495,7 @@ export const WEAPON_CONFIGS = [
         isStyloo: false,
         modelFile: 'kenney-blaster/blaster-m.glb',
         icon: 'assets/previews/kenney-blaster/blaster-m.png',
-        fireRate: 0.45,
+        fireRate: 0.585,
         damage: 115,
         penPower: 3,
         critMultiplier: 2.5,
@@ -530,7 +530,7 @@ export const WEAPON_CONFIGS = [
         isStyloo: false,
         modelFile: 'kenney-blaster/blaster-n.glb',
         icon: 'assets/previews/kenney-blaster/blaster-n.png',
-        fireRate: 1.05,
+        fireRate: 1.365,
         damage: 210,
         penPower: 5,
         critMultiplier: 2.8,
@@ -565,7 +565,7 @@ export const WEAPON_CONFIGS = [
         isStyloo: false,
         modelFile: 'kenney-blaster/blaster-o.glb',
         icon: 'assets/previews/kenney-blaster/blaster-o.png',
-        fireRate: 0.13,
+        fireRate: 0.26,
         damage: 64,
         penPower: 4,
         critMultiplier: 2.3,
@@ -602,7 +602,7 @@ export const WEAPON_CONFIGS = [
         splashRadius: 5.2,
         modelFile: 'kenney-blaster/blaster-p.glb',
         icon: 'assets/previews/kenney-blaster/blaster-p.png',
-        fireRate: 1.6,
+        fireRate: 2.08,
         damage: 320,
         penPower: 5,
         critMultiplier: 2.0,
@@ -637,7 +637,7 @@ export const WEAPON_CONFIGS = [
         isStyloo: false,
         modelFile: 'kenney-blaster/blaster-q.glb',
         icon: 'assets/previews/kenney-blaster/blaster-q.png',
-        fireRate: 0.055,
+        fireRate: 0.11,
         damage: 28,
         penPower: 3,
         critMultiplier: 2.0,
@@ -674,7 +674,7 @@ export const WEAPON_CONFIGS = [
         splashRadius: 6.8,
         modelFile: 'kenney-blaster/blaster-r.glb',
         icon: 'assets/previews/kenney-blaster/blaster-r.png',
-        fireRate: 1.8,
+        fireRate: 2.34,
         damage: 450,
         penPower: 5,
         critMultiplier: 2.2,
@@ -1214,7 +1214,10 @@ export class WeaponSystem {
 
     getNetworkState() {
         return {
-            gun: this.weaponSlots[0].id,
+            gun: this.weaponSlots[0]?.id || this.startingWeaponId,
+            guns: this.weaponSlots.slice(0, 2).map(w => ({ id: w.id, tier: w.tier })),
+            primaryAttachments: { ...this.primaryAttachments },
+            secondaryAttachments: { ...this.secondaryAttachments },
             slot: this.currentSlotIndex,
             ammo: { ...this.ammo },
             reserve: { ...this.reserve },
@@ -1232,11 +1235,21 @@ export class WeaponSystem {
         const gun = [...WEAPON_CONFIGS, ...RARE_WEAPON_CONFIGS].find(w => w.id === state.gun) || WEAPON_CONFIGS[0];
         const changed = this.weaponSlots[0]?.id !== gun.id;
         this.weaponSlots[0] = gun;
-        this.currentSlotIndex = Math.min(1, Math.max(0, state.slot || 0));
+        if (state.guns) {
+            state.guns.forEach((entry, index) => {
+                const config = WEAPON_CONFIGS.find(w => w.id === entry.id);
+                if (index < 2 && config) this.weaponSlots[index] = { ...config, tier: entry.tier ?? config.tier };
+            });
+        }
+        this.weaponSlots[2] = KNIFE_CONFIG;
+        this.secondaryWeapon = this.weaponSlots[1];
+        this.currentSlotIndex = Math.min(2, Math.max(0, state.slot || 0));
+        if (state.primaryAttachments) this.primaryAttachments = { ...state.primaryAttachments };
+        if (state.secondaryAttachments) this.secondaryAttachments = { ...state.secondaryAttachments };
         this.ammo = { ...state.ammo };
         this.reserve = { ...state.reserve };
         if (state.inventory) this.inventory = { ...state.inventory };
-        if (state.attachments) this.attachments = { ...state.attachments };
+        this.attachments = this.currentSlotIndex === 1 ? this.secondaryAttachments : this.primaryAttachments;
         this.upgrades = { ...state.upgrades };
         this.isReloading = !!state.isReloading;
         this.reloadTimer = state.reloadTimer || 0;

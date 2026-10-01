@@ -3,12 +3,12 @@ import { GLTFLoader } from '../libs/loaders/GLTFLoader.js';
 import { sounds } from './audio.js';
 import { ParticleSystem } from './particles.js?v=22';
 import { Arena } from './arena.js?v=22';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS } from './weapons.js?v=32';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS } from './weapons.js?v=33';
 import { PlayerController } from './player.js?v=22';
 import { WaveManager, Zombie } from './enemies.js?v=22';
 import { PickupManager } from './pickups.js?v=22';
 import { UIManager } from './ui.js?v=22';
-import { NetworkRoom, makeRemotePlayer } from './network.js?v=22';
+import { NetworkRoom, makeRemotePlayer } from './network.js?v=33';
 import { normalizeCharacter } from './characters.js?v=22';
 import { RoomLobby } from './lobby.js?v=22';
 import { HomeMenu } from './home.js?v=32';
@@ -254,6 +254,10 @@ class CyberArenaGame {
     }
 
     startGame(fromRoom = false) {
+        if (this.network.active && !fromRoom) {
+            if (this.network.host) this.network.start();
+            return;
+        }
         this.homeMenu?.showroom.dialog.close();
         this.homeMenu?.dialog.close();
         sounds.init();
@@ -272,6 +276,9 @@ class CyberArenaGame {
         for (const remote of this.remotePlayers.values()) {
             remote.weapons.resetRun(); remote.health = remote.maxHealth; remote.shield = remote.maxShield;
             remote.isDead = false; remote.isDowned = false; remote.commandQueue = [];
+            remote.lastCommandId = 0; remote.processedSeq = 0;
+            remote.netTarget = null; remote.netVelocity.set(0, 0, 0);
+            remote.position.set(0, 0, 8);
         }
         this.player.reset();
         if (this.developerMode) {
@@ -282,6 +289,10 @@ class CyberArenaGame {
         this.pickups.clear();
         this.particles.clear();
         this.waveManager.clear();
+        for (const projectile of this.remoteProjectiles.values()) {
+            projectile.mesh.removeFromParent(); projectile.mesh.material.dispose();
+        }
+        this.remoteProjectiles.clear();
         this.lootingSystem.spawnInitialContainers(this.arena);
 
         this.player.setInputEnabled(true);
@@ -717,11 +728,12 @@ class CyberArenaGame {
         return { state: this.state, wave: this.currentWave, score: this.score,
             projectiles: this.coopPlayers.flatMap(player => (player.weapons?.projectiles || []).filter(p => p.mesh).map(p => ({ id: `${player.id || this.network.playerId}:${p.id}`, owner: player.id || this.network.playerId, position: p.mesh.position.toArray(), direction: p.direction.toArray(), speed: p.speed, color: p.color }))),
             players: this.coopPlayers.map(player => ({ id: player.id || this.network.playerId, name: player.name || 'Bạn', character: player.characterId || this.characterId, position: player.position.toArray(), health: player.health, shield: player.shield, isDead: player.isDead, isDowned: player.isDowned, aim: player.aimYaw, ads: !!player.isADS, moving: player === this.player ? player.velocity.lengthSq() > 0.1 : player.moving, weapons: player.weapons?.getNetworkState(), processedSeq: player.processedSeq || 0 })),
-            enemies: this.waveManager.enemies.filter(enemy => !enemy.isDead).map(enemy => ({ id: enemy.id, type: enemy.type, position: enemy.position.toArray(), health: enemy.health, maxHealth: enemy.maxHealth })),
+            enemies: this.waveManager.enemies.filter(enemy => !enemy.isDead).map(enemy => ({ id: enemy.id, type: enemy.type, position: enemy.position.toArray(), health: enemy.health, maxHealth: enemy.maxHealth, yaw: enemy.mesh?.rotation.y || 0 })),
             pickups: this.pickups.pickups.map(pickup => ({ id: pickup.id, type: pickup.type, position: pickup.mesh.position.toArray(), weaponSlot: pickup.weaponSlot, life: pickup.life })) };
     }
 
     applyCoopSnapshot(snapshot, localId) {
+        if (!snapshot) return;
         const sampleTime = performance.now();
         const projectileIds = new Set();
         for (const state of snapshot.projectiles || []) {
@@ -784,6 +796,9 @@ class CyberArenaGame {
             enemy.netTarget = nextPosition;
             enemy.netSampleTime = sampleTime;
             enemy.position.copy(nextPosition); enemy.health = state.health;
+            enemy.maxHealth = state.maxHealth;
+            if (!enemy.mesh) enemy.setupVisuals(this.waveManager.models);
+            if (enemy.mesh && Number.isFinite(state.yaw)) enemy.mesh.rotation.y = state.yaw;
         }
         for (let i = this.waveManager.enemies.length - 1; i >= 0; i--) {
             if (!snapshotEnemyIds.has(this.waveManager.enemies[i].id)) {

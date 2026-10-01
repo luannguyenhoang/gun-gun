@@ -32,7 +32,7 @@ test('two players shoot independently and queued guest commands are not lost or 
     network.applyCommands([{ id: 2, player: 'guest', command: { seq: 2, type: 'shoot', target: [0, 1, 20] } }]);
     network.processCommands(guest);
     assert.equal(guest.commandQueue.length, 1);
-    guest.weapons.update(0.25, arena, [], player);
+    guest.weapons.update(guest.weapons.getCurrentWeapon().fireRate + 0.01, arena, [], player);
     network.processCommands(guest);
     assert.equal(guest.weapons.ammo.blaster, 14);
     assert.equal(hostWeapons.ammo.blaster, 15);
@@ -47,7 +47,7 @@ test('client cooldown advances, gun predictions repeat, and remote models interp
     weapons.onCommand = c => network.sendCommand(c);
     const origin = new THREE.Vector3(0, 1, 0), target = new THREE.Vector3(0, 1, 20);
     assert.equal(weapons.shoot(origin, target), true);
-    weapons.update(0.25, arena, [], []);
+    weapons.update(weapons.getCurrentWeapon().fireRate + 0.01, arena, [], []);
     assert.equal(weapons.shoot(origin, target), true);
     assert.equal(network.pendingCommands.length, 2);
     assert.equal(weapons.ammo.blaster, 14);

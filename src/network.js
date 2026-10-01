@@ -20,6 +20,7 @@ export class NetworkRoom {
         this.conn = null;
         this.connections = [];
         this.players = [];
+        this.startedEpoch = null;
     }
 
     async create(name, character = 'soldier') {
@@ -72,6 +73,7 @@ export class NetworkRoom {
                         const p = this.players.find(pl => pl.id === pId);
                         if (p) { p.weapon = getStartingWeapon(data.weapon).id; this.broadcastRoster(); }
                     } else if (data.type === 'sync') {
+                        if (data.epoch !== this.startedEpoch) return;
                         clientState.input = data.input;
                         if (data.commands && data.commands.length > 0) {
                             this.applyCommands([{ player: pId, commands: data.commands }]);
@@ -127,14 +129,10 @@ export class NetworkRoom {
                         this.updateRoster(data.players || []);
                         this.game.showRoomState({ code: this.code, host: data.host || 'host', you: this.playerId, players: data.players || [], isHost: false });
                     } else if (data.type === 'start') {
-                        this.epoch = data.epoch;
-                        this.game.startGame(true);
+                        this.beginMatch(data.epoch);
                     } else if (data.type === 'snapshot') {
-                        if (data.started && data.epoch !== this.epoch) {
-                            this.epoch = data.epoch;
-                            this.game.startGame(true);
-                        }
-                        this.applyInputs(data.inputs || {});
+                        if (!data.started || !data.snapshot) return;
+                        this.beginMatch(data.epoch);
                         this.game.applyCoopSnapshot(data.snapshot, this.playerId);
                         if (data.ack) {
                             this.pendingCommands = this.pendingCommands.filter(c => c.seq > data.ack);
@@ -153,10 +151,19 @@ export class NetworkRoom {
         });
     }
 
+    beginMatch(epoch) {
+        if (this.startedEpoch === epoch) return;
+        this.epoch = epoch;
+        this.startedEpoch = epoch;
+        this.pendingCommands = [];
+        this.seq = 0;
+        this.game.startGame(true);
+    }
+
     async start() {
         if (!this.host) return;
-        this.epoch = Date.now();
-        this.game.startGame(true);
+        this.beginMatch(Math.max(Date.now(), (this.epoch || 0) + 1));
+        for (const c of this.connections) { c.input = {}; c.ack = 0; }
         this.game.showRoomState({ code: this.code, host: 'host', you: 'host', players: this.players, isHost: true, started: true });
         const data = { type: 'start', epoch: this.epoch };
         for (const c of this.connections) c.conn.send(data);
@@ -183,16 +190,18 @@ export class NetworkRoom {
             }
             this.applyInputs(inputs);
             
-            const snapshot = this.game.makeCoopSnapshot();
             const started = this.game.state === 'PLAYING';
+            if (!started) return;
+            const snapshot = this.game.makeCoopSnapshot();
             for (const c of this.connections) {
-                c.conn.send({ type: 'snapshot', inputs, snapshot, started, epoch: this.epoch, ack: c.ack });
+                if (c.conn.open) c.conn.send({ type: 'snapshot', snapshot, started, epoch: this.epoch, ack: c.ack });
             }
         } else {
             if (!this.conn || !this.conn.open) return;
             const local = this.game.player;
             const body = {
                 type: 'sync',
+                epoch: this.startedEpoch,
                 input: { position: local.position.toArray(), aim: local.aimYaw, ads: !!local.isADS, revive: !!local.reviveRequested, moving: local.velocity.lengthSq() > 0.1 },
                 commands: this.pendingCommands.slice(0, 30)
             };
@@ -210,7 +219,7 @@ export class NetworkRoom {
             player.aimYaw = input.aim;
             player.isADS = !!input.ads;
             player.moving = !!input.moving;
-            if (input.revive) this.game.reviveNearest(player);
+            if (input.revive) { this.game.reviveNearest(player); input.revive = false; }
         }
     }
 
@@ -288,6 +297,10 @@ export class NetworkRoom {
     leave() {
         if (!this.active) return;
         this.active = false;
+        this.startedEpoch = null;
+        this.pendingCommands = [];
+        this.seq = 0;
+        this.game.weapons.onCommand = null;
         if (this.conn) this.conn.close();
         if (this.peer) this.peer.destroy();
         this.connections = [];
