@@ -382,6 +382,11 @@ export class Zombie {
     takeDamage(amount, penPower = 1, isCrit = false, hitDir = null) {
         if (this.isDead || !this.active) return { isPenetrated: false, isBlunt: false, healthDamage: 0, armorDamage: 0 };
 
+        // Hiệu ứng Ăn Mòn: tăng 25% sát thương nhận vào
+        if (this.corrosiveTimer > 0) {
+            amount = Math.round(amount * 1.25);
+        }
+
         const ac = this.armorClass || 0;
         const isPenetrated = (penPower >= ac) || (this.armor <= 0);
         let healthDmg = 0;
@@ -524,6 +529,19 @@ export class Zombie {
             }
         }
 
+        // Xử lý hiệu ứng Hỏa thiêu đốt (DoT) & Ăn mòn
+        if (this.burnTimer > 0) {
+            this.burnTimer -= delta;
+            this.burnTick = (this.burnTick || 0) + delta;
+            if (this.burnTick >= 0.5) {
+                this.burnTick = 0;
+                this.takeDamage(this.burnDamage || 8, 1, false, null);
+            }
+        }
+        if (this.corrosiveTimer > 0) {
+            this.corrosiveTimer -= delta;
+        }
+
         if (player.isDead) {
             this.playAnimation('idle');
             return;
@@ -641,7 +659,12 @@ export class Zombie {
                 }
 
                 _tempDesiredDir.normalize();
-                _tempMoveVel.addScaledVector(_tempDesiredDir, this.speed);
+                let currentSpeed = this.speed;
+                if (this.slowTimer > 0) {
+                    this.slowTimer -= delta;
+                    currentSpeed *= (this.slowFactor || 0.55);
+                }
+                _tempMoveVel.addScaledVector(_tempDesiredDir, currentSpeed);
                 _tempMoveVel.add(_tempSeparation);
 
                 // Di chuyen nhan vat tren Arena

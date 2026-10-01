@@ -3,7 +3,7 @@ import { GLTFLoader } from '../libs/loaders/GLTFLoader.js';
 import { sounds } from './audio.js';
 import { ParticleSystem } from './particles.js?v=22';
 import { Arena } from './arena.js?v=22';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS } from './weapons.js?v=40';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, th_UPGRADE_TIER_CONFIG, th_rollElementalEffect, th_getWeaponTier, th_getWeaponEnchant, th_ELEMENTAL_EFFECTS } from './weapons.js?v=41';
 import { PlayerController } from './player.js?v=22';
 import { WaveManager, Zombie } from './enemies.js?v=39';
 import { PickupManager } from './pickups.js?v=40';
@@ -38,6 +38,14 @@ class CyberArenaGame {
         // Hệ thống Tiền vàng và Mở khóa Súng (Shop & Armory)
         this.coins = parseInt(localStorage.getItem('arena_player_coins') || '1000', 10);
         this.unlockedWeapons = JSON.parse(localStorage.getItem('arena_unlocked_weapons') || '["blaster","repeater","scatter"]');
+        try {
+            this.th_weaponTiers = JSON.parse(localStorage.getItem('th_arena_weapon_tiers') || '{}');
+            this.th_weaponEnchants = JSON.parse(localStorage.getItem('th_arena_weapon_enchants') || '{}');
+        } catch {
+            this.th_weaponTiers = {};
+            this.th_weaponEnchants = {};
+        }
+
         if (this.developerMode) {
             this.coins = 999999;
             this.unlockedWeapons = WEAPON_CONFIGS.map(w => w.id);
@@ -717,9 +725,81 @@ class CyberArenaGame {
         try {
             localStorage.setItem('arena_player_coins', this.coins.toString());
             localStorage.setItem('arena_unlocked_weapons', JSON.stringify(this.unlockedWeapons));
+            localStorage.setItem('th_arena_weapon_tiers', JSON.stringify(this.th_weaponTiers || {}));
+            localStorage.setItem('th_arena_weapon_enchants', JSON.stringify(this.th_weaponEnchants || {}));
         } catch (e) {
             console.warn('Lỗi lưu tiến trình:', e);
         }
+    }
+
+    // Cường hóa / Đập đồ nâng cấp súng
+    th_enhanceWeapon(weaponId) {
+        if (!weaponId) return { success: false };
+        const currentTier = this.th_weaponTiers[weaponId] || 1;
+        if (currentTier >= 5) {
+            if (this.ui?.showPickupAlert) this.ui.showPickupAlert('VŨ KHÍ ĐÃ ĐẠT CẤP TỐI ĐA!');
+            return { success: false, max: true };
+        }
+        const cfg = th_UPGRADE_TIER_CONFIG[currentTier];
+        if (!cfg) return { success: false };
+
+        if (this.coins < cfg.cost) {
+            if (this.ui?.showPickupAlert) this.ui.showPickupAlert('KHÔNG ĐỦ VÀNG ĐỂ CƯỜNG HÓA!');
+            return { success: false, notEnoughGold: true };
+        }
+
+        this.coins -= cfg.cost;
+        const isSuccess = (Math.random() <= cfg.successRate);
+
+        if (isSuccess) {
+            const nextTier = currentTier + 1;
+            this.th_weaponTiers[weaponId] = nextTier;
+            this.saveProgress();
+            this.updateCoinsUI();
+            sounds.play('equip', { volume: 0.9, pitchVariation: 0.1 });
+            if (this.ui?.showPickupAlert) {
+                this.ui.showPickupAlert(`CƯỜNG HÓA THÀNH CÔNG: LÊN CẤP ${nextTier}!`);
+            }
+            if (this.homeMenu?.showroom) {
+                this.homeMenu.showroom.syncSelection();
+            }
+            return { success: true, tier: nextTier };
+        } else {
+            this.saveProgress();
+            this.updateCoinsUI();
+            sounds.playArmorDeflect();
+            if (this.ui?.showPickupAlert) {
+                this.ui.showPickupAlert('CƯỜNG HÓA THẤT BẠI! CẤP ĐỘ KHÔNG ĐỔI.');
+            }
+            if (this.homeMenu?.showroom) {
+                this.homeMenu.showroom.syncSelection();
+            }
+            return { success: false, tier: currentTier };
+        }
+    }
+
+    // Gacha Ép Khảm Hiệu Ứng Nguyên Tố (300 Vàng / lượt)
+    th_gachaEnchantWeapon(weaponId) {
+        if (!weaponId) return null;
+        const cost = 300;
+        if (this.coins < cost) {
+            if (this.ui?.showPickupAlert) this.ui.showPickupAlert('KHÔNG ĐỦ VÀNG ÉP HIỆU ỨNG (CẦN 300 VÀNG)!');
+            return null;
+        }
+
+        this.coins -= cost;
+        const rolled = th_rollElementalEffect();
+        this.th_weaponEnchants[weaponId] = rolled.id;
+        this.saveProgress();
+        this.updateCoinsUI();
+        sounds.play('switchWeapon', { volume: 0.9, rate: 1.2 });
+        if (this.ui?.showPickupAlert) {
+            this.ui.showPickupAlert(`ÉP THÀNH CÔNG: [${rolled.name}] - ${rolled.desc}!`);
+        }
+        if (this.homeMenu?.showroom) {
+            this.homeMenu.showroom.syncSelection();
+        }
+        return rolled;
     }
 
     // Cập nhật giao diện tiền vàng trên sảnh và kho vũ khí

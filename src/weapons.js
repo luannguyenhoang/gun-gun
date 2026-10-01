@@ -7,8 +7,114 @@ export const RARITY_TIERS = {
     2: { tier: 2, id: 'uncommon', name: 'UNCOMMON', label: 'Cấp 2 · Đặc biệt', color: '#22c55e', hex: 0x22c55e, dmgMod: 0.15, desc: '+15% Sát thương' },
     3: { tier: 3, id: 'rare', name: 'RARE', label: 'Cấp 3 · Hiếm', color: '#3b82f6', hex: 0x3b82f6, dmgMod: 0.35, desc: '+35% Sát thương' },
     4: { tier: 4, id: 'epic', name: 'EPIC', label: 'Cấp 4 · Sử thi', color: '#a855f7', hex: 0xa855f7, dmgMod: 0.60, desc: '+60% Sát thương' },
-    5: { tier: 5, id: 'legendary', name: 'LEGENDARY', label: 'Cấp 5 · Huyền thoại', color: '#f59e0b', hex: 0xf59e0b, dmgMod: 1.00, desc: '+100% Sát thương, Xuyên mục tiêu & Bắn nổ lan' }
+    5: { tier: 5, id: 'legendary', name: 'LEGENDARY', label: 'Cấp 5 · Huyền thoại', color: '#f59e0b', hex: 0xf59e0b, dmgMod: 1.00, desc: '+100% Sát thương, Xuyên 3 mục tiêu' }
 };
+
+// Cấu hình Cường Hóa Đập Đồ (Cấp 1 -> Cấp 5)
+export const th_UPGRADE_TIER_CONFIG = {
+    1: { nextTier: 2, cost: 400, successRate: 1.0, bonusDmgPct: 0.15, recoilReduction: 0.05, label: 'Cấp 1 → 2' },
+    2: { nextTier: 3, cost: 900, successRate: 0.8, bonusDmgPct: 0.35, reloadSpeedBonus: 0.10, label: 'Cấp 2 → 3' },
+    3: { nextTier: 4, cost: 1800, successRate: 0.6, bonusDmgPct: 0.60, magBonusPct: 0.15, label: 'Cấp 3 → 4' },
+    4: { nextTier: 5, cost: 3500, successRate: 0.4, bonusDmgPct: 1.00, pierceBonus: 3, label: 'Cấp 4 → 5' },
+    5: { nextTier: null, cost: 0, successRate: 0, label: 'ĐÃ ĐẠT CẤP TỐI ĐA (MAX)' }
+};
+
+// Danh mục 6 Hiệu ứng Nguyên tố Ép Khảm / Gacha
+export const th_ELEMENTAL_EFFECTS = {
+    frost: {
+        id: 'frost',
+        name: 'BĂNG GIÁ',
+        tag: 'BĂNG',
+        color: '#38bdf8',
+        hex: 0x38bdf8,
+        weight: 20,
+        desc: 'Làm chậm zombie 45% trong 2.5s'
+    },
+    fire: {
+        id: 'fire',
+        name: 'HỎA DIỆM',
+        tag: 'HỎA',
+        color: '#f97316',
+        hex: 0xf97316,
+        weight: 20,
+        desc: 'Thiêu đốt gây 30 sát thương lửa trong 3s'
+    },
+    lightning: {
+        id: 'lightning',
+        name: 'LÔI ĐIỆN',
+        tag: 'LÔI',
+        color: '#60a5fa',
+        hex: 0x60a5fa,
+        weight: 20,
+        desc: 'Giật sét lan sang 2 zombie gần kề (50% ST)'
+    },
+    vampiric: {
+        id: 'vampiric',
+        name: 'HÚT MÁU',
+        tag: 'HÚT MÁU',
+        color: '#f43f5e',
+        hex: 0xf43f5e,
+        weight: 15,
+        desc: 'Bắn trúng hồi 2 HP, hạ gục hồi 8 HP'
+    },
+    corrosive: {
+        id: 'corrosive',
+        name: 'ĂN MÒN',
+        tag: 'ĂN MÒN',
+        color: '#84cc16',
+        hex: 0x84cc16,
+        weight: 15,
+        desc: 'Zombie nhận thêm +25% sát thương trong 4s'
+    },
+    berserk: {
+        id: 'berserk',
+        name: 'CUỒNG NỘ',
+        tag: 'CUỒNG NỘ',
+        color: '#eab308',
+        hex: 0xeab308,
+        weight: 10,
+        desc: '+15% Tỷ lệ bạo kích, sát thương crit x2.5'
+    }
+};
+
+export function th_getWeaponTier(weaponId) {
+    if (!weaponId) return 1;
+    try {
+        const raw = localStorage.getItem('th_arena_weapon_tiers');
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed[weaponId] === 'number') {
+                return Math.max(1, Math.min(5, parsed[weaponId]));
+            }
+        }
+    } catch {}
+    return 1;
+}
+
+export function th_getWeaponEnchant(weaponId) {
+    if (!weaponId) return null;
+    try {
+        const raw = localStorage.getItem('th_arena_weapon_enchants');
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed[weaponId] && th_ELEMENTAL_EFFECTS[parsed[weaponId]]) {
+                return th_ELEMENTAL_EFFECTS[parsed[weaponId]];
+            }
+        }
+    } catch {}
+    return null;
+}
+
+export function th_rollElementalEffect() {
+    const pool = [];
+    for (const eff of Object.values(th_ELEMENTAL_EFFECTS)) {
+        for (let i = 0; i < eff.weight; i++) {
+            pool.push(eff.id);
+        }
+    }
+    const rolledId = pool[Math.floor(Math.random() * pool.length)];
+    return th_ELEMENTAL_EFFECTS[rolledId];
+}
 
 // 4 Linh kiện Phụ kiện Nâng cấp Súng (Attachments Ecosystem theo 5 Tier)
 export const ATTACHMENT_DEFS = {
@@ -139,7 +245,7 @@ export const WEAPON_CONFIGS = [
         aliases: ['blaster-c', 'ak47'],
         name: 'BLASTER-C PHANTOM',
         category: 'SÚNG TRƯỜNG CHIẾN THUẬT',
-        tier: 2,
+        tier: 1,
         price: 800,
         targetLength: 1.05,
         isStyloo: false,
@@ -209,7 +315,7 @@ export const WEAPON_CONFIGS = [
         aliases: ['blaster-e', 'storm'],
         name: 'BLASTER-E STORM MK-II',
         category: 'SÚNG TRƯỜNG BÃO TỐ',
-        tier: 3,
+        tier: 1,
         price: 1300,
         targetLength: 1.15,
         isStyloo: false,
@@ -244,7 +350,7 @@ export const WEAPON_CONFIGS = [
         aliases: ['blaster_f', 'blaster-f'],
         name: 'BLASTER-F ENFORCER',
         category: 'SHOTGUN CHIẾN THUẬT',
-        tier: 2,
+        tier: 1,
         price: 750,
         targetLength: 1.00,
         isStyloo: false,
@@ -314,7 +420,7 @@ export const WEAPON_CONFIGS = [
         aliases: ['blaster_h', 'blaster-h'],
         name: 'BLASTER-H VIPER',
         category: 'TIỂU LIÊN CƠ ĐỘNG',
-        tier: 2,
+        tier: 1,
         price: 650,
         targetLength: 0.85,
         isStyloo: false,
@@ -349,7 +455,7 @@ export const WEAPON_CONFIGS = [
         aliases: ['blaster-i'],
         name: 'BLASTER-I SHARPSHOOTER',
         category: 'SÚNG TRƯỜNG XẠ THỦ',
-        tier: 2,
+        tier: 1,
         price: 950,
         targetLength: 1.20,
         isStyloo: false,
@@ -384,7 +490,7 @@ export const WEAPON_CONFIGS = [
         aliases: ['blaster_j', 'blaster-j'],
         name: 'BLASTER-J PLASMA LANCE',
         category: 'ĐẠI BÁC PLASMA CAO ÁP',
-        tier: 4,
+        tier: 1,
         price: 2100,
         targetLength: 1.25,
         isStyloo: false,
@@ -454,7 +560,7 @@ export const WEAPON_CONFIGS = [
         aliases: ['blaster-l'],
         name: 'BLASTER-L PULSE CARBINE',
         category: 'CARBINE XUNG LỰC',
-        tier: 3,
+        tier: 1,
         price: 1500,
         targetLength: 1.15,
         isStyloo: false,
@@ -489,7 +595,7 @@ export const WEAPON_CONFIGS = [
         aliases: ['blaster-m'],
         name: 'BLASTER-M GUARDIAN DMR',
         category: 'SÚNG BẮN TỈA BÁN TỰ ĐỘNG',
-        tier: 3,
+        tier: 1,
         price: 1750,
         targetLength: 1.30,
         isStyloo: false,
@@ -524,7 +630,7 @@ export const WEAPON_CONFIGS = [
         aliases: ['blaster_n', 'blaster-n'],
         name: 'BLASTER-N VORTEX SNIPER',
         category: 'SÚNG BẮN TỈA CỰC NẶNG',
-        tier: 4,
+        tier: 1,
         price: 2500,
         targetLength: 1.40,
         isStyloo: false,
@@ -559,7 +665,7 @@ export const WEAPON_CONFIGS = [
         aliases: ['blaster-o'],
         name: 'BLASTER-O TITAN BLASTER',
         category: 'SÚNG TRƯỜNG CÔNG PHÁ HẠNG NẶNG',
-        tier: 4,
+        tier: 1,
         price: 2700,
         targetLength: 1.25,
         isStyloo: false,
@@ -594,7 +700,7 @@ export const WEAPON_CONFIGS = [
         aliases: ['blaster_p', 'blaster-p'],
         name: 'BLASTER-P RPG DEVASTATOR',
         category: 'VŨ KHÍ NỔ LAN HẠNG NẶNG',
-        tier: 5,
+        tier: 1,
         price: 3200,
         targetLength: 1.30,
         isStyloo: false,
@@ -631,7 +737,7 @@ export const WEAPON_CONFIGS = [
         aliases: ['blaster-q'],
         name: 'BLASTER-Q VULCAN MINIGUN',
         category: 'SÚNG MÁY GATLING HUYỀN THOẠI',
-        tier: 5,
+        tier: 1,
         price: 4200,
         targetLength: 1.35,
         isStyloo: false,
@@ -666,7 +772,7 @@ export const WEAPON_CONFIGS = [
         aliases: ['blaster-r'],
         name: 'BLASTER-R OMEGA CANNON',
         category: 'PHÁO LƯỢNG TỬ TẬN THẾ',
-        tier: 5,
+        tier: 1,
         price: 5000,
         targetLength: 1.45,
         isStyloo: false,
@@ -714,7 +820,7 @@ export const BOMB_CONFIGS = [
         name: 'LỰU ĐẠN NỔ MẢNH A',
         category: 'LỰU ĐẠN NỔ MẢNH',
         slotType: 'bomb',
-        tier: 2,
+        tier: 1,
         price: 0,
         isBomb: true,
         throwRange: 14.0,
@@ -733,7 +839,7 @@ export const BOMB_CONFIGS = [
         name: 'LỰU ĐẠN XUNG LỰC B',
         category: 'LỰU ĐẠN TÁC CHIẾN',
         slotType: 'bomb',
-        tier: 3,
+        tier: 1,
         price: 3500,
         isBomb: true,
         throwRange: 14.0,
@@ -1149,7 +1255,8 @@ export class WeaponSystem {
             };
         }
 
-        const weaponTier = w.tier || 1;
+        const savedTier = th_getWeaponTier(w.id);
+        const weaponTier = Math.max(savedTier, w.tier || 1);
         const weaponTierMod = RARITY_TIERS[weaponTier]?.dmgMod || 0;
 
         let barrelFlat = 0;
@@ -1163,6 +1270,18 @@ export class WeaponSystem {
         let rangeBonusPct = 0;
         let adsZoom = 1.0;
         let hasLegendary = (weaponTier >= 5);
+
+        // Chỉ số thưởng theo cấp độ cường hóa
+        if (weaponTier >= 2) recoilReduction += 0.05;
+        if (weaponTier >= 3) reloadSpeedBonus += 0.10;
+        if (weaponTier >= 4) magBonusPct += 0.15;
+
+        // Hiệu ứng khảm nguyên tố Gacha
+        const enchant = th_getWeaponEnchant(w.id);
+        if (enchant?.id === 'berserk') {
+            extraCritChance += 0.15;
+            extraCritDmgMod += 0.50;
+        }
 
         for (const [slotKey, rawId] of Object.entries(attachMap)) {
             if (!rawId) continue;
@@ -1224,7 +1343,9 @@ export class WeaponSystem {
             attachments: { ...attachMap },
             extraCritChance,
             extraCritDmgMod,
-            hasLegendary
+            hasLegendary,
+            weaponTier,
+            enchant
         };
     }
 
@@ -1805,7 +1926,8 @@ export class WeaponSystem {
         }
 
         // Phụt tia lửa nòng
-        const bulletColor = isOverclockActive ? 0xffdd00 : (effective.hasLegendary ? 0xf59e0b : w.color);
+        const enchant = effective.enchant;
+        const bulletColor = isOverclockActive ? 0xffdd00 : (enchant ? enchant.hex : (effective.hasLegendary ? 0xf59e0b : w.color));
         this.particles?.createMuzzleFlash?.(origin, new THREE.Vector3().subVectors(targetPoint, origin).normalize(), bulletColor);
 
         const beams = isPlayer ? this.beamCount : 1;
@@ -1856,7 +1978,8 @@ export class WeaponSystem {
                 ownerId: 'player',
                 isKnife: false,
                 isExplosive: !!w.isExplosive,
-                splashRadius: w.splashRadius || 4.8
+                splashRadius: w.splashRadius || 4.8,
+                th_enchant: enchant
             });
         }
 
@@ -2257,6 +2380,46 @@ export class WeaponSystem {
                         // Hiệu ứng Đồ Huyền Thoại (Tier 5): Tia lửa va chạm hoàng kim uy lực (Chỉ vũ khí isExplosive mới tạo vụ nổ AoE)
                         if (p.hasLegendary && !p.isExplosive) {
                             this.particles?.createImpactSparks?.(hitInfo.point, p.direction.clone().negate(), 0xf59e0b, 12);
+                        }
+
+                        // Kích hoạt Hiệu ứng Nguyên Tố (Elemental Enchantment)
+                        if (p.th_enchant) {
+                            const enchId = p.th_enchant.id;
+                            if (enchId === 'frost') {
+                                enemy.slowTimer = 2.5;
+                                enemy.slowFactor = 0.55;
+                                this.particles?.createImpactSparks?.(hitInfo.point, p.direction.clone().negate(), 0x38bdf8, 14);
+                            } else if (enchId === 'fire') {
+                                enemy.burnTimer = 3.0;
+                                enemy.burnDamage = 10;
+                                this.particles?.createImpactSparks?.(hitInfo.point, p.direction.clone().negate(), 0xf97316, 14);
+                            } else if (enchId === 'lightning') {
+                                this.particles?.createImpactSparks?.(hitInfo.point, p.direction.clone().negate(), 0x60a5fa, 16);
+                                let chained = 0;
+                                for (const other of enemies) {
+                                    if (other !== enemy && !other.isDead && other.position.distanceTo(hitInfo.point) <= 4.8) {
+                                        other.takeDamage(Math.round(finalDamage * 0.5), p.penPower, false, other.position.clone().sub(hitInfo.point).normalize());
+                                        this.particles?.createImpactSparks?.(other.position.clone().add(new THREE.Vector3(0, 1, 0)), new THREE.Vector3(0, 1, 0), 0x60a5fa, 10);
+                                        chained++;
+                                        if (chained >= 2) break;
+                                    }
+                                }
+                            } else if (enchId === 'vampiric') {
+                                if (player && !player.isDead) {
+                                    player.heal(2);
+                                }
+                                this.particles?.createImpactSparks?.(hitInfo.point, p.direction.clone().negate(), 0xf43f5e, 12);
+                            } else if (enchId === 'corrosive') {
+                                enemy.corrosiveTimer = 4.0;
+                                this.particles?.createImpactSparks?.(hitInfo.point, p.direction.clone().negate(), 0x84cc16, 14);
+                            } else if (enchId === 'berserk') {
+                                this.particles?.createImpactSparks?.(hitInfo.point, p.direction.clone().negate(), 0xeab308, 14);
+                            }
+                        }
+
+                        // Nếu quái chết bởi súng Hút máu -> hồi thêm 8 HP
+                        if (p.th_enchant?.id === 'vampiric' && enemy.isDead && player && !player.isDead) {
+                            player.heal(8);
                         }
 
                         sounds.playHitMarker(isCrit);

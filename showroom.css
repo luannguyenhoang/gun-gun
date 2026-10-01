@@ -58,9 +58,9 @@
 .weapon-mode .character-showcase {
     display: block !important;
     position: absolute !important;
-    top: 80px !important;
+    top: 76px !important;
     right: 20px !important;
-    bottom: 184px !important;
+    bottom: 216px !important;
     left: auto !important;
     width: 42% !important;
     max-width: 580px !important;
@@ -184,18 +184,18 @@
 .armory-mini-panel {
     position: absolute;
     right: 20px;
-    bottom: 96px;
+    bottom: 110px;
     width: 42%;
     max-width: 580px;
     border: 2px solid #3d2b4f;
     border-radius: 12px;
     background: linear-gradient(135deg, rgba(38, 27, 49, 0.95), rgba(22, 15, 30, 0.95));
-    padding: 8px 12px;
+    padding: 6px 10px;
     box-sizing: border-box;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
     z-index: 5;
 }
 
@@ -203,6 +203,37 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+}
+
+.mini-header-badges {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mini-enchant-badge {
+    font-size: 8px;
+    font-weight: 1000;
+    padding: 3px 7px;
+    border-radius: 6px;
+    background: #3b1d54;
+    color: #e9d5ff;
+    border: 1px solid #c084fc;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    box-shadow: 0 0 8px rgba(192, 132, 252, 0.4);
+}
+
+.mini-enchant-desc {
+    font-size: 9px;
+    font-weight: 800;
+    color: #ffd079;
+    background: rgba(24, 16, 32, 0.7);
+    border-radius: 6px;
+    padding: 4px 8px;
+    border: 1px dashed rgba(255, 208, 121, 0.4);
+    text-align: center;
+    line-height: 1.25;
 }
 
 .mini-title-wrap h3 {
@@ -268,24 +299,55 @@
 /* Nút hành động ở đáy cột phải */
 .weapon-mode .character-action {
     position: absolute;
-    bottom: 24px;
+    bottom: 16px;
     right: 20px;
     width: 42%;
     max-width: 580px;
     z-index: 6;
 }
 
+.weapon-mode #character-action-sub {
+    display: none !important;
+}
+
 .armory-action-group {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     width: 100%;
 }
 
 .armory-action-group button {
     width: 100%;
-    min-height: 48px;
-    font-size: 15px;
+    min-height: 42px;
+    font-size: 14px;
+}
+
+.armory-upgrade-row {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 6px;
+    width: 100%;
+}
+
+.armory-sub-btn {
+    min-height: 38px !important;
+    font-size: 10.5px !important;
+    padding: 3px 6px !important;
+    white-space: normal !important;
+    line-height: 1.25 !important;
+}
+
+.weapon-card-enchant {
+    font-size: 7px;
+    font-weight: 1000;
+    padding: 2px 4px;
+    border-radius: 4px;
+    background: #2b183a;
+    border: 1px solid #a855f7;
+    color: #d8b4fe;
+    white-space: nowrap;
+    letter-spacing: 0.2px;
 }
 
 /* CỘT BÊN TRÁI: Grid view vũ khí với 3 tab phân loại rõ ràng */
@@ -553,3 +615,980 @@
 .coins-pill { background: linear-gradient(135deg, #2b1f14, #422d17) !important; border: 2px solid #f59e0b !important; color: #fbbf24 !important; }
 .coin-gold { color: #f59e0b; font-weight: 900; margin-right: 4px; }
 .admin-badge { display: inline-block; background: #ef4444; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 900; margin-left: 6px; }
+/* ==========================================================================
+   TAB NÂNG CẤP: MILITARY TACTICAL WORKBENCH (High-Tech Tactical Armory)
+   Phong cách Escape from Tarkov / The Division:
+   - Nền Carbon Dark (#0D0F12 -> #161A20)
+   - Micro-dot pattern & Beveled Chamfer viền vát 45 độ
+   - Cyan huỳnh quang (#00F0FF) & Amber vàng hổ phách (#FFB300)
+   - Bố cục 3 Cột: 20% (Trái) | 55% (Giữa) | 25% (Phải)
+   ========================================================================== */
+
+/* Hiển thị Currency Header Tactical */
+.character-header-currency {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.th_tactical-parts-badge {
+    background: #121921 !important;
+    border: 1px solid #00F0FF !important;
+    color: #00F0FF !important;
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.25) !important;
+    text-shadow: 0 0 6px rgba(0, 240, 255, 0.6) !important;
+    font-family: 'Consolas', 'Courier New', monospace;
+    letter-spacing: 0.5px;
+}
+
+/* Hiện panel khi ở upgrade-mode */
+#character-screen.upgrade-mode {
+    background: radial-gradient(circle at 50% 30%, #161a22 0%, #0d0f12 75%) !important;
+}
+
+#character-screen.upgrade-mode #th_upgrade-panel {
+    display: flex !important;
+}
+
+#character-screen.upgrade-mode .character-showcase,
+#character-screen.upgrade-mode .character-info,
+#character-screen.upgrade-mode #character-cards,
+#character-screen.upgrade-mode .character-action,
+#character-screen.upgrade-mode #armory-grid-section,
+#character-screen.upgrade-mode #armory-mini-panel,
+#character-screen.upgrade-mode .armory-rig-overlay {
+    display: none !important;
+}
+
+/* KHUNG CHÍNH 3 CỘT (Military Tactical Workbench Layout) */
+.th_upgrade-panel {
+    position: absolute;
+    top: 76px;
+    left: 18px;
+    right: 18px;
+    bottom: 16px;
+    display: none;
+    flex-direction: row;
+    gap: 14px;
+    z-index: 5;
+    box-sizing: border-box;
+    font-family: 'Consolas', 'Rajdhani', -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace, sans-serif;
+    color: #e2e8f0;
+}
+
+/* Các cột chia tỷ lệ 20% - 55% - 25% */
+.th_tactical-col {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    box-sizing: border-box;
+}
+
+.th_tactical-col-left {
+    flex: 0 0 20%;
+    max-width: 20%;
+    gap: 10px;
+}
+
+.th_tactical-col-center {
+    flex: 0 0 calc(55% - 14px);
+    max-width: calc(55% - 14px);
+    gap: 0;
+}
+
+.th_tactical-col-right {
+    flex: 0 0 calc(25% - 14px);
+    max-width: calc(25% - 14px);
+    gap: 10px;
+}
+
+/* Tiêu đề & nhãn kỹ thuật (HUD subtext) */
+.th_hud-subtext {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    color: #64748b;
+    text-transform: uppercase;
+}
+
+/* ==========================================================================
+   CỘT 1: DANH SÁCH VŨ KHÍ (20%)
+   ========================================================================== */
+.th_tactical-header-card {
+    background: #111419;
+    border: 1px solid #232a35;
+    border-left: 3px solid #00F0FF;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+}
+
+.th_tactical-hud-label {
+    font-size: 9.5px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    color: #00F0FF;
+    text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+}
+
+.th_tactical-filter-group {
+    display: flex;
+    gap: 4px;
+}
+
+.th_tactical-filter-btn {
+    flex: 1;
+    padding: 6px 4px;
+    background: #161b22;
+    border: 1px solid #2a3442;
+    color: #94a3b8;
+    font-size: 10px;
+    font-weight: 800;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 0.5px;
+    transition: all 0.15s ease;
+    clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+}
+
+.th_tactical-filter-btn:hover {
+    background: #1e2633;
+    color: #00F0FF;
+    border-color: #00F0FF;
+}
+
+.th_tactical-filter-btn.active {
+    background: #00F0FF;
+    color: #090c10;
+    border-color: #00F0FF;
+    font-weight: 900;
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+}
+
+.th_tactical-weapon-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: #232b36 #0d1117;
+}
+
+.th_tactical-weapon-list::-webkit-scrollbar {
+    width: 4px;
+}
+.th_tactical-weapon-list::-webkit-scrollbar-track {
+    background: #0d1117;
+}
+.th_tactical-weapon-list::-webkit-scrollbar-thumb {
+    background: #2a3442;
+}
+
+/* Thẻ súng compact chuẩn quân sự */
+.th_tactical-weapon-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: linear-gradient(90deg, #13171f 0%, #161b24 100%);
+    border: 1px solid #222a36;
+    border-left: 3px solid #475569;
+    cursor: pointer;
+    font-family: inherit;
+    color: #e2e8f0;
+    transition: all 0.12s ease;
+    position: relative;
+    clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+    text-align: left;
+}
+
+.th_tactical-weapon-row:hover {
+    background: #1a222e;
+    border-color: #3b485c;
+    transform: translateX(2px);
+}
+
+.th_tactical-weapon-row.th_active {
+    background: linear-gradient(90deg, rgba(0, 240, 255, 0.12) 0%, #16202c 100%);
+    border-color: #00F0FF;
+    border-left: 3px solid #00F0FF;
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.25), inset 0 0 10px rgba(0, 240, 255, 0.08);
+}
+
+.th_tactical-weapon-row.th_locked {
+    opacity: 0.55;
+    filter: grayscale(0.6);
+}
+
+.th_tactical-weapon-row-img {
+    width: 42px;
+    height: 32px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+    flex-shrink: 0;
+}
+
+.th_tactical-weapon-row-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.th_tactical-weapon-row-name {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    color: #f1f5f9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.th_tactical-weapon-row-meta {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin-top: 3px;
+}
+
+/* Huy hiệu cấp bậc T1-T5 */
+.th_badge-tier {
+    font-size: 8px;
+    font-weight: 900;
+    padding: 1px 5px;
+    border-radius: 2px;
+    letter-spacing: 0.5px;
+    font-family: 'Consolas', monospace;
+    border: 1px solid currentColor;
+}
+
+.th_badge-tier.tier-1 { color: #94a3b8; background: rgba(148, 163, 184, 0.15); border-color: #94a3b8; }
+.th_badge-tier.tier-2 { color: #22c55e; background: rgba(34, 197, 94, 0.15); border-color: #22c55e; }
+.th_badge-tier.tier-3 { color: #38bdf8; background: rgba(56, 189, 248, 0.15); border-color: #38bdf8; }
+.th_badge-tier.tier-4 { color: #c084fc; background: rgba(192, 132, 252, 0.15); border-color: #c084fc; }
+.th_badge-tier.tier-5 { color: #FFB300; background: rgba(255, 179, 0, 0.15); border-color: #FFB300; }
+
+.th_tactical-enchant-tag {
+    font-size: 7.5px;
+    font-weight: 800;
+    padding: 1px 4px;
+    border-radius: 2px;
+    background: #0f141c;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+}
+/* ==========================================================================
+   CỘT 2: BỆ VŨ KHÍ 3D & PHỤ KIỆN & LÕI ĐẠN (55%)
+   ========================================================================== */
+.th_tactical-workbench-bay {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: #0d1015;
+    border: 1px solid #1f2733;
+    position: relative;
+    overflow: hidden;
+    clip-path: polygon(
+        12px 0, calc(100% - 12px) 0, 
+        100% 12px, 100% calc(100% - 12px), 
+        calc(100% - 12px) 100%, 12px 100%, 
+        0 calc(100% - 12px), 0 12px
+    );
+}
+
+.th_tactical-workbench-bay::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(0, 240, 255, 0.12) 1px, transparent 1px);
+    background-size: 16px 16px;
+    pointer-events: none;
+    opacity: 0.7;
+    z-index: 1;
+}
+
+.th_workbench-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    background: rgba(16, 21, 28, 0.85);
+    border-bottom: 1px solid #1e2633;
+    position: relative;
+    z-index: 2;
+}
+
+.th_workbench-title-tag {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.th_workbench-id {
+    font-size: 11px;
+    font-weight: 900;
+    color: #f1f5f9;
+    letter-spacing: 0.8px;
+}
+
+.th_workbench-grid-coords {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 9.5px;
+    font-family: 'Consolas', monospace;
+    color: #64748b;
+}
+
+.th_workbench-online {
+    color: #00F0FF;
+    font-weight: 900;
+    text-shadow: 0 0 6px rgba(0, 240, 255, 0.8);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.th_workbench-online::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #00F0FF;
+    box-shadow: 0 0 8px #00F0FF;
+}
+
+.th_workbench-blueprint-stage {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 280px;
+    z-index: 2;
+    overflow: hidden;
+}
+
+.th_blueprint-grid-overlay {
+    position: absolute;
+    inset: 0;
+    background-image: 
+        linear-gradient(to right, rgba(0, 240, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 240, 255, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+}
+
+.th_blueprint-crosshairs {
+    position: absolute;
+    inset: 20px;
+    border: 1px dashed rgba(0, 240, 255, 0.15);
+    pointer-events: none;
+}
+
+.th_workbench-weapon-viewport {
+    position: relative;
+    width: 68%;
+    height: 65%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3;
+}
+
+.th_weapon-pedestal-light {
+    position: absolute;
+    bottom: 10%;
+    width: 75%;
+    height: 20px;
+    background: radial-gradient(ellipse at center, rgba(0, 240, 255, 0.35) 0%, rgba(0, 240, 255, 0) 70%);
+    filter: blur(6px);
+    border-bottom: 2px solid rgba(0, 240, 255, 0.4);
+}
+
+.th_workbench-weapon-img {
+    max-width: 90%;
+    max-height: 85%;
+    object-fit: contain;
+    filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.95)) drop-shadow(0 0 16px rgba(0, 240, 255, 0.2));
+    transition: transform 0.25s ease;
+    z-index: 4;
+}
+
+.th_weapon-laser-scan {
+    position: absolute;
+    top: 0;
+    left: 15%;
+    right: 15%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #00F0FF, transparent);
+    box-shadow: 0 0 8px #00F0FF;
+    animation: th_laser_scan 3.5s ease-in-out infinite alternate;
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+@keyframes th_laser_scan {
+    0% { transform: translateY(20px); opacity: 0.2; }
+    50% { opacity: 0.8; }
+    100% { transform: translateY(220px); opacity: 0.2; }
+}
+
+.th_workbench-watermark {
+    position: absolute;
+    font-size: 52px;
+    font-weight: 1000;
+    letter-spacing: 6px;
+    color: rgba(255, 255, 255, 0.025);
+    text-transform: uppercase;
+    user-select: none;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.th_mod-slot {
+    position: absolute;
+    z-index: 5;
+    pointer-events: auto;
+}
+
+.th_mod-slot-box {
+    background: rgba(14, 18, 25, 0.92);
+    border: 1px solid #00F0FF;
+    padding: 6px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.2), inset 0 0 8px rgba(0, 240, 255, 0.05);
+    backdrop-filter: blur(4px);
+    transition: all 0.15s;
+    cursor: default;
+}
+
+.th_mod-slot-box:hover {
+    border-color: #FFB300;
+    box-shadow: 0 0 14px rgba(255, 179, 0, 0.4);
+}
+
+.th_mod-slot-tag {
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 0.8px;
+    color: #00F0FF;
+    font-family: 'Consolas', monospace;
+}
+
+.th_mod-slot-val {
+    font-size: 10px;
+    font-weight: 800;
+    color: #f8fafc;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+
+.th_leader-line {
+    position: absolute;
+    pointer-events: none;
+}
+
+.th_mod-slot-optic {
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+.th_leader-optic {
+    top: 100%;
+    left: 50%;
+    width: 1px;
+    height: 38px;
+    background: linear-gradient(to bottom, #00F0FF, rgba(0, 240, 255, 0.2));
+    box-shadow: 0 0 4px #00F0FF;
+}
+.th_leader-optic::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: -3px;
+    width: 7px;
+    height: 7px;
+    background: #00F0FF;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #00F0FF;
+}
+
+.th_mod-slot-barrel {
+    top: 42%;
+    left: 20px;
+}
+.th_leader-barrel {
+    top: 50%;
+    left: 100%;
+    width: 60px;
+    height: 1px;
+    background: linear-gradient(to right, #00F0FF, rgba(0, 240, 255, 0.2));
+    box-shadow: 0 0 4px #00F0FF;
+}
+.th_leader-barrel::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: -3px;
+    width: 7px;
+    height: 7px;
+    background: #00F0FF;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #00F0FF;
+}
+
+.th_mod-slot-grip {
+    bottom: 22px;
+    left: 18%;
+}
+.th_leader-grip {
+    bottom: 100%;
+    left: 60%;
+    width: 1px;
+    height: 42px;
+    background: linear-gradient(to top, #00F0FF, rgba(0, 240, 255, 0.2));
+    box-shadow: 0 0 4px #00F0FF;
+}
+.th_leader-grip::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -3px;
+    width: 7px;
+    height: 7px;
+    background: #00F0FF;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #00F0FF;
+}
+
+.th_mod-slot-mag {
+    bottom: 22px;
+    right: 18%;
+}
+.th_leader-mag {
+    bottom: 100%;
+    left: 40%;
+    width: 1px;
+    height: 42px;
+    background: linear-gradient(to top, #00F0FF, rgba(0, 240, 255, 0.2));
+    box-shadow: 0 0 4px #00F0FF;
+}
+.th_leader-mag::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -3px;
+    width: 7px;
+    height: 7px;
+    background: #00F0FF;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #00F0FF;
+}
+
+.th_ammo-core-section {
+    padding: 10px 16px 14px;
+    background: rgba(14, 18, 24, 0.95);
+    border-top: 1px solid #1e2633;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 2;
+}
+
+.th_ammo-core-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.th_ammo-active-status {
+    font-size: 9.5px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    color: #FFB300;
+    font-family: 'Consolas', monospace;
+    text-shadow: 0 0 6px rgba(255, 179, 0, 0.4);
+}
+
+.th_ammo-core-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+.th_tactical-chip-card {
+    background: #10141a;
+    border: 1px solid #242c38;
+    padding: 8px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    position: relative;
+    clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+    transition: all 0.15s ease;
+}
+
+.th_tactical-chip-card::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 5px;
+    height: 5px;
+    background: #2a3442;
+    border-radius: 1px;
+}
+
+.th_tactical-chip-card:hover {
+    background: #18202a;
+    border-color: #00F0FF;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 240, 255, 0.2);
+}
+
+.th_tactical-chip-card.th_current {
+    background: linear-gradient(180deg, rgba(0, 240, 255, 0.15) 0%, #10141a 100%);
+    border-color: #00F0FF;
+    box-shadow: 0 0 14px rgba(0, 240, 255, 0.4), inset 0 0 8px rgba(0, 240, 255, 0.15);
+}
+
+.th_tactical-chip-card.th_current::before {
+    background: #00F0FF;
+    box-shadow: 0 0 6px #00F0FF;
+}
+
+.th_chip-title {
+    font-size: 9.5px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.th_chip-desc {
+    font-size: 7.5px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-align: center;
+    line-height: 1.25;
+}
+
+/* ==========================================================================
+   CỘT 3: THÔNG SỐ VŨ KHÍ & NÂNG CẤP (25%)
+   ========================================================================== */
+.th_tactical-summary-panel {
+    background: #11151c;
+    border: 1px solid #232b38;
+    border-left: 3px solid #FFB300;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+}
+
+.th_summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.th_tactical-tier-badge {
+    font-size: 9px;
+    font-weight: 900;
+    padding: 2px 7px;
+    background: #FFB300;
+    color: #090c10;
+    letter-spacing: 0.5px;
+    clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%);
+}
+
+.th_summary-weapon-name {
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 0.8px;
+    color: #f8fafc;
+    margin: 2px 0 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.th_summary-meta-line {
+    display: flex;
+    justify-content: space-between;
+    font-size: 8.5px;
+    font-weight: 700;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+/* Bảng thanh vạch chỉ số cơ khí */
+.th_tactical-stats-panel {
+    background: #11141a;
+    border: 1px solid #212833;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+}
+
+.th_stats-panel-title {
+    font-size: 9.5px;
+    font-weight: 900;
+    color: #94a3b8;
+    letter-spacing: 1px;
+    border-bottom: 1px solid #1e2633;
+    padding-bottom: 4px;
+}
+
+.th_stat-meter-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.th_stat-label-wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.th_stat-name {
+    font-size: 9px;
+    font-weight: 800;
+    color: #cbd5e1;
+    letter-spacing: 0.5px;
+}
+
+.th_stat-vals {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 9.5px;
+    font-weight: 900;
+    font-family: 'Consolas', monospace;
+}
+
+.th_stat-val-cur {
+    color: #94a3b8;
+}
+
+.th_stat-arrow {
+    color: #64748b;
+    font-size: 8px;
+}
+
+.th_stat-val-next {
+    color: #22c55e;
+    text-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+}
+
+.th_stat-val-next.max {
+    color: #FFB300;
+}
+
+/* Thanh vạch cơ khí hiện đại */
+.th_stat-bar-track {
+    height: 7px;
+    background: #181e28;
+    border: 1px solid #283344;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+}
+
+.th_stat-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #15803d, #22c55e);
+    box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+    transition: width 0.3s ease;
+}
+
+.th_stat-bar-bonus {
+    height: 100%;
+    background: #00F0FF;
+    opacity: 0.8;
+    box-shadow: 0 0 6px rgba(0, 240, 255, 0.6);
+    transition: width 0.3s ease;
+}
+
+/* Thẻ chi phí nâng cấp */
+.th_tactical-cost-card {
+    background: #12161f;
+    border: 1px solid #222c3b;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+}
+
+.th_cost-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #1c2330;
+    padding-bottom: 4px;
+}
+
+.th_cost-success-rate {
+    font-size: 9px;
+    font-weight: 900;
+    color: #00F0FF;
+    font-family: 'Consolas', monospace;
+    text-shadow: 0 0 6px rgba(0, 240, 255, 0.4);
+}
+
+.th_cost-details {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.th_cost-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 9px;
+    font-family: 'Consolas', monospace;
+}
+
+.th_cost-label {
+    color: #64748b;
+    font-weight: 700;
+}
+
+.th_cost-value {
+    color: #FFB300;
+    font-weight: 900;
+    text-shadow: 0 0 6px rgba(255, 179, 0, 0.4);
+}
+
+.th_cost-parts {
+    color: #00F0FF;
+    text-shadow: 0 0 6px rgba(0, 240, 255, 0.4);
+}
+
+/* Cụm nút bấm nâng cấp 3D vát cạnh góc 45 độ */
+.th_tactical-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: auto;
+}
+
+.th_tactical-btn {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid transparent;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 900;
+    cursor: pointer;
+    letter-spacing: 0.8px;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    position: relative;
+    clip-path: polygon(
+        8px 0, calc(100% - 8px) 0, 
+        100% 8px, 100% calc(100% - 8px), 
+        calc(100% - 8px) 100%, 8px 100%, 
+        0 calc(100% - 8px), 0 8px
+    );
+}
+
+.th_tactical-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: grayscale(0.6);
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Nút nâng cấp chính: Vàng hổ phách & Kim loại 3D */
+.th_btn-upgrade-chamber {
+    background: linear-gradient(180deg, #d97706 0%, #b45309 60%, #78350f 100%);
+    border: 1px solid #FFB300;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(255, 179, 0, 0.35), inset 0 1px 2px rgba(255, 255, 255, 0.4);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.th_btn-upgrade-chamber:not(:disabled):hover {
+    background: linear-gradient(180deg, #f59e0b 0%, #d97706 60%, #92400e 100%);
+    box-shadow: 0 6px 20px rgba(255, 179, 0, 0.55), inset 0 1px 4px rgba(255, 255, 255, 0.6);
+    transform: translateY(-2px);
+}
+
+.th_btn-upgrade-chamber:not(:disabled):active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 8px rgba(255, 179, 0, 0.3);
+}
+
+.th_btn-bracket-l, .th_btn-bracket-r {
+    color: #fde68a;
+    font-size: 13px;
+    font-weight: 1000;
+}
+
+/* Nút khảm ngọc lõi đạn: Xanh Cyan công nghệ */
+.th_btn-ammo-socket {
+    background: linear-gradient(180deg, #0e2738 0%, #091724 100%);
+    border: 1px solid #00F0FF;
+    color: #00F0FF;
+    box-shadow: 0 2px 10px rgba(0, 240, 255, 0.2), inset 0 1px 2px rgba(0, 240, 255, 0.2);
+    text-shadow: 0 0 6px rgba(0, 240, 255, 0.6);
+    font-size: 10px;
+}
+
+.th_btn-ammo-socket:not(:disabled):hover {
+    background: linear-gradient(180deg, #133952 0%, #0c2336 100%);
+    box-shadow: 0 4px 16px rgba(0, 240, 255, 0.4), inset 0 1px 4px rgba(0, 240, 255, 0.3);
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+/* Animation phản hồi khi đập đồ thành công */
+@keyframes th_workbench_pulse {
+    0% { box-shadow: 0 0 10px rgba(0, 240, 255, 0.2); }
+    40% { box-shadow: 0 0 40px rgba(0, 240, 255, 0.8), inset 0 0 20px rgba(0, 240, 255, 0.3); }
+    100% { box-shadow: 0 0 10px rgba(0, 240, 255, 0.2); }
+}
+
+.th_tactical-workbench-bay.th_animating {
+    animation: th_workbench_pulse 0.9s ease;
+}
+
+/* Responsive khi màn hình thu nhỏ */
+@media (max-width: 1200px) {
+    .th_tactical-col-left { flex: 0 0 22%; max-width: 22%; }
+    .th_tactical-col-center { flex: 0 0 calc(52% - 14px); max-width: calc(52% - 14px); }
+    .th_tactical-col-right { flex: 0 0 calc(26% - 14px); max-width: calc(26% - 14px); }
+}
+
+@media (max-width: 900px) {
+    .th_upgrade-panel {
+        flex-direction: column;
+        overflow-y: auto;
+    }
+    .th_tactical-col-left, .th_tactical-col-center, .th_tactical-col-right {
+        flex: 1 1 auto;
+        max-width: 100%;
+        min-height: 260px;
+    }
+}
