@@ -341,7 +341,9 @@ export class UIManager {
                 this.weaponName.classList.toggle('rare', !!curWeapon.tier);
             }
         }
-        const upgradeStatsStr = `DAME ×${player.weapons.damageBoost.toFixed(1)} · TỐC BẮN ×${player.weapons.fireRateBoost.toFixed(2)} · ${player.weapons.beamCount} TIA`;
+        const effective = player.weapons.getModifiedStats(curWeapon);
+        const rangeText = curWeapon.isKnife ? 'CẬN CHIẾN' : `TẦM ${effective.maxRange}m${effective.rangeBonusPct > 0 ? ` (+${Math.round(effective.rangeBonusPct * 100)}%)` : ''}`;
+        const upgradeStatsStr = `DAME ×${player.weapons.damageBoost.toFixed(1)} · TỐC BẮN ×${player.weapons.fireRateBoost.toFixed(2)} · ${player.weapons.beamCount} TIA · ${rangeText}`;
         if (upgradeStatsStr !== this._lastUpgradeStats) {
             this._lastUpgradeStats = upgradeStatsStr;
             if (this.upgradeStats) this.upgradeStats.textContent = upgradeStatsStr;

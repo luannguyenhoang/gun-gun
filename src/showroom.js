@@ -224,6 +224,8 @@ export class CharacterShowroom {
         document.getElementById('armory-rate').textContent = (1 / weapon.fireRate).toFixed(1);
         document.getElementById('armory-ammo').textContent = weapon.magSize;
         document.getElementById('armory-reload').textContent = `${weapon.reloadTime}s`;
+        const armoryRangeEl = document.getElementById('armory-range');
+        if (armoryRangeEl) armoryRangeEl.textContent = `${weapon.range || 45}m`;
         document.getElementById('armory-image').src = weapon.icon;
         document.getElementById('armory-fire-mode').textContent = weapon.isAuto ? 'TỰ ĐỘNG' : 'BÁN TỰ ĐỘNG';
         document.getElementById('armory-reserve').textContent = `${weapon.magSize * 6} VIÊN DỰ TRỮ`;
