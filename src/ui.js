@@ -885,201 +885,165 @@ export class UIManager {
         const ctx = this.radarCtx;
         const w = this.radarCanvas.width;
         const h = this.radarCanvas.height;
-        const cx = w / 2;
-        const cy = h / 2;
-        const radarRange = 38;
-        const scale = (w * 0.46) / radarRange;
+
+        // World halfSize = 25 → [-25, 25]
+        const HALF = 25;
+        const MAP_SIZE = HALF * 2;
+
+        const toX = (wx) => ((wx + HALF) / MAP_SIZE) * w;
+        const toY = (wz) => ((wz + HALF) / MAP_SIZE) * h;
+        const toR = (wr) => (wr / MAP_SIZE) * w;
 
         ctx.clearRect(0, 0, w, h);
 
-        // Radar background ring
-        ctx.strokeStyle = 'rgba(0, 240, 255, 0.25)';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(cx, cy, w * 0.44, 0, Math.PI * 2);
-        ctx.stroke();
+        // 1. Nen san nhua duong
+        ctx.fillStyle = '#1e1e1e';
+        ctx.fillRect(0, 0, w, h);
 
-        ctx.strokeStyle = 'rgba(0, 240, 255, 0.10)';
-        ctx.beginPath();
-        ctx.arc(cx, cy, w * 0.22, 0, Math.PI * 2);
-        ctx.stroke();
+        // 2. Giao lo trung tam sáng hon
+        const pSz = toR(5);
+        ctx.fillStyle = '#2d2d2d';
+        ctx.fillRect(toX(-5), toY(-5), pSz * 2, pSz * 2);
 
-        // Cross lines
-        ctx.beginPath();
-        ctx.moveTo(cx, cy - w * 0.44);
-        ctx.lineTo(cx, cy + w * 0.44);
-        ctx.moveTo(cx - w * 0.44, cy);
-        ctx.lineTo(cx + w * 0.44, cy);
-        ctx.stroke();
+        // 3. Vach duong phan lan
+        ctx.strokeStyle = 'rgba(120,120,120,0.3)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 4]);
+        for (const wx of [-12, 12]) {
+            ctx.beginPath(); ctx.moveTo(toX(wx), 0); ctx.lineTo(toX(wx), h); ctx.stroke();
+        }
+        for (const wz of [-12, 12]) {
+            ctx.beginPath(); ctx.moveTo(0, toY(wz)); ctx.lineTo(w, toY(wz)); ctx.stroke();
+        }
+        ctx.setLineDash([]);
 
-        const getPx = (x) => cx + x * scale;
-        const getPy = (z) => cy + z * scale;
+        // 4. Tuong bien voi cua portal tai ±10
+        ctx.strokeStyle = 'rgba(80,160,200,0.6)';
+        ctx.lineWidth = 2;
+        const GAP = 10, GHALF = 3.5;
+        const wallSegs = [
+            [-HALF, -(GAP + GHALF)], [-(GAP - GHALF), GAP - GHALF], [GAP + GHALF, HALF]
+        ];
+        // Bac va Nam (ngang)
+        for (const wz of [-HALF, HALF]) {
+            wallSegs.forEach(([s, e]) => {
+                ctx.beginPath(); ctx.moveTo(toX(s), toY(wz)); ctx.lineTo(toX(e), toY(wz)); ctx.stroke();
+            });
+        }
+        // Tay va Dong (doc)
+        for (const wx of [-HALF, HALF]) {
+            wallSegs.forEach(([s, e]) => {
+                ctx.beginPath(); ctx.moveTo(toX(wx), toY(s)); ctx.lineTo(toX(wx), toY(e)); ctx.stroke();
+            });
+        }
 
-        // Draw 4 Portals
-        for (const port of portals) {
-            const px = getPx(port.position.x);
-            const py = getPy(port.position.z);
-            ctx.fillStyle = '#b026ff';
-            ctx.shadowColor = '#b026ff';
-            ctx.shadowBlur = 6;
+        // 5. Vat can: 4 block goc + 2 wall-low
+        ctx.fillStyle = 'rgba(100,130,160,0.55)';
+        [[-20,-20],[20,-20],[-20,20],[20,20]].forEach(([bx, bz]) => {
+            const s = toR(2.2);
+            ctx.fillRect(toX(bx) - s / 2, toY(bz) - s / 2, s, s);
+        });
+        ctx.fillStyle = 'rgba(100,130,160,0.4)';
+        ctx.fillRect(toX(-6.8), toY(-18.4), toR(3.6), toR(0.8));
+        ctx.fillRect(toX(3.2),  toY(17.6),  toR(3.6), toR(0.8));
+
+        // 6. Portal
+        for (let i = 0; i < portals.length; i++) {
+            const port = portals[i];
+            const px = toX(port.position.x);
+            const py = toY(port.position.z);
+            const color = i % 2 === 0 ? '#b026ff' : '#ff0055';
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 5;
             ctx.beginPath();
-            ctx.moveTo(px, py - 4);
-            ctx.lineTo(px + 4, py);
-            ctx.lineTo(px, py + 4);
-            ctx.lineTo(px - 4, py);
-            ctx.closePath();
-            ctx.fill();
+            ctx.moveTo(px, py - 4); ctx.lineTo(px + 3, py);
+            ctx.lineTo(px, py + 4); ctx.lineTo(px - 3, py);
+            ctx.closePath(); ctx.fill();
             ctx.shadowBlur = 0;
         }
 
-        // Draw Pickups
+        // 7. Pickup
         for (const pick of pickups) {
-            const px = getPx(pick.mesh.position.x);
-            const py = getPy(pick.mesh.position.z);
-            ctx.fillStyle = `#${pick.color.toString(16).padStart(6, '0')}`;
-            ctx.beginPath();
-            ctx.arc(px, py, 3, 0, Math.PI * 2);
-            ctx.fill();
+            const px = toX(pick.mesh.position.x);
+            const py = toY(pick.mesh.position.z);
+            ctx.fillStyle = '#' + pick.color.toString(16).padStart(6, '0');
+            ctx.beginPath(); ctx.arc(px, py, 2.5, 0, Math.PI * 2); ctx.fill();
         }
 
-        // Draw Zombies
+        // 8. Airdrop zone
+        if (airdropZone) {
+            const px = toX(airdropZone.x);
+            const py = toY(airdropZone.z);
+            ctx.save();
+            const pulse = Math.sin(Date.now() * 0.008) * 0.4 + 0.6;
+            ctx.strokeStyle = `rgba(255,30,60,${pulse})`;
+            ctx.lineWidth = 1.5;
+            ctx.shadowColor = '#ff1e3c'; ctx.shadowBlur = 6;
+            ctx.beginPath(); ctx.arc(px, py, Math.max(4, toR(airdropZone.radius || 4.5)), 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = '#ff1e3c';
+            ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        }
+
+        // 9. Zombie
         for (const enemy of enemies) {
             if (enemy.isDead) continue;
-            const px = getPx(enemy.position.x);
-            const py = getPy(enemy.position.z);
-
-            if (enemy.type === 'boss') {
-                ctx.fillStyle = '#ff0055';
-                ctx.shadowColor = '#ff0055';
-                ctx.shadowBlur = 8;
-                ctx.beginPath();
-                ctx.arc(px, py, 6, 0, Math.PI * 2);
-                ctx.fill();
-            } else if (enemy.type === 'tank' || enemy.type === 'giant') {
-                ctx.fillStyle = '#ff8800';
-                ctx.shadowColor = '#ff8800';
-                ctx.shadowBlur = 5;
-                ctx.beginPath();
-                ctx.arc(px, py, enemy.type === 'giant' ? 6 : 4.5, 0, Math.PI * 2);
-                ctx.fill();
-            } else if (enemy.type === 'spitter') {
-                ctx.fillStyle = '#99ff22';
-                ctx.shadowColor = '#99ff22';
-                ctx.shadowBlur = 5;
-                ctx.fillRect(px - 3, py - 3, 6, 6);
-            } else if (enemy.type === 'sprinter') {
-                ctx.fillStyle = '#ffff00';
-                ctx.shadowColor = '#ffff00';
-                ctx.shadowBlur = 4;
-                ctx.beginPath();
-                ctx.arc(px, py, 3, 0, Math.PI * 2);
-                ctx.fill();
-            } else {
-                ctx.fillStyle = '#ff2a5f';
-                ctx.shadowColor = '#ff2a5f';
-                ctx.shadowBlur = 4;
-                ctx.beginPath();
-                ctx.arc(px, py, 3.5, 0, Math.PI * 2);
-                ctx.fill();
-            }
+            const px = toX(enemy.position.x);
+            const py = toY(enemy.position.z);
+            let color = '#ff2a5f', r = 2.5;
+            if (enemy.type === 'boss')   { color = '#ff0055'; r = 5; }
+            else if (enemy.type === 'tank' || enemy.type === 'giant') { color = '#ff8800'; r = 3.5; }
+            else if (enemy.type === 'spitter') { color = '#99ff22'; r = 2.5; }
+            else if (enemy.type === 'sprinter') { color = '#ffff00'; r = 2; }
+            ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 4;
+            ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
             ctx.shadowBlur = 0;
         }
 
-        // Vẽ vị trí đồng đội trên Radar
+        // 10. Dong doi
         if (Array.isArray(teammates)) {
             for (const mate of teammates) {
                 if (!mate || (mate.isDead && !mate.isDowned)) continue;
                 const matePos = mate.mesh ? mate.mesh.position : mate.position;
-                const px = getPx(matePos.x);
-                const py = getPy(matePos.z);
-
-                ctx.save();
+                const px = toX(matePos.x);
+                const py = toY(matePos.z);
+                const charColor = CHARACTER_COLORS[mate.characterId] || '#00f0ff';
+                ctx.fillStyle = mate.isDowned ? '#ff1744' : charColor;
+                ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 6;
+                ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fill();
+                ctx.shadowBlur = 0;
                 if (mate.isDowned) {
-                    ctx.fillStyle = '#ff1744';
-                    ctx.shadowColor = '#ff1744';
-                    ctx.shadowBlur = 8;
-                    ctx.beginPath();
-                    ctx.arc(px, py, 5, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.strokeStyle = '#ffffff';
-                    ctx.lineWidth = 1.5;
-                    ctx.stroke();
-
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = 'bold 8px Rajdhani, sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#fff'; ctx.font = 'bold 7px sans-serif';
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                     ctx.fillText('!', px, py);
-                } else {
-                    const charColor = CHARACTER_COLORS[mate.characterId] || '#00f0ff';
-                    ctx.fillStyle = charColor;
-                    ctx.shadowColor = charColor;
-                    ctx.shadowBlur = 7;
-                    ctx.beginPath();
-                    ctx.arc(px, py, 4.8, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    ctx.fillStyle = '#ffffff';
-                    ctx.beginPath();
-                    ctx.arc(px, py, 1.8, 0, Math.PI * 2);
-                    ctx.fill();
                 }
-                ctx.restore();
             }
         }
 
-        // Vẽ vòng tròn vùng tiếp tế Airdrop trên Tactical Radar
-        if (airdropZone) {
-            const px = getPx(airdropZone.x);
-            const py = getPy(airdropZone.z);
-
-            ctx.save();
-            const pulse = (Math.sin(Date.now() * 0.008) * 0.4 + 0.6);
-            ctx.strokeStyle = `rgba(255, 30, 60, ${pulse})`;
-            ctx.lineWidth = 2;
-            ctx.shadowColor = '#ff1e3c';
-            ctx.shadowBlur = 8;
-
-            // Vòng tròn bán kính Drop Zone
-            ctx.beginPath();
-            const zoneR = Math.max(5, (airdropZone.radius || 4.5) * scale);
-            ctx.arc(px, py, zoneR, 0, Math.PI * 2);
-            ctx.stroke();
-
-            // Chấm tâm Airdrop
-            ctx.fillStyle = '#ff1e3c';
-            ctx.beginPath();
-            ctx.arc(px, py, 2.5, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Chữ THÍNH
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 8px Rajdhani, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText('THÍNH', px, py - (zoneR + 2));
-            ctx.restore();
-        }
-
-        // Player central pointer
-        const pPx = getPx(player.position.x);
-        const pPy = getPy(player.position.z);
-        
+        // 11. Player (tam giac xanh, xoay theo huong nham)
+        const pPx = toX(player.position.x);
+        const pPy = toY(player.position.z);
         ctx.save();
         ctx.translate(pPx, pPy);
         ctx.rotate(Math.PI - player.aimYaw);
-        ctx.fillStyle = '#00f0ff';
-        ctx.shadowColor = '#00f0ff';
-        ctx.shadowBlur = 8;
-        ctx.beginPath();
-        ctx.moveTo(0, -6);
-        ctx.lineTo(-4, 5);
-        ctx.lineTo(4, 5);
-        ctx.closePath();
-        ctx.fill();
+        ctx.fillStyle = '#00f0ff'; ctx.shadowColor = '#00f0ff'; ctx.shadowBlur = 8;
+        ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(-3.5, 4); ctx.lineTo(3.5, 4); ctx.closePath(); ctx.fill();
         ctx.shadowBlur = 0;
         ctx.restore();
+
+        // 12. Vien canvas
+        ctx.strokeStyle = 'rgba(0,240,255,0.2)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
     }
+
+
+
+
+
+
+
 
     // Tạo phần tử DOM biểu thị đồng đội ngoài màn hình
     createTeammateMarker(id, characterId) {

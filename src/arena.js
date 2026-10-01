@@ -16,7 +16,7 @@ export class Arena {
         this.portals = [];
         this.models = {};
         this.halfSize = 25;
-        this.radius = 23;
+        this.radius = 26;
     }
 
     async loadModels() {
@@ -198,8 +198,8 @@ export class Arena {
 
             const dummy = new THREE.Object3D();
             let wIdx = 0;
-            // Để trống tại vị trí các cổng (x = ±16 và z = ±16)
-            const isGateGap = (val) => Math.abs(Math.abs(val) - 16) < 2.5;
+            // Để trống tại vị trí các cổng (x = ±10 và z = ±10, khớp với offset portal)
+            const isGateGap = (val) => Math.abs(Math.abs(val) - 10) < 2.5;
 
             for (let x = -halfSize; x <= halfSize; x += wallStep) {
                 if (!isGateGap(x)) {
@@ -260,7 +260,8 @@ export class Arena {
 
     buildSpawnPortals() {
         // 8 cổng spawn xung quanh biên map mới (halfSize = 25)
-        const portalDist = 25.5;
+        // portalDist = 24.0 → nằm trong tường boundary, getPortalSpawnPosition trả về vị trí hợp lệ
+        const portalDist = 24.0;
         const offset = 10;
         const portalDefs = [
             { name: 'Cổng Bắc 1', pos: new THREE.Vector3(-offset, 0, -portalDist), rot: 0, spawnDir: new THREE.Vector3(0, 0, 1) },
@@ -348,7 +349,7 @@ export class Arena {
         plaza.name = 'walkable-plaza';
         this.scene.add(plaza);
 
-        // Vòng tròn giao lộ (roundabout marker)
+        // Vòng tròn giao lộ (roundabout marker - chỉ trực quan, không block path)
         const roundabout = new THREE.Mesh(
             new THREE.RingGeometry(3.2, 3.5, 32),
             new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2 })
@@ -356,91 +357,47 @@ export class Arena {
         roundabout.rotation.x = -Math.PI / 2;
         roundabout.position.y = 0.04;
         this.scene.add(roundabout);
-
-        const colDist = 5;
-        const colScale = 2.0;
-        this.placeInstance('column', new THREE.Vector3(-colDist, 0, -colDist), 0, colScale, true);
-        this.placeInstance('column-damaged', new THREE.Vector3(colDist, 0, -colDist), 0.5, colScale, true);
-        this.placeInstance('column', new THREE.Vector3(-colDist, 0, colDist), 1.2, colScale, true);
-        this.placeInstance('column-damaged', new THREE.Vector3(colDist, 0, colDist), 2.1, colScale, true);
+        // Không đặt cột giữa trung tâm - giữ hành lang mở
     }
 
     buildTacticalCover() {
         const coverPoints = [
-            // --- Khối nhà góc Tây-Bắc ---
-            { model: 'block',    pos: [-18, 0, -18], rot: 0,             scale: 2.2 },
-            { model: 'wall-low', pos: [-14, 0, -18], rot: 0,             scale: 2 },
-            { model: 'wall-low', pos: [-18, 0, -14], rot: Math.PI * 0.5, scale: 2 },
-            { model: 'banner',   pos: [-16, 0, -16], rot: 0.8,           scale: 1.8 },
+            // --- 4 Khối nhà góc (chỉ 1 block mỗi góc, đẩy sâu vào rìm) ---
+            { model: 'block',  pos: [-20, 0, -20], rot: 0,    scale: 2.0 },
+            { model: 'block',  pos: [ 20, 0, -20], rot: 0,    scale: 2.0 },
+            { model: 'block',  pos: [-20, 0,  20], rot: 0,    scale: 2.0 },
+            { model: 'block',  pos: [ 20, 0,  20], rot: 0,    scale: 2.0 },
 
-            // --- Khối nhà góc Đông-Bắc ---
-            { model: 'block',    pos: [18, 0, -18],  rot: 0,             scale: 2.2 },
-            { model: 'wall-low', pos: [14, 0, -18],  rot: 0,             scale: 2 },
-            { model: 'wall-low', pos: [18, 0, -14],  rot: Math.PI * 0.5, scale: 2 },
-            { model: 'banner',   pos: [16, 0, -20],  rot: -0.5,          scale: 1.8 },
+            // --- Cây vỉa hè (không có collider - chỉ décor) ---
+            // (Cây sẽ được đặt riêng bên dưới, addCollider = false)
 
-            // --- Khối nhà góc Tây-Nam ---
-            { model: 'block',    pos: [-18, 0, 18],  rot: 0,             scale: 2.2 },
-            { model: 'wall-low', pos: [-14, 0, 18],  rot: Math.PI,       scale: 2 },
-            { model: 'wall-low', pos: [-18, 0, 14],  rot: Math.PI * 0.5, scale: 2 },
-            { model: 'statue',   pos: [-20, 0, 16],  rot: 1.4,           scale: 1.6 },
+            // --- Vật chắn nế bắc/nam - đủ xa trung tâm, có khoảng lưu thông ---
+            { model: 'wall-low', pos: [-5, 0, -18], rot: 0,             scale: 1.8 },
+            { model: 'wall-low', pos: [ 5, 0,  18], rot: Math.PI,       scale: 1.8 },
 
-            // --- Khối nhà góc Đông-Nam ---
-            { model: 'block',    pos: [18, 0, 18],   rot: 0,             scale: 2.2 },
-            { model: 'wall-low', pos: [14, 0, 18],   rot: Math.PI,       scale: 2 },
-            { model: 'wall-low', pos: [18, 0, 14],   rot: Math.PI * 0.5, scale: 2 },
-            { model: 'trophy',   pos: [20, 0, 16],   rot: -1.2,          scale: 1.6 },
-
-            // --- Hẻm chiến thuật Bắc ---
-            { model: 'wall-low', pos: [-6, 0, -16],  rot: 0,             scale: 2 },
-            { model: 'wall-low', pos: [ 6, 0, -16],  rot: 0,             scale: 2 },
-            { model: 'block',    pos: [ 0, 0, -18],  rot: 0.3,           scale: 1.6 },
-
-            // --- Hẻm chiến thuật Nam ---
-            { model: 'wall-low', pos: [-6, 0, 16],   rot: Math.PI,       scale: 2 },
-            { model: 'wall-low', pos: [ 6, 0, 16],   rot: Math.PI,       scale: 2 },
-            { model: 'block',    pos: [ 0, 0, 18],   rot: -0.2,          scale: 1.6 },
-
-            // --- Hẻm chiến thuật Tây ---
-            { model: 'wall-low', pos: [-16, 0, -6],  rot: Math.PI * 0.5, scale: 2 },
-            { model: 'wall-low', pos: [-16, 0,  6],  rot: Math.PI * 0.5, scale: 2 },
-            { model: 'column',   pos: [-18, 0,  0],  rot: 0,             scale: 1.6 },
-
-            // --- Hẻm chiến thuật Đông ---
-            { model: 'wall-low', pos: [16, 0, -6],   rot: -Math.PI * 0.5, scale: 2 },
-            { model: 'wall-low', pos: [16, 0,  6],   rot: -Math.PI * 0.5, scale: 2 },
-            { model: 'column-damaged', pos: [18, 0, 0], rot: 0.5,        scale: 1.6 },
-
-            // --- Cây vỉa hè rải rác ---
-            { model: 'tree', pos: [-10, 0, -21], rot: 0.3,  scale: 1.8 },
-            { model: 'tree', pos: [ 10, 0, -21], rot: 1.1,  scale: 1.8 },
-            { model: 'tree', pos: [-10, 0,  21], rot: 2.0,  scale: 1.8 },
-            { model: 'tree', pos: [ 10, 0,  21], rot: 0.7,  scale: 1.8 },
-            { model: 'tree', pos: [-21, 0, -10], rot: 1.5,  scale: 1.8 },
-            { model: 'tree', pos: [-21, 0,  10], rot: 0.4,  scale: 1.8 },
-            { model: 'tree', pos: [ 21, 0, -10], rot: 2.4,  scale: 1.8 },
-            { model: 'tree', pos: [ 21, 0,  10], rot: 1.9,  scale: 1.8 },
-
-            // --- Vật chắn chiến thuật gần trung tâm ---
-            { model: 'block', pos: [-8, 0, -8],  rot: 0.4,  scale: 1.5 },
-            { model: 'block', pos: [ 8, 0, -8],  rot: -0.2, scale: 1.5 },
-            { model: 'block', pos: [-8, 0,  8],  rot: 1.1,  scale: 1.5 },
-            { model: 'block', pos: [ 8, 0,  8],  rot: 0.8,  scale: 1.5 },
-
-            // --- Rack vũ khí hai bên ---
-            { model: 'weapon-rack', pos: [-12, 0, 0], rot: Math.PI * 0.5,  scale: 1.8 },
-            { model: 'weapon-rack', pos: [ 12, 0, 0], rot: -Math.PI * 0.5, scale: 1.8 },
+            // --- Rack vũ khí 2 bên đường chính ---
+            { model: 'weapon-rack', pos: [-13, 0, 0], rot: Math.PI * 0.5,  scale: 1.8 },
+            { model: 'weapon-rack', pos: [ 13, 0, 0], rot: -Math.PI * 0.5, scale: 1.8 },
         ];
 
         coverPoints.forEach(cp => {
             this.placeInstance(cp.model, new THREE.Vector3(cp.pos[0], cp.pos[1], cp.pos[2]), cp.rot, cp.scale, true);
         });
 
-        // Platform bê tông 2 bên hẻm chính
-        this.placeInstance('platform', new THREE.Vector3(-20, 0, 0), 0, 2.0, true);
-        this.placeInstance('platform', new THREE.Vector3(20, 0, 0), 0, 2.0, true);
-        this.placeInstance('column-damaged', new THREE.Vector3(-20, 1.0, 0), 0, 1.3, true);
-        this.placeInstance('column-damaged', new THREE.Vector3(20, 1.0, 0), 0.8, 1.3, true);
+        // Cây vỉa hè - không có collider để zombie/player không bị kẹt
+        const treePositions = [
+            [-10, 0, -22], [10, 0, -22],
+            [-10, 0,  22], [10, 0,  22],
+            [-22, 0, -10], [-22, 0, 10],
+            [ 22, 0, -10], [ 22, 0, 10],
+        ];
+        treePositions.forEach(([x, y, z], i) => {
+            this.placeInstance('tree', new THREE.Vector3(x, y, z), i * 0.7, 1.6, false);
+        });
+
+        // Banner trang trí góc - không có collider
+        this.placeInstance('banner', new THREE.Vector3(-17, 0, -17), 0.8, 1.6, false);
+        this.placeInstance('banner', new THREE.Vector3( 17, 0,  17), 2.5, 1.6, false);
     }
 
     buildGrass() {
