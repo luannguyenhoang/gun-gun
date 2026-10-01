@@ -845,20 +845,24 @@ export class UIManager {
     }
 
     showDamageNumber(amount, isCrit, worldPos, camera, hitResult = null) {
-        if (!this.floatingContainer) return;
+        if (!this.floatingContainer || !camera || !worldPos) return;
 
-        // Giới hạn DOM elements tối đa 20 thẻ để tối ưu hiệu năng Web không lag
-        while (this.floatingContainer.children.length >= 20) {
+        // Giới hạn DOM elements tối đa 25 thẻ để tối ưu hiệu năng Web không giật lag
+        while (this.floatingContainer.children.length >= 25) {
             this.floatingContainer.firstElementChild?.remove();
         }
 
-        // Nâng điểm hiển thị lên tầm đầu zombie (~1.8 đơn vị) để số không bị lệch xuống sàn
+        // Tọa độ worldPos: Nếu ở sàn đất thì nâng lên thân/đầu quái (~1.5m), nếu là điểm trúng đạn thì nâng nhẹ 0.35m
         const displayPos = worldPos.clone();
-        displayPos.y = Math.max(displayPos.y + 1.8, 1.8);
+        if (displayPos.y < 1.0) {
+            displayPos.y += 1.5;
+        } else {
+            displayPos.y += 0.35;
+        }
 
         const screenPos = displayPos.project(camera);
-        // Loại bỏ nếu nằm ngoài viewport
-        if (screenPos.z > 1 || Math.abs(screenPos.x) > 1.15 || Math.abs(screenPos.y) > 1.15) return;
+        // Loại bỏ nếu điểm nằm phía sau camera (z > 1 hoặc z < -1 trong NDC) hoặc ngoài khung nhìn màn hình
+        if (screenPos.z > 1 || screenPos.z < -1 || Math.abs(screenPos.x) > 1.1 || Math.abs(screenPos.y) > 1.1) return;
 
         const x = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
         const y = (-screenPos.y * 0.5 + 0.5) * window.innerHeight;
@@ -876,8 +880,8 @@ export class UIManager {
             el.textContent = `${displayDmg}${isCrit ? ' HEADSHOT' : ''}`;
         }
 
-        el.style.left = `${x + (Math.random() - 0.5) * 24}px`;
-        el.style.top = `${y + (Math.random() - 0.5) * 12}px`;
+        el.style.left = `${Math.round(x + (Math.random() - 0.5) * 16)}px`;
+        el.style.top = `${Math.round(y + (Math.random() - 0.5) * 10)}px`;
 
         this.floatingContainer.appendChild(el);
         setTimeout(() => {

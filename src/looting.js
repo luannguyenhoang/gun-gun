@@ -1728,9 +1728,11 @@ export class LootingSystem {
                     }
                 }
             }
-            // Rung màn hình và tạo chấn động
+            // Hiệu ứng nổ, hạt lửa và chấn động
+            const particles = this.player?.weapons?.particles || window.game?.particles;
+            particles?.createExplosion?.(targetPos, 0xff5500, 40, radius);
             this.player.applyKickbackAndShake?.(4.0, 0.45);
-            sounds.playExplosion?.();
+            sounds.play?.('enemyExplode', { volume: 1.0 }) || sounds.play?.('enemyDestroy', { volume: 1.0 });
             used = true;
         } else if (effect.type === 'smoke_grenade') {
             // Ném lựu đạn khói: Làm chậm và che mắt quái vật trong 10 giây

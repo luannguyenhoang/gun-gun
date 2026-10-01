@@ -556,6 +556,7 @@ export class Zombie {
             this.combatState !== ZombieCombatState.STUNNED) {
             this.bombs.spawn(player.position, this.damage);
             this.rangedCooldown = 5.5;
+            sounds?.play?.('enemyAttack', { volume: 0.75, pitchVariation: 0.2 });
         }
 
         // 2. Swarm separation: Thuat toan day mem chong chong lan quai, giup bay tu dan hang ngang

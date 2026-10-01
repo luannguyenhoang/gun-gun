@@ -1468,7 +1468,7 @@ export class WeaponSystem {
             0.5,
             Math.cos(player.mesh.rotation.y) * 4.2
         ));
-        this.particles.createExplosion(blastPos, 0xff5500, 36);
+        this.particles.createExplosion(blastPos, 0xff5500, 36, 6.0);
         this.particles.createImpactSparks(blastPos, new THREE.Vector3(0, 1, 0), 0xffdd44, 28);
         if (enemies && enemies.length) {
             for (const e of enemies) {
@@ -1973,7 +1973,7 @@ export class WeaponSystem {
                 const bCfg = tb.bombConfig;
 
                 // Hiệu ứng hạt nổ & chớp sáng
-                this.particles.createExplosion(blastPos, bCfg.color || 0xf97316, 45);
+                this.particles.createExplosion(blastPos, bCfg.color || 0xf97316, 45, bCfg.blastRadius || 5.5);
                 this.particles.createImpactSparks(blastPos, new THREE.Vector3(0, 1, 0), 0xffdd44, 28);
                 sounds.play('enemyExplode', { volume: 1.0 });
 
