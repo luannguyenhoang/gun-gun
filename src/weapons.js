@@ -13,11 +13,11 @@ export const RARITY_TIERS = {
 // 4 Linh kiện Phụ kiện Nâng cấp Súng (Attachments Ecosystem theo 5 Tier)
 export const ATTACHMENT_DEFS = {
     // 1. Nòng súng (Barrel): Tăng trực tiếp Flat Damage và tầm bắn hiệu dụng
-    barrel_t1: { id: 'barrel_t1', name: 'Nòng Cấp 1', slot: 'barrel', tier: 1, flatDmg: 5, rangeBonus: 1.1, desc: '+5 Sát thương trực tiếp' },
-    barrel_t2: { id: 'barrel_t2', name: 'Nòng Cấp 2', slot: 'barrel', tier: 2, flatDmg: 12, rangeBonus: 1.25, desc: '+12 Flat DMG, +15% Mod' },
-    barrel_t3: { id: 'barrel_t3', name: 'Nòng Cấp 3', slot: 'barrel', tier: 3, flatDmg: 22, rangeBonus: 1.45, desc: '+22 Flat DMG, +35% Mod' },
-    barrel_t4: { id: 'barrel_t4', name: 'Nòng Cấp 4', slot: 'barrel', tier: 4, flatDmg: 38, rangeBonus: 1.70, desc: '+38 Flat DMG, +60% Mod' },
-    barrel_t5: { id: 'barrel_t5', name: 'Nòng Cấp 5', slot: 'barrel', tier: 5, flatDmg: 65, rangeBonus: 2.10, desc: '+65 Flat DMG, +100% Mod, Đạn xé gió' },
+    barrel_t1: { id: 'barrel_t1', name: 'Nòng Cấp 1', slot: 'barrel', tier: 1, flatDmg: 5, rangeBonusPct: 0.10, desc: '+5 Sát thương, +10% Tầm bắn' },
+    barrel_t2: { id: 'barrel_t2', name: 'Nòng Cấp 2', slot: 'barrel', tier: 2, flatDmg: 12, rangeBonusPct: 0.25, desc: '+12 Flat DMG, +25% Tầm bắn, +15% Mod' },
+    barrel_t3: { id: 'barrel_t3', name: 'Nòng Cấp 3', slot: 'barrel', tier: 3, flatDmg: 22, rangeBonusPct: 0.45, desc: '+22 Flat DMG, +45% Tầm bắn, +35% Mod' },
+    barrel_t4: { id: 'barrel_t4', name: 'Nòng Cấp 4', slot: 'barrel', tier: 4, flatDmg: 38, rangeBonusPct: 0.70, desc: '+38 Flat DMG, +70% Tầm bắn, +60% Mod' },
+    barrel_t5: { id: 'barrel_t5', name: 'Nòng Cấp 5', slot: 'barrel', tier: 5, flatDmg: 65, rangeBonusPct: 1.10, desc: '+65 Flat DMG, +110% Tầm bắn siêu xa, +100% Mod, Đạn xé gió' },
 
     // 2. Băng đạn (Magazine): Tăng dung lượng đạn và tốc độ nạp đạn (DPS duy trì)
     magazine_t1: { id: 'magazine_t1', name: 'Băng Đạn Cấp 1', slot: 'magazine', tier: 1, magBonusPct: 0.25, reloadSpeedBonus: 0.15, desc: '+25% Dung lượng, nạp nhanh 15%' },
@@ -26,12 +26,12 @@ export const ATTACHMENT_DEFS = {
     magazine_t4: { id: 'magazine_t4', name: 'Băng Đạn Cấp 4', slot: 'magazine', tier: 4, magBonusPct: 1.10, reloadSpeedBonus: 0.55, desc: '+110% Băng đạn, nạp đạn chớp mắt' },
     magazine_t5: { id: 'magazine_t5', name: 'Băng Đạn Cấp 5', slot: 'magazine', tier: 5, magBonusPct: 1.60, reloadSpeedBonus: 0.75, desc: '+160% Băng đạn, nạp đạn siêu tốc' },
 
-    // 3. Kính ngắm (Optic): Tăng tỷ lệ bạo kích (Crit Chance) và sát thương bạo kích (Crit Damage)
-    optic_t1: { id: 'optic_t1', name: 'Kính Ngắm Cấp 1', slot: 'optic', tier: 1, critChance: 0.08, critDmgMod: 0.2, adsZoom: 1.25, desc: '+8% Crit, +0.2x Bạo kích' },
-    optic_t2: { id: 'optic_t2', name: 'Kính Ngắm Cấp 2', slot: 'optic', tier: 2, critChance: 0.15, critDmgMod: 0.4, adsZoom: 1.50, desc: '+15% Crit, +0.4x Bạo kích, zoom 1.5x' },
-    optic_t3: { id: 'optic_t3', name: 'Kính Ngắm Cấp 3', slot: 'optic', tier: 3, critChance: 0.25, critDmgMod: 0.7, adsZoom: 2.00, desc: '+25% Crit, +0.7x Bạo kích, zoom 2.0x' },
-    optic_t4: { id: 'optic_t4', name: 'Kính Ngắm Cấp 4', slot: 'optic', tier: 4, critChance: 0.38, critDmgMod: 1.1, adsZoom: 2.80, desc: '+38% Crit, +1.1x Bạo kích, zoom 2.8x' },
-    optic_t5: { id: 'optic_t5', name: 'Kính Ngắm Cấp 5', slot: 'optic', tier: 5, critChance: 0.55, critDmgMod: 1.8, adsZoom: 3.50, desc: '+55% Crit, +1.8x Bạo kích cực đại' },
+    // 3. Kính ngắm (Optic): Tăng tỷ lệ bạo kích (Crit Chance), sát thương bạo kích và tầm bắn hiệu dụng chuyên biệt
+    optic_t1: { id: 'optic_t1', name: 'Kính Ngắm Cấp 1', slot: 'optic', tier: 1, critChance: 0.08, critDmgMod: 0.2, adsZoom: 1.25, rangeBonusPct: 0.00, desc: '+8% Crit, +0.2x Bạo kích' },
+    optic_t2: { id: 'optic_t2', name: 'Kính Ngắm Cấp 2', slot: 'optic', tier: 2, critChance: 0.15, critDmgMod: 0.4, adsZoom: 1.50, rangeBonusPct: 0.05, desc: '+15% Crit, +0.4x Bạo kích, zoom 1.5x, +5% Tầm bắn' },
+    optic_t3: { id: 'optic_t3', name: 'Kính Ngắm Cấp 3', slot: 'optic', tier: 3, critChance: 0.25, critDmgMod: 0.7, adsZoom: 2.00, rangeBonusPct: 0.15, desc: '+25% Crit, +0.7x Bạo kích, zoom 2.0x, +15% Tầm bắn' },
+    optic_t4: { id: 'optic_t4', name: 'Kính Ngắm Cấp 4', slot: 'optic', tier: 4, critChance: 0.38, critDmgMod: 1.1, adsZoom: 2.80, rangeBonusPct: 0.30, desc: '+38% Crit, +1.1x Bạo kích, zoom 2.8x, +30% Tầm bắn' },
+    optic_t5: { id: 'optic_t5', name: 'Kính Ngắm Cấp 5', slot: 'optic', tier: 5, critChance: 0.55, critDmgMod: 1.8, adsZoom: 3.50, rangeBonusPct: 0.50, desc: '+55% Crit, +1.8x Bạo kích cực đại, zoom 3.5x, +50% Tầm bắn' },
 
     // 4. Báng / Tay cầm (Grip): Giảm độ tản đạn, giảm độ giật để gom toàn bộ đạn vào 1 điểm
     grip_t1: { id: 'grip_t1', name: 'Báng Tay Cầm Cấp 1', slot: 'grip', tier: 1, recoilReduction: 0.20, spreadReduction: 0.20, desc: '-20% Giật, -20% Tản đạn' },
@@ -77,6 +77,7 @@ export const WEAPON_CONFIGS = [
         critMultiplier: 2.0,
         magSize: 16,
         reloadTime: 1.15,
+        range: 16, // Tầm bắn cơ sở trong màn hình (Blaster-X: ~16m gần mép màn hình)
         bulletSpeed: 105,
         baseSpreadDegHip: 2.2, // Góc tản Hipfire (độ)
         baseSpreadDegADS: 0.5, // Góc tản ADS (độ)
@@ -107,6 +108,7 @@ export const WEAPON_CONFIGS = [
         critMultiplier: 2.0,
         magSize: 32,
         reloadTime: 1.3,
+        range: 13, // Tầm bắn cơ sở tầm trung gần (~13m)
         bulletSpeed: 115,
         baseSpreadDegHip: 3.5,
         baseSpreadDegADS: 1.0,
@@ -137,6 +139,7 @@ export const WEAPON_CONFIGS = [
         critMultiplier: 1.8,
         magSize: 8,
         reloadTime: 1.5,
+        range: 9, // Tầm bắn cơ sở cận chiến shotgun (~9m, khoảng nửa màn hình)
         bulletSpeed: 95,
         baseSpreadDegHip: 9.0,
         baseSpreadDegADS: 4.5,
@@ -157,9 +160,9 @@ export const WEAPON_CONFIGS = [
 ];
 
 export const RARE_WEAPON_CONFIGS = [
-    { ...WEAPON_CONFIGS[0], id: 'plasma', name: 'PLASMA LANCE', modelFile: 'kenney-blaster/blaster-j.glb', icon: 'assets/previews/kenney-blaster/blaster-j.png', damage: 54, penPower: 3, fireRate: 0.15, magSize: 24, baseSpreadDegHip: 1.8, baseSpreadDegADS: 0.4, screenShake: 0.22, cursorKick: 3.8, color: 0x9966ff, isAuto: true, tier: 4 },
-    { ...WEAPON_CONFIGS[1], id: 'storm', name: 'STORM MK-II', modelFile: 'kenney-blaster/blaster-e.glb', icon: 'assets/previews/kenney-blaster/blaster-e.png', damage: 25, penPower: 2, fireRate: 0.065, magSize: 48, baseSpreadDegHip: 2.8, baseSpreadDegADS: 0.7, screenShake: 0.14, cursorKick: 2.4, color: 0x55ffcc, tier: 4 },
-    { ...WEAPON_CONFIGS[2], id: 'nova', name: 'NOVA SHOTGUN', modelFile: 'kenney-blaster/blaster-g.glb', icon: 'assets/previews/kenney-blaster/blaster-g.png', damage: 22, penPower: 3, pellets: 8, fireRate: 0.45, magSize: 12, baseSpreadDegHip: 7.5, baseSpreadDegADS: 3.5, screenShake: 0.45, cursorKick: 8.0, color: 0xff6633, tier: 5 }
+    { ...WEAPON_CONFIGS[0], id: 'plasma', name: 'PLASMA LANCE', modelFile: 'kenney-blaster/blaster-j.glb', icon: 'assets/previews/kenney-blaster/blaster-j.png', damage: 54, penPower: 3, fireRate: 0.15, magSize: 24, range: 22, baseSpreadDegHip: 1.8, baseSpreadDegADS: 0.4, screenShake: 0.22, cursorKick: 3.8, color: 0x9966ff, isAuto: true, tier: 4 },
+    { ...WEAPON_CONFIGS[1], id: 'storm', name: 'STORM MK-II', modelFile: 'kenney-blaster/blaster-e.glb', icon: 'assets/previews/kenney-blaster/blaster-e.png', damage: 25, penPower: 2, fireRate: 0.065, magSize: 48, range: 15, baseSpreadDegHip: 2.8, baseSpreadDegADS: 0.7, screenShake: 0.14, cursorKick: 2.4, color: 0x55ffcc, tier: 4 },
+    { ...WEAPON_CONFIGS[2], id: 'nova', name: 'NOVA SHOTGUN', modelFile: 'kenney-blaster/blaster-g.glb', icon: 'assets/previews/kenney-blaster/blaster-g.png', damage: 22, penPower: 3, pellets: 8, fireRate: 0.45, magSize: 12, range: 11, baseSpreadDegHip: 7.5, baseSpreadDegADS: 3.5, screenShake: 0.45, cursorKick: 8.0, color: 0xff6633, tier: 5 }
 ];
 
 export function getStartingWeapon(id) {
@@ -487,6 +490,9 @@ export class WeaponSystem {
                 damage: w?.damage || 0,
                 magSize: w?.magSize || 0,
                 reloadTime: w?.reloadTime || 1.0,
+                baseRange: w?.range || (w?.isKnife ? 1.1 : 0),
+                maxRange: w?.range || (w?.isKnife ? 1.1 : 0),
+                rangeBonusPct: 0,
                 recoilPitch: w?.recoilPitch || 0,
                 cursorKick: w?.cursorKick || 0,
                 screenShake: w?.screenShake || 0,
@@ -514,6 +520,7 @@ export class WeaponSystem {
         let extraCritDmgMod = 0;
         let recoilReduction = 0;
         let spreadReduction = 0;
+        let rangeBonusPct = 0;
         let adsZoom = 1.0;
         let hasLegendary = (weaponTier >= 5);
 
@@ -529,6 +536,7 @@ export class WeaponSystem {
 
             if (def.slot === 'barrel') {
                 barrelFlat += (def.flatDmg || 0);
+                rangeBonusPct += (def.rangeBonusPct || 0);
             } else if (def.slot === 'magazine') {
                 magBonusPct += (def.magBonusPct || 0);
                 reloadSpeedBonus += (def.reloadSpeedBonus || 0);
@@ -536,6 +544,7 @@ export class WeaponSystem {
                 extraCritChance += (def.critChance || 0);
                 extraCritDmgMod += (def.critDmgMod || 0);
                 adsZoom = Math.max(adsZoom, def.adsZoom || 1.25);
+                if (def.rangeBonusPct) rangeBonusPct += def.rangeBonusPct;
             } else if (def.slot === 'grip') {
                 recoilReduction += (def.recoilReduction || 0);
                 spreadReduction += (def.spreadReduction || 0);
@@ -551,10 +560,17 @@ export class WeaponSystem {
         const recoilFactor = Math.max(0.12, 1 - recoilReduction);
         const spreadFactor = Math.max(0.15, 1 - spreadReduction);
 
+        // Tính toán tầm bắn hiệu dụng theo súng và các phụ kiện chuyên biệt
+        const baseRange = w.range || 45;
+        const maxRange = Math.round(baseRange * (1 + rangeBonusPct));
+
         return {
             damage,
             magSize,
             reloadTime,
+            baseRange,
+            maxRange,
+            rangeBonusPct,
             recoilPitch: w.recoilPitch * recoilFactor,
             cursorKick: w.cursorKick * recoilFactor,
             screenShake: w.screenShake * recoilFactor,
@@ -1108,6 +1124,9 @@ export class WeaponSystem {
                 direction: _tempAimDir.clone(),
                 speed: w.bulletSpeed * (isOverclockActive ? 1.25 : 1.0),
                 damage: effective.damage * damageMultiplier * (isPlayer ? this.damageBoost : 1),
+                baseDamage: effective.damage * damageMultiplier * (isPlayer ? this.damageBoost : 1),
+                maxRange: effective.maxRange,
+                distanceTraveled: 0,
                 penPower: effective.hasLegendary ? Math.max(3, w.penPower) : w.penPower,
                 critMultiplier: (w.critMultiplier || 2.0) + (effective.extraCritDmgMod || 0),
                 critChance: 0.12 + (effective.extraCritChance || 0),
@@ -1318,7 +1337,20 @@ export class WeaponSystem {
 
             // Continuous Collision Detection (CCD) theo frame
             const stepDist = p.speed * delta;
+            p.distanceTraveled = (p.distanceTraveled || 0) + stepDist;
+
             const startPos = p.mesh.position;
+
+            // Kiểm tra giới hạn tầm bắn tối đa theo từng súng và phụ kiện chuyên biệt
+            if (p.maxRange && p.distanceTraveled >= p.maxRange) {
+                // Tạo hiệu ứng hạt tàn đạn nhẹ khi viên đạn bay hết cự ly hiệu dụng
+                if (startPos) {
+                    this.particles?.createImpactSparks?.(startPos, p.direction.clone().negate(), p.color, 4);
+                }
+                this.removeProjectile(i);
+                continue;
+            }
+
             _tempNextPos.copy(startPos).addScaledVector(p.direction, stepDist);
             _tempRay.set(startPos, p.direction);
             let hitFound = false;
@@ -1343,9 +1375,17 @@ export class WeaponSystem {
                     if (hitInfo.hit) {
                         p.hitEnemies?.add(enemy);
 
+                        // Tính toán sát thương và cơ chế suy giảm theo cự ly (Damage Drop-off từ 70% tầm bắn)
+                        let currentBaseDmg = p.baseDamage !== undefined ? p.baseDamage : p.damage;
+                        if (p.maxRange && p.distanceTraveled > p.maxRange * 0.7) {
+                            const dropRatio = (p.distanceTraveled - p.maxRange * 0.7) / (p.maxRange * 0.3);
+                            const dropFactor = 1.0 - Math.min(0.5, Math.max(0, dropRatio) * 0.5); // Giảm tối đa 50% ở cuối tầm bắn
+                            currentBaseDmg = Math.round(currentBaseDmg * dropFactor);
+                        }
+
                         // Tính tỷ lệ bạo kích theo Phụ kiện Kính ngắm (Optic Crit Chance)
                         const isCrit = hitInfo.isCrit || (Math.random() < (p.critChance || 0.12));
-                        const finalDamage = p.damage * (isCrit ? p.critMultiplier : 1.0);
+                        const finalDamage = currentBaseDmg * (isCrit ? p.critMultiplier : 1.0);
 
                         // Gọi takeDamage kèm penPower
                         const hitResult = enemy.takeDamage(finalDamage, p.penPower, isCrit, p.direction);

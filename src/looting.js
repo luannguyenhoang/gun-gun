@@ -61,9 +61,10 @@ export const LOOT_ITEMS = {
         rarity: 'common',
         color: '#94a3b8',
         tag: 'NÒNG T1',
-        description: 'Tăng trực tiếp +5 Flat Damage cho súng.',
-        statSummary: '+5 Flat Damage',
-        flatDmg: 5
+        description: 'Tăng trực tiếp +5 Flat Damage và +10% Tầm bắn cho súng.',
+        statSummary: '+5 Flat DMG · +10% Tầm bắn',
+        flatDmg: 5,
+        rangeBonusPct: 0.10
     },
     barrel_t2: {
         id: 'barrel_t2',
@@ -74,9 +75,10 @@ export const LOOT_ITEMS = {
         rarity: 'uncommon',
         color: '#22c55e',
         tag: 'NÒNG T2',
-        description: 'Tăng +12 Flat Damage và +15% Damage modifier.',
-        statSummary: '+12 Flat DMG · +15% Mod',
-        flatDmg: 12
+        description: 'Tăng +12 Flat Damage, +25% Tầm bắn và +15% Damage modifier.',
+        statSummary: '+12 Flat DMG · +25% Tầm · +15% Mod',
+        flatDmg: 12,
+        rangeBonusPct: 0.25
     },
     barrel_t3: {
         id: 'barrel_t3',
@@ -87,9 +89,10 @@ export const LOOT_ITEMS = {
         rarity: 'rare',
         color: '#3b82f6',
         tag: 'NÒNG T3',
-        description: 'Tăng +22 Flat Damage và +35% Damage modifier.',
-        statSummary: '+22 Flat DMG · +35% Mod',
-        flatDmg: 22
+        description: 'Tăng +22 Flat Damage, +45% Tầm bắn và +35% Damage modifier.',
+        statSummary: '+22 Flat DMG · +45% Tầm · +35% Mod',
+        flatDmg: 22,
+        rangeBonusPct: 0.45
     },
     barrel_t4: {
         id: 'barrel_t4',
@@ -100,9 +103,10 @@ export const LOOT_ITEMS = {
         rarity: 'epic',
         color: '#a855f7',
         tag: 'NÒNG T4',
-        description: 'Tăng +38 Flat Damage và +60% Damage modifier.',
-        statSummary: '+38 Flat DMG · +60% Mod',
-        flatDmg: 38
+        description: 'Tăng +38 Flat Damage, +70% Tầm bắn và +60% Damage modifier.',
+        statSummary: '+38 Flat DMG · +70% Tầm · +60% Mod',
+        flatDmg: 38,
+        rangeBonusPct: 0.70
     },
     barrel_t5: {
         id: 'barrel_t5',
@@ -113,9 +117,10 @@ export const LOOT_ITEMS = {
         rarity: 'legendary',
         color: '#f59e0b',
         tag: 'NÒNG T5',
-        description: 'Tăng +65 Flat Damage, +100% Mod, đạn bay xé gió.',
-        statSummary: '+65 Flat DMG · +100% Mod',
-        flatDmg: 65
+        description: 'Tăng +65 Flat Damage, +110% Tầm bắn siêu xa, +100% Mod, đạn bay xé gió.',
+        statSummary: '+65 Flat DMG · +110% Tầm siêu xa · +100% Mod',
+        flatDmg: 65,
+        rangeBonusPct: 1.10
     },
 
     // --- 3. LINH KIỆN BĂNG ĐẠN (MAGAZINE - Mag Size & Reload Speed) ---
@@ -197,7 +202,8 @@ export const LOOT_ITEMS = {
         tag: 'KÍNH NGẮM T1',
         description: 'Kính Red Dot: +8% Crit, +0.2x Sát thương bạo kích.',
         statSummary: '+8% Crit · +0.2x Crit DMG',
-        critChance: 0.08
+        critChance: 0.08,
+        rangeBonusPct: 0.00
     },
     optic_t2: {
         id: 'optic_t2',
@@ -208,9 +214,10 @@ export const LOOT_ITEMS = {
         rarity: 'uncommon',
         color: '#22c55e',
         tag: 'KÍNH NGẮM T2',
-        description: 'Kính Holo: +15% Crit, +0.4x Crit DMG, +15% Damage.',
-        statSummary: '+15% Crit · +0.4x Crit DMG · +15% DMG',
-        critChance: 0.15
+        description: 'Kính Holo: +15% Crit, +0.4x Crit DMG, zoom 1.5x, +5% Tầm bắn, +15% Damage.',
+        statSummary: '+15% Crit · +5% Tầm · +15% DMG',
+        critChance: 0.15,
+        rangeBonusPct: 0.05
     },
     optic_t3: {
         id: 'optic_t3',
@@ -221,9 +228,10 @@ export const LOOT_ITEMS = {
         rarity: 'rare',
         color: '#3b82f6',
         tag: 'KÍNH NGẮM T3',
-        description: 'Ống ngắm Scope 2x: +25% Crit, +0.7x Crit DMG, +35% Damage.',
-        statSummary: '+25% Crit · +0.7x Crit DMG · +35% DMG',
-        critChance: 0.25
+        description: 'Ống ngắm Scope 2x: +25% Crit, +0.7x Crit DMG, zoom 2.0x, +15% Tầm bắn hiệu dụng, +35% Damage.',
+        statSummary: '+25% Crit · +15% Tầm · +35% DMG',
+        critChance: 0.25,
+        rangeBonusPct: 0.15
     },
     optic_t4: {
         id: 'optic_t4',
@@ -234,9 +242,10 @@ export const LOOT_ITEMS = {
         rarity: 'epic',
         color: '#a855f7',
         tag: 'KÍNH NGẮM T4',
-        description: 'Ống ngắm Scope 4x: +38% Crit, +1.1x Crit DMG, +60% Damage.',
-        statSummary: '+38% Crit · +1.1x Crit DMG · +60% DMG',
-        critChance: 0.38
+        description: 'Ống ngắm Scope 4x: +38% Crit, +1.1x Crit DMG, zoom 2.8x, +30% Tầm bắn hiệu dụng, +60% Damage.',
+        statSummary: '+38% Crit · +30% Tầm · +60% DMG',
+        critChance: 0.38,
+        rangeBonusPct: 0.30
     },
     optic_t5: {
         id: 'optic_t5',
@@ -247,9 +256,10 @@ export const LOOT_ITEMS = {
         rarity: 'legendary',
         color: '#f59e0b',
         tag: 'KÍNH NGẮM T5',
-        description: 'Kính Thần Ưng: +55% Crit, +1.8x Bạo kích cực đại, +100% Damage.',
-        statSummary: '+55% Crit · +1.8x Bạo kích · +100% DMG',
-        critChance: 0.55
+        description: 'Kính Thần Ưng: +55% Crit, +1.8x Bạo kích cực đại, zoom 3.5x, +50% Tầm bắn cực đại, +100% Damage.',
+        statSummary: '+55% Crit · +50% Tầm bắn · +100% DMG',
+        critChance: 0.55,
+        rangeBonusPct: 0.50
     },
 
     // --- 5. LINH KIỆN BÁNG / TAY CẦM (GRIP - Recoil & Spread Reduction) ---
