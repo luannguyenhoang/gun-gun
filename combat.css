@@ -1900,3 +1900,18 @@
 
 
 
+
+/* Local player's health follows the head instead of a screen corner. */
+#player-overhead-vitals {
+  position: fixed; z-index: 30; width: 86px;
+  transform: translate(-50%, -100%); pointer-events: none;
+  filter: drop-shadow(0 2px 2px #0006);
+}
+#player-overhead-vitals[hidden] { display: none; }
+.overhead-health { position: relative; height: 17px; border: 2px solid #202329; border-radius: 5px; background: #30353c; overflow: hidden; }
+.overhead-health > div { width: 100%; height: 100%; background: linear-gradient(#b3f39e, #4eb857); transition: width .12s linear; }
+.overhead-health strong { position: absolute; inset: 0; text-align: center; font: 800 12px/13px sans-serif; color: white; text-shadow: 0 1px 2px #000; }
+.overhead-shield { height: 6px; margin-top: 2px; border: 2px solid #202329; border-radius: 3px; background: #30353c; overflow: hidden; }
+.overhead-shield > div { width: 100%; height: 100%; background: #f7da65; transition: width .12s linear; }
+.low-health .overhead-health > div { background: linear-gradient(#ffab80, #e34848); }
+.combat-vitals .combat-card-title { margin-bottom: 0; }

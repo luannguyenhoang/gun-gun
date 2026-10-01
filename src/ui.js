@@ -31,6 +31,7 @@ function getCharacterAvatarSvg(characterId) {
 
 export class UIManager {
     constructor() {
+        this.overheadVitals = document.getElementById('player-overhead-vitals');
         this.healthFill = document.getElementById('health-fill');
         this.healthText = document.getElementById('health-text');
         this.shieldFill = document.getElementById('shield-fill');
@@ -213,6 +214,23 @@ export class UIManager {
         this._tempPromptNdc = new THREE.Vector3();
     }
 
+    updateOverheadVitals(player, camera, canvas) {
+        if (!this.overheadVitals) return;
+        // The local player's DOM meter replaces its small world-space duplicate.
+        if (player.healthBar) player.healthBar.group.visible = false;
+        const position = _tempMateWorldPos.copy(player.model?.position || player.position);
+        position.y += player.healthBar?.offsetY || 2.35;
+        _tempNdc.copy(position).project(camera);
+        const visible = !player.isDead && _tempNdc.z >= -1 && _tempNdc.z <= 1 && Math.abs(_tempNdc.x) <= 1 && Math.abs(_tempNdc.y) <= 1;
+        this.overheadVitals.hidden = !visible;
+        if (!visible) return;
+        const rect = canvas.getBoundingClientRect();
+        this.overheadVitals.style.left = `${rect.left + (_tempNdc.x + 1) * rect.width / 2}px`;
+        this.overheadVitals.style.top = `${rect.top + (1 - _tempNdc.y) * rect.height / 2}px`;
+        this.overheadVitals.classList.toggle('low-health', player.health <= player.maxHealth * 0.3);
+        this.overheadVitals.title = `Máu: ${Math.ceil(player.health)}/${player.maxHealth} · Khiên: ${Math.ceil(player.shield)}/${player.maxShield}`;
+    }
+
     updateStats(player, waveManager, score) {
         // Vị trí con trỏ cộng thêm Cursor Kickback (đẩy trực tiếp tọa độ tâm ngắm trên màn hình)
         const kickX = player.cursorKick ? player.cursorKick.x : 0;
@@ -256,7 +274,7 @@ export class UIManager {
             this._lastMaxHp = player.maxHealth;
             const hpPercent = Math.max(0, Math.min(100, (player.health / player.maxHealth) * 100));
             if (this.healthFill) this.healthFill.style.width = `${hpPercent}%`;
-            if (this.healthText) this.healthText.textContent = `${hpVal} / ${player.maxHealth}`;
+            if (this.healthText) this.healthText.textContent = `${Math.max(0, hpVal)}`;
         }
 
         // 2. Shield Bar (Xanh lam) - Dirty check
