@@ -15,6 +15,8 @@ export class Arena {
         this.colliders = []; // Array of THREE.Box3 for obstacle collisions
         this.portals = [];
         this.models = {};
+        this.halfSize = 36;
+        this.radius = 34;
     }
 
     async loadModels() {
@@ -101,7 +103,7 @@ export class Arena {
     }
 
     buildFloorAndWalls() {
-        const halfSize = 73; // 146x146 map size (2/3 of 220)
+        const halfSize = this.halfSize; // Thu nhỏ map còn 50% (72x72 thay vì 146x146)
         const tileSize = 2;
 
         // 1. High-Performance Instanced Floor
@@ -168,10 +170,11 @@ export class Arena {
 
             const dummy = new THREE.Object3D();
             let wIdx = 0;
+            // Để trống tại vị trí các cổng (x = ±16 và z = ±16)
+            const isGateGap = (val) => Math.abs(Math.abs(val) - 16) < 2.5;
 
             for (let x = -halfSize; x <= halfSize; x += wallStep) {
-                // Skip center where portals are located (x around 0)
-                if (Math.abs(x) > 2.5) {
+                if (!isGateGap(x)) {
                     dummy.position.set(x, 0, -halfSize - 1);
                     dummy.rotation.set(0, 0, 0);
                     dummy.scale.set(wallScale, wallScale, wallScale);
@@ -187,7 +190,7 @@ export class Arena {
             }
 
             for (let z = -halfSize; z <= halfSize; z += wallStep) {
-                if (Math.abs(z) > 2.5) {
+                if (!isGateGap(z)) {
                     dummy.position.set(-halfSize - 1, 0, z);
                     dummy.rotation.set(0, Math.PI * 0.5, 0);
                     dummy.scale.set(wallScale, wallScale, wallScale);
@@ -228,13 +231,18 @@ export class Arena {
     }
 
     buildSpawnPortals() {
-        // 4 Dimensional Portals placed around the arena
-        const portalDist = 71;
+        // Tăng số lượng cổng từ 4 lên 8 cổng không gian bao quanh sàn đấu
+        const portalDist = 34.5;
+        const offset = 16;
         const portalDefs = [
-            { name: 'North Portal', pos: new THREE.Vector3(0, 0, -portalDist), rot: 0, spawnDir: new THREE.Vector3(0, 0, 1) },
-            { name: 'South Portal', pos: new THREE.Vector3(0, 0, portalDist), rot: Math.PI, spawnDir: new THREE.Vector3(0, 0, -1) },
-            { name: 'West Portal',  pos: new THREE.Vector3(-portalDist, 0, 0), rot: Math.PI * 0.5, spawnDir: new THREE.Vector3(1, 0, 0) },
-            { name: 'East Portal',  pos: new THREE.Vector3(portalDist, 0, 0), rot: -Math.PI * 0.5, spawnDir: new THREE.Vector3(-1, 0, 0) }
+            { name: 'Cổng Bắc 1', pos: new THREE.Vector3(-offset, 0, -portalDist), rot: 0, spawnDir: new THREE.Vector3(0, 0, 1) },
+            { name: 'Cổng Bắc 2', pos: new THREE.Vector3(offset, 0, -portalDist), rot: 0, spawnDir: new THREE.Vector3(0, 0, 1) },
+            { name: 'Cổng Nam 1', pos: new THREE.Vector3(-offset, 0, portalDist), rot: Math.PI, spawnDir: new THREE.Vector3(0, 0, -1) },
+            { name: 'Cổng Nam 2', pos: new THREE.Vector3(offset, 0, portalDist), rot: Math.PI, spawnDir: new THREE.Vector3(0, 0, -1) },
+            { name: 'Cổng Tây 1', pos: new THREE.Vector3(-portalDist, 0, -offset), rot: Math.PI * 0.5, spawnDir: new THREE.Vector3(1, 0, 0) },
+            { name: 'Cổng Tây 2', pos: new THREE.Vector3(-portalDist, 0, offset), rot: Math.PI * 0.5, spawnDir: new THREE.Vector3(1, 0, 0) },
+            { name: 'Cổng Đông 1', pos: new THREE.Vector3(portalDist, 0, -offset), rot: -Math.PI * 0.5, spawnDir: new THREE.Vector3(-1, 0, 0) },
+            { name: 'Cổng Đông 2', pos: new THREE.Vector3(portalDist, 0, offset), rot: -Math.PI * 0.5, spawnDir: new THREE.Vector3(-1, 0, 0) }
         ];
 
         portalDefs.forEach((p, idx) => {
@@ -324,57 +332,57 @@ export class Arena {
 
     buildTacticalCover() {
         const coverPoints = [
-            { model: 'wall-low', pos: [-48, 0, -40], rot: 0, scale: 2 },
-            { model: 'block', pos: [-56, 0, -40], rot: 0.2, scale: 1.8 },
-            { model: 'tree', pos: [-64, 0, -56], rot: 0, scale: 2 },
-            { model: 'weapon-rack', pos: [-40, 0, -48], rot: 1.5, scale: 1.8 },
+            { model: 'wall-low', pos: [-24, 0, -20], rot: 0, scale: 2 },
+            { model: 'block', pos: [-28, 0, -20], rot: 0.2, scale: 1.8 },
+            { model: 'tree', pos: [-26, 0, -26], rot: 0, scale: 2 },
+            { model: 'weapon-rack', pos: [-20, 0, -24], rot: 1.5, scale: 1.8 },
 
-            { model: 'wall-low', pos: [48, 0, -40], rot: 0, scale: 2 },
-            { model: 'block', pos: [56, 0, -40], rot: -0.4, scale: 1.8 },
-            { model: 'tree', pos: [64, 0, -56], rot: 0.8, scale: 2 },
-            { model: 'banner', pos: [40, 0, -56], rot: 0, scale: 2.2 },
+            { model: 'wall-low', pos: [24, 0, -20], rot: 0, scale: 2 },
+            { model: 'block', pos: [28, 0, -20], rot: -0.4, scale: 1.8 },
+            { model: 'tree', pos: [26, 0, -26], rot: 0.8, scale: 2 },
+            { model: 'banner', pos: [20, 0, -26], rot: 0, scale: 2.2 },
 
-            { model: 'wall-low', pos: [-48, 0, 40], rot: Math.PI, scale: 2 },
-            { model: 'block', pos: [-56, 0, 40], rot: 0.7, scale: 1.8 },
-            { model: 'tree', pos: [-64, 0, 56], rot: 1.2, scale: 2 },
-            { model: 'banner', pos: [-40, 0, 56], rot: Math.PI, scale: 2.2 },
+            { model: 'wall-low', pos: [-24, 0, 20], rot: Math.PI, scale: 2 },
+            { model: 'block', pos: [-28, 0, 20], rot: 0.7, scale: 1.8 },
+            { model: 'tree', pos: [-26, 0, 26], rot: 1.2, scale: 2 },
+            { model: 'banner', pos: [-20, 0, 26], rot: Math.PI, scale: 2.2 },
 
-            { model: 'wall-low', pos: [48, 0, 40], rot: Math.PI, scale: 2 },
-            { model: 'block', pos: [56, 0, 40], rot: -0.8, scale: 1.8 },
-            { model: 'tree', pos: [64, 0, 56], rot: 2.0, scale: 2 },
-            { model: 'statue', pos: [56, 0, 16], rot: -1.2, scale: 2 },
+            { model: 'wall-low', pos: [24, 0, 20], rot: Math.PI, scale: 2 },
+            { model: 'block', pos: [28, 0, 20], rot: -0.8, scale: 1.8 },
+            { model: 'tree', pos: [26, 0, 26], rot: 2.0, scale: 2 },
+            { model: 'statue', pos: [26, 0, 8], rot: -1.2, scale: 2 },
             
-            // Add more randomized cover objects to fill the empty space
-            { model: 'wall-low', pos: [0, 0, -60], rot: Math.PI * 0.5, scale: 2 },
-            { model: 'wall-low', pos: [0, 0, 60], rot: Math.PI * 0.5, scale: 2 },
-            { model: 'tree', pos: [30, 0, 30], rot: 0.7, scale: 2 },
-            { model: 'tree', pos: [-30, 0, -30], rot: 1.3, scale: 2 },
-            { model: 'tree', pos: [30, 0, -30], rot: 2.1, scale: 2 },
-            { model: 'tree', pos: [-30, 0, 30], rot: 2.6, scale: 2 }
+            // Vật chắn chiến thuật phân bố trong map 72x72
+            { model: 'wall-low', pos: [0, 0, -25], rot: Math.PI * 0.5, scale: 2 },
+            { model: 'wall-low', pos: [0, 0, 25], rot: Math.PI * 0.5, scale: 2 },
+            { model: 'tree', pos: [14, 0, 14], rot: 0.7, scale: 2 },
+            { model: 'tree', pos: [-14, 0, -14], rot: 1.3, scale: 2 },
+            { model: 'tree', pos: [14, 0, -14], rot: 2.1, scale: 2 },
+            { model: 'tree', pos: [-14, 0, 14], rot: 2.6, scale: 2 }
         ];
 
         coverPoints.forEach(cp => {
             this.placeInstance(cp.model, new THREE.Vector3(cp.pos[0], cp.pos[1], cp.pos[2]), cp.rot, cp.scale, true);
         });
 
-        this.placeInstance('platform-large-grass', new THREE.Vector3(-68, 0, 0), 0, 2.5, true);
-        this.placeInstance('platform-large-grass', new THREE.Vector3(68, 0, 0), 0, 2.5, true);
-        this.placeInstance('column', new THREE.Vector3(-68, 1.2, 0), 0, 1.5, true);
-        this.placeInstance('column', new THREE.Vector3(68, 1.2, 0), 0, 1.5, true);
+        this.placeInstance('platform-large-grass', new THREE.Vector3(-31, 0, 0), 0, 2.2, true);
+        this.placeInstance('platform-large-grass', new THREE.Vector3(31, 0, 0), 0, 2.2, true);
+        this.placeInstance('column', new THREE.Vector3(-31, 1.2, 0), 0, 1.4, true);
+        this.placeInstance('column', new THREE.Vector3(31, 1.2, 0), 0, 1.4, true);
     }
 
     buildGrass() {
         const blades = new THREE.InstancedMesh(new THREE.ConeGeometry(0.10, 0.3, 3),
-            new THREE.MeshStandardMaterial({ color: 0x609743, roughness: 1 }), 3200);
+            new THREE.MeshStandardMaterial({ color: 0x609743, roughness: 1 }), 2000);
         blades.name = 'grass-blades';
         const dummy = new THREE.Object3D();
-        // Identical decoration on every client; no colliders or extra draw calls.
+        // Rải cỏ trong phạm vi map thu nhỏ 70x70
         let seed = 731;
         const random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
         for (let i = 0; i < blades.count; i++) {
-            dummy.position.set((random() - 0.5) * 144, 0.15, (random() - 0.5) * 144);
+            dummy.position.set((random() - 0.5) * 70, 0.15, (random() - 0.5) * 70);
             while (Math.abs(dummy.position.x) < 4.6 && Math.abs(dummy.position.z) < 4.6) {
-                dummy.position.set((random() - 0.5) * 144, 0.15, (random() - 0.5) * 144);
+                dummy.position.set((random() - 0.5) * 70, 0.15, (random() - 0.5) * 70);
             }
             dummy.rotation.y = random() * Math.PI;
             dummy.scale.set(1, 0.6 + random(), 1);

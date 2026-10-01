@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../libs/loaders/GLTFLoader.js';
-import { sounds } from './audio.js?v=22';
+import { sounds } from './audio.js';
 import { ParticleSystem } from './particles.js?v=22';
 import { Arena } from './arena.js?v=22';
 import { WeaponSystem, getStartingWeapon } from './weapons.js?v=22';

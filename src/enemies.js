@@ -56,9 +56,9 @@ export class Zombie {
         // Cac chi so chu ky chien dau
         this.combatState = ZombieCombatState.CHASE;
         this.combatTimer = 0;
-        this.windupDuration = 0.25;      // Pha 1: Tu luc ~0.25s
-        this.recoveryDuration = 0.85;    // Pha 3: Khung hoi phuc ~0.85s
-        this.stunDuration = 0.1;         // Khung khi trung dan ~0.1s
+        this.windupDuration = 0.20;      // Pha 1: Tu luc ~0.20s
+        this.recoveryDuration = 0.50;    // Pha 3: Khung hoi phuc nhanh hon ~0.50s (giam khung de danh quyet liet hon)
+        this.stunDuration = 0.06;         // Khung khi trung dan ~0.06s
 
         this.flashTimer = 0;
         this.spitCharge = 0;
@@ -80,110 +80,110 @@ export class Zombie {
         this.setupVisuals(gltfModels);
     }
 
-    // Tinh toan chi so quai dua tren he so thoi gian va loai quai
+    // Tinh toan chi so quai dua tren he so thoi gian va loai quai - Tang suc manh manh me
     applyStats(type, phaseNum = 1, survivalMinutes = 0, playerSpeed = 7.5) {
         this.type = type;
         this.radius = ZOMBIE_RADII[type] ?? ZOMBIE_RADII.walker;
 
         // He so tang tien theo thoi gian song (hoac phase) - Tang manh tay hon
-        const timeScale = 1.0 + (survivalMinutes * 0.25);
-        const phaseMult = Math.max(timeScale, 1.0 + (phaseNum - 1) * 0.40);
-        const dmgMult = 1.0 + survivalMinutes * 0.15 + (phaseNum - 1) * 0.25;
+        const timeScale = 1.0 + (survivalMinutes * 0.35);
+        const phaseMult = Math.max(timeScale, 1.0 + (phaseNum - 1) * 0.45);
+        const dmgMult = 1.0 + survivalMinutes * 0.20 + (phaseNum - 1) * 0.30;
 
-        // Tinh toan toc do toi da khong vuot qua 90% toc do Player de luon tha dieu duoc
-        const maxAllowedSpeed = (playerSpeed || 7.5) * 0.90;
+        // Tinh toan toc do toi da khong vuot qua 95% toc do Player de van tha dieu duoc nhung ap sat rat sat
+        const maxAllowedSpeed = (playerSpeed || 7.5) * 0.95;
 
         if (type === 'tank') {
-            // Tanker Zombie: Xuat hien sau phut 5, kich thuoc to 1.3x, mau day, khang day lui knockback 85%
-            this.baseHealth = 260;
-            this.baseArmor = 130;
+            // Tanker Zombie: Mau cuc trau, giap day, khang day lui knockback 90%
+            this.baseHealth = 550;
+            this.baseArmor = 280;
             this.armorClass = 2; // Giap kim loai cap 2
-            this.speed = Math.min(3.6 * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
-            this.scale = 2.15;
-            this.damage = Math.round(24 * dmgMult);
-            this.attackRange = 1.45;
-            this.attackCooldown = 1.2;
-            this.knockbackResistance = 0.85; // Khang 85% knockback
-            this.scoreValue = 220;
+            this.speed = Math.min(3.8 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.scale = 2.2;
+            this.damage = Math.round(45 * dmgMult);
+            this.attackRange = 1.5;
+            this.attackCooldown = 1.0;
+            this.knockbackResistance = 0.90;
+            this.scoreValue = 300;
         } else if (type === 'sprinter') {
-            // Fast Zombie: Xuat hien tu phut 2-5, toc do rat cao, mau it, ap sat nhanh
-            this.baseHealth = 50;
-            this.baseArmor = 0;
-            this.armorClass = 0; // Khong giap
-            this.speed = Math.min(6.75 * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
-            this.scale = 1.55;
-            this.damage = Math.round(14 * dmgMult);
-            this.attackRange = 1.15;
-            this.attackCooldown = 0.8;
-            this.knockbackResistance = 0.0;
-            this.scoreValue = 140;
-        } else if (type === 'giant') {
-            this.baseHealth = 460;
-            this.baseArmor = 220;
-            this.armorClass = 3;
-            this.speed = Math.min(2.8 * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
-            this.scale = 3.6;
-            this.damage = Math.round(35 * dmgMult);
-            this.attackRange = 2.8;
-            this.attackCooldown = 2.0;
-            this.knockbackResistance = 0.92;
-            this.scoreValue = 350;
-        } else if (type === 'spitter') {
-            this.baseHealth = 95;
+            // Fast Zombie: Toc do rat cao, mau duoc nang cap, ap sat nhanh
+            this.baseHealth = 120;
             this.baseArmor = 20;
             this.armorClass = 1;
-            this.speed = Math.min(4.0 * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
+            this.speed = Math.min(7.2 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.scale = 1.55;
+            this.damage = Math.round(24 * dmgMult);
+            this.attackRange = 1.2;
+            this.attackCooldown = 0.7;
+            this.knockbackResistance = 0.1;
+            this.scoreValue = 180;
+        } else if (type === 'giant') {
+            this.baseHealth = 1100;
+            this.baseArmor = 500;
+            this.armorClass = 3;
+            this.speed = Math.min(3.0 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.scale = 3.6;
+            this.damage = Math.round(65 * dmgMult);
+            this.attackRange = 2.8;
+            this.attackCooldown = 1.7;
+            this.knockbackResistance = 0.95;
+            this.scoreValue = 500;
+        } else if (type === 'spitter') {
+            this.baseHealth = 220;
+            this.baseArmor = 60;
+            this.armorClass = 1;
+            this.speed = Math.min(4.2 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
             this.scale = 1.8;
-            this.damage = Math.round(18 * dmgMult);
+            this.damage = Math.round(32 * dmgMult);
             this.attackRange = 1.35;
-            this.attackCooldown = 2.5;
-            this.knockbackResistance = 0.2;
-            this.scoreValue = 160;
-        } else if (type === 'boss') {
-            this.baseHealth = 3500;
-            this.baseArmor = 1500;
-            this.armorClass = 4;
-            this.speed = Math.min(5.0 * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
-            this.scale = 5.2;
-            this.damage = Math.round(55 * dmgMult);
-            this.attackRange = 4.5;
-            this.attackCooldown = 1.5;
-            this.knockbackResistance = 1.0;
-            this.scoreValue = 2000;
-        } else if (type === 'crawler') {
-            this.baseHealth = 40;
-            this.baseArmor = 0;
-            this.armorClass = 0;
-            this.speed = Math.min(5.8 * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
-            this.scale = 0.8;
-            this.damage = Math.round(18 * dmgMult);
-            this.attackRange = 0.9;
-            this.attackCooldown = 0.6;
-            this.knockbackResistance = 0.0;
-            this.scoreValue = 80;
-        } else if (type === 'boomer') {
-            this.baseHealth = 140;
-            this.baseArmor = 0;
-            this.armorClass = 0;
-            this.speed = Math.min(2.8 * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
-            this.scale = 1.7;
-            this.damage = Math.round(45 * dmgMult);
-            this.attackRange = 1.4;
             this.attackCooldown = 2.0;
-            this.knockbackResistance = 0.4;
-            this.scoreValue = 130;
-        } else {
-            // Zombie thuong (walker): 0-2 phut dau, toc do trung binh, mau co ban
-            this.baseHealth = 85;
+            this.knockbackResistance = 0.25;
+            this.scoreValue = 220;
+        } else if (type === 'boss') {
+            this.baseHealth = 7500;
+            this.baseArmor = 3500;
+            this.armorClass = 4;
+            this.speed = Math.min(5.4 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.scale = 5.2;
+            this.damage = Math.round(110 * dmgMult);
+            this.attackRange = 4.5;
+            this.attackCooldown = 1.3;
+            this.knockbackResistance = 1.0;
+            this.scoreValue = 3500;
+        } else if (type === 'crawler') {
+            this.baseHealth = 95;
             this.baseArmor = 0;
             this.armorClass = 0;
-            this.speed = Math.min(4.7 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.speed = Math.min(6.2 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.scale = 0.85;
+            this.damage = Math.round(30 * dmgMult);
+            this.attackRange = 0.95;
+            this.attackCooldown = 0.55;
+            this.knockbackResistance = 0.05;
+            this.scoreValue = 120;
+        } else if (type === 'boomer') {
+            this.baseHealth = 280;
+            this.baseArmor = 30;
+            this.armorClass = 1;
+            this.speed = Math.min(3.2 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.scale = 1.7;
+            this.damage = Math.round(80 * dmgMult);
+            this.attackRange = 1.4;
+            this.attackCooldown = 1.8;
+            this.knockbackResistance = 0.5;
+            this.scoreValue = 200;
+        } else {
+            // Zombie thuong (walker): Mau trau hon nhieu, sat thuong cao
+            this.baseHealth = 180;
+            this.baseArmor = 30;
+            this.armorClass = 1;
+            this.speed = Math.min(5.0 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
             this.scale = 1.65;
-            this.damage = Math.round(16 * dmgMult);
-            this.attackRange = 1.15;
-            this.attackCooldown = 1.0;
-            this.knockbackResistance = 0.0;
-            this.scoreValue = 100;
+            this.damage = Math.round(28 * dmgMult);
+            this.attackRange = 1.25;
+            this.attackCooldown = 0.9;
+            this.knockbackResistance = 0.1;
+            this.scoreValue = 150;
         }
 
         this.maxHealth = Math.round(this.baseHealth * phaseMult);
@@ -750,9 +750,9 @@ export class WaveManager {
         this.isWaveInProgress = true;
         this.spawnQueue = [];
 
-        // Cu ly spawn vong tron ngoai man hinh (15m - 20m quanh Player)
-        this.minSpawnDistance = 16.0;
-        this.maxSpawnDistance = 21.0;
+        // Cu ly spawn vong tron quanh Player phu hop map 72x72
+        this.minSpawnDistance = 12.0;
+        this.maxSpawnDistance = 18.0;
 
         this.navigationBudget = { remaining: 0, allowed: new Set() };
         this.navigationCursor = 0;
@@ -778,12 +778,12 @@ export class WaveManager {
         this.currentPhase = phaseNum;
         this.isWaveInProgress = true;
         this.hasSpawnedBoss = false;
-        // Tính tổng số lượng quái cho đợt tăng lên đáng kể
-        this.totalWaveEnemies = Math.floor(25 + phaseNum * 8.5);
+        // Tổng số lượng quái cho đợt tăng vọt để đông đảo, dồn dập
+        this.totalWaveEnemies = Math.floor(45 + phaseNum * 16);
         this.remainingToSpawn = this.totalWaveEnemies;
-        // Giới hạn số quái tối đa cùng xuất hiện trên sân (Tăng maxOnField để đông hơn)
-        this.maxOnField = Math.min(24, 10 + Math.floor(phaseNum * 2.5));
-        this.batchInterval = Math.max(1.0, 2.0 - phaseNum * 0.15);
+        // Giới hạn số quái tối đa cùng xuất hiện trên sân (Tăng lên 30 - 50 con cùng lúc)
+        this.maxOnField = Math.min(50, 22 + Math.floor(phaseNum * 4));
+        this.batchInterval = Math.max(0.65, 1.3 - phaseNum * 0.1);
         this.batchSpawnTimer = 0;
     }
 
@@ -812,12 +812,20 @@ export class WaveManager {
         }
     }
 
-    // Tinh toan toa do spawn vong tron ngoai man hinh bao quanh nguoi choi (Off-screen Perimeter)
+    // Tinh toan toa do spawn: Uu tien 60% spawn truc tiep tu 8 cong khong gian
     calculateOffscreenSpawnPosition(player) {
         const center = player?.position || new THREE.Vector3(0, 0, 0);
-        const arenaRadius = this.arena?.radius || 35;
+        const arenaRadius = this.arena?.radius || 34;
 
-        for (let attempts = 0; attempts < 8; attempts++) {
+        // Ưu tiên 60% xuất hiện từ các cổng không gian
+        const portals = this.arena?.getPortals?.();
+        if (portals && portals.length > 0 && Math.random() < 0.6) {
+            const portal = portals[Math.floor(Math.random() * portals.length)];
+            const pos = this.arena.getPortalSpawnPosition(portal, 0.7);
+            if (pos) return pos;
+        }
+
+        for (let attempts = 0; attempts < 10; attempts++) {
             const angle = Math.random() * Math.PI * 2;
             const distance = this.minSpawnDistance + Math.random() * (this.maxSpawnDistance - this.minSpawnDistance);
             const spawnX = center.x + Math.cos(angle) * distance;
@@ -831,16 +839,17 @@ export class WaveManager {
             if (spawnPos.length() > arenaRadius - 2) {
                 spawnPos.clampLength(0, arenaRadius - 3);
             }
-            return spawnPos;
+            if (!this.arena?.checkCollision || !this.arena.checkCollision(spawnPos, 0.8)) {
+                return spawnPos;
+            }
         }
 
-        // Fallback neu cham bien: lay vi tri portal
-        const portals = this.arena?.getPortals?.();
+        // Fallback: lay vi tri portal
         if (portals && portals.length > 0) {
             const portal = portals[Math.floor(Math.random() * portals.length)];
             return this.arena.getPortalSpawnPosition(portal, 0.7) || new THREE.Vector3(0, 0, -16);
         }
-        return new THREE.Vector3(center.x + 16, 0, center.z);
+        return new THREE.Vector3(center.x + 10, 0, center.z);
     }
 
     // Lay doi tuong Zombie tu Object Pool hoac khoi tao moi
@@ -887,6 +896,23 @@ export class WaveManager {
         return true;
     }
 
+    spawnZombie(type) {
+        const radius = ZOMBIE_RADII[type] ?? 0.6;
+        const portals = this.arena?.getPortals?.();
+        if (portals && portals.length > 0) {
+            const portal = portals[Math.floor(Math.random() * portals.length)];
+            const spawnPos = this.arena.getPortalSpawnPosition(portal, radius);
+            if (!spawnPos) return false;
+            if (this.arena.checkCollision(spawnPos, radius)) return false;
+            const zombie = this.acquireZombie(type, spawnPos, 0, 7.5);
+            if (!this.enemies.includes(zombie)) {
+                this.enemies.push(zombie);
+            }
+            return true;
+        }
+        return false;
+    }
+
     update(delta, player, arena, onEnemyKilled) {
         const targets = (Array.isArray(player) ? player : [player]).filter(p => !p.isDead);
         const primaryPlayer = targets[0] || (Array.isArray(player) ? player[0] : player);
@@ -900,6 +926,14 @@ export class WaveManager {
 
         // 1. Quản lý sinh quai theo đợt có kiểm soát (Wave Spawning)
         if (this.isWaveInProgress && primaryPlayer && !primaryPlayer.isDead) {
+            // Xử lý hàng đợi thủ công (spawnQueue) nếu có
+            if (this.spawnQueue && this.spawnQueue.length > 0) {
+                const nextType = this.spawnQueue[0];
+                if (this.spawnZombie(nextType)) {
+                    this.spawnQueue.shift();
+                }
+            }
+
             this.batchSpawnTimer += delta;
             const activeCount = this.enemies.filter(e => e.active && !e.isDead).length;
 
@@ -914,7 +948,7 @@ export class WaveManager {
                     this.remainingToSpawn--;
                 }
                 
-                 const canSpawn = Math.min(2, this.maxOnField - activeCount, this.remainingToSpawn);
+                 const canSpawn = Math.min(4, this.maxOnField - activeCount, this.remainingToSpawn);
                 for (let i = 0; i < canSpawn; i++) {
                     this.spawnSingleEnemy(primaryPlayer, survivalMinutes);
                     this.remainingToSpawn--;
@@ -959,7 +993,8 @@ export class WaveManager {
 
         // 4. Kiểm tra hoàn thành đợt (Wave Cleared) -> Kích hoạt thời gian nghỉ ngơi
         const activeRemaining = this.enemies.filter(e => e.active && !e.isDead).length;
-        if (this.isWaveInProgress && (this.remainingToSpawn || 0) <= 0 && activeRemaining === 0) {
+        const queueRemaining = (this.remainingToSpawn || 0) + (this.spawnQueue?.length || 0);
+        if (this.isWaveInProgress && queueRemaining <= 0 && activeRemaining === 0) {
             this.isWaveInProgress = false;
             return true; // Báo hiệu cho main.js bắt đầu 10 giây nghỉ
         }

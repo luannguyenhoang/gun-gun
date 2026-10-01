@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { LOOT_ITEMS, LOOT_TIERS } from './looting.js?v=22';
-import { sounds } from './audio.js?v=22';
+import { sounds } from './audio.js';
 import { ATTACHMENT_DEFS } from './weapons.js?v=22';
 
 const _tempMateWorldPos = new THREE.Vector3();
@@ -822,7 +822,7 @@ export class UIManager {
         const h = this.radarCanvas.height;
         const cx = w / 2;
         const cy = h / 2;
-        const radarRange = 75;
+        const radarRange = 38;
         const scale = (w * 0.46) / radarRange;
 
         ctx.clearRect(0, 0, w, h);
