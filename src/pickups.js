@@ -3,19 +3,19 @@ import { sounds } from './audio.js';
 import { RARE_WEAPON_CONFIGS, ATTACHMENT_DEFS, RARITY_TIERS } from './weapons.js';
 import { LOOT_ITEMS } from './looting.js';
 
-// Danh mục phần thưởng rơi từ Zombie: Hoàn toàn loại bỏ đạn lẻ và buff đạn, chỉ tập trung vào Phụ kiện, Súng & Y tế
+// Danh mục phần thưởng rơi từ Zombie: Chủ yếu rơi Hồi Máu, Giáp và Cứu thương; Phụ kiện rơi hiếm hơn
 export const DROP_TYPES = [
-    { id: 'health', label: '+40 MÁU', color: 0x00ff88, weight: 0.18 },
-    { id: 'shield', label: '+50 GIÁP', color: 0x00d0ff, weight: 0.16 },
-    { id: 'medkit', label: '+1 TÚI CỨU THƯƠNG', color: 0x10b981, weight: 0.16 },
-    { id: 'barrel', label: 'PHỤ KIỆN: NÒNG', color: 0xff4444, weight: 0.14 },
-    { id: 'magazine', label: 'PHỤ KIỆN: BĂNG ĐẠN', color: 0x38bdf8, weight: 0.14 },
-    { id: 'optic', label: 'PHỤ KIỆN: KÍNH NGẮM', color: 0xa855f7, weight: 0.11 },
-    { id: 'grip', label: 'PHỤ KIỆN: TAY CẦM', color: 0xf59e0b, weight: 0.08 },
-    { id: 'weapon', label: 'VŨ KHÍ MỚI', color: 0xffaa22, weight: 0.03 }
+    { id: 'health', label: '+40 MÁU', color: 0x00ff88, weight: 0.35 },
+    { id: 'shield', label: '+50 GIÁP', color: 0x00d0ff, weight: 0.28 },
+    { id: 'medkit', label: '+1 TÚI CỨU THƯƠNG', color: 0x10b981, weight: 0.18 },
+    { id: 'barrel', label: 'PHỤ KIỆN: NÒNG', color: 0xff4444, weight: 0.05 },
+    { id: 'magazine', label: 'PHỤ KIỆN: BĂNG ĐẠN', color: 0x38bdf8, weight: 0.05 },
+    { id: 'optic', label: 'PHỤ KIỆN: KÍNH NGẮM', color: 0xa855f7, weight: 0.04 },
+    { id: 'grip', label: 'PHỤ KIỆN: TAY CẦM', color: 0xf59e0b, weight: 0.03 },
+    { id: 'weapon', label: 'VŨ KHÍ MỚI', color: 0xffaa22, weight: 0.02 }
 ];
 
-export const DROP_CHANCE = 0.08;
+export const DROP_CHANCE = 0.05;
 const ATTACHMENT_SLOTS = ['barrel', 'magazine', 'optic', 'grip'];
 
 export class PickupManager {

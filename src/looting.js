@@ -61,10 +61,10 @@ export const LOOT_ITEMS = {
         rarity: 'common',
         color: '#94a3b8',
         tag: 'NÒNG T1',
-        description: 'Tăng trực tiếp +5 Flat Damage và +10% Tầm bắn cho súng.',
-        statSummary: '+5 Flat DMG · +10% Tầm bắn',
-        flatDmg: 5,
-        rangeBonusPct: 0.10
+        description: 'Tăng +2 Flat Damage và +8% Tầm bắn cho súng.',
+        statSummary: '+2 Flat DMG · +8% Tầm',
+        flatDmg: 2,
+        rangeBonusPct: 0.08
     },
     barrel_t2: {
         id: 'barrel_t2',
@@ -75,10 +75,10 @@ export const LOOT_ITEMS = {
         rarity: 'uncommon',
         color: '#22c55e',
         tag: 'NÒNG T2',
-        description: 'Tăng +12 Flat Damage, +25% Tầm bắn và +15% Damage modifier.',
-        statSummary: '+12 Flat DMG · +25% Tầm · +15% Mod',
-        flatDmg: 12,
-        rangeBonusPct: 0.25
+        description: 'Tăng +4 Flat Damage và +15% Tầm bắn.',
+        statSummary: '+4 Flat DMG · +15% Tầm',
+        flatDmg: 4,
+        rangeBonusPct: 0.15
     },
     barrel_t3: {
         id: 'barrel_t3',
@@ -89,10 +89,10 @@ export const LOOT_ITEMS = {
         rarity: 'rare',
         color: '#3b82f6',
         tag: 'NÒNG T3',
-        description: 'Tăng +22 Flat Damage, +45% Tầm bắn và +35% Damage modifier.',
-        statSummary: '+22 Flat DMG · +45% Tầm · +35% Mod',
-        flatDmg: 22,
-        rangeBonusPct: 0.45
+        description: 'Tăng +7 Flat Damage và +25% Tầm bắn.',
+        statSummary: '+7 Flat DMG · +25% Tầm',
+        flatDmg: 7,
+        rangeBonusPct: 0.25
     },
     barrel_t4: {
         id: 'barrel_t4',
@@ -103,10 +103,10 @@ export const LOOT_ITEMS = {
         rarity: 'epic',
         color: '#a855f7',
         tag: 'NÒNG T4',
-        description: 'Tăng +38 Flat Damage, +70% Tầm bắn và +60% Damage modifier.',
-        statSummary: '+38 Flat DMG · +70% Tầm · +60% Mod',
-        flatDmg: 38,
-        rangeBonusPct: 0.70
+        description: 'Tăng +11 Flat Damage và +35% Tầm bắn.',
+        statSummary: '+11 Flat DMG · +35% Tầm',
+        flatDmg: 11,
+        rangeBonusPct: 0.35
     },
     barrel_t5: {
         id: 'barrel_t5',
@@ -117,10 +117,10 @@ export const LOOT_ITEMS = {
         rarity: 'legendary',
         color: '#f59e0b',
         tag: 'NÒNG T5',
-        description: 'Tăng +65 Flat Damage, +110% Tầm bắn siêu xa, +100% Mod, đạn bay xé gió.',
-        statSummary: '+65 Flat DMG · +110% Tầm siêu xa · +100% Mod',
-        flatDmg: 65,
-        rangeBonusPct: 1.10
+        description: 'Tăng +16 Flat Damage và +50% Tầm bắn siêu xa.',
+        statSummary: '+16 Flat DMG · +50% Tầm',
+        flatDmg: 16,
+        rangeBonusPct: 0.50
     },
 
     // --- 3. LINH KIỆN BĂNG ĐẠN (MAGAZINE - Mag Size & Reload Speed) ---
@@ -133,9 +133,9 @@ export const LOOT_ITEMS = {
         rarity: 'common',
         color: '#94a3b8',
         tag: 'BĂNG ĐẠN T1',
-        description: 'Tăng +25% sức chứa băng đạn, nạp đạn nhanh hơn 15%.',
-        statSummary: '+25% Băng đạn · Nạp +15%',
-        magBonusPct: 0.25
+        description: 'Tăng +15% sức chứa băng đạn, nạp đạn nhanh hơn 10%.',
+        statSummary: '+15% Băng đạn · Nạp +10%',
+        magBonusPct: 0.15
     },
     magazine_t2: {
         id: 'magazine_t2',
@@ -146,9 +146,9 @@ export const LOOT_ITEMS = {
         rarity: 'uncommon',
         color: '#22c55e',
         tag: 'BĂNG ĐẠN T2',
-        description: 'Tăng +45% sức chứa băng đạn, nạp đạn nhanh hơn 25%, +15% Damage.',
-        statSummary: '+45% Băng đạn · Nạp +25% · +15% DMG',
-        magBonusPct: 0.45
+        description: 'Tăng +25% sức chứa băng đạn, nạp đạn nhanh hơn 15%.',
+        statSummary: '+25% Băng đạn · Nạp +15%',
+        magBonusPct: 0.25
     },
     magazine_t3: {
         id: 'magazine_t3',
@@ -159,9 +159,9 @@ export const LOOT_ITEMS = {
         rarity: 'rare',
         color: '#3b82f6',
         tag: 'BĂNG ĐẠN T3',
-        description: 'Tăng +75% sức chứa băng đạn, nạp đạn nhanh hơn 40%, +35% Damage.',
-        statSummary: '+75% Băng đạn · Nạp +40% · +35% DMG',
-        magBonusPct: 0.75
+        description: 'Tăng +40% sức chứa băng đạn, nạp đạn nhanh hơn 20%.',
+        statSummary: '+40% Băng đạn · Nạp +20%',
+        magBonusPct: 0.40
     },
     magazine_t4: {
         id: 'magazine_t4',
@@ -172,9 +172,9 @@ export const LOOT_ITEMS = {
         rarity: 'epic',
         color: '#a855f7',
         tag: 'BĂNG ĐẠN T4',
-        description: '+110% Băng đạn, nạp đạn chớp mắt, +60% Damage.',
-        statSummary: '+110% Băng đạn · Nạp chớp mắt · +60% DMG',
-        magBonusPct: 1.10
+        description: '+55% Băng đạn, nạp nhanh 25%.',
+        statSummary: '+55% Băng đạn · Nạp +25%',
+        magBonusPct: 0.55
     },
     magazine_t5: {
         id: 'magazine_t5',
@@ -185,9 +185,9 @@ export const LOOT_ITEMS = {
         rarity: 'legendary',
         color: '#f59e0b',
         tag: 'BĂNG ĐẠN T5',
-        description: '+160% Băng đạn, nạp đạn siêu tốc, +100% Damage.',
-        statSummary: '+160% Băng đạn · Nạp siêu tốc · +100% DMG',
-        magBonusPct: 1.60
+        description: '+75% Băng đạn, nạp nhanh 30%.',
+        statSummary: '+75% Băng đạn · Nạp +30%',
+        magBonusPct: 0.75
     },
 
     // --- 4. LINH KIỆN KÍNH NGẮM (OPTIC - Crit Chance & Crit Damage) ---
@@ -200,9 +200,9 @@ export const LOOT_ITEMS = {
         rarity: 'common',
         color: '#94a3b8',
         tag: 'KÍNH NGẮM T1',
-        description: 'Kính Red Dot: +8% Crit, +0.2x Sát thương bạo kích.',
-        statSummary: '+8% Crit · +0.2x Crit DMG',
-        critChance: 0.08,
+        description: 'Kính Red Dot: +5% Crit, +0.15x Sát thương bạo kích.',
+        statSummary: '+5% Crit · +0.15x Bạo kích',
+        critChance: 0.05,
         rangeBonusPct: 0.00
     },
     optic_t2: {
@@ -214,9 +214,9 @@ export const LOOT_ITEMS = {
         rarity: 'uncommon',
         color: '#22c55e',
         tag: 'KÍNH NGẮM T2',
-        description: 'Kính Holo: +15% Crit, +0.4x Crit DMG, zoom 1.5x, +5% Tầm bắn, +15% Damage.',
-        statSummary: '+15% Crit · +5% Tầm · +15% DMG',
-        critChance: 0.15,
+        description: 'Kính Holo: +10% Crit, +0.25x Crit DMG, zoom 1.5x.',
+        statSummary: '+10% Crit · Zoom 1.5x',
+        critChance: 0.10,
         rangeBonusPct: 0.05
     },
     optic_t3: {
@@ -228,10 +228,10 @@ export const LOOT_ITEMS = {
         rarity: 'rare',
         color: '#3b82f6',
         tag: 'KÍNH NGẮM T3',
-        description: 'Ống ngắm Scope 2x: +25% Crit, +0.7x Crit DMG, zoom 2.0x, +15% Tầm bắn hiệu dụng, +35% Damage.',
-        statSummary: '+25% Crit · +15% Tầm · +35% DMG',
-        critChance: 0.25,
-        rangeBonusPct: 0.15
+        description: 'Ống ngắm Scope 2x: +15% Crit, +0.35x Crit DMG, zoom 1.75x.',
+        statSummary: '+15% Crit · Zoom 1.75x',
+        critChance: 0.15,
+        rangeBonusPct: 0.10
     },
     optic_t4: {
         id: 'optic_t4',
@@ -242,10 +242,10 @@ export const LOOT_ITEMS = {
         rarity: 'epic',
         color: '#a855f7',
         tag: 'KÍNH NGẮM T4',
-        description: 'Ống ngắm Scope 4x: +38% Crit, +1.1x Crit DMG, zoom 2.8x, +30% Tầm bắn hiệu dụng, +60% Damage.',
-        statSummary: '+38% Crit · +30% Tầm · +60% DMG',
-        critChance: 0.38,
-        rangeBonusPct: 0.30
+        description: 'Ống ngắm Scope 4x: +22% Crit, +0.45x Crit DMG, zoom 2.2x.',
+        statSummary: '+22% Crit · Zoom 2.2x',
+        critChance: 0.22,
+        rangeBonusPct: 0.15
     },
     optic_t5: {
         id: 'optic_t5',
@@ -256,10 +256,10 @@ export const LOOT_ITEMS = {
         rarity: 'legendary',
         color: '#f59e0b',
         tag: 'KÍNH NGẮM T5',
-        description: 'Kính Thần Ưng: +55% Crit, +1.8x Bạo kích cực đại, zoom 3.5x, +50% Tầm bắn cực đại, +100% Damage.',
-        statSummary: '+55% Crit · +50% Tầm bắn · +100% DMG',
-        critChance: 0.55,
-        rangeBonusPct: 0.50
+        description: 'Kính Thần Ưng: +30% Crit, +0.60x Bạo kích, zoom 2.8x.',
+        statSummary: '+30% Crit · Zoom 2.8x',
+        critChance: 0.30,
+        rangeBonusPct: 0.20
     },
 
     // --- 5. LINH KIỆN BÁNG / TAY CẦM (GRIP - Recoil & Spread Reduction) ---
@@ -272,8 +272,8 @@ export const LOOT_ITEMS = {
         rarity: 'common',
         color: '#94a3b8',
         tag: 'TAY CẦM T1',
-        description: 'Tay cầm dọc: Giảm 20% độ giật, giảm 20% góc tản đạn.',
-        statSummary: '-20% Giật · -20% Tản đạn'
+        description: 'Tay cầm dọc: Giảm 15% độ giật, giảm 15% góc tản đạn.',
+        statSummary: '-15% Giật · -15% Tản đạn'
     },
     grip_t2: {
         id: 'grip_t2',
@@ -284,8 +284,8 @@ export const LOOT_ITEMS = {
         rarity: 'uncommon',
         color: '#22c55e',
         tag: 'TAY CẦM T2',
-        description: 'Báng hợp kim: Giảm 35% độ giật, giảm 35% tản đạn, +15% Damage.',
-        statSummary: '-35% Giật · Gom đạn · +15% DMG'
+        description: 'Báng hợp kim: Giảm 25% độ giật, giảm 25% tản đạn.',
+        statSummary: '-25% Giật · Gom đạn'
     },
     grip_t3: {
         id: 'grip_t3',
@@ -296,8 +296,8 @@ export const LOOT_ITEMS = {
         rarity: 'rare',
         color: '#3b82f6',
         tag: 'TAY CẦM T3',
-        description: 'Báng giảm giật cao cấp: Giảm 50% độ giật, gom 50% chùm đạn, +35% Damage.',
-        statSummary: '-50% Giật · Gom đạn · +35% DMG'
+        description: 'Báng giảm giật cao cấp: Giảm 35% độ giật, gom 35% chùm đạn.',
+        statSummary: '-35% Giật · Gom đạn'
     },
     grip_t4: {
         id: 'grip_t4',
@@ -308,8 +308,8 @@ export const LOOT_ITEMS = {
         rarity: 'epic',
         color: '#a855f7',
         tag: 'TAY CẦM T4',
-        description: 'Khung giảm chấn thủy lực: Giảm 65% độ giật, gom 1 điểm, +60% Damage.',
-        statSummary: '-65% Giật · Gom 1 điểm · +60% DMG'
+        description: 'Khung giảm chấn thủy lực: Giảm 45% độ giật, gom 45% chùm đạn.',
+        statSummary: '-45% Giật · Gom đạn'
     },
     grip_t5: {
         id: 'grip_t5',
@@ -320,8 +320,8 @@ export const LOOT_ITEMS = {
         rarity: 'legendary',
         color: '#f59e0b',
         tag: 'TAY CẦM T5',
-        description: 'Báng cân bằng Laser: Giảm 85% độ giật, đạn bay thẳng tắp, +100% Damage.',
-        statSummary: '-85% Giật · Laser chính xác · +100% DMG'
+        description: 'Báng cân bằng Laser: Giảm 60% độ giật, gom 55% chùm đạn.',
+        statSummary: '-60% Giật · Laser gom đạn'
     },
 
     // --- 6. VŨ KHÍ THEO CẤP BẬC TIER ---
@@ -489,22 +489,18 @@ export const CONTAINER_CONFIGS = {
         name: 'Thùng Gỗ Quân Trang',
         searchDuration: 1.0,
         interactionRadius: 3.6,
-        capacity: 6,
+        capacity: 3,
         meshColor: 0x8b5a2b,
         accentColor: 0x00f0ff,
         promptLabel: '[F] LỤC THÙNG GỖ QUÂN TRANG',
         lootTable: [
-            { itemId: 'barrel_t2', chance: 0.65, min: 1, max: 1 },
-            { itemId: 'magazine_t2', chance: 0.60, min: 1, max: 1 },
-            { itemId: 'optic_t2', chance: 0.55, min: 1, max: 1 },
-            { itemId: 'grip_t2', chance: 0.60, min: 1, max: 1 },
-            { itemId: 'barrel_t3', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'magazine_t3', chance: 0.30, min: 1, max: 1 },
-            { itemId: 'optic_t3', chance: 0.25, min: 1, max: 1 },
-            { itemId: 'grip_t3', chance: 0.30, min: 1, max: 1 },
-            { itemId: 'gun_repeater_t2', chance: 0.40, min: 1, max: 1 },
-            { itemId: 'gun_scatter_t2', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'medkit', chance: 0.60, min: 1, max: 1 }
+            { itemId: 'barrel_t1', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'magazine_t1', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'optic_t1', chance: 0.30, min: 1, max: 1 },
+            { itemId: 'grip_t1', chance: 0.30, min: 1, max: 1 },
+            { itemId: 'barrel_t2', chance: 0.20, min: 1, max: 1 },
+            { itemId: 'gun_scatter_t2', chance: 0.18, min: 1, max: 1 },
+            { itemId: 'medkit', chance: 0.45, min: 1, max: 1 }
         ]
     },
     dead_body: {
@@ -512,19 +508,17 @@ export const CONTAINER_CONFIGS = {
         name: 'Thi Thể Đặc Nhiệm',
         searchDuration: 1.0,
         interactionRadius: 3.6,
-        capacity: 6,
+        capacity: 3,
         meshColor: 0x475569,
         accentColor: 0x22c55e,
         promptLabel: '[F] LỤC THI THỂ ĐẶC NHIỆM',
         lootTable: [
-            { itemId: 'barrel_t1', chance: 0.70, min: 1, max: 1 },
-            { itemId: 'magazine_t1', chance: 0.70, min: 1, max: 1 },
-            { itemId: 'optic_t1', chance: 0.65, min: 1, max: 1 },
-            { itemId: 'grip_t1', chance: 0.65, min: 1, max: 1 },
-            { itemId: 'barrel_t2', chance: 0.45, min: 1, max: 1 },
-            { itemId: 'optic_t2', chance: 0.40, min: 1, max: 1 },
-            { itemId: 'gun_blaster_t2', chance: 0.50, min: 1, max: 1 },
-            { itemId: 'medkit', chance: 0.75, min: 1, max: 2 }
+            { itemId: 'barrel_t1', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'magazine_t1', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'optic_t1', chance: 0.30, min: 1, max: 1 },
+            { itemId: 'grip_t1', chance: 0.30, min: 1, max: 1 },
+            { itemId: 'gun_blaster_t2', chance: 0.22, min: 1, max: 1 },
+            { itemId: 'medkit', chance: 0.50, min: 1, max: 1 }
         ]
     },
     military_safe: {
@@ -532,20 +526,19 @@ export const CONTAINER_CONFIGS = {
         name: 'Két Sắt Quân Sự',
         searchDuration: 1.6,
         interactionRadius: 3.6,
-        capacity: 6,
+        capacity: 3,
         meshColor: 0x334155,
         accentColor: 0xa855f7,
         promptLabel: '[F] MỞ KÉT SẮT QUÂN SỰ',
         lootTable: [
-            { itemId: 'barrel_t3', chance: 0.75, min: 1, max: 1 },
-            { itemId: 'magazine_t3', chance: 0.70, min: 1, max: 1 },
-            { itemId: 'optic_t3', chance: 0.65, min: 1, max: 1 },
-            { itemId: 'grip_t3', chance: 0.70, min: 1, max: 1 },
-            { itemId: 'barrel_t4', chance: 0.45, min: 1, max: 1 },
-            { itemId: 'optic_t4', chance: 0.40, min: 1, max: 1 },
-            { itemId: 'gun_repeater_t3', chance: 0.55, min: 1, max: 1 },
-            { itemId: 'gun_plasma_t4', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'medkit', chance: 0.90, min: 1, max: 2 }
+            { itemId: 'barrel_t2', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'magazine_t2', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'optic_t2', chance: 0.30, min: 1, max: 1 },
+            { itemId: 'grip_t2', chance: 0.30, min: 1, max: 1 },
+            { itemId: 'barrel_t3', chance: 0.22, min: 1, max: 1 },
+            { itemId: 'gun_repeater_t3', chance: 0.20, min: 1, max: 1 },
+            { itemId: 'gun_plasma_t4', chance: 0.15, min: 1, max: 1 },
+            { itemId: 'medkit', chance: 0.55, min: 1, max: 1 }
         ]
     },
     airdrop_crate: {
@@ -553,24 +546,20 @@ export const CONTAINER_CONFIGS = {
         name: 'Thính Tiếp Tế Airdrop',
         searchDuration: 2.0,
         interactionRadius: 4.0,
-        capacity: 8,
+        capacity: 4,
         meshColor: 0xd97706,
         accentColor: 0xf59e0b,
         promptLabel: '[F] MỞ HÒM THÍNH TIẾP TẾ',
         lootTable: [
-            // CHẮC CHẮN CÓ ĐỒ CẤP 4 (EPIC) HOẶC CẤP 5 (LEGENDARY)
-            { itemId: 'barrel_t5', chance: 0.60, min: 1, max: 1 },
-            { itemId: 'barrel_t4', chance: 0.85, min: 1, max: 1 },
-            { itemId: 'magazine_t5', chance: 0.55, min: 1, max: 1 },
-            { itemId: 'magazine_t4', chance: 0.80, min: 1, max: 1 },
-            { itemId: 'optic_t5', chance: 0.55, min: 1, max: 1 },
-            { itemId: 'optic_t4', chance: 0.85, min: 1, max: 1 },
-            { itemId: 'grip_t5', chance: 0.55, min: 1, max: 1 },
-            { itemId: 'grip_t4', chance: 0.80, min: 1, max: 1 },
-            { itemId: 'gun_nova_t5', chance: 0.50, min: 1, max: 1 },
-            { itemId: 'gun_plasma_t4', chance: 0.70, min: 1, max: 1 },
-            { itemId: 'gun_storm_t4', chance: 0.70, min: 1, max: 1 },
-            { itemId: 'medkit', chance: 1.00, min: 1, max: 3 }
+            // Đồ Cấp 4 (Epic) hoặc Cấp 5 (Legendary) tuyển chọn
+            { itemId: 'barrel_t4', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'magazine_t4', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'optic_t4', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'grip_t4', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'gun_nova_t5', chance: 0.25, min: 1, max: 1 },
+            { itemId: 'gun_plasma_t4', chance: 0.30, min: 1, max: 1 },
+            { itemId: 'gun_storm_t4', chance: 0.30, min: 1, max: 1 },
+            { itemId: 'medkit', chance: 0.60, min: 1, max: 2 }
         ]
     }
 };
@@ -907,8 +896,9 @@ export class LootContainer {
     generateLoot() {
         const table = this.config.lootTable || [];
         const generated = [];
+        const maxItems = Math.min(this.capacity, this.type === 'airdrop_crate' ? 3 : 2);
 
-        // Hòm Thính Tiếp Tế (Airdrop): Chắc chắn có đồ Cấp 4 (Epic) hoặc Cấp 5 (Legendary)
+        // Hòm Thính Tiếp Tế (Airdrop): Chắc chắn có 1 đồ Cấp 4/5 và 1 Túi cứu thương
         if (this.type === 'airdrop_crate') {
             const highTierItems = [
                 'barrel_t5', 'magazine_t5', 'optic_t5', 'grip_t5', 'gun_nova_t5',
@@ -916,23 +906,25 @@ export class LootContainer {
             ];
             const guaranteed = highTierItems[Math.floor(Math.random() * highTierItems.length)];
             generated.push({ itemId: guaranteed, count: 1, revealed: true });
-            generated.push({ itemId: 'medkit', count: Math.floor(Math.random() * 2) + 1, revealed: true });
+            generated.push({ itemId: 'medkit', count: 1, revealed: true });
         }
 
-        for (const entry of table) {
-            if (generated.length >= this.capacity) break;
+        // Lấy ngẫu nhiên từ bảng rớt đồ nhưng không vượt quá maxItems
+        const shuffled = [...table].sort(() => Math.random() - 0.5);
+        for (const entry of shuffled) {
+            if (generated.length >= maxItems) break;
             if (Math.random() <= entry.chance) {
                 if (!generated.some(g => g.itemId === entry.itemId)) {
-                    const count = Math.floor(Math.random() * (entry.max - entry.min + 1)) + entry.min;
                     generated.push({
                         itemId: entry.itemId,
-                        count: count,
+                        count: 1,
                         revealed: true
                     });
                 }
             }
         }
 
+        // Đảm bảo hòm luôn có ít nhất 1 món
         if (generated.length === 0 && table.length > 0) {
             generated.push({ itemId: table[0].itemId, count: 1, revealed: true });
         }

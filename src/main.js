@@ -3,16 +3,16 @@ import { GLTFLoader } from '../libs/loaders/GLTFLoader.js';
 import { sounds } from './audio.js';
 import { ParticleSystem } from './particles.js?v=22';
 import { Arena } from './arena.js?v=22';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS } from './weapons.js?v=39';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS } from './weapons.js?v=40';
 import { PlayerController } from './player.js?v=22';
 import { WaveManager, Zombie } from './enemies.js?v=39';
-import { PickupManager } from './pickups.js?v=38';
-import { UIManager } from './ui.js?v=36';
+import { PickupManager } from './pickups.js?v=40';
+import { UIManager } from './ui.js?v=40';
 import { NetworkRoom, makeRemotePlayer } from './network.js?v=33';
 import { normalizeCharacter } from './characters.js?v=22';
 import { RoomLobby } from './lobby.js?v=35';
 import { HomeMenu } from './home.js?v=32';
-import { LootingSystem } from './looting.js?v=22';
+import { LootingSystem } from './looting.js?v=40';
 import { RenderQuality } from './performance.js';
 
 class CyberArenaGame {

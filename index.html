@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="zappets.css"><link rel="stylesheet" href="combat.css?v=36"><link rel="stylesheet" href="showroom.css?v=32">
+    <link rel="stylesheet" href="zappets.css"><link rel="stylesheet" href="combat.css?v=40"><link rel="stylesheet" href="showroom.css?v=32">
     <link rel="stylesheet" href="ux.css">
     <style>
       #armory-grid-section { display: none; }
@@ -464,7 +464,12 @@
             <span class="pubg-crate-tag">CRATE</span>
             <span id="pubg-crate-name" class="pubg-crate-name">HÒM CHIẾN LỢI PHẨM</span>
           </div>
-          <span class="pubg-crate-hint">[F] NHẶT / HOÁN ĐỔI</span>
+          <div class="pubg-crate-actions">
+            <button id="pubg-crate-loot-all" class="pubg-crate-btn-all" title="Nhặt toàn bộ vật phẩm trong hòm [SPACE]">
+              <span class="pubg-key-badge-small">SPACE</span> NHẶT TẤT CẢ
+            </button>
+            <span class="pubg-crate-hint">[F] NHẶT</span>
+          </div>
         </div>
         <div id="pubg-crate-items" class="pubg-crate-items">
           <!-- Render danh sách động -->
@@ -1064,6 +1069,6 @@
     </div>
 
     <!-- Main Game Script -->
-    <script src="libs/qrcode.min.js"></script><script type="module" src="src/main.js?v=39"></script>
+    <script src="libs/qrcode.min.js"></script><script type="module" src="src/main.js?v=40"></script>
 </body>
 </html>

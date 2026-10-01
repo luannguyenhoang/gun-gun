@@ -1522,12 +1522,43 @@ export class UIManager {
         this.pubgMiniCrate = document.getElementById('pubg-mini-crate');
         this.pubgCrateName = document.getElementById('pubg-crate-name');
         this.pubgCrateItems = document.getElementById('pubg-crate-items');
+        this.pubgCrateLootAll = document.getElementById('pubg-crate-loot-all');
+
+        if (this.pubgCrateLootAll) {
+            this.pubgCrateLootAll.addEventListener('click', () => {
+                if (this._currentPUBGContainer && this._currentLootingSystem) {
+                    this.lootAllFromCrate(this._currentPUBGContainer, this._currentLootingSystem);
+                }
+            });
+        }
+
+        // Lắng nghe phím Space khi hòm đồ mini đang mở để nhặt toàn bộ
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && this.pubgMiniCrate && this.pubgMiniCrate.style.display !== 'none') {
+                if (this._currentPUBGContainer && this._currentLootingSystem) {
+                    e.preventDefault();
+                    this.lootAllFromCrate(this._currentPUBGContainer, this._currentLootingSystem);
+                }
+            }
+        });
+    }
+
+    lootAllFromCrate(container, lootingSystem) {
+        if (!container || !container.slots) return;
+        const slotsToLoot = [];
+        container.slots.forEach((slot, idx) => {
+            if (slot && slot.itemId) slotsToLoot.push(idx);
+        });
+        for (const slotIdx of slotsToLoot) {
+            lootingSystem?.th_smartLootCrate(container, slotIdx);
+        }
     }
 
     showPUBGMiniCrate(container, lootingSystem) {
         this.th_initPUBGMiniCrateDOM();
         if (!this.pubgMiniCrate || !container) return;
 
+        this._currentLootingSystem = lootingSystem;
         if (this.pubgCrateName) {
             this.pubgCrateName.textContent = (container.name || 'HÒM CHIẾN LỢI PHẨM').toUpperCase();
         }
@@ -1565,6 +1596,7 @@ export class UIManager {
         }
 
         this._currentPUBGContainer = container;
+        this._currentLootingSystem = lootingSystem;
         const weapons = lootingSystem?.player?.weapons;
         const currentGunIdx = weapons?.currentSlotIndex === 1 ? 1 : 0;
         const currentGunAttach = weapons?.getAttachmentsForGun ? weapons.getAttachmentsForGun(currentGunIdx) : (weapons?.attachments || {});
@@ -1583,7 +1615,17 @@ export class UIManager {
             row.className = `pubg-crate-row${index === 0 ? ' focused' : ''}`;
             row.style.borderLeftColor = tierColor;
 
-            // Xác định nút hành động thông minh (Smart Action Badge - hoàn toàn typography, không icon)
+            // Xác định Tag phân loại
+            let categoryTag = '';
+            if (def.category === 'medical' || item.itemId === 'medkit') {
+                categoryTag = '<span class="pubg-cat-tag cat-med">Y TẾ</span>';
+            } else if (def.category === 'weapon') {
+                categoryTag = '<span class="pubg-cat-tag cat-gun">SÚNG</span>';
+            } else if (def.category === 'attachment') {
+                categoryTag = '<span class="pubg-cat-tag cat-mod">PHỤ KIỆN</span>';
+            }
+
+            // Xác định nút hành động thông minh (Smart Action Badge)
             let actionBadgeHtml = '';
             if (def.category === 'medical' || item.itemId === 'medkit') {
                 actionBadgeHtml = `<span class="pubg-action-btn badge-med">[F] CẤP CỨU</span>`;
@@ -1599,25 +1641,25 @@ export class UIManager {
                     if (tier > equippedTier) {
                         actionBadgeHtml = `<span class="pubg-action-btn badge-swap">[F] NÂNG CẤP</span>`;
                     } else {
-                        actionBadgeHtml = `<span class="pubg-action-btn badge-locked">CẤP THẤP HƠN</span>`;
+                        actionBadgeHtml = `<span class="pubg-action-btn badge-locked">ĐÃ CÓ CẤP CAO</span>`;
                     }
                 }
             } else {
                 actionBadgeHtml = `<span class="pubg-action-btn badge-equip">[F] NHẶT</span>`;
             }
 
-            // Tóm tắt chỉ số cực kỳ ngắn gọn, chống tràn chữ
+            // Tóm tắt chỉ số ngắn gọn
             let statSummary = def.statSummary || '';
             if (!statSummary || statSummary.length > 28) {
                 if (def.category === 'attachment') {
                     if (def.flatDmg) statSummary = `+${def.flatDmg} FLAT DMG`;
-                    else if (def.slot === 'magazine') statSummary = `+BĂNG ĐẠN & NẠP NHANH`;
-                    else if (def.slot === 'optic') statSummary = `+BẠO KÍCH & SÁT THƯƠNG`;
-                    else if (def.slot === 'grip') statSummary = `-GIẬT & GOM ĐẠN`;
+                    else if (def.slot === 'magazine') statSummary = `+BĂNG ĐẠN`;
+                    else if (def.slot === 'optic') statSummary = `+BẠO KÍCH`;
+                    else if (def.slot === 'grip') statSummary = `-GIẬT ĐẠN`;
                 } else if (def.category === 'medical') {
                     statSummary = `+50 HP CẤP CỨU`;
                 } else if (def.category === 'weapon') {
-                    statSummary = `SÚNG HIẾM CẤP ${tier}`;
+                    statSummary = `SÚNG CẤP ${tier}`;
                 }
             }
 
@@ -1625,7 +1667,7 @@ export class UIManager {
                 <div class="pubg-item-left">
                     <span class="pubg-tier-badge" style="background:${tierColor}25; color:${tierColor}; border:1px solid ${tierColor};">T${tier}</span>
                     <div class="pubg-item-details">
-                        <span class="pubg-item-name" style="color:${tier >= 3 ? tierColor : '#ffffff'};">${def.name.toUpperCase()}</span>
+                        <span class="pubg-item-name" style="color:${tier >= 3 ? tierColor : '#ffffff'};">${categoryTag}${def.name.toUpperCase()}</span>
                         <span class="pubg-item-stat">${statSummary}</span>
                     </div>
                 </div>
@@ -1647,6 +1689,7 @@ export class UIManager {
             this.pubgMiniCrate.style.display = 'none';
         }
         this._currentPUBGContainer = null;
+        this._currentLootingSystem = null;
     }
 
     // =========================================================================
