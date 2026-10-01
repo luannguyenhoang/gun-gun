@@ -407,6 +407,17 @@
     inset 0 0 12px rgba(234, 179, 8, 0.1);
 }
 
+.pubg-bomb-slot {
+  width: 95px !important;
+}
+.pubg-bomb-slot .pubg-gun-name {
+  font-size: 9px !important;
+}
+.pubg-bomb-slot .pubg-silhouette-img {
+  max-width: 65% !important;
+  max-height: 65% !important;
+}
+
 .pubg-slot-header {
   display: flex;
   align-items: center;

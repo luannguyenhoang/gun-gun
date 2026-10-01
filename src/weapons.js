@@ -700,6 +700,61 @@ export const WEAPON_CONFIGS = [
     }
 ];
 
+// Phân loại danh mục súng chính và súng phụ (Súng lục)
+export const SECONDARY_WEAPON_IDS = new Set(['blaster', 'blaster_a', 'blaster-a', 'blaster_b', 'blaster-b', 'mac10', 'blaster-h', 'pew', 'blaster-k']);
+for (const w of WEAPON_CONFIGS) {
+    w.slotType = SECONDARY_WEAPON_IDS.has(w.id) ? 'secondary' : 'primary';
+}
+
+// Danh sách các loại Bom & Lựu Đạn chiến thuật (Kenney Blaster Kit)
+export const BOMB_CONFIGS = [
+    {
+        id: 'grenade_a',
+        aliases: ['grenade-a'],
+        name: 'LỰU ĐẠN NỔ MẢNH A',
+        category: 'LỰU ĐẠN NỔ MẢNH',
+        slotType: 'bomb',
+        tier: 2,
+        price: 0,
+        isBomb: true,
+        throwRange: 14.0,
+        blastRadius: 5.5,
+        damage: 320,
+        knockback: 14.0,
+        fuseTime: 0.65,
+        modelFile: 'kenney-blaster/grenade-a.glb',
+        icon: 'assets/previews/kenney-blaster/grenade-a.png',
+        color: 0xf97316,
+        description: 'Lựu đạn nổ phân mảnh uy lực cao. Gây sát thương nổ diện rộng cực lớn và hất tung bầy zombie.'
+    },
+    {
+        id: 'grenade_b',
+        aliases: ['grenade-b'],
+        name: 'LỰU ĐẠN XUNG LỰC B',
+        category: 'LỰU ĐẠN TÁC CHIẾN',
+        slotType: 'bomb',
+        tier: 3,
+        price: 350,
+        isBomb: true,
+        throwRange: 14.0,
+        blastRadius: 6.5,
+        damage: 180,
+        knockback: 8.0,
+        slowDuration: 5.0,
+        slowPct: 0.8,
+        fuseTime: 0.65,
+        modelFile: 'kenney-blaster/grenade-b.glb',
+        icon: 'assets/previews/kenney-blaster/grenade-b.png',
+        color: 0x8b5cf6,
+        description: 'Lựu đạn xung lực tạo màn chấn động. Gây sát thương và làm chậm 80% tốc độ di chuyển của zombie.'
+    }
+];
+
+export function getBombConfig(id) {
+    if (!id) return BOMB_CONFIGS[0];
+    return BOMB_CONFIGS.find(b => b.id === id || b.aliases?.includes(id)) || BOMB_CONFIGS[0];
+}
+
 // Danh sách các súng hiếm rơi ra trong trận
 export const RARE_WEAPON_CONFIGS = [
     WEAPON_CONFIGS[4], // BLASTER-E STORM
@@ -866,6 +921,7 @@ export class WeaponSystem {
         // Active projectiles list
         this.projectiles = [];
         this.nextProjectileId = 1;
+        this.thrownBombs = [];
 
         // Cấu hình phụ kiện mod vũ khí (Attachments Ecosystem)
         this.attachments = {
@@ -949,6 +1005,7 @@ export class WeaponSystem {
         const allModels = [
             ...WEAPON_CONFIGS.map(w => w.modelFile),
             ...ALL_KENNEY_ACCESSORIES.map(a => a.modelFile),
+            ...BOMB_CONFIGS.map(b => b.modelFile),
             KNIFE_CONFIG.modelFile
         ].filter(Boolean);
         await Promise.all([...new Set(allModels)].map(loadModel));
@@ -956,16 +1013,26 @@ export class WeaponSystem {
         this.resetRun();
     }
 
-    resetRun(weaponId = this.startingWeaponId) {
+    resetRun(weaponId = this.startingWeaponId, secondaryId = null, bomb1Id = null, bomb2Id = null) {
         const starter = getStartingWeapon(weaponId);
         this.startingWeaponId = starter.id;
         this.clear();
-        // 3 ô trang bị: [0] Súng chính, [1] Súng phụ, [2] Dao cận chiến
-        this.secondaryWeapon = { ...WEAPON_CONFIGS[1], tier: 1 };
+
+        // 5 ô trang bị: [0] Súng chính, [1] Súng phụ (Lục), [2] Bom 1, [3] Bom 2, [4] Dao cận chiến
+        const secCfg = secondaryId ? getStartingWeapon(secondaryId) : getStartingWeapon('blaster_b');
+        this.secondaryWeapon = { ...secCfg, tier: secCfg.tier || 1 };
+
+        const b1Cfg = getBombConfig(bomb1Id || 'grenade_a');
+        const b2Cfg = getBombConfig(bomb2Id || 'grenade_b');
+        this.bombSlot1 = { ...b1Cfg, count: 2 };
+        this.bombSlot2 = { ...b2Cfg, count: 2 };
+
         this.weaponSlots = [
             starter,               // 0: Súng chính
             this.secondaryWeapon,  // 1: Súng phụ
-            KNIFE_CONFIG           // 2: Dao găm
+            this.bombSlot1,        // 2: Ô Bom 1
+            this.bombSlot2,        // 3: Ô Bom 2
+            KNIFE_CONFIG           // 4: Dao găm
         ];
         this.currentSlotIndex = 0;
         this.ammo = {
@@ -977,6 +1044,7 @@ export class WeaponSystem {
             [starter.id]: Infinity,
             [this.secondaryWeapon.id]: Infinity
         };
+        this.thrownBombs = [];
         this.inventory = {
             medkits: 3
         };
@@ -1295,6 +1363,9 @@ export class WeaponSystem {
         if (w.isKnife) {
             return { current: '∞', max: '∞', reserve: '∞', isKnife: true, isReloading: false, reloadProgress: 1 };
         }
+        if (w.isBomb) {
+            return { current: w.count ?? 0, max: 2, reserve: 0, isBomb: true, isReloading: false, reloadProgress: 1 };
+        }
         if (w.isUtility) {
             return { current: this.inventory.medkits, max: this.inventory.medkits, reserve: 0, isUtility: true, isReloading: false, reloadProgress: 1 };
         }
@@ -1329,7 +1400,7 @@ export class WeaponSystem {
 
         // Tự động nạp đạn nếu chuyển sang vũ khí đang hết đạn trong băng
         const nextW = this.getCurrentWeapon();
-        if (nextW && !nextW.isKnife && !nextW.isUtility && (this.ammo[nextW.id] || 0) <= 0 && (this.reserve[nextW.id] || 0) > 0) {
+        if (nextW && !nextW.isKnife && !nextW.isBomb && !nextW.isUtility && (this.ammo[nextW.id] || 0) <= 0 && (this.reserve[nextW.id] || 0) > 0) {
             this.reload();
         }
     }
@@ -1340,6 +1411,9 @@ export class WeaponSystem {
         if (!w) return null;
         if (w.isKnife) {
             return { current: '∞', max: '∞', reserve: '∞', isKnife: true, name: w.name, icon: w.icon };
+        }
+        if (w.isBomb) {
+            return { current: w.count ?? 0, max: 2, reserve: 0, isBomb: true, name: w.name, icon: w.icon, tier: w.tier || 2 };
         }
         const effective = this.getModifiedStats(w);
         return {
@@ -1490,6 +1564,26 @@ export class WeaponSystem {
             if (w.isKnife) {
                 const mesh = this.createKnifeMesh(w);
                 if (!mesh) return;
+                handNode.add(mesh);
+                this.weaponMeshes[w.id] = mesh;
+                return;
+            }
+            if (w.isBomb) {
+                const base = this.models[w.modelFile];
+                if (!base) return;
+                const mesh = base.clone(true);
+                mesh.userData.ownsMaterials = true;
+                mesh.traverse(child => {
+                    if (!child.isMesh) return;
+                    if (Array.isArray(child.material)) child.material = child.material.map(m => m.clone());
+                    else if (child.material) child.material = child.material.clone();
+                });
+                const scale = 0.65;
+                mesh.scale.setScalar(scale);
+                mesh.userData.isBomb = true;
+                mesh.position.set(-0.24, -0.05, 0.05);
+                mesh.rotation.set(0, 0, 0);
+                mesh.visible = false;
                 handNode.add(mesh);
                 this.weaponMeshes[w.id] = mesh;
                 return;
@@ -1806,7 +1900,121 @@ export class WeaponSystem {
         });
     }
 
+    throwBomb(origin, targetPoint, playerRef, enemies = []) {
+        const w = this.getCurrentWeapon();
+        if (!w || !w.isBomb) return false;
+        if ((w.count || 0) <= 0) return false;
+
+        w.count--;
+        sounds.play('switchWeapon', { volume: 0.8, rate: 1.5 });
+
+        // Tạo quả bom 3D bay trong scene
+        const base = this.models[w.modelFile];
+        let mesh = null;
+        if (base) {
+            mesh = base.clone(true);
+            mesh.scale.setScalar(0.75);
+            mesh.position.copy(origin);
+            this.scene.add(mesh);
+        }
+
+        const startPos = origin.clone();
+        const endPos = targetPoint.clone();
+        endPos.y = 0.1; // Chạm sát mặt đất
+
+        const duration = w.fuseTime || 0.65;
+        this.thrownBombs.push({
+            mesh,
+            startPos,
+            endPos,
+            time: 0,
+            duration,
+            bombConfig: { ...w },
+            playerRef
+        });
+
+        // Tự động kiểm tra: nếu hết quả bom này, chuyển về súng chính
+        if (w.count <= 0) {
+            setTimeout(() => {
+                if (this.getCurrentWeapon()?.id === w.id) {
+                    this.switchWeapon(0, playerRef);
+                }
+            }, 300);
+        }
+
+        return true;
+    }
+
+    updateThrownBombs(delta, arena, enemies = []) {
+        if (!this.thrownBombs || !this.thrownBombs.length) return;
+        for (let i = this.thrownBombs.length - 1; i >= 0; i--) {
+            const tb = this.thrownBombs[i];
+            tb.time += delta;
+            const progress = Math.min(1.0, tb.time / tb.duration);
+
+            // Phương trình quỹ đạo parabol
+            const curX = tb.startPos.x + (tb.endPos.x - tb.startPos.x) * progress;
+            const curZ = tb.startPos.z + (tb.endPos.z - tb.startPos.z) * progress;
+            const peakHeight = 2.8;
+            const curY = tb.startPos.y + (tb.endPos.y - tb.startPos.y) * progress + 4 * peakHeight * progress * (1 - progress);
+
+            if (tb.mesh) {
+                tb.mesh.position.set(curX, curY, curZ);
+                tb.mesh.rotation.x += delta * 14;
+                tb.mesh.rotation.z += delta * 10;
+            }
+
+            if (progress >= 1.0) {
+                // Tiếp đất -> Kích nổ diện rộng!
+                if (tb.mesh) {
+                    this.scene.remove(tb.mesh);
+                }
+                const blastPos = tb.endPos.clone();
+                const bCfg = tb.bombConfig;
+
+                // Hiệu ứng hạt nổ & chớp sáng
+                this.particles.createExplosion(blastPos, bCfg.color || 0xf97316, 45);
+                this.particles.createImpactSparks(blastPos, new THREE.Vector3(0, 1, 0), 0xffdd44, 28);
+                sounds.play('enemyExplode', { volume: 1.0 });
+
+                if (tb.playerRef?.applyKickbackAndShake) {
+                    tb.playerRef.applyKickbackAndShake(4.0, 0.45);
+                }
+
+                // Gây sát thương AoE cho toàn bộ zombie trong bán kính
+                const radius = bCfg.blastRadius || 5.5;
+                for (const e of enemies) {
+                    if (!e || e.isDead) continue;
+                    const dist = e.position.distanceTo(blastPos);
+                    if (dist <= radius) {
+                        const falloff = Math.max(0.35, 1 - (dist / radius) * 0.65);
+                        const finalDamage = Math.round(bCfg.damage * falloff);
+
+                        // Lực đẩy văng (Knockback) zombie ra xa tâm nổ
+                        if (e.velocity) {
+                            const pushDir = new THREE.Vector3().subVectors(e.position, blastPos);
+                            pushDir.y = 0;
+                            pushDir.normalize();
+                            e.velocity.addScaledVector(pushDir, (bCfg.knockback || 12.0) * falloff);
+                        }
+
+                        // Hiệu ứng làm chậm nếu có (Grenade B)
+                        if (bCfg.slowDuration) {
+                            e.slowTimer = bCfg.slowDuration;
+                            e.slowFactor = bCfg.slowPct || 0.8;
+                        }
+
+                        e.takeDamage(finalDamage, 4, true, tb.playerRef);
+                    }
+                }
+
+                this.thrownBombs.splice(i, 1);
+            }
+        }
+    }
+
     update(delta, arena, enemies, player, onHitCallback) {
+        this.updateThrownBombs(delta, arena, enemies);
         if (this.fireCooldown > 0) {
             this.fireCooldown -= delta;
         }

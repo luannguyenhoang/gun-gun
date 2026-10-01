@@ -3,15 +3,15 @@ import { GLTFLoader } from '../libs/loaders/GLTFLoader.js';
 import { sounds } from './audio.js';
 import { ParticleSystem } from './particles.js?v=22';
 import { Arena } from './arena.js?v=22';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS } from './weapons.js?v=34';
-import { PlayerController } from './player.js?v=22';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS } from './weapons.js?v=35';
+import { PlayerController } from './player.js?v=35';
 import { WaveManager, Zombie } from './enemies.js?v=22';
 import { PickupManager } from './pickups.js?v=22';
-import { UIManager } from './ui.js?v=22';
+import { UIManager } from './ui.js?v=35';
 import { NetworkRoom, makeRemotePlayer } from './network.js?v=33';
 import { normalizeCharacter } from './characters.js?v=22';
 import { RoomLobby } from './lobby.js?v=22';
-import { HomeMenu } from './home.js?v=32';
+import { HomeMenu } from './home.js?v=35';
 import { LootingSystem } from './looting.js?v=22';
 import { RenderQuality } from './performance.js';
 
@@ -92,7 +92,8 @@ class CyberArenaGame {
         this.particles = new ParticleSystem(this.scene);
         this.arena = new Arena(this.scene, this.gltfLoader);
         this.weapons = new WeaponSystem(this.scene, this.gltfLoader, this.particles);
-        this.weapons.startingWeaponId = getStartingWeapon(localStorage.getItem('cyber_arena_weapon')).id;
+        const initialLoadout = this.getLoadout();
+        this.weapons.startingWeaponId = initialLoadout.primary;
         this.player = new PlayerController(this.camera, this.canvas, this.arena, this.weapons, true, this.characterId);
         this.player.developerMode = this.developerMode;
         this.waveManager = new WaveManager(this.scene, this.gltfLoader, this.weapons, this.particles, this.arena);
@@ -272,7 +273,8 @@ class CyberArenaGame {
         this.score = 0;
         this.currentWave = 1;
         this.nextWaveTimer = 0;
-        this.weapons.resetRun();
+        const currentLoadout = this.getLoadout();
+        this.weapons.resetRun(currentLoadout.primary, currentLoadout.secondary, currentLoadout.bomb1, currentLoadout.bomb2);
         for (const remote of this.remotePlayers.values()) {
             remote.weapons.resetRun(); remote.health = remote.maxHealth; remote.shield = remote.maxShield;
             remote.isDead = false; remote.isDowned = false; remote.commandQueue = [];
@@ -429,12 +431,38 @@ class CyberArenaGame {
         });
     }
 
+    getLoadout() {
+        try {
+            const raw = localStorage.getItem('cyber_arena_loadout');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                return {
+                    primary: parsed.primary || 'blaster_c',
+                    secondary: parsed.secondary || 'blaster',
+                    bomb1: parsed.bomb1 || 'grenade_a',
+                    bomb2: parsed.bomb2 || 'grenade_b'
+                };
+            }
+        } catch {}
+        return {
+            primary: localStorage.getItem('cyber_arena_weapon') || 'blaster_c',
+            secondary: 'blaster',
+            bomb1: 'grenade_a',
+            bomb2: 'grenade_b'
+        };
+    }
+
     selectWeapon(id) {
         if (this.state !== 'MENU') return false;
         const weapon = getStartingWeapon(id);
         if (!this.weapons.models[weapon.modelFile]) return false;
-        this.weapons.resetRun(weapon.id);
+        const currentLoadout = this.getLoadout();
+        currentLoadout.primary = weapon.id;
+        try {
+            localStorage.setItem('cyber_arena_loadout', JSON.stringify(currentLoadout));
+        } catch {}
         localStorage.setItem('cyber_arena_weapon', weapon.id);
+        this.weapons.resetRun(currentLoadout.primary, currentLoadout.secondary, currentLoadout.bomb1, currentLoadout.bomb2);
         this.network.changeWeapon(weapon.id);
         return true;
     }

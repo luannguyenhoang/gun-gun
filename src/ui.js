@@ -128,6 +128,17 @@ export class UIManager {
         this.pubgGun2Cur = document.getElementById('pubg-gun2-cur');
         this.pubgGun2Res = document.getElementById('pubg-gun2-res');
         this.pubgGun2Silhouette = document.getElementById('pubg-gun2-silhouette');
+
+        // Các ô Bom PUBG HUD
+        this.thSlotBomb1 = document.getElementById('th-slot-bomb1');
+        this.thSlotBomb2 = document.getElementById('th-slot-bomb2');
+        this.pubgBomb1Name = document.getElementById('pubg-bomb1-name');
+        this.pubgBomb1Qty = document.getElementById('pubg-bomb1-qty');
+        this.thBomb1Silhouette = document.getElementById('th-bomb1-silhouette');
+        this.pubgBomb2Name = document.getElementById('pubg-bomb2-name');
+        this.pubgBomb2Qty = document.getElementById('pubg-bomb2-qty');
+        this.thBomb2Silhouette = document.getElementById('th-bomb2-silhouette');
+
         this.pubgFireModeBadge = document.getElementById('pubg-fire-mode-badge');
         this.pubgFireModeText = document.getElementById('pubg-fire-mode-text');
         this.pubgHpFill = document.getElementById('pubg-hp-fill');
@@ -674,16 +685,50 @@ export class UIManager {
                 if (this.thAmmoReserve) this.thAmmoReserve.textContent = resAmmoStr;
             }
 
+            // Cập nhật trạng thái đạn và số lượng cho 2 ô bom
+            const bomb1 = player.weapons?.weaponSlots?.[2];
+            const bomb2 = player.weapons?.weaponSlots?.[3];
+            if (bomb1) {
+                if (this.pubgBomb1Name && this._lastBomb1Name !== bomb1.name) {
+                    this._lastBomb1Name = bomb1.name;
+                    this.pubgBomb1Name.textContent = bomb1.name;
+                }
+                const b1Qty = `x${bomb1.count ?? 0}`;
+                if (this.pubgBomb1Qty && this._lastBomb1Qty !== b1Qty) {
+                    this._lastBomb1Qty = b1Qty;
+                    this.pubgBomb1Qty.textContent = b1Qty;
+                }
+                if (this.thSlotBomb1) {
+                    this.thSlotBomb1.style.opacity = (bomb1.count > 0) ? '1' : '0.45';
+                }
+            }
+            if (bomb2) {
+                if (this.pubgBomb2Name && this._lastBomb2Name !== bomb2.name) {
+                    this._lastBomb2Name = bomb2.name;
+                    this.pubgBomb2Name.textContent = bomb2.name;
+                }
+                const b2Qty = `x${bomb2.count ?? 0}`;
+                if (this.pubgBomb2Qty && this._lastBomb2Qty !== b2Qty) {
+                    this._lastBomb2Qty = b2Qty;
+                    this.pubgBomb2Qty.textContent = b2Qty;
+                }
+                if (this.thSlotBomb2) {
+                    this.thSlotBomb2.style.opacity = (bomb2.count > 0) ? '1' : '0.45';
+                }
+            }
+
             // Cập nhật trạng thái Active và Chế độ bắn (Auto / Single)
             if (this.thActiveSlot) this.thActiveSlot.classList.toggle('active', cSlot === 0);
             if (this.thSlot2) this.thSlot2.classList.toggle('active', cSlot === 1);
-            if (this.thSlotMelee) this.thSlotMelee.classList.toggle('active', cSlot === 2);
+            if (this.thSlotBomb1) this.thSlotBomb1.classList.toggle('active', cSlot === 2);
+            if (this.thSlotBomb2) this.thSlotBomb2.classList.toggle('active', cSlot === 3);
+            if (this.thSlotMelee) this.thSlotMelee.classList.toggle('active', cSlot === 4);
 
             // Cập nhật Badge Chế độ bắn gắn trên vũ khí đang chọn
             if (this.pubgFireModeBadge && this.pubgFireModeText) {
                 this.pubgFireModeBadge.classList.toggle('at-slot-1', cSlot === 0);
                 this.pubgFireModeBadge.classList.toggle('at-slot-2', cSlot === 1);
-                this.pubgFireModeBadge.style.display = (cSlot === 2) ? 'none' : 'inline-flex';
+                this.pubgFireModeBadge.style.display = (cSlot >= 2) ? 'none' : 'inline-flex';
                 const activeGun = cSlot === 1 ? gun2 : gun1;
                 if (activeGun) {
                     this.pubgFireModeText.textContent = activeGun.isAuto ? 'AUTO' : 'SINGLE';
@@ -709,7 +754,7 @@ export class UIManager {
                 vestBars.forEach((bar, idx) => bar.classList.toggle('active', idx < vestLevel));
             }
 
-            // Cập nhật ô vật phẩm hồi máu [3]
+            // Cập nhật ô vật phẩm hồi máu [5] (Medkit)
             const inv = player.weapons?.inventory || {};
             const isUsingMed = !!player.weapons?.isUsingMedkit;
             if (this.thQtyMedkit) this.thQtyMedkit.textContent = `x${inv.medkits ?? 0}`;
@@ -737,8 +782,10 @@ export class UIManager {
                 this._thClicksBound = true;
                 if (this.thActiveSlot) this.thActiveSlot.addEventListener('click', () => player.weapons?.switchWeapon(0, player));
                 if (this.thSlot2) this.thSlot2.addEventListener('click', () => player.weapons?.switchWeapon(1, player));
+                if (this.thSlotBomb1) this.thSlotBomb1.addEventListener('click', () => player.weapons?.switchWeapon(2, player));
+                if (this.thSlotBomb2) this.thSlotBomb2.addEventListener('click', () => player.weapons?.switchWeapon(3, player));
                 if (this.thSlot3) this.thSlot3.addEventListener('click', () => player.weapons?.startMedkitUse(player));
-                if (this.thSlotMelee) this.thSlotMelee.addEventListener('click', () => player.weapons?.switchWeapon(2, player));
+                if (this.thSlotMelee) this.thSlotMelee.addEventListener('click', () => player.weapons?.switchWeapon(4, player));
             }
         }
     }

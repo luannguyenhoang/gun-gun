@@ -88,6 +88,53 @@ export class PlayerController {
         this.handBone = null;
         this.healthBar = null;
 
+        // Chỉ báo trực quan khi cầm và ném bom chiến thuật
+        // Vòng tròn 1: Giới hạn ném bom quanh người chơi (bán kính 14m)
+        const throwRangeGeo = new THREE.RingGeometry(13.85, 14.15, 64);
+        throwRangeGeo.rotateX(-Math.PI / 2);
+        const throwRangeMat = new THREE.MeshBasicMaterial({
+            color: 0x00f5d4,
+            transparent: true,
+            opacity: 0.85,
+            side: THREE.DoubleSide
+        });
+        this.throwRangeMesh = new THREE.Mesh(throwRangeGeo, throwRangeMat);
+        this.throwRangeMesh.position.y = 0.05;
+        this.throwRangeMesh.visible = false;
+        this.arena.scene.add(this.throwRangeMesh);
+
+        // Vòng tròn 2: Phạm vi bom nổ tại vị trí chuột (bán kính 5.5m - 6.5m)
+        const blastRadiusGeo = new THREE.RingGeometry(5.35, 5.65, 48);
+        blastRadiusGeo.rotateX(-Math.PI / 2);
+        const blastRadiusMat = new THREE.MeshBasicMaterial({
+            color: 0xff3b30,
+            transparent: true,
+            opacity: 0.9,
+            side: THREE.DoubleSide
+        });
+        this.blastRadiusMesh = new THREE.Mesh(blastRadiusGeo, blastRadiusMat);
+        this.blastRadiusMesh.position.y = 0.06;
+        this.blastRadiusMesh.visible = false;
+        this.arena.scene.add(this.blastRadiusMesh);
+
+        // Mặt trong mờ của vòng tròn nổ
+        const blastInnerGeo = new THREE.CircleGeometry(5.35, 48);
+        blastInnerGeo.rotateX(-Math.PI / 2);
+        const blastInnerMat = new THREE.MeshBasicMaterial({
+            color: 0xff3b30,
+            transparent: true,
+            opacity: 0.22,
+            side: THREE.DoubleSide
+        });
+        this.blastInnerMesh = new THREE.Mesh(blastInnerGeo, blastInnerMat);
+        this.blastInnerMesh.position.y = 0.055;
+        this.blastInnerMesh.visible = false;
+        this.arena.scene.add(this.blastInnerMesh);
+
+        this.isAimingBomb = false;
+        this.clampedBombTarget = new THREE.Vector3();
+        this._lastEnemiesRef = [];
+
         if (bindInput) this.initInput();
     }
 
@@ -148,12 +195,14 @@ export class PlayerController {
             if (e.code === 'KeyR') {
                 this.weapons.reload();
             }
-            // Điều khiển vũ khí theo chuẩn PUBG:
-            // [1] Súng chính, [2] Súng phụ, [3] Sơ cứu Medkit, [4] hoặc [V] Dao cận chiến
+            // Điều khiển vũ khí theo chuẩn PUBG & Loadout:
+            // [1] Súng chính, [2] Súng phụ, [3] Bom 1, [4] Bom 2, [5] Sơ cứu Medkit, [V] Dao cận chiến
             if (e.code === 'Digit1') this.weapons.switchWeapon(0, this);
             if (e.code === 'Digit2') this.weapons.switchWeapon(1, this);
-            if (e.code === 'Digit3') this.weapons.startMedkitUse(this);
-            if (e.code === 'Digit4' || e.code === 'KeyV') this.weapons.switchWeapon(2, this);
+            if (e.code === 'Digit3') this.weapons.switchWeapon(2, this);
+            if (e.code === 'Digit4') this.weapons.switchWeapon(3, this);
+            if (e.code === 'Digit5') this.weapons.startMedkitUse(this);
+            if (e.code === 'KeyV') this.weapons.switchWeapon(4, this);
 
             if (e.code === 'KeyQ') this.tryDodge();
             if (e.code === 'KeyE') this.reviveRequested = true;
@@ -209,7 +258,17 @@ export class PlayerController {
                 }
                 return;
             }
-            if (e.button === 0) this.mouseButtons.left = false;
+            if (e.button === 0) {
+                this.mouseButtons.left = false;
+                // Nếu đang giữ chuột ngắm ném bom -> Tiến hành ném bom khi nhả chuột
+                if (this.isAimingBomb) {
+                    this.isAimingBomb = false;
+                    if (this.blastRadiusMesh) this.blastRadiusMesh.visible = false;
+                    if (this.blastInnerMesh) this.blastInnerMesh.visible = false;
+                    const origin = this.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+                    this.weapons.throwBomb(origin, this.clampedBombTarget, this, this._lastEnemiesRef || []);
+                }
+            }
             if (e.button === 2) this.mouseButtons.right = false;
         });
 
@@ -640,6 +699,68 @@ export class PlayerController {
         // Weapon firing
         this.weapons.updateHeldPose?.(this.model);
         this.handleShooting();
+
+        // Xử lý chỉ báo ném bom (Throw Range & Blast Radius Indicators)
+        this._lastEnemiesRef = enemies;
+        const currentW = this.weapons.getCurrentWeapon();
+        if (currentW && currentW.isBomb) {
+            // Hiển thị vòng tròn giới hạn ném quanh người chơi (bán kính 14m)
+            if (this.throwRangeMesh) {
+                this.throwRangeMesh.visible = true;
+                this.throwRangeMesh.position.set(this.position.x, 0.05, this.position.z);
+            }
+
+            // Nếu người chơi đang giữ chuột trái -> Hiện vòng tròn nổ kẹp theo tầm ném
+            if (this.mouseButtons.left && this.inputEnabled && !this.isDead && !this.th_isRadialMenuOpen) {
+                this.isAimingBomb = true;
+
+                // Lấy tọa độ chuột giao cắt mặt phẳng mặt đất
+                const raycaster = new THREE.Raycaster();
+                raycaster.setFromCamera(this.pointer, this.camera);
+                const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+                const groundHit = raycaster.ray.intersectPlane(groundPlane, new THREE.Vector3());
+
+                if (groundHit) {
+                    const dx = groundHit.x - this.position.x;
+                    const dz = groundHit.z - this.position.z;
+                    const dist = Math.hypot(dx, dz);
+                    const maxRange = currentW.throwRange || 14.0;
+
+                    // Kẹp tọa độ ném không vượt quá giới hạn ném ban đầu
+                    if (dist > maxRange) {
+                        this.clampedBombTarget.set(
+                            this.position.x + (dx / dist) * maxRange,
+                            0.05,
+                            this.position.z + (dz / dist) * maxRange
+                        );
+                    } else {
+                        this.clampedBombTarget.set(groundHit.x, 0.05, groundHit.z);
+                    }
+                }
+
+                // Cập nhật vị trí và kích thước vòng tròn nổ
+                const r = currentW.blastRadius || 5.5;
+                const scale = r / 5.5;
+                if (this.blastRadiusMesh) {
+                    this.blastRadiusMesh.scale.set(scale, scale, scale);
+                    this.blastRadiusMesh.position.copy(this.clampedBombTarget);
+                    this.blastRadiusMesh.visible = true;
+                }
+                if (this.blastInnerMesh) {
+                    this.blastInnerMesh.scale.set(scale, scale, scale);
+                    this.blastInnerMesh.position.copy(this.clampedBombTarget);
+                    this.blastInnerMesh.visible = true;
+                }
+            } else {
+                if (this.blastRadiusMesh) this.blastRadiusMesh.visible = false;
+                if (this.blastInnerMesh) this.blastInnerMesh.visible = false;
+            }
+        } else {
+            if (this.throwRangeMesh) this.throwRangeMesh.visible = false;
+            if (this.blastRadiusMesh) this.blastRadiusMesh.visible = false;
+            if (this.blastInnerMesh) this.blastInnerMesh.visible = false;
+            this.isAimingBomb = false;
+        }
     }
 
     updateAim(enemies = []) {
@@ -674,6 +795,8 @@ export class PlayerController {
         if (!this.inputEnabled || !this.pointerInCanvas || this.isDead || this.th_isRadialMenuOpen) return;
 
         const w = this.weapons.getCurrentWeapon();
+        if (w.isBomb) return; // Khi cầm bom, cơ chế ném kích hoạt qua thao tác giữ và nhả chuột
+
         const shouldShoot = w.isAuto ? this.mouseButtons.left : (this.mouseButtons.left && this.weapons.fireCooldown <= 0);
 
         if (shouldShoot) {

@@ -298,10 +298,10 @@
         </div>
       </div>
       <div id="th-bottom-hud" class="pubg-bottom-hud">
-        <!-- Vệ tinh bên trái: Vật phẩm hồi máu [3] & Mũ/Giáp -->
+        <!-- Vệ tinh bên trái: Vật phẩm hồi máu [5] & Mũ/Giáp -->
         <div class="pubg-left-cluster">
-          <button id="th-slot-3" class="pubg-med-btn" title="Sơ cứu / Hồi máu [3]">
-            <span class="pubg-key-badge">3</span>
+          <button id="th-slot-3" class="pubg-med-btn" title="Sơ cứu / Hồi máu [5]">
+            <span class="pubg-key-badge">5</span>
             <div class="pubg-med-icon-wrap">
               <svg viewBox="0 0 24 24" class="pubg-med-svg" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="6" width="18" height="15" rx="3" fill="#22c55e" fill-opacity="0.2" stroke="#22c55e" />
@@ -337,7 +337,7 @@
           </div>
         </div>
 
-        <!-- Cụm trung tâm: 2 Khung Súng Song Song & Thanh Máu Dưới Đáy -->
+        <!-- Cụm trung tâm: 2 Khung Súng + 2 Khung Bom & Thanh Máu Dưới Đáy -->
         <div class="pubg-center-cluster">
           <!-- Nhãn chế độ bắn nhô lên trên súng đang chọn (tự trượt sang súng active) -->
           <div id="pubg-fire-mode-badge" class="pubg-fire-mode-badge at-slot-1">
@@ -345,7 +345,7 @@
             <span class="pubg-fire-mode-arrow">➔</span>
           </div>
 
-          <!-- Hàng 2 Slot Súng Chính & Phụ -->
+          <!-- Hàng 4 Slot Trang Bị: Súng Chính [1], Súng Phụ [2], Bom 1 [3], Bom 2 [4] -->
           <div class="pubg-weapons-row">
             <!-- SLOT 1: Súng chính [1] -->
             <button id="th-active-slot" class="pubg-gun-slot active" title="Súng chính [1]">
@@ -378,6 +378,34 @@
                 <span class="pubg-ammo-res" id="pubg-gun2-res">∞</span>
               </div>
             </button>
+
+            <!-- SLOT 3: Bom 1 [3] -->
+            <button id="th-slot-bomb1" class="pubg-gun-slot pubg-bomb-slot" title="Bom 1 [3]">
+              <div class="pubg-slot-header">
+                <span class="pubg-key-badge">3</span>
+                <span class="pubg-gun-name" id="pubg-bomb1-name">LỰU ĐẠN A</span>
+              </div>
+              <div class="pubg-gun-silhouette-wrap" id="th-bomb1-silhouette">
+                <img src="assets/previews/kenney-blaster/grenade-a.png" alt="Bom 1" class="pubg-silhouette-img">
+              </div>
+              <div class="pubg-gun-ammo-box">
+                <span class="pubg-ammo-cur" id="pubg-bomb1-qty">x2</span>
+              </div>
+            </button>
+
+            <!-- SLOT 4: Bom 2 [4] -->
+            <button id="th-slot-bomb2" class="pubg-gun-slot pubg-bomb-slot" title="Bom 2 [4]">
+              <div class="pubg-slot-header">
+                <span class="pubg-key-badge">4</span>
+                <span class="pubg-gun-name" id="pubg-bomb2-name">LỰU ĐẠN B</span>
+              </div>
+              <div class="pubg-gun-silhouette-wrap" id="th-bomb2-silhouette">
+                <img src="assets/previews/kenney-blaster/grenade-b.png" alt="Bom 2" class="pubg-silhouette-img">
+              </div>
+              <div class="pubg-gun-ammo-box">
+                <span class="pubg-ammo-cur" id="pubg-bomb2-qty">x2</span>
+              </div>
+            </button>
           </div>
 
           <!-- Thanh Máu PUBG nằm ngang sát dưới 2 súng -->
@@ -388,10 +416,10 @@
           </div>
         </div>
 
-        <!-- Vệ tinh bên phải: Vũ khí cận chiến Dao/Chảo [4] hoặc [V] -->
+        <!-- Vệ tinh bên phải: Vũ khí cận chiến Dao [V] -->
         <div class="pubg-right-cluster">
-          <button id="th-slot-melee" class="pubg-melee-btn" title="Dao cận chiến [4] hoặc [V]">
-            <span class="pubg-key-badge">4</span>
+          <button id="th-slot-melee" class="pubg-melee-btn" title="Dao cận chiến [V]">
+            <span class="pubg-key-badge">V</span>
             <div class="pubg-melee-icon-wrap">
               <img src="assets/previews/kenney-food/cooking-knife.png" alt="Cận chiến" class="pubg-melee-img">
             </div>
@@ -944,16 +972,43 @@
       </section>
       <!-- Khu vực Kho Vũ Khí dạng Lưới Grid (Chỉ hiển thị khi ở tab VŨ KHÍ) -->
       <section id="armory-grid-section" class="armory-grid-section" aria-label="Danh sách vũ khí">
+        <!-- Thanh 4 Ô Trang Bị Loadout -->
+        <div class="armory-loadout-bar">
+          <div class="loadout-slot-box" data-loadout-slot="primary" title="Bấm để lọc danh sách Súng chính">
+            <span class="loadout-slot-tag">SÚNG CHÍNH [1]</span>
+            <div class="loadout-slot-thumb"><img id="loadout-img-primary" src="assets/previews/kenney-blaster/blaster-c.png" alt="Súng chính"></div>
+            <strong id="loadout-name-primary">BLASTER-C</strong>
+          </div>
+          <div class="loadout-slot-box" data-loadout-slot="secondary" title="Bấm để lọc danh sách Súng phụ (Lục)">
+            <span class="loadout-slot-tag">SÚNG PHỤ [2]</span>
+            <div class="loadout-slot-thumb"><img id="loadout-img-secondary" src="assets/previews/kenney-blaster/blaster-a.png" alt="Súng phụ"></div>
+            <strong id="loadout-name-secondary">BLASTER-A</strong>
+          </div>
+          <div class="loadout-slot-box" data-loadout-slot="bomb1" title="Bấm để lọc Bom 1">
+            <span class="loadout-slot-tag">Ô BOM 1 [3]</span>
+            <div class="loadout-slot-thumb"><img id="loadout-img-bomb1" src="assets/previews/kenney-blaster/grenade-a.png" alt="Bom 1"></div>
+            <strong id="loadout-name-bomb1">LỰU ĐẠN A</strong>
+          </div>
+          <div class="loadout-slot-box" data-loadout-slot="bomb2" title="Bấm để lọc Bom 2">
+            <span class="loadout-slot-tag">Ô BOM 2 [4]</span>
+            <div class="loadout-slot-thumb"><img id="loadout-img-bomb2" src="assets/previews/kenney-blaster/grenade-b.png" alt="Bom 2"></div>
+            <strong id="loadout-name-bomb2">LỰU ĐẠN B</strong>
+          </div>
+        </div>
+
         <div class="armory-grid-toolbar">
           <div class="armory-filter-tabs">
-            <button class="armory-filter-btn active" data-armory-filter="all">TẤT CẢ (18)</button>
+            <button class="armory-filter-btn active" data-armory-filter="all">TẤT CẢ (20)</button>
+            <button class="armory-filter-btn" data-armory-filter="primary">SÚNG CHÍNH</button>
+            <button class="armory-filter-btn" data-armory-filter="secondary">SÚNG PHỤ (LỤC)</button>
+            <button class="armory-filter-btn" data-armory-filter="bomb">BOM &amp; LỰU ĐẠN</button>
             <button class="armory-filter-btn" data-armory-filter="1">CẤP 1</button>
             <button class="armory-filter-btn" data-armory-filter="2">CẤP 2</button>
             <button class="armory-filter-btn" data-armory-filter="3">CẤP 3</button>
             <button class="armory-filter-btn" data-armory-filter="4">CẤP 4</button>
             <button class="armory-filter-btn" data-armory-filter="5">HUYỀN THOẠI</button>
           </div>
-          <span class="armory-count-badge" id="armory-unlocked-count">SỞ HỮU: 3/18</span>
+          <span class="armory-count-badge" id="armory-unlocked-count">SỞ HỮU: 5/20</span>
         </div>
         <div id="weapon-cards" class="armory-weapons-grid" aria-label="Lưới chọn súng"></div>
       </section>
@@ -962,7 +1017,16 @@
         <button class="character-card" data-preview-character="skeleton" aria-pressed="false" style="--card-color:#a182d2"><span class="character-card-portrait"><img alt="Khung xương" hidden></span><strong>KHUNG XƯƠNG</strong><span class="character-card-status">ĐÃ SỞ HỮU</span></button>
         <button class="character-card" data-preview-character="vampire" aria-pressed="false" style="--card-color:#df7489"><span class="character-card-portrait"><img alt="Ma cà rồng" hidden></span><strong>MA CÀ RỒNG</strong><span class="character-card-status">ĐÃ SỞ HỮU</span></button>
       </nav>
-      <div class="character-action"><button id="character-confirm" class="toy-button">✓ ĐANG SỬ DỤNG</button><span>Chọn chiến binh cho trận đấu tiếp theo</span></div>
+      <div class="character-action">
+        <button id="character-confirm" class="toy-button">✓ ĐANG SỬ DỤNG</button>
+        <div id="armory-action-group" class="armory-action-group" style="display:none;">
+          <button id="armory-btn-primary" class="toy-button blue">TRANG BỊ SÚNG CHÍNH</button>
+          <button id="armory-btn-secondary" class="toy-button orange">TRANG BỊ SÚNG PHỤ</button>
+          <button id="armory-btn-bomb1" class="toy-button orange">TRANG BỊ BOM 1</button>
+          <button id="armory-btn-bomb2" class="toy-button purple">TRANG BỊ BOM 2</button>
+        </div>
+        <span id="character-action-sub">Chọn chiến binh cho trận đấu tiếp theo</span>
+      </div>
     </dialog>
     <!-- Screen 3: Pause Menu -->
     <div id="screen-pause" class="screen-overlay" style="display: none;">
@@ -1006,6 +1070,6 @@
     </div>
 
     <!-- Main Game Script -->
-    <script src="libs/qrcode.min.js"></script><script type="module" src="src/main.js?v=34"></script>
+    <script src="libs/qrcode.min.js"></script><script type="module" src="src/main.js?v=35"></script>
 </body>
 </html>

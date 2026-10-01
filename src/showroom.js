@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as SkeletonUtils from '../libs/SkeletonUtils.js';
 import { CHARACTER_CONFIGS } from './characters.js';
-import { WEAPON_CONFIGS, getStartingWeapon, updateHeldWeaponPose } from './weapons.js?v=32';
+import { WEAPON_CONFIGS, getStartingWeapon, updateHeldWeaponPose, BOMB_CONFIGS, getBombConfig } from './weapons.js?v=35';
 
 const DETAILS = {
     soldier: { title: 'LÍNH', subtitle: 'CHIẾN BINH TIỀN TUYẾN', color: '#75bca1', description: 'Giữ vững vị trí. Sẵn sàng đối đầu với bất kỳ đợt zombie nào.' },
@@ -17,28 +17,34 @@ export class CharacterShowroom {
         this.cards = [...this.dialog.querySelectorAll('[data-preview-character]')];
         this.entries = new Map();
         this.mode = 'characters';
-        this.weaponId = getStartingWeapon(game.weapons.startingWeaponId).id;
+        this.loadout = this.getSavedLoadout();
+        this.weaponId = this.loadout.primary;
+        this.allItems = [...WEAPON_CONFIGS, ...BOMB_CONFIGS];
         this.weaponCards = document.getElementById('weapon-cards');
-        for (const weapon of WEAPON_CONFIGS) {
+
+        // Tạo toàn bộ thẻ cho Súng và Bom
+        for (const item of this.allItems) {
             const card = document.createElement('button');
             card.className = 'character-card weapon-card';
-            card.dataset.previewWeapon = weapon.id;
-            const tierColor = '#' + weapon.color.toString(16).padStart(6, '0');
+            card.dataset.previewWeapon = item.id;
+            card.dataset.slotType = item.slotType || (item.isBomb ? 'bomb' : 'primary');
+            const tierColor = '#' + (item.color || 0x38bdf8).toString(16).padStart(6, '0');
             card.style.setProperty('--card-color', tierColor);
             card.innerHTML = `
                 <div class="weapon-card-header">
-                    <span class="weapon-tier-badge tier-${weapon.tier}">CẤP ${weapon.tier}</span>
-                    <span class="weapon-category-tag">${weapon.category}</span>
+                    <span class="weapon-tier-badge tier-${item.tier}">CẤP ${item.tier}</span>
+                    <span class="weapon-category-tag">${item.category}</span>
                 </div>
                 <div class="weapon-card-portrait">
-                    <img src="${weapon.icon}" alt="${weapon.name}">
+                    <img src="${item.icon}" alt="${item.name}">
                 </div>
-                <strong class="weapon-card-name">${weapon.name}</strong>
+                <strong class="weapon-card-name">${item.name}</strong>
                 <span class="character-card-status weapon-card-status"></span>
             `;
-            card.onclick = () => this.previewWeapon(weapon.id);
+            card.onclick = () => this.previewWeapon(item.id);
             this.weaponCards.append(card);
         }
+
         this.armoryFilter = 'all';
         this.dialog.querySelectorAll('[data-armory-filter]').forEach(btn => {
             btn.onclick = () => {
@@ -48,6 +54,30 @@ export class CharacterShowroom {
                 this.filterWeapons();
             };
         });
+
+        // Tương tác thanh 4 Ô Loadout
+        this.dialog.querySelectorAll('[data-loadout-slot]').forEach(slotBox => {
+            slotBox.onclick = () => {
+                const slotType = slotBox.dataset.loadoutSlot;
+                const filterBtn = this.dialog.querySelector(`[data-armory-filter="${slotType === 'bomb1' || slotType === 'bomb2' ? 'bomb' : slotType}"]`);
+                if (filterBtn) filterBtn.click();
+                const curId = this.loadout[slotType];
+                if (curId) this.previewWeapon(curId);
+            };
+        });
+
+        // Gắn sự kiện các nút trong cụm trang bị
+        this.armoryActionGroup = document.getElementById('armory-action-group');
+        this.btnPrimary = document.getElementById('armory-btn-primary');
+        this.btnSecondary = document.getElementById('armory-btn-secondary');
+        this.btnBomb1 = document.getElementById('armory-btn-bomb1');
+        this.btnBomb2 = document.getElementById('armory-btn-bomb2');
+
+        if (this.btnPrimary) this.btnPrimary.onclick = () => this.equipToSlot('primary', this.weaponId);
+        if (this.btnSecondary) this.btnSecondary.onclick = () => this.equipToSlot('secondary', this.weaponId);
+        if (this.btnBomb1) this.btnBomb1.onclick = () => this.equipToSlot('bomb1', this.weaponId);
+        if (this.btnBomb2) this.btnBomb2.onclick = () => this.equipToSlot('bomb2', this.weaponId);
+
         this.dialog.querySelectorAll('[data-showroom-tab]').forEach(button => {
             button.onclick = () => this.setMode(button.dataset.showroomTab);
         });
@@ -62,26 +92,34 @@ export class CharacterShowroom {
         this.dialog.querySelector('[data-character-back]').onclick = () => this.dialog.close();
         this.dialog.addEventListener('close', () => this.close());
         this.cards.forEach(card => card.onclick = () => this.preview(card.dataset.previewCharacter));
+        
         this.confirm.onclick = () => {
             if (this.locked()) return;
             if (this.mode === 'weapons') {
-                const isUnlocked = this.game.isWeaponUnlocked(this.weaponId);
+                const item = this.getItem(this.weaponId);
+                const isUnlocked = this.game.isWeaponUnlocked(item.id);
                 if (!isUnlocked) {
-                    const bought = this.game.buyWeapon(this.weaponId);
+                    const bought = this.game.buyWeapon(item.id);
                     if (bought) {
                         this.syncSelection();
                     }
                     return;
                 }
-                this.game.selectWeapon(this.weaponId);
-                this.game.homeMenu.refreshLoadout();
-                this.syncSelection();
+                // Trang bị mặc định theo loại
+                if (item.slotType === 'secondary') {
+                    this.equipToSlot('secondary', item.id);
+                } else if (item.isBomb) {
+                    this.equipToSlot('bomb1', item.id);
+                } else {
+                    this.equipToSlot('primary', item.id);
+                }
                 return;
             }
             if (!this.entries.get(this.selected)) return;
             this.game.selectCharacter(this.selected);
             this.syncSelection();
         };
+
         this.stage.addEventListener('pointerdown', event => {
             this.dragX = event.clientX;
             this.stage.setPointerCapture(event.pointerId);
@@ -101,6 +139,77 @@ export class CharacterShowroom {
         });
     }
 
+    getItem(id) {
+        return BOMB_CONFIGS.find(b => b.id === id) || WEAPON_CONFIGS.find(w => w.id === id) || WEAPON_CONFIGS[0];
+    }
+
+    getSavedLoadout() {
+        try {
+            const raw = localStorage.getItem('cyber_arena_loadout');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                return {
+                    primary: parsed.primary || 'blaster_c',
+                    secondary: parsed.secondary || 'blaster',
+                    bomb1: parsed.bomb1 || 'grenade_a',
+                    bomb2: parsed.bomb2 || 'grenade_b'
+                };
+            }
+        } catch {}
+        return {
+            primary: 'blaster_c',
+            secondary: 'blaster',
+            bomb1: 'grenade_a',
+            bomb2: 'grenade_b'
+        };
+    }
+
+    saveLoadout() {
+        try {
+            localStorage.setItem('cyber_arena_loadout', JSON.stringify(this.loadout));
+        } catch {}
+        if (this.game.weapons) {
+            this.game.weapons.startingWeaponId = this.loadout.primary;
+            this.game.startingLoadout = { ...this.loadout };
+        }
+    }
+
+    equipToSlot(slotName, itemId) {
+        if (!this.loadout || !slotName || !itemId) return;
+        const item = this.getItem(itemId);
+        if (!item) return;
+
+        // Nếu chưa mở khóa thì tiến hành mua trước
+        if (!this.game.isWeaponUnlocked(itemId)) {
+            const bought = this.game.buyWeapon(itemId);
+            if (!bought) return;
+        }
+
+        this.loadout[slotName] = itemId;
+        this.saveLoadout();
+        this.syncSelection();
+        this.syncLoadoutUI();
+    }
+
+    syncLoadoutUI() {
+        const slots = ['primary', 'secondary', 'bomb1', 'bomb2'];
+        for (const slot of slots) {
+            const itemId = this.loadout[slot];
+            const item = this.getItem(itemId);
+            const imgEl = document.getElementById(`loadout-img-${slot}`);
+            const nameEl = document.getElementById(`loadout-name-${slot}`);
+            if (item) {
+                if (imgEl) {
+                    imgEl.src = item.icon;
+                    imgEl.alt = item.name;
+                }
+                if (nameEl) {
+                    nameEl.textContent = item.name;
+                }
+            }
+        }
+    }
+
     locked() { return this.game.network.active && this.game.state !== 'MENU'; }
 
     open() {
@@ -114,7 +223,9 @@ export class CharacterShowroom {
         this.stage.prepend(this.renderer.domElement);
         this.width = 0;
         this.dialog.showModal();
-        this.weaponId = getStartingWeapon(this.game.weapons.startingWeaponId).id;
+        this.loadout = this.getSavedLoadout();
+        this.weaponId = this.loadout.primary;
+        this.syncLoadoutUI();
         for (const entry of this.entries.values()) if (entry) this.attachGun(entry);
         this.setMode('weapons'); // Mặc định mở tab VŨ KHÍ khi vào kho súng
         for (const id of Object.keys(CHARACTER_CONFIGS)) this.load(id);
@@ -126,7 +237,7 @@ export class CharacterShowroom {
         if (!this.renderer) return;
         this.game.roomLobby.stage.prepend(this.renderer.domElement);
         this.renderer.domElement.setAttribute('aria-label', this.originalLabel);
-        // Force the lobby to restore its render dimensions after the shared canvas returns.
+        // Khôi phục kích thước render của phòng chờ
         this.game.roomLobby.width = 0;
     }
 
@@ -172,12 +283,14 @@ export class CharacterShowroom {
         document.getElementById('character-subtitle').textContent = info.subtitle;
         document.getElementById('character-description').textContent = info.description;
         document.getElementById('character-watermark').textContent = info.title;
-        const weapon = getStartingWeapon(this.weaponId);
+        const weapon = this.getItem(this.weaponId);
         document.getElementById('character-health').textContent = this.game.player.maxHealth;
         document.getElementById('character-shield').textContent = this.game.player.maxShield;
-        document.getElementById('character-damage').textContent = weapon.damage;
+        document.getElementById('character-damage').textContent = weapon.damage || 30;
         document.getElementById('character-speed').textContent = this.game.player.speed;
-        document.getElementById('character-weapon-detail').textContent = `${weapon.damage} sát thương · ${weapon.magSize} viên / băng`;
+        document.getElementById('character-weapon-detail').textContent = weapon.isBomb 
+            ? `${weapon.damage} sát thương nổ · Bán kính ${weapon.radius}m` 
+            : `${weapon.damage} sát thương · ${weapon.magSize} viên / băng`;
         document.getElementById('character-weapon-name').textContent = weapon.name;
         document.getElementById('character-weapon-icon').src = weapon.icon;
         for (const [key, entry] of this.entries) if (entry) entry.model.visible = (key === id && this.mode === 'characters');
@@ -197,57 +310,97 @@ export class CharacterShowroom {
             card.querySelector('.character-card-status').textContent = id === this.game.characterId ? '✓ ĐANG DÙNG' : 'ĐÃ SỞ HỮU';
             card.classList.toggle('equipped', id === this.game.characterId);
         }
+
         for (const card of this.weaponCards.children) {
             const id = card.dataset.previewWeapon;
-            const wCfg = getStartingWeapon(id);
+            const item = this.getItem(id);
             const isUnlocked = this.game.isWeaponUnlocked(id);
-            const isEquipped = (id === this.game.weapons.startingWeaponId);
+            const isEquippedPrimary = (id === this.loadout.primary);
+            const isEquippedSecondary = (id === this.loadout.secondary);
+            const isEquippedBomb1 = (id === this.loadout.bomb1);
+            const isEquippedBomb2 = (id === this.loadout.bomb2);
+            const isEquipped = isEquippedPrimary || isEquippedSecondary || isEquippedBomb1 || isEquippedBomb2;
+
             card.classList.toggle('previewing', id === this.weaponId);
             card.classList.toggle('equipped', isEquipped);
             card.classList.toggle('locked', !isUnlocked);
             card.setAttribute('aria-pressed', String(id === this.weaponId));
+
             const statusEl = card.querySelector('.weapon-card-status') || card.querySelector('.character-card-status');
             if (statusEl) {
-                statusEl.textContent = isEquipped 
-                    ? '✓ ĐANG SỬ DỤNG' 
-                    : isUnlocked 
-                        ? 'ĐÃ SỞ HỮU' 
-                        : `${wCfg.price.toLocaleString()} VÀNG`;
+                if (isEquippedPrimary) statusEl.textContent = '✓ SÚNG CHÍNH';
+                else if (isEquippedSecondary) statusEl.textContent = '✓ SÚNG PHỤ';
+                else if (isEquippedBomb1) statusEl.textContent = '✓ BOM 1';
+                else if (isEquippedBomb2) statusEl.textContent = '✓ BOM 2';
+                else if (isUnlocked) statusEl.textContent = 'ĐÃ SỞ HỮU';
+                else statusEl.textContent = `${item.price.toLocaleString()} VÀNG`;
             }
         }
 
-        const unlockedCount = WEAPON_CONFIGS.filter(w => this.game.isWeaponUnlocked(w.id)).length;
+        const unlockedCount = this.allItems.filter(w => this.game.isWeaponUnlocked(w.id)).length;
         const countEl = document.getElementById('armory-unlocked-count');
-        if (countEl) countEl.textContent = `SỞ HỮU: ${unlockedCount}/${WEAPON_CONFIGS.length}`;
+        if (countEl) countEl.textContent = `SỞ HỮU: ${unlockedCount}/${this.allItems.length}`;
         this.filterWeapons();
 
-        const curWeapon = getStartingWeapon(this.weaponId);
+        const curItem = this.getItem(this.weaponId);
         const isWeaponUnlocked = this.game.isWeaponUnlocked(this.weaponId);
-        const equipped = this.mode === 'weapons' 
-            ? this.weaponId === this.game.weapons.startingWeaponId 
-            : this.selected === this.game.characterId;
 
         if (this.mode === 'weapons') {
-            if (equipped) {
-                this.confirm.textContent = '✓ ĐANG SỬ DỤNG';
-                this.confirm.disabled = true;
-                this.confirm.classList.add('equipped');
-            } else if (isWeaponUnlocked) {
-                this.confirm.textContent = 'TRANG BỊ SÚNG';
-                this.confirm.disabled = this.locked();
-                this.confirm.classList.remove('equipped');
-            } else {
-                const canBuy = (this.game.coins >= curWeapon.price);
-                this.confirm.textContent = `MUA [${curWeapon.price.toLocaleString()} VÀNG]`;
+            if (!isWeaponUnlocked) {
+                // Chưa mua -> hiển thị nút MUA
+                if (this.armoryActionGroup) this.armoryActionGroup.style.display = 'none';
+                this.confirm.style.display = '';
+                const canBuy = (this.game.coins >= curItem.price);
+                this.confirm.textContent = `MUA [${curItem.price.toLocaleString()} VÀNG]`;
                 this.confirm.disabled = this.locked() || !canBuy;
                 this.confirm.classList.remove('equipped');
+            } else {
+                // Đã sở hữu -> hiển thị cụm nút trang bị theo loại trang bị
+                this.confirm.style.display = 'none';
+                if (this.armoryActionGroup) {
+                    this.armoryActionGroup.style.display = 'flex';
+                    if (curItem.isBomb) {
+                        if (this.btnPrimary) this.btnPrimary.style.display = 'none';
+                        if (this.btnSecondary) this.btnSecondary.style.display = 'none';
+                        if (this.btnBomb1) {
+                            this.btnBomb1.style.display = '';
+                            this.btnBomb1.textContent = (this.loadout.bomb1 === curItem.id) ? '✓ ĐANG TRANG BỊ BOM 1' : 'TRANG BỊ VÀO BOM 1 [3]';
+                        }
+                        if (this.btnBomb2) {
+                            this.btnBomb2.style.display = '';
+                            this.btnBomb2.textContent = (this.loadout.bomb2 === curItem.id) ? '✓ ĐANG TRANG BỊ BOM 2' : 'TRANG BỊ VÀO BOM 2 [4]';
+                        }
+                    } else if (curItem.slotType === 'secondary') {
+                        if (this.btnPrimary) this.btnPrimary.style.display = 'none';
+                        if (this.btnBomb1) this.btnBomb1.style.display = 'none';
+                        if (this.btnBomb2) this.btnBomb2.style.display = 'none';
+                        if (this.btnSecondary) {
+                            this.btnSecondary.style.display = '';
+                            this.btnSecondary.textContent = (this.loadout.secondary === curItem.id) ? '✓ ĐANG LÀ SÚNG PHỤ' : 'TRANG BỊ SÚNG PHỤ [2]';
+                        }
+                    } else {
+                        // Súng chính
+                        if (this.btnSecondary) this.btnSecondary.style.display = 'none';
+                        if (this.btnBomb1) this.btnBomb1.style.display = 'none';
+                        if (this.btnBomb2) this.btnBomb2.style.display = 'none';
+                        if (this.btnPrimary) {
+                            this.btnPrimary.style.display = '';
+                            this.btnPrimary.textContent = (this.loadout.primary === curItem.id) ? '✓ ĐANG LÀ SÚNG CHÍNH' : 'TRANG BỊ SÚNG CHÍNH [1]';
+                        }
+                    }
+                }
             }
         } else {
+            // Chế độ Nhân vật
+            if (this.armoryActionGroup) this.armoryActionGroup.style.display = 'none';
+            this.confirm.style.display = '';
+            const equipped = this.selected === this.game.characterId;
             this.confirm.textContent = this.locked() ? 'TRẬN ĐẤU ĐÃ BẮT ĐẦU' : equipped ? '✓ ĐANG SỬ DỤNG' : 'CHỌN NHÂN VẬT';
             this.confirm.classList.toggle('equipped', equipped);
             this.confirm.disabled = this.locked() || !this.entries.get(this.selected) || equipped;
         }
 
+        this.syncLoadoutUI();
         this.game.updateCoinsUI?.();
     }
 
@@ -255,12 +408,18 @@ export class CharacterShowroom {
         if (!this.weaponCards) return;
         for (const card of this.weaponCards.children) {
             const id = card.dataset.previewWeapon;
-            const w = getStartingWeapon(id);
-            if (this.armoryFilter === 'all' || String(w.tier) === this.armoryFilter) {
-                card.style.display = 'flex';
-            } else {
-                card.style.display = 'none';
+            const item = this.getItem(id);
+            if (!item) continue;
+            const slotType = item.slotType || (item.isBomb ? 'bomb' : 'primary');
+            let match = false;
+            if (this.armoryFilter === 'all') {
+                match = true;
+            } else if (this.armoryFilter === 'primary' || this.armoryFilter === 'secondary' || this.armoryFilter === 'bomb') {
+                match = (slotType === this.armoryFilter);
+            } else if (String(item.tier) === this.armoryFilter) {
+                match = true;
             }
+            card.style.display = match ? 'flex' : 'none';
         }
     }
 
@@ -271,7 +430,10 @@ export class CharacterShowroom {
             button.setAttribute('aria-pressed', String(button.dataset.showroomTab === mode));
         });
         document.getElementById('character-screen-title').textContent = mode === 'weapons' ? 'KHO VŨ KHÍ' : 'NHÂN VẬT';
-        this.dialog.querySelector('.character-action>span').textContent = mode === 'weapons' ? 'Trang bị súng để mang vào trận tiếp theo' : 'Chọn chiến binh cho trận đấu tiếp theo';
+        const subAction = document.getElementById('character-action-sub') || this.dialog.querySelector('.character-action>span');
+        if (subAction) {
+            subAction.textContent = mode === 'weapons' ? 'Trang bị vũ khí để mang vào trận tiếp theo' : 'Chọn chiến binh cho trận đấu tiếp theo';
+        }
         if (mode === 'weapons') {
             // Khi ở chế độ vũ khí: ẩn mô hình nhân vật 3D, hiển thị lưới súng
             for (const entry of this.entries.values()) {
@@ -287,8 +449,9 @@ export class CharacterShowroom {
 
     attachGun(entry) {
         entry.gun?.removeFromParent();
-        const weapon = getStartingWeapon(this.weaponId);
-        const base = this.game.weapons.models[weapon.modelFile];
+        const weapon = this.getItem(this.weaponId);
+        const modelKey = weapon.modelFile;
+        const base = this.game.weapons.models[modelKey];
         const hand = entry.model.getObjectByName('arm-right') || entry.model.getObjectByName('hand-right');
         if (!base || !hand) return;
         const gun = base.clone(true);
@@ -312,43 +475,58 @@ export class CharacterShowroom {
     }
 
     previewWeapon(id) {
-        const weapon = getStartingWeapon(id);
-        this.weaponId = weapon.id;
+        const item = this.getItem(id);
+        this.weaponId = item.id;
         if (this.mode === 'characters') {
             for (const entry of this.entries.values()) if (entry) this.attachGun(entry);
         }
-        document.getElementById('armory-name').textContent = weapon.name;
-        document.getElementById('armory-category').textContent = `${weapon.category} · CẤP ${weapon.tier}`;
-        document.getElementById('armory-damage').textContent = weapon.pellets > 1 ? `${weapon.damage} × ${weapon.pellets}` : weapon.damage;
-        document.getElementById('armory-rate').textContent = (1 / weapon.fireRate).toFixed(1);
-        document.getElementById('armory-ammo').textContent = weapon.magSize;
-        document.getElementById('armory-reload').textContent = `${weapon.reloadTime}s`;
+
+        document.getElementById('armory-name').textContent = item.name;
+        document.getElementById('armory-category').textContent = `${item.category} · CẤP ${item.tier}`;
+        document.getElementById('armory-damage').textContent = item.pellets > 1 ? `${item.damage} × ${item.pellets}` : item.damage;
+        document.getElementById('armory-image').src = item.icon;
+
         const armoryRangeEl = document.getElementById('armory-range');
-        if (armoryRangeEl) armoryRangeEl.textContent = `${weapon.range || 45}m`;
-        document.getElementById('armory-image').src = weapon.icon;
-        document.getElementById('armory-fire-mode').textContent = weapon.isAuto ? 'TỰ ĐỘNG' : 'BÁN TỰ ĐỘNG';
-        document.getElementById('armory-reserve').textContent = `${weapon.magSize * 6} VIÊN DỰ TRỮ`;
-        const descriptions = {
-            blaster: 'BLASTER-A: Súng lục cân bằng tiêu chuẩn, độ giật thấp và ổn định cho phát bắn chính xác.',
-            blaster_b: 'BLASTER-B: Súng ngắn hai nòng xả đạn nhanh, cơ động áp chế mục tiêu ở cự ly gần.',
-            blaster_c: 'BLASTER-C: Súng trường xung lực chiến thuật, hỏa lực ổn định và độ chính xác cao.',
-            repeater: 'BLASTER-D: Tiểu liên tự động xả đạn cao tốc. Băng đạn dồi dào giải vây hiệu quả.',
-            blaster_e: 'BLASTER-E: Súng trường bão tố liên thanh cực nhanh, đạn xuyên giáp tầm trung uy lực.',
-            shotgun: 'BLASTER-F: Shotgun chiến thuật bắn chùm 8 viên đạn ghém, quét sạch bầy zombie cự ly gần.',
-            scatter: 'BLASTER-G: Shotgun tán xạ hạng nặng, sức công phá thô bạo với vùng quét đạn rộng lớn.',
-            mac10: 'BLASTER-H: Tiểu liên cơ động Viper tốc độ xả đạn chớp mắt, trọng lượng siêu nhẹ.',
-            blaster_i: 'BLASTER-I: Súng trường thiện xạ với ống ngắm quang học, sát thương đơn mục tiêu cao.',
-            plasma: 'BLASTER-J: Đại bác Plasma phát xạ năng lượng hủy diệt, phá hủy phòng tuyến quái vật.',
-            pew: 'BLASTER-K: Súng lục laser công nghệ cao, nạp đạn nhanh như chớp và đường đạn thẳng tắp.',
-            blaster_l: 'BLASTER-L: Súng carbine xung điện thế hệ mới, cân bằng hoàn hảo giữa tốc độ và uy lực.',
-            blaster_m: 'BLASTER-M: Súng bắn tỉa bán tự động chuyên dụng tầm xa, sát thương bạo kích chí mạng.',
-            awp: 'BLASTER-N: Súng bắn tỉa hạng nặng công phá tầm siêu xa, một phát hạ gục phần lớn kẻ địch.',
-            blaster_o: 'BLASTER-O: Súng trường titan hạng nặng công phá tường thành, hỏa lực áp đảo toàn diện.',
-            rocket: 'BLASTER-P: Súng phóng lựu RPG nổ lan kinh hoàng, quét sạch đám đông zombie trong chớp mắt.',
-            blaster_q: 'BLASTER-Q: Súng máy Gatling quái thú 100 viên, mưa đạn bão lửa thiêu rụi chiến trường.',
-            blaster_r: 'BLASTER-R: Pháo lượng tử tối thượng với bán kính hủy diệt khổng lồ, xóa sổ mọi hiểm họa.'
-        };
-        document.getElementById('armory-description').textContent = descriptions[weapon.id] || 'Vũ khí chiến đấu Kenney Blaster Kit.';
+
+        if (item.isBomb) {
+            document.getElementById('armory-rate').textContent = '0.7';
+            document.getElementById('armory-ammo').textContent = `${item.count} quả`;
+            document.getElementById('armory-reload').textContent = `${item.fuseTime || 0.65}s`;
+            if (armoryRangeEl) armoryRangeEl.textContent = `${item.throwRange || 14}m`;
+            document.getElementById('armory-fire-mode').textContent = `PHẠM VI NỔ: ${item.radius}M`;
+            document.getElementById('armory-reserve').textContent = `CƠ SỐ NÉM: ${item.count} QUẢ`;
+            document.getElementById('armory-description').textContent = item.desc || 'Lựu đạn chiến thuật Kenney Blaster Kit.';
+        } else {
+            document.getElementById('armory-rate').textContent = (1 / item.fireRate).toFixed(1);
+            document.getElementById('armory-ammo').textContent = item.magSize;
+            document.getElementById('armory-reload').textContent = `${item.reloadTime}s`;
+            if (armoryRangeEl) armoryRangeEl.textContent = `${item.range || 45}m`;
+            document.getElementById('armory-fire-mode').textContent = item.isAuto ? 'TỰ ĐỘNG' : 'BÁN TỰ ĐỘNG';
+            document.getElementById('armory-reserve').textContent = `${item.magSize * 6} VIÊN DỰ TRỮ`;
+
+            const descriptions = {
+                blaster: 'BLASTER-A: Súng lục cân bằng tiêu chuẩn, độ giật thấp và ổn định cho phát bắn chính xác.',
+                blaster_b: 'BLASTER-B: Súng ngắn hai nòng xả đạn nhanh, cơ động áp chế mục tiêu ở cự ly gần.',
+                blaster_c: 'BLASTER-C: Súng trường xung lực chiến thuật, hỏa lực ổn định và độ chính xác cao.',
+                repeater: 'BLASTER-D: Tiểu liên tự động xả đạn cao tốc. Băng đạn dồi dào giải vây hiệu quả.',
+                blaster_e: 'BLASTER-E: Súng trường bão tố liên thanh cực nhanh, đạn xuyên giáp tầm trung uy lực.',
+                shotgun: 'BLASTER-F: Shotgun chiến thuật bắn chùm 8 viên đạn ghém, quét sạch bầy zombie cự ly gần.',
+                scatter: 'BLASTER-G: Shotgun tán xạ hạng nặng, sức công phá thô bạo với vùng quét đạn rộng lớn.',
+                mac10: 'BLASTER-H: Tiểu liên cơ động Viper tốc độ xả đạn chớp mắt, trọng lượng siêu nhẹ.',
+                blaster_i: 'BLASTER-I: Súng trường thiện xạ với ống ngắm quang học, sát thương đơn mục tiêu cao.',
+                plasma: 'BLASTER-J: Đại bác Plasma phát xạ năng lượng hủy diệt, phá hủy phòng tuyến quái vật.',
+                pew: 'BLASTER-K: Súng lục laser công nghệ cao, nạp đạn nhanh như chớp và đường đạn thẳng tắp.',
+                blaster_l: 'BLASTER-L: Súng carbine xung điện thế hệ mới, cân bằng hoàn hảo giữa tốc độ và uy lực.',
+                blaster_m: 'BLASTER-M: Súng bắn tỉa bán tự động chuyên dụng tầm xa, sát thương bạo kích chí mạng.',
+                awp: 'BLASTER-N: Súng bắn tỉa hạng nặng công phá tầm siêu xa, một phát hạ gục phần lớn kẻ địch.',
+                blaster_o: 'BLASTER-O: Súng trường titan hạng nặng công phá tường thành, hỏa lực áp đảo toàn diện.',
+                rocket: 'BLASTER-P: Súng phóng lựu RPG nổ lan kinh hoàng, quét sạch đám đông zombie trong chớp mắt.',
+                blaster_q: 'BLASTER-Q: Súng máy Gatling quái thú 100 viên, mưa đạn bão lửa thiêu rụi chiến trường.',
+                blaster_r: 'BLASTER-R: Pháo lượng tử tối thượng với bán kính hủy diệt khổng lồ, xóa sổ mọi hiểm họa.'
+            };
+            document.getElementById('armory-description').textContent = descriptions[item.id] || 'Vũ khí chiến đấu Kenney Blaster Kit.';
+        }
+
         this.syncSelection();
     }
 
@@ -356,7 +534,7 @@ export class CharacterShowroom {
         if (!this.dialog.open || !this.renderer || this.mode === 'weapons') return;
         const width = this.stage.clientWidth, height = this.stage.clientHeight;
         if (!width || !height) return;
-        // Portraits are rendered once, with the same WebGL context as the hero/lobby.
+        
         for (const [id, entry] of this.entries) {
             if (!entry || entry.thumbnail) continue;
             for (const other of this.entries.values()) if (other) other.model.visible = other === entry;

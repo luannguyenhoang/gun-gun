@@ -1,5 +1,5 @@
 import { sounds } from './audio.js';
-import { CharacterShowroom } from './showroom.js?v=32';
+import { CharacterShowroom } from './showroom.js?v=35';
 import { CHARACTER_CONFIGS } from './characters.js';
 import { getStartingWeapon } from './weapons.js?v=32';
 
