@@ -133,8 +133,8 @@ export class Arena {
         if (floorGeo && floorMat) {
             const steps = Math.floor((halfSize * 2) / tileSize) + 1;
             const totalTiles = steps * steps;
-            // Nhựa đường tối màu - phong cách đô thị bỏ hoang
-            const turfMaterial = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.95 });
+            // Dùng material trắng, màu thực đặt qua instance color
+            const turfMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92 });
             const instancedFloor = new THREE.InstancedMesh(floorGeo, turfMaterial, totalTiles);
             instancedFloor.name = 'asphalt-ground';
             instancedFloor.receiveShadow = true;
@@ -149,16 +149,16 @@ export class Arena {
                     dummy.scale.set(tileSize, tileSize, tileSize);
                     dummy.updateMatrix();
                     instancedFloor.setMatrixAt(idx, dummy.matrix);
-                    // Biến thiên màu nhựa đường nhẹ
-                    const shade = 0.92 + (Math.sin(x * 0.5 + z * 0.3) + 1) * 0.04;
-                    instancedFloor.setColorAt(idx++, new THREE.Color(shade * 0.17, shade * 0.17, shade * 0.17));
+                    // Xám nhựa đường trung bình, biến thiên nhẹ
+                    const v = 0.28 + (Math.sin(x * 0.5 + z * 0.3) + 1) * 0.025;
+                    instancedFloor.setColorAt(idx++, new THREE.Color(v, v, v + 0.01));
                 }
             }
             instancedFloor.instanceMatrix.needsUpdate = true;
             this.scene.add(instancedFloor);
 
             // Vạch đường phân làn đô thị
-            const laneLineMat = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.35 });
+            const laneLineMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.3 });
             const laneConfigs = [
                 { size: [0.3, 22], pos: [-12, 0.03, 0] },
                 { size: [0.3, 22], pos: [ 12, 0.03, 0] },
@@ -444,25 +444,8 @@ export class Arena {
     }
 
     buildGrass() {
-        // Cỏ thưa xen kẽ trên nhựa đường - phong cách đô thị bỏ hoang
-        const blades = new THREE.InstancedMesh(new THREE.ConeGeometry(0.08, 0.25, 3),
-            new THREE.MeshStandardMaterial({ color: 0x4a6030, roughness: 1 }), 800);
-        blades.name = 'sparse-weeds';
-        const dummy = new THREE.Object3D();
-        // Rải cỏ thưa trong phạm vi map mới 48x48
-        let seed = 731;
-        const random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
-        for (let i = 0; i < blades.count; i++) {
-            dummy.position.set((random() - 0.5) * 48, 0.13, (random() - 0.5) * 48);
-            while (Math.abs(dummy.position.x) < 4.6 && Math.abs(dummy.position.z) < 4.6) {
-                dummy.position.set((random() - 0.5) * 48, 0.13, (random() - 0.5) * 48);
-            }
-            dummy.rotation.y = random() * Math.PI;
-            dummy.scale.set(1, 0.5 + random() * 0.8, 1);
-            dummy.updateMatrix();
-            blades.setMatrixAt(i, dummy.matrix);
-        }
-        this.scene.add(blades);
+        // Không rải cỏ trên nhựa đường - giữ mặt sàn sạch
+        // (bỏ trống, giữ method để tương thích với buildArena)
     }
 
     update(delta) {
