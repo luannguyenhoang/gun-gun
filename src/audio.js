@@ -2,6 +2,9 @@
 
 class SoundManager {
     constructor() {
+        if (typeof window !== 'undefined' && window.__gameSoundManager) {
+            return window.__gameSoundManager;
+        }
         this.ctx = null;
         this.buffers = {};
         this.enabled = true;
@@ -21,11 +24,21 @@ class SoundManager {
         };
         this.isMusicPlaying = false;
         this.musicInterval = null;
+        if (typeof window !== 'undefined') {
+            window.__gameSoundManager = this;
+        }
     }
 
     init() {
-        if (this.ctx) return;
+        if (this.ctx) {
+            if (this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+            return;
+        }
+        if (typeof window === 'undefined') return;
         const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
         this.ctx = new AudioContext();
         this.masterGain = this.ctx.createGain();
         this.masterGain.gain.value = this.masterVolume;
@@ -35,10 +48,26 @@ class SoundManager {
         this.musicGain.gain.value = this.musicVolume;
         this.musicGain.connect(this.masterGain);
 
+        // Mở khóa tự động Web Audio khi có tương tác đầu tiên của người dùng
+        const unlock = () => {
+            if (this.ctx && this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+            window.removeEventListener('pointerdown', unlock);
+            window.removeEventListener('keydown', unlock);
+            window.removeEventListener('click', unlock);
+        };
+        window.addEventListener('pointerdown', unlock, { once: true });
+        window.addEventListener('keydown', unlock, { once: true });
+        window.addEventListener('click', unlock, { once: true });
+
         this.loadAllSounds();
     }
 
     resume() {
+        if (!this.ctx) {
+            this.init();
+        }
         if (this.ctx && this.ctx.state === 'suspended') {
             this.ctx.resume();
         }
@@ -58,11 +87,13 @@ class SoundManager {
     }
 
     play(name, options = {}) {
-        if (!this.enabled || !this.ctx) return;
+        if (!this.enabled) return null;
+        if (!this.ctx) this.init();
         this.resume();
+        if (!this.ctx) return null;
 
         const buffer = this.buffers[name];
-        if (!buffer) return;
+        if (!buffer) return null;
 
         const source = this.ctx.createBufferSource();
         source.buffer = buffer;
@@ -83,13 +114,66 @@ class SoundManager {
     }
 
     playShot(weaponType = 'blaster') {
-        if (weaponType === 'repeater') {
-            this.play('repeater', { volume: 0.7, pitchVariation: 0.1 });
-        } else if (weaponType === 'scatter') {
-            this.play('blaster', { volume: 0.9, rate: 0.8, pitchVariation: 0.15 });
-            this.play('repeater', { volume: 0.5, rate: 0.7, pitchVariation: 0.1 });
+        if (!this.enabled) return;
+        if (!this.ctx) this.init();
+        this.resume();
+
+        let played = false;
+        if (weaponType === 'repeater' || weaponType === 'storm') {
+            played = !!this.play('repeater', { volume: 0.75, pitchVariation: 0.12 });
+        } else if (weaponType === 'scatter' || weaponType === 'nova') {
+            const p1 = this.play('blaster', { volume: 0.95, rate: 0.75, pitchVariation: 0.15 });
+            const p2 = this.play('repeater', { volume: 0.6, rate: 0.7, pitchVariation: 0.1 });
+            played = !!(p1 || p2);
+        } else if (weaponType === 'plasma') {
+            played = !!this.play('blaster', { volume: 0.9, rate: 1.35, pitchVariation: 0.1 });
         } else {
-            this.play('blaster', { volume: 0.85, pitchVariation: 0.08 });
+            played = !!this.play('blaster', { volume: 0.85, pitchVariation: 0.08 });
+        }
+
+        // Dự phòng âm thanh bắn tổng hợp (Procedural Synth Shot) nếu file âm thanh chưa nạp xong
+        if (!played && this.ctx) {
+            this.playSynthShot(weaponType);
+        }
+    }
+
+    playSynthShot(weaponType = 'blaster') {
+        if (!this.enabled || !this.ctx) return;
+        this.resume();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        if (weaponType === 'repeater' || weaponType === 'storm') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(640, t);
+            osc.frequency.exponentialRampToValueAtTime(95, t + 0.08);
+            gain.gain.setValueAtTime(0.35, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            osc.start(t);
+            osc.stop(t + 0.08);
+        } else if (weaponType === 'scatter' || weaponType === 'nova') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(340, t);
+            osc.frequency.exponentialRampToValueAtTime(50, t + 0.16);
+            gain.gain.setValueAtTime(0.55, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            osc.start(t);
+            osc.stop(t + 0.16);
+        } else {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(880, t);
+            osc.frequency.exponentialRampToValueAtTime(110, t + 0.11);
+            gain.gain.setValueAtTime(0.45, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            osc.start(t);
+            osc.stop(t + 0.11);
         }
     }
 
@@ -612,4 +696,6 @@ class SoundManager {
     }
 }
 
-export const sounds = new SoundManager();
+export const sounds = (typeof window !== 'undefined' && window.__gameSoundManager)
+    ? window.__gameSoundManager
+    : new SoundManager();

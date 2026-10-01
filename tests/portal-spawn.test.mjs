@@ -102,7 +102,7 @@ test('all enemy sizes spawn clear and walk away from every gate at varied frame 
     } finally {
         Math.random = originalRandom;
     }
-    assert.equal(scenarios, 216);
+    assert.equal(scenarios, arena.portals.length * 6 * 3 * 3);
 });
 
 test('spawn search clears an obstacle directly in front of a portal', () => {
