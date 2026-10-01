@@ -15,8 +15,8 @@ export class Arena {
         this.colliders = []; // Array of THREE.Box3 for obstacle collisions
         this.portals = [];
         this.models = {};
-        this.halfSize = 36;
-        this.radius = 34;
+        this.halfSize = 25;
+        this.radius = 23;
     }
 
     async loadModels() {
@@ -59,20 +59,20 @@ export class Arena {
     }
 
     setupLighting() {
-        const ambientLight = new THREE.AmbientLight(0xddeeff, 0.75);
+        const ambientLight = new THREE.AmbientLight(0xddeeff, 0.6);
         this.scene.add(ambientLight);
 
-        const hemiLight = new THREE.HemisphereLight(0x88ccff, 0x223344, 0.6);
+        const hemiLight = new THREE.HemisphereLight(0x88ccff, 0x223344, 0.5);
         this.scene.add(hemiLight);
 
-        const sun = new THREE.DirectionalLight(0xfff5e6, 1.8);
-        sun.position.set(25, 38, 20);
+        const sun = new THREE.DirectionalLight(0xfff5e6, 1.6);
+        sun.position.set(20, 32, 18);
         sun.castShadow = true;
         sun.shadow.mapSize.width = 1024;
         sun.shadow.mapSize.height = 1024;
         sun.shadow.camera.near = 1.0;
-        sun.shadow.camera.far = 80;
-        const d = 26;
+        sun.shadow.camera.far = 70;
+        const d = 22;
         sun.shadow.camera.left = -d;
         sun.shadow.camera.right = d;
         sun.shadow.camera.top = d;
@@ -81,6 +81,17 @@ export class Arena {
         this.sunLight = sun;
         this.scene.add(sun);
         this.scene.add(sun.target);
+
+        // Đèn đường góc map - tạo cảm giác đô thị bỏ hoang leo lét
+        const streetLightPositions = [
+            [-20, 5, -20], [20, 5, -20],
+            [-20, 5,  20], [20, 5,  20]
+        ];
+        streetLightPositions.forEach(([x, y, z]) => {
+            const sl = new THREE.PointLight(0xffa040, 3.5, 22);
+            sl.position.set(x, y, z);
+            this.scene.add(sl);
+        });
     }
 
     placeInstance(modelName, position, rotationY = 0, scale = 1, addCollider = false) {
@@ -122,9 +133,10 @@ export class Arena {
         if (floorGeo && floorMat) {
             const steps = Math.floor((halfSize * 2) / tileSize) + 1;
             const totalTiles = steps * steps;
-            const turfMaterial = new THREE.MeshStandardMaterial({ color: 0x9dbf68, roughness: 1 });
+            // Nhựa đường tối màu - phong cách đô thị bỏ hoang
+            const turfMaterial = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.95 });
             const instancedFloor = new THREE.InstancedMesh(floorGeo, turfMaterial, totalTiles);
-            instancedFloor.name = 'grass-ground';
+            instancedFloor.name = 'asphalt-ground';
             instancedFloor.receiveShadow = true;
             instancedFloor.castShadow = false;
 
@@ -137,12 +149,28 @@ export class Arena {
                     dummy.scale.set(tileSize, tileSize, tileSize);
                     dummy.updateMatrix();
                     instancedFloor.setMatrixAt(idx, dummy.matrix);
-                    const shade = 0.94 + (Math.sin(x * 0.73 + z * 0.39) + 1) * 0.03;
-                    instancedFloor.setColorAt(idx++, new THREE.Color(shade, 1, shade));
+                    // Biến thiên màu nhựa đường nhẹ
+                    const shade = 0.92 + (Math.sin(x * 0.5 + z * 0.3) + 1) * 0.04;
+                    instancedFloor.setColorAt(idx++, new THREE.Color(shade * 0.17, shade * 0.17, shade * 0.17));
                 }
             }
             instancedFloor.instanceMatrix.needsUpdate = true;
             this.scene.add(instancedFloor);
+
+            // Vạch đường phân làn đô thị
+            const laneLineMat = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.35 });
+            const laneConfigs = [
+                { size: [0.3, 22], pos: [-12, 0.03, 0] },
+                { size: [0.3, 22], pos: [ 12, 0.03, 0] },
+                { size: [22, 0.3], pos: [ 0, 0.03, -12] },
+                { size: [22, 0.3], pos: [ 0, 0.03,  12] },
+            ];
+            laneConfigs.forEach(({ size, pos }) => {
+                const line = new THREE.Mesh(new THREE.PlaneGeometry(size[0], size[1]), laneLineMat);
+                line.rotation.x = -Math.PI / 2;
+                line.position.set(pos[0], pos[1], pos[2]);
+                this.scene.add(line);
+            });
         }
 
         // 2. High-Performance Instanced Perimeter Walls
@@ -231,9 +259,9 @@ export class Arena {
     }
 
     buildSpawnPortals() {
-        // Tăng số lượng cổng từ 4 lên 8 cổng không gian bao quanh sàn đấu
-        const portalDist = 34.5;
-        const offset = 16;
+        // 8 cổng spawn xung quanh biên map mới (halfSize = 25)
+        const portalDist = 25.5;
+        const offset = 10;
         const portalDefs = [
             { name: 'Cổng Bắc 1', pos: new THREE.Vector3(-offset, 0, -portalDist), rot: 0, spawnDir: new THREE.Vector3(0, 0, 1) },
             { name: 'Cổng Bắc 2', pos: new THREE.Vector3(offset, 0, -portalDist), rot: 0, spawnDir: new THREE.Vector3(0, 0, 1) },
@@ -311,81 +339,126 @@ export class Arena {
     }
 
     buildCenterPlaza() {
-        // A flush plaza is walkable at the same height as the rest of the arena.
-        // The old raised platform was one large invisible movement barrier.
-        const plaza = new THREE.Mesh(new THREE.PlaneGeometry(9, 9),
-            new THREE.MeshStandardMaterial({ color: 0xd7bc89, roughness: 1 }));
+        // Giao lộ trung tâm bê tông - phong cách đô thị bỏ hoang
+        const plaza = new THREE.Mesh(new THREE.PlaneGeometry(10, 10),
+            new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.9 }));
         plaza.rotation.x = -Math.PI / 2;
         plaza.position.y = 0.025;
         plaza.receiveShadow = true;
         plaza.name = 'walkable-plaza';
         this.scene.add(plaza);
 
-        const colDist = 6;
-        const colScale = 2.2;
+        // Vòng tròn giao lộ (roundabout marker)
+        const roundabout = new THREE.Mesh(
+            new THREE.RingGeometry(3.2, 3.5, 32),
+            new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2 })
+        );
+        roundabout.rotation.x = -Math.PI / 2;
+        roundabout.position.y = 0.04;
+        this.scene.add(roundabout);
+
+        const colDist = 5;
+        const colScale = 2.0;
         this.placeInstance('column', new THREE.Vector3(-colDist, 0, -colDist), 0, colScale, true);
         this.placeInstance('column-damaged', new THREE.Vector3(colDist, 0, -colDist), 0.5, colScale, true);
         this.placeInstance('column', new THREE.Vector3(-colDist, 0, colDist), 1.2, colScale, true);
         this.placeInstance('column-damaged', new THREE.Vector3(colDist, 0, colDist), 2.1, colScale, true);
-
     }
 
     buildTacticalCover() {
         const coverPoints = [
-            { model: 'wall-low', pos: [-24, 0, -20], rot: 0, scale: 2 },
-            { model: 'block', pos: [-28, 0, -20], rot: 0.2, scale: 1.8 },
-            { model: 'tree', pos: [-26, 0, -26], rot: 0, scale: 2 },
-            { model: 'weapon-rack', pos: [-20, 0, -24], rot: 1.5, scale: 1.8 },
+            // --- Khối nhà góc Tây-Bắc ---
+            { model: 'block',    pos: [-18, 0, -18], rot: 0,             scale: 2.2 },
+            { model: 'wall-low', pos: [-14, 0, -18], rot: 0,             scale: 2 },
+            { model: 'wall-low', pos: [-18, 0, -14], rot: Math.PI * 0.5, scale: 2 },
+            { model: 'banner',   pos: [-16, 0, -16], rot: 0.8,           scale: 1.8 },
 
-            { model: 'wall-low', pos: [24, 0, -20], rot: 0, scale: 2 },
-            { model: 'block', pos: [28, 0, -20], rot: -0.4, scale: 1.8 },
-            { model: 'tree', pos: [26, 0, -26], rot: 0.8, scale: 2 },
-            { model: 'banner', pos: [20, 0, -26], rot: 0, scale: 2.2 },
+            // --- Khối nhà góc Đông-Bắc ---
+            { model: 'block',    pos: [18, 0, -18],  rot: 0,             scale: 2.2 },
+            { model: 'wall-low', pos: [14, 0, -18],  rot: 0,             scale: 2 },
+            { model: 'wall-low', pos: [18, 0, -14],  rot: Math.PI * 0.5, scale: 2 },
+            { model: 'banner',   pos: [16, 0, -20],  rot: -0.5,          scale: 1.8 },
 
-            { model: 'wall-low', pos: [-24, 0, 20], rot: Math.PI, scale: 2 },
-            { model: 'block', pos: [-28, 0, 20], rot: 0.7, scale: 1.8 },
-            { model: 'tree', pos: [-26, 0, 26], rot: 1.2, scale: 2 },
-            { model: 'banner', pos: [-20, 0, 26], rot: Math.PI, scale: 2.2 },
+            // --- Khối nhà góc Tây-Nam ---
+            { model: 'block',    pos: [-18, 0, 18],  rot: 0,             scale: 2.2 },
+            { model: 'wall-low', pos: [-14, 0, 18],  rot: Math.PI,       scale: 2 },
+            { model: 'wall-low', pos: [-18, 0, 14],  rot: Math.PI * 0.5, scale: 2 },
+            { model: 'statue',   pos: [-20, 0, 16],  rot: 1.4,           scale: 1.6 },
 
-            { model: 'wall-low', pos: [24, 0, 20], rot: Math.PI, scale: 2 },
-            { model: 'block', pos: [28, 0, 20], rot: -0.8, scale: 1.8 },
-            { model: 'tree', pos: [26, 0, 26], rot: 2.0, scale: 2 },
-            { model: 'statue', pos: [26, 0, 8], rot: -1.2, scale: 2 },
-            
-            // Vật chắn chiến thuật phân bố trong map 72x72
-            { model: 'wall-low', pos: [0, 0, -25], rot: Math.PI * 0.5, scale: 2 },
-            { model: 'wall-low', pos: [0, 0, 25], rot: Math.PI * 0.5, scale: 2 },
-            { model: 'tree', pos: [14, 0, 14], rot: 0.7, scale: 2 },
-            { model: 'tree', pos: [-14, 0, -14], rot: 1.3, scale: 2 },
-            { model: 'tree', pos: [14, 0, -14], rot: 2.1, scale: 2 },
-            { model: 'tree', pos: [-14, 0, 14], rot: 2.6, scale: 2 }
+            // --- Khối nhà góc Đông-Nam ---
+            { model: 'block',    pos: [18, 0, 18],   rot: 0,             scale: 2.2 },
+            { model: 'wall-low', pos: [14, 0, 18],   rot: Math.PI,       scale: 2 },
+            { model: 'wall-low', pos: [18, 0, 14],   rot: Math.PI * 0.5, scale: 2 },
+            { model: 'trophy',   pos: [20, 0, 16],   rot: -1.2,          scale: 1.6 },
+
+            // --- Hẻm chiến thuật Bắc ---
+            { model: 'wall-low', pos: [-6, 0, -16],  rot: 0,             scale: 2 },
+            { model: 'wall-low', pos: [ 6, 0, -16],  rot: 0,             scale: 2 },
+            { model: 'block',    pos: [ 0, 0, -18],  rot: 0.3,           scale: 1.6 },
+
+            // --- Hẻm chiến thuật Nam ---
+            { model: 'wall-low', pos: [-6, 0, 16],   rot: Math.PI,       scale: 2 },
+            { model: 'wall-low', pos: [ 6, 0, 16],   rot: Math.PI,       scale: 2 },
+            { model: 'block',    pos: [ 0, 0, 18],   rot: -0.2,          scale: 1.6 },
+
+            // --- Hẻm chiến thuật Tây ---
+            { model: 'wall-low', pos: [-16, 0, -6],  rot: Math.PI * 0.5, scale: 2 },
+            { model: 'wall-low', pos: [-16, 0,  6],  rot: Math.PI * 0.5, scale: 2 },
+            { model: 'column',   pos: [-18, 0,  0],  rot: 0,             scale: 1.6 },
+
+            // --- Hẻm chiến thuật Đông ---
+            { model: 'wall-low', pos: [16, 0, -6],   rot: -Math.PI * 0.5, scale: 2 },
+            { model: 'wall-low', pos: [16, 0,  6],   rot: -Math.PI * 0.5, scale: 2 },
+            { model: 'column-damaged', pos: [18, 0, 0], rot: 0.5,        scale: 1.6 },
+
+            // --- Cây vỉa hè rải rác ---
+            { model: 'tree', pos: [-10, 0, -21], rot: 0.3,  scale: 1.8 },
+            { model: 'tree', pos: [ 10, 0, -21], rot: 1.1,  scale: 1.8 },
+            { model: 'tree', pos: [-10, 0,  21], rot: 2.0,  scale: 1.8 },
+            { model: 'tree', pos: [ 10, 0,  21], rot: 0.7,  scale: 1.8 },
+            { model: 'tree', pos: [-21, 0, -10], rot: 1.5,  scale: 1.8 },
+            { model: 'tree', pos: [-21, 0,  10], rot: 0.4,  scale: 1.8 },
+            { model: 'tree', pos: [ 21, 0, -10], rot: 2.4,  scale: 1.8 },
+            { model: 'tree', pos: [ 21, 0,  10], rot: 1.9,  scale: 1.8 },
+
+            // --- Vật chắn chiến thuật gần trung tâm ---
+            { model: 'block', pos: [-8, 0, -8],  rot: 0.4,  scale: 1.5 },
+            { model: 'block', pos: [ 8, 0, -8],  rot: -0.2, scale: 1.5 },
+            { model: 'block', pos: [-8, 0,  8],  rot: 1.1,  scale: 1.5 },
+            { model: 'block', pos: [ 8, 0,  8],  rot: 0.8,  scale: 1.5 },
+
+            // --- Rack vũ khí hai bên ---
+            { model: 'weapon-rack', pos: [-12, 0, 0], rot: Math.PI * 0.5,  scale: 1.8 },
+            { model: 'weapon-rack', pos: [ 12, 0, 0], rot: -Math.PI * 0.5, scale: 1.8 },
         ];
 
         coverPoints.forEach(cp => {
             this.placeInstance(cp.model, new THREE.Vector3(cp.pos[0], cp.pos[1], cp.pos[2]), cp.rot, cp.scale, true);
         });
 
-        this.placeInstance('platform-large-grass', new THREE.Vector3(-31, 0, 0), 0, 2.2, true);
-        this.placeInstance('platform-large-grass', new THREE.Vector3(31, 0, 0), 0, 2.2, true);
-        this.placeInstance('column', new THREE.Vector3(-31, 1.2, 0), 0, 1.4, true);
-        this.placeInstance('column', new THREE.Vector3(31, 1.2, 0), 0, 1.4, true);
+        // Platform bê tông 2 bên hẻm chính
+        this.placeInstance('platform', new THREE.Vector3(-20, 0, 0), 0, 2.0, true);
+        this.placeInstance('platform', new THREE.Vector3(20, 0, 0), 0, 2.0, true);
+        this.placeInstance('column-damaged', new THREE.Vector3(-20, 1.0, 0), 0, 1.3, true);
+        this.placeInstance('column-damaged', new THREE.Vector3(20, 1.0, 0), 0.8, 1.3, true);
     }
 
     buildGrass() {
-        const blades = new THREE.InstancedMesh(new THREE.ConeGeometry(0.10, 0.3, 3),
-            new THREE.MeshStandardMaterial({ color: 0x609743, roughness: 1 }), 2000);
-        blades.name = 'grass-blades';
+        // Cỏ thưa xen kẽ trên nhựa đường - phong cách đô thị bỏ hoang
+        const blades = new THREE.InstancedMesh(new THREE.ConeGeometry(0.08, 0.25, 3),
+            new THREE.MeshStandardMaterial({ color: 0x4a6030, roughness: 1 }), 800);
+        blades.name = 'sparse-weeds';
         const dummy = new THREE.Object3D();
-        // Rải cỏ trong phạm vi map thu nhỏ 70x70
+        // Rải cỏ thưa trong phạm vi map mới 48x48
         let seed = 731;
         const random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
         for (let i = 0; i < blades.count; i++) {
-            dummy.position.set((random() - 0.5) * 70, 0.15, (random() - 0.5) * 70);
+            dummy.position.set((random() - 0.5) * 48, 0.13, (random() - 0.5) * 48);
             while (Math.abs(dummy.position.x) < 4.6 && Math.abs(dummy.position.z) < 4.6) {
-                dummy.position.set((random() - 0.5) * 70, 0.15, (random() - 0.5) * 70);
+                dummy.position.set((random() - 0.5) * 48, 0.13, (random() - 0.5) * 48);
             }
             dummy.rotation.y = random() * Math.PI;
-            dummy.scale.set(1, 0.6 + random(), 1);
+            dummy.scale.set(1, 0.5 + random() * 0.8, 1);
             dummy.updateMatrix();
             blades.setMatrixAt(i, dummy.matrix);
         }

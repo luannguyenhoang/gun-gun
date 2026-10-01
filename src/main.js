@@ -53,14 +53,13 @@ class CyberArenaGame {
         // Scene
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x0c1017);
-        this.scene.fog = new THREE.FogExp2(0x0c1017, 0.014);
+        this.scene.fog = new THREE.FogExp2(0x161a24, 0.022);
 
         // Camera
         this.viewHeight = 18;
         const aspect = window.innerWidth / window.innerHeight;
         this.camera = new THREE.OrthographicCamera(-this.viewHeight * aspect / 2, this.viewHeight * aspect / 2,
             this.viewHeight / 2, -this.viewHeight / 2, 0.1, 300);
-
         // High-Performance WebGL Renderer
         this.renderer = new THREE.WebGLRenderer({
             canvas: this.canvas,
