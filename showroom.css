@@ -61,3 +61,13 @@
 #armory-damage { font-size:19px; }
 @media (max-width:700px) { .character-header { flex-wrap:wrap; }.showroom-tabs { order:4; margin:5px 0 0; width:100%; }.showroom-tabs button { flex:1; padding:10px; }.armory-product { height:130px; } }
 @media (max-height:700px) and (min-width:701px) { .armory-product { height:82px; } }
+
+#weapon-cards { max-width: 58%; overflow-x: auto; overflow-y: hidden; padding-bottom: 8px; scrollbar-width: thin; scrollbar-color: #ffd079 #342a43; }
+#weapon-cards::-webkit-scrollbar { height: 6px; }
+#weapon-cards::-webkit-scrollbar-thumb { background: #ffd079; border-radius: 4px; }
+.character-card.weapon-card { flex-shrink: 0; }
+.weapon-card.locked { filter: grayscale(0.35) brightness(0.9); }
+.weapon-card.locked .character-card-status { color: #ffd079; background: #251c33; }
+.coins-pill { background: linear-gradient(135deg, #2b1f14, #422d17) !important; border: 2px solid #f59e0b !important; color: #fbbf24 !important; }
+.coin-gold { color: #f59e0b; font-weight: 900; margin-right: 4px; }
+.admin-badge { display: inline-block; background: #ef4444; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 900; margin-left: 6px; }

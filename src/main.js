@@ -3,7 +3,7 @@ import { GLTFLoader } from '../libs/loaders/GLTFLoader.js';
 import { sounds } from './audio.js';
 import { ParticleSystem } from './particles.js?v=22';
 import { Arena } from './arena.js?v=22';
-import { WeaponSystem, getStartingWeapon } from './weapons.js?v=22';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS } from './weapons.js?v=22';
 import { PlayerController } from './player.js?v=22';
 import { WaveManager, Zombie } from './enemies.js?v=22';
 import { PickupManager } from './pickups.js?v=22';
@@ -34,6 +34,14 @@ class CyberArenaGame {
         this.radarElapsed = 0;
         this.developerMode = localStorage.getItem('arena_developer_mode') === 'true';
         window.developerMode = this.developerMode;
+
+        // Hệ thống Tiền vàng và Mở khóa Súng (Shop & Armory)
+        this.coins = parseInt(localStorage.getItem('arena_player_coins') || '1000', 10);
+        this.unlockedWeapons = JSON.parse(localStorage.getItem('arena_unlocked_weapons') || '["blaster","repeater","scatter"]');
+        if (this.developerMode) {
+            this.coins = 999999;
+            this.unlockedWeapons = WEAPON_CONFIGS.map(w => w.id);
+        }
 
         this.initThree();
         this.initSubsystems();
@@ -158,8 +166,13 @@ class CyberArenaGame {
             this.btnToggleDevMode.addEventListener('click', () => this.toggleDeveloperMode());
         }
 
-        // Pause Key (ESC)
+        // Phím Pause (ESC) và Phím Admin Full Súng (F2)
         window.addEventListener('keydown', (e) => {
+            if (e.code === 'F2') {
+                e.preventDefault();
+                this.toggleDeveloperMode();
+                return;
+            }
             if (e.code === 'Escape') {
                 if (e.defaultPrevented || e.repeat) return;
                 // Nếu đang mở hòm đồ hoặc balo, ưu tiên đóng trước và không mở menu pause
@@ -195,6 +208,7 @@ class CyberArenaGame {
             });
         }
         this.syncDeveloperModeUI();
+        this.updateCoinsUI();
     }
 
     async loadAssetsAndStart() {
@@ -345,6 +359,8 @@ class CyberArenaGame {
 
     onEnemyKilled(enemy) {
         this.score += enemy.scoreValue;
+        const goldByEnemy = { walker: 10, sprinter: 18, boomer: 25, giant: 45, boss: 350 };
+        this.addCoins(goldByEnemy[enemy.type] || 15);
         this.pickups.spawnDrop(enemy.position, enemy.type);
         this.lootingSystem?.handleEnemyKilled(enemy);
 
@@ -585,14 +601,14 @@ class CyberArenaGame {
         }
     }
 
-    // Bat hoac tat Che do Developer (bat tu cho nhan vat)
+    // Bật hoặc tắt Chế độ Admin Developer (Bất tử + Full súng + Vàng vô tận)
     toggleDeveloperMode() {
         this.developerMode = !this.developerMode;
         window.developerMode = this.developerMode;
         try {
             localStorage.setItem('arena_developer_mode', this.developerMode ? 'true' : 'false');
         } catch (e) {
-            console.warn('Khong the ghi localStorage:', e);
+            console.warn('Không thể ghi localStorage:', e);
         }
         if (this.player) {
             this.player.developerMode = this.developerMode;
@@ -603,23 +619,94 @@ class CyberArenaGame {
                 this.player.isDowned = false;
             }
         }
+        if (this.developerMode) {
+            this.coins = 999999;
+            this.unlockedWeapons = WEAPON_CONFIGS.map(w => w.id);
+            this.saveProgress();
+        }
         this.syncDeveloperModeUI();
+        this.updateCoinsUI();
+        if (this.homeMenu?.showroom) {
+            this.homeMenu.showroom.syncSelection();
+        }
         if (this.ui?.showPickupAlert) {
-            this.ui.showPickupAlert(this.developerMode ? 'CHE DO DEVELOPER: BAT (BAT TU)' : 'CHE DO DEVELOPER: TAT');
+            this.ui.showPickupAlert(this.developerMode ? 'QUYỀN ADMIN: BẬT (BẤT TỬ & FULL SÚNG)' : 'QUYỀN ADMIN: TẮT');
         }
     }
 
-    // Dong bo giao dien nut Che do Developer giua Menu cai dat va Menu tam dung
+    // Kiểm tra trạng thái súng đã mở khóa
+    isWeaponUnlocked(id) {
+        if (this.developerMode) return true;
+        return this.unlockedWeapons.includes(id);
+    }
+
+    // Cộng tiền vàng người chơi
+    addCoins(amount) {
+        this.coins = Math.max(0, (this.coins || 0) + amount);
+        this.saveProgress();
+        this.updateCoinsUI();
+    }
+
+    // Mua súng mới từ Cửa hàng
+    buyWeapon(id) {
+        const weapon = getStartingWeapon(id);
+        if (this.isWeaponUnlocked(id)) return true;
+        if (this.coins >= weapon.price) {
+            this.coins -= weapon.price;
+            this.unlockedWeapons.push(id);
+            this.saveProgress();
+            this.updateCoinsUI();
+            if (this.homeMenu?.showroom) {
+                this.homeMenu.showroom.syncSelection();
+            }
+            if (this.ui?.showPickupAlert) {
+                this.ui.showPickupAlert(`ĐÃ MỞ KHÓA: ${weapon.name}!`);
+            }
+            sounds.play('equip', { volume: 0.8 });
+            return true;
+        } else {
+            if (this.ui?.showPickupAlert) {
+                this.ui.showPickupAlert('KHÔNG ĐỦ VÀNG!');
+            }
+            return false;
+        }
+    }
+
+    // Lưu tiến trình tiền vàng và súng
+    saveProgress() {
+        try {
+            localStorage.setItem('arena_player_coins', this.coins.toString());
+            localStorage.setItem('arena_unlocked_weapons', JSON.stringify(this.unlockedWeapons));
+        } catch (e) {
+            console.warn('Lỗi lưu tiến trình:', e);
+        }
+    }
+
+    // Cập nhật giao diện tiền vàng trên sảnh và kho vũ khí
+    updateCoinsUI() {
+        const coinsStr = (this.coins || 0).toLocaleString();
+        const menuCoins = document.getElementById('menu-coins');
+        if (menuCoins) {
+            menuCoins.textContent = coinsStr;
+        }
+        const armoryGold = document.getElementById('armory-gold-display');
+        if (armoryGold) {
+            armoryGold.innerHTML = `VÀNG: <b>${coinsStr}</b>${this.developerMode ? ' <span class="admin-badge">[ADMIN FULL SÚNG]</span>' : ''}`;
+        }
+    }
+
+    // Đồng bộ giao diện nút Chế độ Developer giữa Menu cài đặt và Menu tạm dừng
     syncDeveloperModeUI() {
+        const label = this.developerMode ? 'BẬT (ADMIN FULL SÚNG)' : 'TẮT';
         const homeDevBtn = document.getElementById('home-devmode');
         if (homeDevBtn) {
-            homeDevBtn.textContent = `CHẾ ĐỘ DEVELOPER: ${this.developerMode ? 'BẬT (BẤT TỬ)' : 'TẮT'}`;
+            homeDevBtn.textContent = `CHẾ ĐỘ DEVELOPER: ${label}`;
             homeDevBtn.classList.toggle('yellow', this.developerMode);
             homeDevBtn.classList.toggle('orange', !this.developerMode);
         }
         const pauseDevBtn = document.getElementById('btn-toggle-devmode');
         if (pauseDevBtn) {
-            pauseDevBtn.textContent = `CHẾ ĐỘ DEVELOPER: ${this.developerMode ? 'BẬT (BẤT TỬ)' : 'TẮT'}`;
+            pauseDevBtn.textContent = `CHẾ ĐỘ DEVELOPER: ${label}`;
             pauseDevBtn.style.background = this.developerMode ? 'linear-gradient(#ffe39a, #eeb34e)' : '#8aaddd';
         }
     }
@@ -799,6 +886,7 @@ class CyberArenaGame {
             if (waveFinished) {
                 this.currentWave++;
                 this.score += 300 * (this.currentWave - 1);
+                this.addCoins(100);
                 sounds.play('land', { volume: 0.8 });
                 this.ui.showBanner(`HOÀN THÀNH ĐỢT ${this.currentWave - 1}! NGHỈ NGƠI 10 GIÂY (MỞ HÒM & NẠP ĐẠN)`);
 

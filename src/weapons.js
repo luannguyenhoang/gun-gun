@@ -67,26 +67,29 @@ export const WEAPON_CONFIGS = [
     {
         id: 'blaster',
         name: 'BLASTER-X',
-        category: 'SÚNG CHÍNH',
+        category: 'SÚNG TRƯỜNG',
         tier: 1,
+        price: 0,
+        targetLength: 0.95,
+        isStyloo: false,
         modelFile: 'kenney-blaster/blaster-a.glb',
         icon: 'assets/previews/kenney-blaster/blaster-a.png',
         fireRate: 0.18,
         damage: 28,
-        penPower: 1, // Xuyên giáp cấp 1
+        penPower: 1,
         critMultiplier: 2.0,
         magSize: 16,
         reloadTime: 1.15,
-        range: 16, // Tầm bắn cơ sở trong màn hình (Blaster-X: ~16m gần mép màn hình)
+        range: 16,
         bulletSpeed: 105,
-        baseSpreadDegHip: 2.2, // Góc tản Hipfire (độ)
-        baseSpreadDegADS: 0.5, // Góc tản ADS (độ)
-        moveSpreadPenalty: 2.5, // Phạt tản khi chạy (độ)
-        recoilSpreadPerShot: 0.8, // Tăng sau mỗi phát (độ)
-        maxSpreadDeg: 9.0, // Tản tối đa (độ)
-        spreadRecoveryRate: 20.0, // Co nhỏ lại (°/s)
-        screenShake: 0.14, // Trauma rung camera nhẹ
-        cursorKick: 2.8, // Pixel giật tâm ngắm
+        baseSpreadDegHip: 2.2,
+        baseSpreadDegADS: 0.5,
+        moveSpreadPenalty: 2.5,
+        recoilSpreadPerShot: 0.8,
+        maxSpreadDeg: 9.0,
+        spreadRecoveryRate: 20.0,
+        screenShake: 0.14,
+        cursorKick: 2.8,
         color: 0x00f0ff,
         isAuto: false,
         pellets: 1,
@@ -98,8 +101,11 @@ export const WEAPON_CONFIGS = [
     {
         id: 'repeater',
         name: 'REPEATER-9',
-        category: 'SÚNG TỰ ĐỘNG',
+        category: 'TIỂU LIÊN SMG',
         tier: 1,
+        price: 0,
+        targetLength: 1.10,
+        isStyloo: false,
         modelFile: 'kenney-blaster/blaster-d.glb',
         icon: 'assets/previews/kenney-blaster/blaster-d.png',
         fireRate: 0.09,
@@ -108,7 +114,7 @@ export const WEAPON_CONFIGS = [
         critMultiplier: 2.0,
         magSize: 32,
         reloadTime: 1.3,
-        range: 13, // Tầm bắn cơ sở tầm trung gần (~13m)
+        range: 13,
         bulletSpeed: 115,
         baseSpreadDegHip: 3.5,
         baseSpreadDegADS: 1.0,
@@ -131,6 +137,9 @@ export const WEAPON_CONFIGS = [
         name: 'SCATTER-V',
         category: 'SHOTGUN TÁN XẠ',
         tier: 1,
+        price: 0,
+        targetLength: 0.90,
+        isStyloo: false,
         modelFile: 'kenney-blaster/blaster-g.glb',
         icon: 'assets/previews/kenney-blaster/blaster-g.png',
         fireRate: 0.55,
@@ -139,7 +148,7 @@ export const WEAPON_CONFIGS = [
         critMultiplier: 1.8,
         magSize: 8,
         reloadTime: 1.5,
-        range: 9, // Tầm bắn cơ sở cận chiến shotgun (~9m, khoảng nửa màn hình)
+        range: 9,
         bulletSpeed: 95,
         baseSpreadDegHip: 9.0,
         baseSpreadDegADS: 4.5,
@@ -156,13 +165,244 @@ export const WEAPON_CONFIGS = [
         scale: 0.24,
         offset: new THREE.Vector3(-0.24, -0.05, 0.02),
         rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    },
+    {
+        id: 'ak47',
+        name: 'AK-47 VULCAN',
+        category: 'SÚNG TRƯỜNG TẤN CÔNG',
+        tier: 2,
+        price: 850,
+        targetLength: 0.95,
+        isStyloo: true,
+        modelFile: 'styloo/ak47.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-b.png',
+        fireRate: 0.115,
+        damage: 38,
+        penPower: 2,
+        critMultiplier: 2.2,
+        magSize: 30,
+        reloadTime: 1.4,
+        range: 20,
+        bulletSpeed: 125,
+        baseSpreadDegHip: 2.6,
+        baseSpreadDegADS: 0.6,
+        moveSpreadPenalty: 2.8,
+        recoilSpreadPerShot: 0.75,
+        maxSpreadDeg: 10.5,
+        spreadRecoveryRate: 22.0,
+        screenShake: 0.18,
+        cursorKick: 3.2,
+        color: 0xf59e0b,
+        isAuto: true,
+        pellets: 1,
+        recoilPitch: 0.032,
+        scale: 1.0,
+        offset: new THREE.Vector3(-0.22, -0.04, 0.02)
+    },
+    {
+        id: 'awp',
+        name: 'AWP DRAGON',
+        category: 'SÚNG BẮN TỈA',
+        tier: 3,
+        price: 1600,
+        targetLength: 1.25,
+        isStyloo: true,
+        modelFile: 'styloo/awp.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-c.png',
+        fireRate: 1.1,
+        damage: 185,
+        penPower: 4,
+        critMultiplier: 2.8,
+        magSize: 5,
+        reloadTime: 2.2,
+        range: 32,
+        bulletSpeed: 180,
+        baseSpreadDegHip: 4.5,
+        baseSpreadDegADS: 0.1,
+        moveSpreadPenalty: 5.0,
+        recoilSpreadPerShot: 4.0,
+        maxSpreadDeg: 14.0,
+        spreadRecoveryRate: 15.0,
+        screenShake: 0.45,
+        cursorKick: 9.0,
+        color: 0xef4444,
+        isAuto: false,
+        pellets: 1,
+        recoilPitch: 0.085,
+        scale: 1.0,
+        offset: new THREE.Vector3(-0.24, -0.04, 0.02)
+    },
+    {
+        id: 'mac10',
+        name: 'MAC-10 VIPER',
+        category: 'TIỂU LIÊN TỐC ĐỘ',
+        tier: 2,
+        price: 650,
+        targetLength: 0.55,
+        isStyloo: true,
+        modelFile: 'styloo/mac10.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-h.png',
+        fireRate: 0.062,
+        damage: 15,
+        penPower: 1,
+        critMultiplier: 1.9,
+        magSize: 35,
+        reloadTime: 1.1,
+        range: 12,
+        bulletSpeed: 110,
+        baseSpreadDegHip: 4.2,
+        baseSpreadDegADS: 1.4,
+        moveSpreadPenalty: 2.0,
+        recoilSpreadPerShot: 0.35,
+        maxSpreadDeg: 13.0,
+        spreadRecoveryRate: 26.0,
+        screenShake: 0.09,
+        cursorKick: 1.8,
+        color: 0x10b981,
+        isAuto: true,
+        pellets: 1,
+        recoilPitch: 0.015,
+        scale: 1.0,
+        offset: new THREE.Vector3(-0.20, -0.05, 0.02)
+    },
+    {
+        id: 'shotgun',
+        name: 'TACTICAL SHOTGUN',
+        category: 'SHOTGUN CHIẾN THUẬT',
+        tier: 2,
+        price: 750,
+        targetLength: 0.85,
+        isStyloo: true,
+        modelFile: 'styloo/shotgun.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-f.png',
+        fireRate: 0.60,
+        damage: 18,
+        penPower: 2,
+        critMultiplier: 1.9,
+        magSize: 8,
+        reloadTime: 1.6,
+        range: 11,
+        bulletSpeed: 100,
+        baseSpreadDegHip: 8.5,
+        baseSpreadDegADS: 4.0,
+        moveSpreadPenalty: 3.5,
+        recoilSpreadPerShot: 2.2,
+        maxSpreadDeg: 17.0,
+        spreadRecoveryRate: 25.0,
+        screenShake: 0.40,
+        cursorKick: 7.5,
+        color: 0x8b5cf6,
+        isAuto: false,
+        pellets: 8,
+        recoilPitch: 0.065,
+        scale: 1.0,
+        offset: new THREE.Vector3(-0.22, -0.04, 0.02)
+    },
+    {
+        id: 'pew',
+        name: 'PEW-PEW LASER',
+        category: 'VŨ KHÍ NĂNG LƯỢNG',
+        tier: 1,
+        price: 500,
+        targetLength: 0.40,
+        isStyloo: true,
+        modelFile: 'styloo/pew.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-k.png',
+        fireRate: 0.14,
+        damage: 24,
+        penPower: 2,
+        critMultiplier: 2.1,
+        magSize: 20,
+        reloadTime: 0.95,
+        range: 16,
+        bulletSpeed: 130,
+        baseSpreadDegHip: 1.5,
+        baseSpreadDegADS: 0.3,
+        moveSpreadPenalty: 1.5,
+        recoilSpreadPerShot: 0.4,
+        maxSpreadDeg: 7.0,
+        spreadRecoveryRate: 24.0,
+        screenShake: 0.10,
+        cursorKick: 1.9,
+        color: 0x06b6d4,
+        isAuto: false,
+        pellets: 1,
+        recoilPitch: 0.016,
+        scale: 1.0,
+        offset: new THREE.Vector3(-0.20, -0.05, 0.02)
+    },
+    {
+        id: 'rocket',
+        name: 'RPG-7 DEVASTATOR',
+        category: 'VŨ KHÍ HẠNG NẶNG',
+        tier: 4,
+        price: 2400,
+        targetLength: 1.20,
+        isStyloo: true,
+        isExplosive: true,
+        splashRadius: 4.8,
+        modelFile: 'styloo/rocketlaucher.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-p.png',
+        fireRate: 1.8,
+        damage: 250,
+        penPower: 5,
+        critMultiplier: 2.0,
+        magSize: 1,
+        reloadTime: 2.5,
+        range: 25,
+        bulletSpeed: 75,
+        baseSpreadDegHip: 1.0,
+        baseSpreadDegADS: 0.2,
+        moveSpreadPenalty: 4.0,
+        recoilSpreadPerShot: 4.5,
+        maxSpreadDeg: 8.0,
+        spreadRecoveryRate: 12.0,
+        screenShake: 0.65,
+        cursorKick: 10.0,
+        color: 0xff4400,
+        isAuto: false,
+        pellets: 1,
+        recoilPitch: 0.12,
+        scale: 1.0,
+        offset: new THREE.Vector3(-0.24, -0.02, 0.02)
+    },
+    {
+        id: 'plasma',
+        name: 'PLASMA LANCE',
+        category: 'SÚNG NĂNG LƯỢNG CAO',
+        tier: 4,
+        price: 2000,
+        targetLength: 1.15,
+        isStyloo: false,
+        modelFile: 'kenney-blaster/blaster-j.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-j.png',
+        fireRate: 0.15,
+        damage: 54,
+        penPower: 4,
+        critMultiplier: 2.3,
+        magSize: 24,
+        reloadTime: 1.35,
+        range: 22,
+        bulletSpeed: 140,
+        baseSpreadDegHip: 1.8,
+        baseSpreadDegADS: 0.4,
+        moveSpreadPenalty: 2.0,
+        recoilSpreadPerShot: 0.5,
+        maxSpreadDeg: 8.0,
+        spreadRecoveryRate: 22.0,
+        screenShake: 0.22,
+        cursorKick: 3.8,
+        color: 0x9966ff,
+        isAuto: true,
+        pellets: 1,
+        recoilPitch: 0.028,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02)
     }
 ];
 
 export const RARE_WEAPON_CONFIGS = [
-    { ...WEAPON_CONFIGS[0], id: 'plasma', name: 'PLASMA LANCE', modelFile: 'kenney-blaster/blaster-j.glb', icon: 'assets/previews/kenney-blaster/blaster-j.png', damage: 54, penPower: 3, fireRate: 0.15, magSize: 24, range: 22, baseSpreadDegHip: 1.8, baseSpreadDegADS: 0.4, screenShake: 0.22, cursorKick: 3.8, color: 0x9966ff, isAuto: true, tier: 4 },
-    { ...WEAPON_CONFIGS[1], id: 'storm', name: 'STORM MK-II', modelFile: 'kenney-blaster/blaster-e.glb', icon: 'assets/previews/kenney-blaster/blaster-e.png', damage: 25, penPower: 2, fireRate: 0.065, magSize: 48, range: 15, baseSpreadDegHip: 2.8, baseSpreadDegADS: 0.7, screenShake: 0.14, cursorKick: 2.4, color: 0x55ffcc, tier: 4 },
-    { ...WEAPON_CONFIGS[2], id: 'nova', name: 'NOVA SHOTGUN', modelFile: 'kenney-blaster/blaster-g.glb', icon: 'assets/previews/kenney-blaster/blaster-g.png', damage: 22, penPower: 3, pellets: 8, fireRate: 0.45, magSize: 12, range: 11, baseSpreadDegHip: 7.5, baseSpreadDegADS: 3.5, screenShake: 0.45, cursorKick: 8.0, color: 0xff6633, tier: 5 }
+    { ...WEAPON_CONFIGS[3], id: 'storm', name: 'STORM MK-II', modelFile: 'kenney-blaster/blaster-e.glb', icon: 'assets/previews/kenney-blaster/blaster-e.png', damage: 25, penPower: 2, fireRate: 0.065, magSize: 48, range: 15, baseSpreadDegHip: 2.8, baseSpreadDegADS: 0.7, screenShake: 0.14, cursorKick: 2.4, color: 0x55ffcc, tier: 4 }
 ];
 
 export function getStartingWeapon(id) {
@@ -225,15 +465,19 @@ const _tempCheckRayDir = new THREE.Vector3();
 const _tempSparkDir = new THREE.Vector3();
 const _tempHitPointSparks = new THREE.Vector3();
 const _heldParentRotation = new THREE.Quaternion();
-const _heldFacing = new THREE.Quaternion();
 const _barrelCorrection = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+const _stylooCorrection = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
 
 export function updateHeldWeaponPose(mesh, hand, character) {
     if (!mesh?.userData.gripOffset || !hand || !character) return;
     hand.updateWorldMatrix(true, false);
     hand.getWorldQuaternion(_heldParentRotation);
     character.getWorldQuaternion(_heldFacing);
-    if (mesh.userData.barrelForward === -1) _heldFacing.multiply(_barrelCorrection);
+    if (mesh.userData.isStyloo) {
+        _heldFacing.multiply(_stylooCorrection);
+    } else if (mesh.userData.barrelForward === -1) {
+        _heldFacing.multiply(_barrelCorrection);
+    }
     mesh.quaternion.copy(_heldParentRotation.invert().multiply(_heldFacing));
     
     // Động tác thay đạn bằng Code (Procedural Reload Animation)
@@ -938,23 +1182,44 @@ export class WeaponSystem {
                     }
                 }
             });
-            // Kenney guns are ~0.8 model units long. Normalize to a readable
-            // 0.95–1.15 world units instead of shrinking them again on the arm.
+            // Chuẩn hóa tỷ lệ kích thước vật lý chính xác theo từng model
             const bounds = new THREE.Box3().setFromObject(mesh);
+            const size = new THREE.Vector3();
+            bounds.getSize(size);
+
             handNode.updateWorldMatrix(true, false);
-            const armScale = handNode.getWorldScale(new THREE.Vector3()).z;
-            const worldLength = w.modelFile.includes('blaster-a') ? 0.95 : 1.15;
-            const scale = worldLength / ((bounds.max.z - bounds.min.z) * armScale);
-            mesh.scale.setScalar(scale);
-            mesh.userData.barrelForward = -1;
-            mesh.userData.gripOffset = new THREE.Vector3(0, 0.14, -0.18).multiplyScalar(scale);
-            mesh.userData.handOffset = w.offset.clone();
-            mesh.rotation.set(0, -Math.PI / 3, 0);
-            mesh.position.copy(mesh.userData.gripOffset).applyQuaternion(mesh.quaternion).add(mesh.userData.handOffset);
-            const muzzle = new THREE.Object3D();
-            muzzle.name = 'weapon-muzzle';
-            muzzle.position.set(0, 0.04, bounds.min.z - 0.025);
-            mesh.add(muzzle);
+            const armScaleZ = handNode.getWorldScale(new THREE.Vector3()).z || 1.0;
+            const armScaleX = handNode.getWorldScale(new THREE.Vector3()).x || 1.0;
+
+            const targetLength = w.targetLength || (w.modelFile.includes('blaster-a') ? 0.95 : 1.15);
+
+            if (w.isStyloo) {
+                // Súng Styloo: nòng chạy dọc trục X (+X là đầu nòng súng)
+                const scale = (targetLength / Math.max(0.01, size.x)) / armScaleX;
+                mesh.scale.setScalar(scale);
+                mesh.userData.isStyloo = true;
+                mesh.userData.gripOffset = new THREE.Vector3(0, 0.08, 0).multiplyScalar(scale);
+                mesh.userData.handOffset = w.offset ? w.offset.clone() : new THREE.Vector3(-0.22, -0.04, 0.02);
+                mesh.rotation.set(0, -Math.PI / 2 - Math.PI / 3, 0);
+                mesh.position.copy(mesh.userData.gripOffset).applyQuaternion(mesh.quaternion).add(mesh.userData.handOffset);
+                const muzzle = new THREE.Object3D();
+                muzzle.name = 'weapon-muzzle';
+                muzzle.position.set(bounds.max.x + 0.05, 0.03, 0);
+                mesh.add(muzzle);
+            } else {
+                // Súng Kenney Blaster: nòng chạy dọc trục Z (-Z là đầu nòng súng)
+                const scale = (targetLength / Math.max(0.01, bounds.max.z - bounds.min.z)) / armScaleZ;
+                mesh.scale.setScalar(scale);
+                mesh.userData.barrelForward = -1;
+                mesh.userData.gripOffset = new THREE.Vector3(0, 0.14, -0.18).multiplyScalar(scale);
+                mesh.userData.handOffset = w.offset ? w.offset.clone() : new THREE.Vector3(-0.24, -0.05, 0.02);
+                mesh.rotation.set(0, -Math.PI / 3, 0);
+                mesh.position.copy(mesh.userData.gripOffset).applyQuaternion(mesh.quaternion).add(mesh.userData.handOffset);
+                const muzzle = new THREE.Object3D();
+                muzzle.name = 'weapon-muzzle';
+                muzzle.position.set(0, 0.04, bounds.min.z - 0.025);
+                mesh.add(muzzle);
+            }
             mesh.visible = false;
             handNode.add(mesh);
             this.weaponMeshes[w.id] = mesh;
@@ -1153,7 +1418,9 @@ export class WeaponSystem {
                 life: 2.0,
                 isPlayer: true,
                 ownerId: 'player',
-                isKnife: false
+                isKnife: false,
+                isExplosive: !!w.isExplosive,
+                splashRadius: w.splashRadius || 4.8
             });
         }
 
@@ -1375,7 +1642,20 @@ export class WeaponSystem {
             for (const col of arena.colliders) {
                 const hit = _tempRay.intersectBox(col, _tempHitPoint);
                 if (hit && startPos.distanceTo(hit) <= stepDist) {
-                    this.particles.createImpactSparks(hit, p.direction.clone().negate(), p.color, 8);
+                    if (p.isExplosive) {
+                        this.particles.createExplosion(hit, 0xff5500, 32);
+                        sounds.play('enemyDestroy', { volume: 0.9 });
+                        for (const enemy of enemies) {
+                            if (!enemy.isDead && enemy.position.distanceTo(hit) <= p.splashRadius) {
+                                const dist = enemy.position.distanceTo(hit);
+                                const splashDmg = Math.round(p.damage * (1 - (dist / p.splashRadius) * 0.45));
+                                const dir = enemy.position.clone().sub(hit).normalize();
+                                enemy.takeDamage(splashDmg, p.penPower, false, dir);
+                            }
+                        }
+                    } else {
+                        this.particles.createImpactSparks(hit, p.direction.clone().negate(), p.color, 8);
+                    }
                     this.removeProjectile(i);
                     hitFound = true;
                     break;
@@ -1409,6 +1689,20 @@ export class WeaponSystem {
                         // Tia lửa phụ thuộc vào việc xuyên máu hay bị giáp cản
                         const sparkColor = hitResult?.isPenetrated ? (isCrit ? 0xff2255 : p.color) : 0xffffff;
                         this.particles.createImpactSparks(hitInfo.point, p.direction.clone().negate(), sparkColor, isCrit ? 14 : 8);
+
+                        // Hiệu ứng Đạn nổ RPG (Devastator)
+                        if (p.isExplosive) {
+                            this.particles.createExplosion(hitInfo.point, 0xff5500, 36);
+                            sounds.play('enemyDestroy', { volume: 1.0 });
+                            for (const other of enemies) {
+                                if (other !== enemy && !other.isDead && other.position.distanceTo(hitInfo.point) <= p.splashRadius) {
+                                    const dist = other.position.distanceTo(hitInfo.point);
+                                    const splashDmg = Math.round(finalDamage * (1 - (dist / p.splashRadius) * 0.45));
+                                    const dir = other.position.clone().sub(hitInfo.point).normalize();
+                                    other.takeDamage(splashDmg, p.penPower, false, dir);
+                                }
+                            }
+                        }
 
                         // Hiệu ứng Đồ Huyền Thoại (Tier 5): Bắn lan (Area of Effect Splash Damage)
                         if (p.hasLegendary) {
