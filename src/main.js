@@ -3,7 +3,7 @@ import { GLTFLoader } from '../libs/loaders/GLTFLoader.js';
 import { sounds } from './audio.js';
 import { ParticleSystem } from './particles.js?v=22';
 import { Arena } from './arena.js?v=22';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS } from './weapons.js?v=22';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS } from './weapons.js?v=32';
 import { PlayerController } from './player.js?v=22';
 import { WaveManager, Zombie } from './enemies.js?v=22';
 import { PickupManager } from './pickups.js?v=22';
@@ -11,7 +11,7 @@ import { UIManager } from './ui.js?v=22';
 import { NetworkRoom, makeRemotePlayer } from './network.js?v=22';
 import { normalizeCharacter } from './characters.js?v=22';
 import { RoomLobby } from './lobby.js?v=22';
-import { HomeMenu } from './home.js?v=22';
+import { HomeMenu } from './home.js?v=32';
 import { LootingSystem } from './looting.js?v=22';
 import { RenderQuality } from './performance.js';
 
@@ -637,7 +637,9 @@ class CyberArenaGame {
     // Kiểm tra trạng thái súng đã mở khóa
     isWeaponUnlocked(id) {
         if (this.developerMode) return true;
-        return this.unlockedWeapons.includes(id);
+        const w = getStartingWeapon(id);
+        if (w && w.price === 0) return true;
+        return this.unlockedWeapons.includes(id) || (w?.aliases && w.aliases.some(a => this.unlockedWeapons.includes(a)));
     }
 
     // Cộng tiền vàng người chơi
