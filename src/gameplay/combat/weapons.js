@@ -2425,18 +2425,53 @@ export class WeaponSystem {
 
                 // Xử lý hiệu ứng theo từng chủng loại bom
                 if (bCfg.bombType === 'smoke') {
-                    // 1. BOM KHÓI: Màn khói mù mịt trong 10 giây
-                    const smokeGeo = new THREE.SphereGeometry(1, 16, 16);
-                    const smokeMat = new THREE.MeshBasicMaterial({
+                    // 1. BOM KHÓI: Cụm sương mù khói 3D bồng bềnh trong 10 giây
+                    const smokeGroup = new THREE.Group();
+                    smokeGroup.position.copy(blastPos);
+
+                    // Vòng tròn mờ báo hiệu phạm vi trên sàn
+                    const groundRingGeo = new THREE.RingGeometry(radius * 0.94, radius, 32);
+                    groundRingGeo.rotateX(-Math.PI / 2);
+                    const groundRingMat = new THREE.MeshBasicMaterial({
                         color: 0x94a3b8,
                         transparent: true,
-                        opacity: 0.65,
-                        depthWrite: false
+                        opacity: 0.35,
+                        side: THREE.DoubleSide
                     });
-                    const smokeMesh = new THREE.Mesh(smokeGeo, smokeMat);
-                    smokeMesh.position.set(blastPos.x, 1.2, blastPos.z);
-                    smokeMesh.scale.setScalar(radius);
-                    this.scene.add(smokeMesh);
+                    const groundRing = new THREE.Mesh(groundRingGeo, groundRingMat);
+                    groundRing.position.y = 0.04;
+                    smokeGroup.add(groundRing);
+
+                    // Cụm các khối mây khói mềm bồng bềnh
+                    const puffs = [];
+                    const puffGeo = new THREE.SphereGeometry(1, 14, 14);
+                    const puffCount = 6;
+                    for (let p = 0; p < puffCount; p++) {
+                        const angle = (p / puffCount) * Math.PI * 2;
+                        const dist = (p === 0) ? 0 : radius * 0.42;
+                        const puffMat = new THREE.MeshBasicMaterial({
+                            color: (p % 2 === 0) ? 0x94a3b8 : 0xb0bec5,
+                            transparent: true,
+                            opacity: 0.45,
+                            depthWrite: false
+                        });
+                        const puffMesh = new THREE.Mesh(puffGeo, puffMat);
+                        puffMesh.position.set(
+                            Math.cos(angle) * dist,
+                            0.7 + (p % 3) * 0.4,
+                            Math.sin(angle) * dist
+                        );
+                        puffMesh.scale.setScalar(radius * (0.65 + (p % 2) * 0.2));
+                        smokeGroup.add(puffMesh);
+                        puffs.push({
+                            mesh: puffMesh,
+                            mat: puffMat,
+                            baseScale: puffMesh.scale.x,
+                            rotSpeed: 0.15 + p * 0.05
+                        });
+                    }
+
+                    this.scene.add(smokeGroup);
 
                     this.activeZones.push({
                         type: 'smoke',
@@ -2444,8 +2479,9 @@ export class WeaponSystem {
                         radius: radius,
                         life: bCfg.duration || 10.0,
                         maxLife: bCfg.duration || 10.0,
-                        mesh: smokeMesh,
-                        mat: smokeMat
+                        group: smokeGroup,
+                        puffs: puffs,
+                        groundRing: groundRing
                     });
                 } else if (bCfg.bombType === 'fire') {
                     // 2. BOM LỬA: Vũng lửa thiêu đốt trên mặt đất trong 10 giây
@@ -2520,55 +2556,74 @@ export class WeaponSystem {
 
     // Cập nhật các vùng hiệu ứng chiến trường (Khói, Lửa)
     updateActiveZones(delta, player, enemies = []) {
-        if (!this.activeZones || !this.activeZones.length) return;
         const mainPlayer = Array.isArray(player) ? player[0] : player;
         let playerInAnySmoke = false;
 
-        for (let i = this.activeZones.length - 1; i >= 0; i--) {
-            const zone = this.activeZones[i];
-            zone.life -= delta;
+        if (this.activeZones && this.activeZones.length > 0) {
+            for (let i = this.activeZones.length - 1; i >= 0; i--) {
+                const zone = this.activeZones[i];
+                zone.life -= delta;
+                const progress = Math.max(0, zone.life / zone.maxLife);
 
-            if (zone.type === 'smoke') {
-                if (mainPlayer && !mainPlayer.isDead) {
-                    const distToPlayer = mainPlayer.position.distanceTo(zone.pos);
-                    if (distToPlayer <= zone.radius) {
-                        playerInAnySmoke = true;
-                    }
-                }
-
-                if (zone.mesh) {
-                    const progress = Math.max(0, zone.life / zone.maxLife);
-                    zone.mesh.rotation.y += delta * 0.2;
-                    zone.mesh.scale.setScalar(zone.radius * (0.8 + 0.2 * Math.sin(zone.life * 2)));
-                    if (zone.mat) zone.mat.opacity = Math.min(0.65, progress * 0.7);
-                }
-            } else if (zone.type === 'fire') {
-                zone.tickTimer = (zone.tickTimer || 0) + delta;
-                if (zone.tickTimer >= 0.5) {
-                    zone.tickTimer = 0;
-                    for (const e of enemies) {
-                        if (!e || e.isDead) continue;
-                        if (e.position.distanceTo(zone.pos) <= zone.radius) {
-                            e.burnTimer = 3.5;
-                            e.burnDamage = zone.burnDps || 25;
-                            e.takeDamage(Math.round((zone.burnDps || 25) * 0.5), 2, false, null);
+                if (zone.type === 'smoke') {
+                    if (mainPlayer && !mainPlayer.isDead) {
+                        const distToPlayer = mainPlayer.position.distanceTo(zone.pos);
+                        if (distToPlayer <= zone.radius) {
+                            playerInAnySmoke = true;
                         }
                     }
+
+                    // Hiệu ứng mây khói xoay bồng bềnh và mờ dần trong 2 giây cuối
+                    const fade = Math.min(1.0, zone.life / 2.0);
+                    if (zone.puffs) {
+                        for (let p = 0; p < zone.puffs.length; p++) {
+                            const puff = zone.puffs[p];
+                            puff.mesh.rotation.y += delta * puff.rotSpeed;
+                            puff.mesh.rotation.z += delta * (puff.rotSpeed * 0.5);
+                            puff.mat.opacity = 0.45 * fade;
+                            const breathe = 1.0 + 0.08 * Math.sin(zone.life * 2.5 + p);
+                            puff.mesh.scale.setScalar(puff.baseScale * breathe);
+                        }
+                    } else if (zone.mesh && zone.mat) {
+                        zone.mesh.rotation.y += delta * 0.2;
+                        zone.mat.opacity = Math.min(0.65, progress * 0.7);
+                    }
+
+                    if (zone.groundRing) {
+                        zone.groundRing.material.opacity = 0.35 * fade;
+                    }
+                } else if (zone.type === 'fire') {
+                    zone.tickTimer = (zone.tickTimer || 0) + delta;
+                    if (zone.tickTimer >= 0.5) {
+                        zone.tickTimer = 0;
+                        for (const e of enemies) {
+                            if (!e || e.isDead) continue;
+                            if (e.position.distanceTo(zone.pos) <= zone.radius) {
+                                e.burnTimer = 3.5;
+                                e.burnDamage = zone.burnDps || 25;
+                                e.takeDamage(Math.round((zone.burnDps || 25) * 0.5), 2, false, null);
+                            }
+                        }
+                    }
+
+                    if (zone.mesh) {
+                        zone.mesh.rotation.z += delta * 0.8;
+                        if (zone.mat) zone.mat.opacity = Math.min(0.85, progress * 0.9);
+                    }
                 }
 
-                if (zone.mesh) {
-                    zone.mesh.rotation.z += delta * 0.8;
-                    const progress = Math.max(0, zone.life / zone.maxLife);
-                    if (zone.mat) zone.mat.opacity = Math.min(0.85, progress * 0.9);
+                if (zone.life <= 0) {
+                    if (zone.group) {
+                        this.scene.remove(zone.group);
+                    } else if (zone.mesh) {
+                        this.scene.remove(zone.mesh);
+                    }
+                    this.activeZones.splice(i, 1);
                 }
-            }
-
-            if (zone.life <= 0) {
-                if (zone.mesh) this.scene.remove(zone.mesh);
-                this.activeZones.splice(i, 1);
             }
         }
 
+        // Đảm bảo cờ isInSmoke được cập nhật chính xác mỗi frame kể cả khi không còn vùng khói
         if (mainPlayer) {
             mainPlayer.isInSmoke = playerInAnySmoke;
         }

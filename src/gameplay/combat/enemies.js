@@ -557,9 +557,65 @@ export class Zombie {
             return;
         }
 
-        // Màn khói mù mịt (Smoke Grenade): người chơi tàng hình trong khói, zombie mất dấu
+        // Màn khói mù mịt (Smoke Grenade): người chơi tàng hình trong khói, zombie mất dấu mục tiêu
         if (player.isInSmoke) {
-            this.playAnimation('idle');
+            this.combatState = ZombieCombatState.CHASE;
+            this.spitCharge = 0;
+            this.playAnimation('walk');
+
+            // 1. Lực tách bầy chống quái chồng lấn
+            _tempSeparation.set(0, 0, 0);
+            let neighborCount = 0;
+            for (let i = 0; i < allZombies.length; i++) {
+                const other = allZombies[i];
+                if (other === this || other.isDead || !other.active) continue;
+                _tempDiff.subVectors(this.position, other.position);
+                _tempDiff.y = 0;
+                const minSpace = this.radius + other.radius;
+                const distanceSq = _tempDiff.lengthSq();
+                if (distanceSq > 0.0001 && distanceSq < minSpace * minSpace) {
+                    const d = Math.sqrt(distanceSq);
+                    _tempDiff.multiplyScalar((minSpace - d) / (minSpace * d));
+                    _tempSeparation.add(_tempDiff);
+                    neighborCount++;
+                }
+            }
+            if (neighborCount > 0) {
+                _tempSeparation.multiplyScalar(4.0);
+            }
+
+            // 2. Đi lang thang dò dẫm tốc độ chậm (Confused Wandering), không tấn công
+            this.wanderAngle = (this.wanderAngle ?? (Math.random() * Math.PI * 2)) + (Math.random() - 0.5) * delta * 2.0;
+            _tempDesiredDir.set(Math.cos(this.wanderAngle), 0, Math.sin(this.wanderAngle));
+
+            _tempMoveVel.set(0, 0, 0);
+            const wanderSpeed = this.speed * 0.35;
+            _tempMoveVel.addScaledVector(_tempDesiredDir, wanderSpeed);
+            _tempMoveVel.add(_tempSeparation);
+
+            if (arena?.moveCharacter) {
+                arena.moveCharacter(this.position, _tempMoveVel.x * delta, _tempMoveVel.z * delta, this.radius);
+            } else if (arena?.checkCollision) {
+                _tempCheckPos.copy(this.position); _tempCheckPos.x += _tempMoveVel.x * delta;
+                if (!arena.checkCollision(_tempCheckPos, this.radius)) this.position.x = _tempCheckPos.x;
+                _tempCheckPos.copy(this.position); _tempCheckPos.z += _tempMoveVel.z * delta;
+                if (!arena.checkCollision(_tempCheckPos, this.radius)) this.position.z = _tempCheckPos.z;
+            } else {
+                this.position.x += _tempMoveVel.x * delta;
+                this.position.z += _tempMoveVel.z * delta;
+            }
+
+            // Xoay hướng mặt theo hướng bước đi dò tìm
+            if (_tempMoveVel.lengthSq() > 0.05) {
+                const targetYaw = Math.atan2(_tempMoveVel.x, _tempMoveVel.z);
+                let diff = (targetYaw - this.mesh.rotation.y) % (Math.PI * 2);
+                if (diff < -Math.PI) diff += Math.PI * 2;
+                if (diff > Math.PI) diff -= Math.PI * 2;
+                this.mesh.rotation.y += diff * Math.min(1.0, delta * 8.0);
+            }
+
+            this.mesh.position.copy(this.position);
+            this.healthBar?.update(this.position, this.health, this.maxHealth, true);
             return;
         }
 
