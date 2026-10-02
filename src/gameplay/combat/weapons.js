@@ -1489,6 +1489,62 @@ export class WeaponSystem {
         this.switchWeapon(nextSlot, player);
     }
 
+    // Vứt khẩu súng đang cầm ra đất (phím [G]), nhường chỗ cho Dao hoặc súng phụ
+    dropCurrentWeapon(player, lootingSystem) {
+        if (!player || player.isDead) return false;
+        const currentGun = this.getCurrentWeapon();
+        if (!currentGun || currentGun.isKnife) {
+            window.game?.ui?.showPickupAlert('KHÔNG THỂ VỨT DAO CẬN CHIẾN!');
+            return false;
+        }
+
+        const slotIndex = this.currentSlotIndex; // 0 hoặc 1
+        if (slotIndex !== 0 && slotIndex !== 1) return false;
+
+        // Lưu giữ nguyên vẹn Tier và toàn bộ phụ kiện kèm theo súng
+        const attachMap = { ...this.getAttachmentsForGun(slotIndex) };
+        const droppedGunData = {
+            id: currentGun.id,
+            name: currentGun.name,
+            tier: currentGun.tier || 1,
+            color: currentGun.color,
+            modelFile: currentGun.modelFile,
+            icon: currentGun.icon,
+            category: currentGun.category,
+            attachments: attachMap
+        };
+
+        // Dọn dẹp phụ kiện của slot súng này
+        const targetAttachMap = this.getAttachmentsForGun(slotIndex);
+        targetAttachMap.barrel = null;
+        targetAttachMap.magazine = null;
+        targetAttachMap.optic = null;
+        targetAttachMap.grip = null;
+
+        // Sinh thực thể súng rơi ngoài đất
+        lootingSystem?.spawnDroppedWeapon(player.position.clone(), droppedGunData);
+
+        // Xử lý slot súng
+        this.weaponSlots[slotIndex] = null;
+        if (slotIndex === 1) this.secondaryWeapon = null;
+
+        const otherSlot = slotIndex === 0 ? 1 : 0;
+        const hasOtherGun = !!this.weaponSlots[otherSlot];
+
+        if (hasOtherGun) {
+            // Tự động chuyển sang khẩu súng còn lại
+            this.switchWeapon(otherSlot, player);
+        } else {
+            // Nếu không còn súng nào, tự động rút Dao cận chiến (slot 4)
+            this.switchWeapon(4, player);
+        }
+
+        sounds.play('switchWeapon', { volume: 0.9, rate: 0.9 });
+        window.game?.ui?.showPickupAlert(`ĐÃ VỨT [${droppedGunData.name.toUpperCase()}] RA ĐẤT!`);
+        window.game?.ui?.updateTacticalDock?.(this, player);
+        return true;
+    }
+
     getNetworkState() {
         return {
             gun: this.weaponSlots[0]?.id || this.startingWeaponId,
@@ -1564,11 +1620,18 @@ export class WeaponSystem {
     }
 
     getCurrentWeapon() {
-        return this.weaponSlots[this.currentSlotIndex] || this.weaponSlots[0];
+        return this.weaponSlots[this.currentSlotIndex] 
+            || this.weaponSlots[0] 
+            || this.weaponSlots[1] 
+            || this.weaponSlots[4] 
+            || KNIFE_CONFIG;
     }
 
     getCurrentAmmo() {
         const w = this.getCurrentWeapon();
+        if (!w) {
+            return { current: 0, max: 0, reserve: 0, isKnife: false, isReloading: false, reloadProgress: 1 };
+        }
         if (w.isKnife) {
             return { current: '∞', max: '∞', reserve: '∞', isKnife: true, isReloading: false, reloadProgress: 1 };
         }
@@ -1581,10 +1644,10 @@ export class WeaponSystem {
         const effective = this.getModifiedStats(w);
         return {
             current: this.ammo[w.id] ?? 0,
-            max: effective.magSize,
+            max: effective?.magSize || 20,
             reserve: this.reserve[w.id] ?? 0,
             isReloading: this.isReloading,
-            reloadProgress: this.isReloading ? (1 - this.reloadTimer / effective.reloadTime) : 1
+            reloadProgress: this.isReloading ? (1 - this.reloadTimer / (effective?.reloadTime || 1.5)) : 1
         };
     }
 
@@ -1894,24 +1957,28 @@ export class WeaponSystem {
         return group;
     }
     updateEquippedMesh() {
-        const currentId = this.getCurrentWeapon().id;
+        const cur = this.getCurrentWeapon();
+        const currentId = cur?.id;
         for (const [id, mesh] of Object.entries(this.weaponMeshes || {})) {
-            mesh.visible = (id === currentId);
+            mesh.visible = (currentId ? id === currentId : false);
         }
     }
 
     updateHeldPose(character) {
-        const mesh = this.weaponMeshes?.[this.getCurrentWeapon().id];
+        const cur = this.getCurrentWeapon();
+        if (!cur) return;
+        const mesh = this.weaponMeshes?.[cur.id];
         if (mesh) {
-            const w = this.getCurrentWeapon();
-            const effective = this.getModifiedStats(w);
-            mesh.userData.reloadProgress = this.isReloading ? (1 - this.reloadTimer / effective.reloadTime) : 1.0;
+            const effective = this.getModifiedStats(cur);
+            mesh.userData.reloadProgress = this.isReloading ? (1 - this.reloadTimer / (effective?.reloadTime || 1.5)) : 1.0;
         }
         updateHeldWeaponPose(mesh, this.handNode, character);
     }
 
     getMuzzlePosition(target = new THREE.Vector3()) {
-        const muzzle = this.weaponMeshes?.[this.getCurrentWeapon().id]?.getObjectByName('weapon-muzzle');
+        const cur = this.getCurrentWeapon();
+        if (!cur) return null;
+        const muzzle = this.weaponMeshes?.[cur.id]?.getObjectByName('weapon-muzzle');
         if (!muzzle) return null;
         muzzle.updateWorldMatrix(true, false);
         return muzzle.getWorldPosition(target);

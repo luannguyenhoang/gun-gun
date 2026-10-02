@@ -847,6 +847,8 @@ export class LootContainer {
         this.isLooted = false;
         this.isOpen = false;
         this.id = options.id || ('container_' + Math.random().toString(36).substring(2, 9));
+        this.life = 30.0; // Hòm đồ tự biến mất sau 30 giây
+        this.maxLife = 30.0;
 
         this.mesh = null;
         this.smokeParticles = null;
@@ -1190,6 +1192,130 @@ export class AirdropDropEntity {
     }
 }
 
+// Thực thể Súng rơi ngoài mặt đất khi bị vứt hoặc hoán đổi (Tồn tại 30s)
+export class DroppedWeaponEntity {
+    constructor(scene, position, gunData) {
+        this.scene = scene;
+        this.gunData = gunData;
+        this.life = 30.0; // Tồn tại đúng 30 giây trước khi tự hủy
+        this.maxLife = 30.0;
+        this.interactionRadius = 2.4; // Bán kính bấm [F] tương tác
+        this.group = new THREE.Group();
+
+        const tier = gunData.tier || 1;
+        const tierInfo = LOOT_TIERS[tier] || LOOT_TIERS[1];
+        const tierColor = tierInfo.color || '#94a3b8';
+        const colorHex = parseInt(tierColor.replace('#', '0x'), 16);
+
+        // 1. Vòng sáng màu Tier trên nền đất
+        const ringGeo = new THREE.RingGeometry(0.28, 0.65, 32);
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: colorHex,
+            transparent: true,
+            opacity: 0.75,
+            side: THREE.DoubleSide
+        });
+        this.ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        this.ringMesh.rotation.x = -Math.PI / 2;
+        this.ringMesh.position.y = 0.04;
+        this.group.add(this.ringMesh);
+
+        // Vòng sáng phụ bên ngoài
+        const outerRingGeo = new THREE.RingGeometry(0.68, 0.8, 32);
+        const outerRingMat = new THREE.MeshBasicMaterial({
+            color: colorHex,
+            transparent: true,
+            opacity: 0.4,
+            side: THREE.DoubleSide
+        });
+        this.outerRing = new THREE.Mesh(outerRingGeo, outerRingMat);
+        this.outerRing.rotation.x = -Math.PI / 2;
+        this.outerRing.position.y = 0.03;
+        this.group.add(this.outerRing);
+
+        // 2. Cột sáng nhẹ chỉ thị vị trí từ xa
+        const beamGeo = new THREE.CylinderGeometry(0.08, 0.3, 1.8, 16, 1, true);
+        const beamMat = new THREE.MeshBasicMaterial({
+            color: colorHex,
+            transparent: true,
+            opacity: 0.22,
+            side: THREE.DoubleSide
+        });
+        this.beamMesh = new THREE.Mesh(beamGeo, beamMat);
+        this.beamMesh.position.y = 0.9;
+        this.group.add(this.beamMesh);
+
+        // 3. Khối placeholder đại diện vũ khí
+        const boxGeo = new THREE.BoxGeometry(0.6, 0.2, 0.16);
+        const boxMat = new THREE.MeshStandardMaterial({
+            color: colorHex,
+            roughness: 0.4,
+            metalness: 0.6
+        });
+        this.weaponMesh = new THREE.Mesh(boxGeo, boxMat);
+        this.weaponMesh.position.y = 0.38;
+        this.group.add(this.weaponMesh);
+
+        // Tải mô hình 3D thật của khẩu súng
+        let modelFile = gunData.modelFile;
+        if (!modelFile) {
+            const cfg = [...WEAPON_CONFIGS, ...RARE_WEAPON_CONFIGS].find(w => w.id === gunData.id || w.aliases?.includes(gunData.id));
+            if (cfg?.modelFile) modelFile = cfg.modelFile;
+        }
+
+        if (modelFile) {
+            const path = modelFile.startsWith('assets/') ? modelFile : `assets/models/${modelFile}`;
+            getOrLoadModel(path, (model) => {
+                if (!this.group) return;
+                this.group.remove(this.weaponMesh);
+                boxGeo.dispose();
+                boxMat.dispose();
+                model.scale.set(1.4, 1.4, 1.4);
+                model.position.set(0, 0.38, 0);
+                this.weaponMesh = model;
+                this.group.add(model);
+            });
+        }
+
+        this.group.position.set(position.x, position.y || 0, position.z);
+        this.scene.add(this.group);
+    }
+
+    update(delta) {
+        this.life -= delta;
+        if (this.life <= 0) return false;
+
+        const elapsed = performance.now() * 0.002;
+        if (this.weaponMesh) {
+            this.weaponMesh.rotation.y += delta * 1.6;
+            this.weaponMesh.position.y = 0.38 + Math.sin(elapsed * 2.2) * 0.06;
+        }
+
+        if (this.ringMesh) {
+            this.ringMesh.material.opacity = 0.5 + 0.3 * Math.sin(elapsed * 3.0);
+        }
+        if (this.outerRing) {
+            this.outerRing.rotation.z += delta * 0.8;
+            if (this.life < 10) {
+                this.outerRing.material.opacity = (Math.sin(elapsed * 12) > 0) ? 0.7 : 0.15;
+            }
+        }
+
+        return true;
+    }
+
+    dispose() {
+        if (this.group) {
+            this.group.removeFromParent();
+            this.group.traverse(c => {
+                c.geometry?.dispose();
+                c.material?.dispose();
+            });
+            this.group = null;
+        }
+    }
+}
+
 // Hệ thống Điều Phối Looting & Airdrop Toàn Diện
 export class LootingSystem {
     constructor(scene, particles, player, waveManager, ui) {
@@ -1202,6 +1328,8 @@ export class LootingSystem {
         this.inventory = new PlayerInventory(5, 6);
         this.containers = [];
         this.airdropDrops = [];
+        this.droppedWeapons = []; // Danh sách súng rơi ngoài mặt đất
+        this.nearestDroppedWeapon = null;
 
         // Trạng thái Balo và Lục hòm hiện thời
         this.isBackpackOpen = false;
@@ -1228,13 +1356,21 @@ export class LootingSystem {
             if (e.repeat || e.target?.matches?.('input, textarea, select, [contenteditable="true"]')) return;
             if (window.game?.state !== 'PLAYING') return;
 
+            // Phím [G] vứt súng đang cầm ra đất để trao đổi với đồng đội
+            if (e.code === 'KeyG') {
+                this.player?.weapons?.dropCurrentWeapon(this.player, this);
+            }
+
             // Phím [F] cơ chế 1-Phím Thông Minh (Smart 1-Key Swap & Open)
             if (e.code === 'KeyF') {
                 if (this.isSearching) {
                     this.cancelSearch();
                 } else if (this.activeContainer && this.activeContainer.isOpen) {
-                    // Nếu hòm đang mở: Bấm [F] nhặt ngay món đồ Cấp cao nhất!
+                    // Nếu hòm đang mở: Bấm [F] nhặt ngay món đồ trong hòm
                     this.th_smartLootCrate(this.activeContainer);
+                } else if (this.nearestDroppedWeapon) {
+                    // Nếu đứng gần súng rơi ngoài đất: Bấm [F] để nhặt / đổi súng
+                    this.pickupDroppedWeapon(this.nearestDroppedWeapon);
                 } else {
                     this.tryStartSearch();
                 }
@@ -1250,6 +1386,110 @@ export class LootingSystem {
                 this.closeContainerUI();
             }
         });
+    }
+
+    // Sinh khẩu súng rơi ngoài đất (tồn tại 1 phút = 60s)
+    spawnDroppedWeapon(position, gunData) {
+        if (!gunData) return null;
+        const entity = new DroppedWeaponEntity(this.scene, position, gunData);
+        this.droppedWeapons.push(entity);
+        return entity;
+    }
+
+    // Nhặt hoặc hoán đổi súng rơi ngoài đất [F]
+    pickupDroppedWeapon(droppedWeapon) {
+        if (!droppedWeapon || !this.player || this.player.isDead) return false;
+        const weapons = this.player.weapons;
+        if (!weapons) return false;
+
+        const gunData = droppedWeapon.gunData;
+        if (!gunData) return false;
+
+        // Xác định slot sẽ nhận súng mới:
+        // Ưu tiên 1: Nếu ô vũ khí chính (slot 0) đang trống -> Nhặt vào ô chính (KHÔNG làm rơi súng phụ!)
+        // Ưu tiên 2: Nếu ô vũ khí phụ (slot 1) đang trống -> Nhặt vào ô phụ (KHÔNG làm rơi súng chính!)
+        // Ưu tiên 3: Nếu CẢ HAI ô súng đều đã có súng -> Hoán đổi (swap) với khẩu đang cầm trên tay
+        let targetSlot = -1;
+        if (!weapons.weaponSlots[0]) {
+            targetSlot = 0;
+        } else if (!weapons.weaponSlots[1]) {
+            targetSlot = 1;
+        } else {
+            targetSlot = (weapons.currentSlotIndex === 1) ? 1 : 0;
+        }
+
+        const currentGun = weapons.weaponSlots[targetSlot];
+
+        // Nếu slot này đang có súng (và không phải dao): vứt súng đang có ra đất
+        if (currentGun && !currentGun.isKnife) {
+            const attachMap = { ...weapons.getAttachmentsForGun(targetSlot) };
+            const oldDroppedData = {
+                id: currentGun.id,
+                name: currentGun.name,
+                tier: currentGun.tier || 1,
+                color: currentGun.color,
+                modelFile: currentGun.modelFile,
+                icon: currentGun.icon,
+                category: currentGun.category,
+                attachments: attachMap
+            };
+
+            // Dọn phụ kiện slot này trên người chơi
+            const targetMap = weapons.getAttachmentsForGun(targetSlot);
+            targetMap.barrel = null;
+            targetMap.magazine = null;
+            targetMap.optic = null;
+            targetMap.grip = null;
+
+            // Đặt khẩu súng cũ rơi ra ngay vị trí của khẩu súng vừa nhặt
+            this.spawnDroppedWeapon(droppedWeapon.group.position.clone(), oldDroppedData);
+        }
+
+        // Tạo instance súng mới từ gunData
+        const baseId = gunData.id;
+        const baseConfig = [...WEAPON_CONFIGS, ...RARE_WEAPON_CONFIGS].find(w => w.id === baseId || w.aliases?.includes(baseId)) || WEAPON_CONFIGS[0];
+        const newTier = gunData.tier || 1;
+        const newGun = {
+            ...baseConfig,
+            tier: newTier,
+            color: gunData.color || baseConfig.color
+        };
+
+        // Gán vào slot vũ khí của người chơi
+        weapons.weaponSlots[targetSlot] = newGun;
+        weapons.ammo[newGun.id] = newGun.magSize;
+        weapons.reserve[newGun.id] = Infinity;
+        if (targetSlot === 1) weapons.secondaryWeapon = newGun;
+
+        // Lắp lại các phụ kiện đã lưu của khẩu súng này
+        if (gunData.attachments) {
+            for (const [slotKey, modId] of Object.entries(gunData.attachments)) {
+                if (modId) {
+                    weapons.attachMod(slotKey, modId, targetSlot);
+                }
+            }
+        }
+
+        // Chuyển ngay sang khẩu súng vừa nhặt
+        weapons.switchWeapon(targetSlot, this.player);
+
+        // Xóa thực thể súng rơi khỏi danh sách và scene
+        const idx = this.droppedWeapons.indexOf(droppedWeapon);
+        if (idx !== -1) {
+            this.droppedWeapons.splice(idx, 1);
+        }
+        droppedWeapon.dispose();
+        this.nearestDroppedWeapon = null;
+        this.ui?.hideDroppedWeaponPrompt?.();
+
+        sounds.play('switchWeapon', { volume: 1.0, rate: 1.2 });
+        this.ui?.showPickupAlert(`ĐÃ NHẶT [${newGun.name.toUpperCase()}] CẤP ${newTier}!`);
+        this.ui?.updateTacticalDock?.(weapons, this.player);
+
+        if (this.activeContainer && this.activeContainer.isOpen) {
+            this.ui?.refreshPUBGMiniCrate(this.activeContainer, this, this.getNearbyDroppedWeapons(4.5));
+        }
+        return true;
     }
 
     // Bật tắt Balo túi đồ [Phím B]
@@ -1438,12 +1678,22 @@ export class LootingSystem {
         this.openContainerUI(container);
     }
 
+    // Lấy danh sách súng rơi ngoài đất lân cận người chơi trong bán kính radius
+    getNearbyDroppedWeapons(radius = 4.5) {
+        if (!this.player || !this.player.position) return [];
+        return this.droppedWeapons.filter(dw => {
+            if (!dw || !dw.group || dw.life <= 0) return false;
+            return this.player.position.distanceTo(dw.group.position) <= radius;
+        });
+    }
+
     // Mở giao diện Hòm đồ PUBG Mini
     openContainerUI(container) {
         if (!container) return;
         this.activeContainer = container;
         container.isOpen = true;
-        this.ui?.showPUBGMiniCrate(container, this);
+        const nearbyDropped = this.getNearbyDroppedWeapons(4.5);
+        this.ui?.showPUBGMiniCrate(container, this, nearbyDropped);
     }
 
     // Đóng giao diện Hòm đồ PUBG Mini
@@ -1465,7 +1715,35 @@ export class LootingSystem {
     // Cơ chế Nhặt & Hoán đổi 1-Phím [F] (Smart 1-Key Swap)
     th_smartLootCrate(targetContainer = null, targetSlotIndex = -1) {
         const container = targetContainer || this.activeContainer;
-        if (!container || !container.isOpen) return false;
+        const nearbyDropped = this.getNearbyDroppedWeapons(4.5);
+
+        // Nếu bấm [F] (targetSlotIndex === -1) và có súng rơi ngoài đất lân cận:
+        // So sánh món trong hòm vs súng dưới đất để nhặt món có Tier cao nhất
+        if (targetSlotIndex === -1 && nearbyDropped.length > 0) {
+            const bestGroundGun = nearbyDropped[0];
+            const groundTier = bestGroundGun.gunData?.tier || 1;
+
+            let crateBestTier = 0;
+            if (container && container.isOpen) {
+                const crateItems = container.slots.filter(s => s && s.itemId);
+                if (crateItems.length > 0) {
+                    const firstDef = th_resolveLootItem(crateItems[0].itemId);
+                    crateBestTier = firstDef?.tier || 1;
+                }
+            }
+
+            // Nếu súng dưới đất có Tier cao hơn món đầu trong hòm -> Nhặt súng dưới đất!
+            if (groundTier > crateBestTier || !container || !container.isOpen) {
+                return this.pickupDroppedWeapon(bestGroundGun);
+            }
+        }
+
+        if (!container || !container.isOpen) {
+            if (nearbyDropped.length > 0) {
+                return this.pickupDroppedWeapon(nearbyDropped[0]);
+            }
+            return false;
+        }
 
         const validItems = container.slots
             .map((s, idx) => s && s.itemId ? { ...s, slotIndex: idx } : null)
@@ -1473,6 +1751,9 @@ export class LootingSystem {
 
         if (validItems.length === 0) {
             this.checkAndRemoveEmptyContainer(container);
+            if (nearbyDropped.length > 0) {
+                return this.pickupDroppedWeapon(nearbyDropped[0]);
+            }
             this.closeContainerUI();
             return false;
         }
@@ -1502,7 +1783,7 @@ export class LootingSystem {
                 this.ui?.showPickupAlert('HÒM ĐÃ HẾT ĐỒ VÀ BIẾN MẤT!');
                 return true;
             }
-            this.ui?.refreshPUBGMiniCrate(container, this);
+            this.ui?.refreshPUBGMiniCrate(container, this, this.getNearbyDroppedWeapons(4.5));
             return true;
         }
 
@@ -1524,7 +1805,7 @@ export class LootingSystem {
                     this.ui?.showPickupAlert('HÒM ĐÃ HẾT ĐỒ VÀ BIẾN MẤT!');
                     return true;
                 }
-                this.ui?.refreshPUBGMiniCrate(container, this);
+                this.ui?.refreshPUBGMiniCrate(container, this, this.getNearbyDroppedWeapons(4.5));
                 return true;
             }
 
@@ -1542,7 +1823,7 @@ export class LootingSystem {
                 sounds.play('switchWeapon', { volume: 1.0, rate: 1.45 });
                 this.ui?.showPickupAlert(`NÂNG CẤP THÀNH CÔNG: [${def.name.toUpperCase()}] (HOÁN ĐỔI CẤP CŨ)`);
                 container.generateLootSort?.();
-                this.ui?.refreshPUBGMiniCrate(container, this);
+                this.ui?.refreshPUBGMiniCrate(container, this, this.getNearbyDroppedWeapons(4.5));
                 return true;
             } else {
                 // Kiểm tra xem súng phụ (Khẩu 2) có lắp được không
@@ -1558,7 +1839,7 @@ export class LootingSystem {
                         this.ui?.showPickupAlert('HÒM ĐÃ HẾT ĐỒ VÀ BIẾN MẤT!');
                         return true;
                     }
-                    this.ui?.refreshPUBGMiniCrate(container, this);
+                    this.ui?.refreshPUBGMiniCrate(container, this, this.getNearbyDroppedWeapons(4.5));
                     return true;
                 }
                 const secTier = ATTACHMENT_DEFS[secModId]?.tier || 1;
@@ -1572,7 +1853,7 @@ export class LootingSystem {
                     sounds.play('switchWeapon', { volume: 0.95, rate: 1.4 });
                     this.ui?.showPickupAlert(`NÂNG CẤP CHO SÚNG PHỤ: [${def.name.toUpperCase()}]`);
                     container.generateLootSort?.();
-                    this.ui?.refreshPUBGMiniCrate(container, this);
+                    this.ui?.refreshPUBGMiniCrate(container, this, this.getNearbyDroppedWeapons(4.5));
                     return true;
                 }
 
@@ -1593,27 +1874,66 @@ export class LootingSystem {
                 color: def.color ? parseInt(def.color.replace('#', '0x'), 16) : gunConfig.color
             };
 
-            const currentGunIdx = weapons.currentSlotIndex === 1 ? 1 : 0;
-            const currentGun = weapons.weaponSlots[currentGunIdx];
+            // Xác định slot sẽ nhận súng mới:
+            // Ưu tiên 1: Nếu ô vũ khí chính (slot 0) đang trống -> Nhặt vào ô chính (KHÔNG làm rơi súng phụ!)
+            // Ưu tiên 2: Nếu ô vũ khí phụ (slot 1) đang trống -> Nhặt vào ô phụ (KHÔNG làm rơi súng chính!)
+            // Ưu tiên 3: Nếu CẢ HAI ô súng đều đã có súng -> Hoán đổi (swap) với khẩu đang cầm trên tay
+            let targetSlot = -1;
+            if (!weapons.weaponSlots[0]) {
+                targetSlot = 0;
+            } else if (!weapons.weaponSlots[1]) {
+                targetSlot = 1;
+            } else {
+                targetSlot = (weapons.currentSlotIndex === 1) ? 1 : 0;
+            }
+            const currentGun = weapons.weaponSlots[targetSlot];
 
-            // Đổi súng
-            weapons.weaponSlots[currentGunIdx] = newGun;
+            // Nếu người chơi đang có súng (và không phải dao): vứt súng cũ ra đất, giữ nguyên phụ kiện
+            if (currentGun && !currentGun.isKnife) {
+                const attachMap = { ...weapons.getAttachmentsForGun(targetSlot) };
+                const droppedGunData = {
+                    id: currentGun.id,
+                    name: currentGun.name,
+                    tier: currentGun.tier || 1,
+                    color: currentGun.color,
+                    modelFile: currentGun.modelFile,
+                    icon: currentGun.icon,
+                    category: currentGun.category,
+                    attachments: attachMap
+                };
+
+                // Dọn phụ kiện slot này trên người chơi
+                const targetAttach = weapons.getAttachmentsForGun(targetSlot);
+                targetAttach.barrel = null;
+                targetAttach.magazine = null;
+                targetAttach.optic = null;
+                targetAttach.grip = null;
+
+                // Sinh súng rơi ngoài đất tại vị trí người chơi
+                this.spawnDroppedWeapon(this.player.position.clone(), droppedGunData);
+            }
+
+            // Trang bị súng mới
+            weapons.weaponSlots[targetSlot] = newGun;
             weapons.ammo[newGun.id] = newGun.magSize;
             weapons.reserve[newGun.id] = Infinity;
-            if (currentGunIdx === 1) weapons.secondaryWeapon = newGun;
+            if (targetSlot === 1) weapons.secondaryWeapon = newGun;
+            weapons.switchWeapon(targetSlot, this.player);
 
-            // Đặt lại súng cũ vào hòm
-            const oldGunId = `gun_${currentGun.id}_t${currentGun.tier || 1}`;
-            container.slots[selected.slotIndex] = {
-                itemId: LOOT_ITEMS[oldGunId] ? oldGunId : selected.itemId,
-                count: 1,
-                revealed: true
-            };
+            // Ô TRONG HÒM ĐƯỢC LẤY ĐI (gán null)
+            container.slots[selected.slotIndex] = null;
 
             sounds.play('switchWeapon', { volume: 1.0, rate: 1.1 });
-            if (weapons.handNode) weapons.attachToArm(weapons.handNode);
-            this.ui?.showPickupAlert(`ĐÃ TRANG BỊ [${newGun.name}] CẤP ${newTier}!`);
-            this.ui?.refreshPUBGMiniCrate(container, this);
+            this.ui?.showPickupAlert(`ĐÃ TRANG BỊ [${newGun.name.toUpperCase()}] CẤP ${newTier}! SÚNG CŨ ĐÃ RƠI RA ĐẤT.`);
+            this.ui?.updateTacticalDock?.(weapons, this.player);
+
+            // Kiểm tra xóa hòm nếu hòm đã trống
+            if (this.checkAndRemoveEmptyContainer(container)) {
+                this.ui?.showPickupAlert('HÒM ĐÃ HẾT ĐỒ VÀ BIẾN MẤT!');
+                return true;
+            }
+            this.ui?.refreshPUBGMiniCrate(container, this, this.getNearbyDroppedWeapons(4.5));
+            return true;
         }
 
         return false;
@@ -1940,6 +2260,28 @@ export class LootingSystem {
             }
         }
 
+        // Cập nhật thời gian sống của các hòm đồ (Tự động biến mất sau 30 giây)
+        for (let i = this.containers.length - 1; i >= 0; i--) {
+            const c = this.containers[i];
+            if (typeof c.life === 'number') {
+                c.life -= delta;
+                if (c.life <= 0) {
+                    if (this.activeContainer === c) {
+                        this.activeContainer = null;
+                        this.closeContainerUI();
+                        this.ui?.showPickupAlert('HÒM ĐỒ ĐÃ HẾT HẠN (30 GIÂY) VÀ TỰ BIẾN MẤT!');
+                    }
+                    c.dispose();
+                    this.containers.splice(i, 1);
+                    continue;
+                }
+                // Hiệu ứng nhấp nháy khi còn dưới 8s
+                if (c.interactRing && c.life < 8) {
+                    c.interactRing.material.opacity = (Math.sin(performance.now() * 0.015) > 0) ? 0.75 : 0.15;
+                }
+            }
+        }
+
         // 2. Kiểm tra tiến trình mở hòm theo phạm vi (Range-based Proximity Opening)
         const nearest = this.getNearestInteractableContainer();
 
@@ -1949,12 +2291,15 @@ export class LootingSystem {
             this.tryStartSearch(nearest);
         }
 
-        // Nếu hòm đang mở: tự động đóng khi người chơi di chuyển ra xa
+        // Nếu hòm đang mở: tự động đóng khi người chơi di chuyển ra xa hoặc cập nhật vật phẩm lân cận
         if (this.activeContainer && this.activeContainer.isOpen) {
             const dist = this.player.position.distanceTo(this.activeContainer.position);
             const maxRange = (this.activeContainer.interactionRadius || 3.6) + 1.2;
             if (dist > maxRange) {
                 this.closeContainerUI();
+            } else {
+                const nearbyDropped = this.getNearbyDroppedWeapons(4.5);
+                this.ui?.refreshPUBGMiniCrate(this.activeContainer, this, nearbyDropped);
             }
         }
 
@@ -2003,9 +2348,41 @@ export class LootingSystem {
         // 4. Hiển thị / ẩn gợi ý tương tác khi tới gần hòm
         // Dùng lại biến nearest đã tính ở bước 2 để tránh khai báo trùng
         if (nearest && !this.isSearching && !nearest.isOpen) {
-            this.ui?.showContainerPrompt(nearest.config?.promptLabel, nearest.position, this.player.camera);
+            const timeLabel = nearest.life ? ` (${Math.max(1, Math.ceil(nearest.life))}s)` : '';
+            this.ui?.showContainerPrompt((nearest.config?.promptLabel || 'LỤC HÒM') + timeLabel, nearest.position, this.player.camera);
         } else if (!this.isSearching) {
             this.ui?.hideContainerPrompt();
+        }
+
+        // 5. Cập nhật các khẩu súng rơi ngoài mặt đất (tồn tại 1 phút = 60s)
+        for (let i = this.droppedWeapons.length - 1; i >= 0; i--) {
+            const dw = this.droppedWeapons[i];
+            const alive = dw.update(delta);
+            if (!alive) {
+                dw.dispose();
+                this.droppedWeapons.splice(i, 1);
+            }
+        }
+
+        // Tìm khẩu súng rơi gần nhất trong bán kính tương tác
+        let nearestDropped = null;
+        let minDroppedDist = Infinity;
+        for (const dw of this.droppedWeapons) {
+            const dist = this.player.position.distanceTo(dw.group.position);
+            if (dist <= dw.interactionRadius && dist < minDroppedDist) {
+                minDroppedDist = dist;
+                nearestDropped = dw;
+            }
+        }
+        this.nearestDroppedWeapon = nearestDropped;
+
+        // Quản lý hiển thị HUD prompt tương tác nhặt súng rơi
+        if (nearestDropped && !this.activeContainer?.isOpen && !this.isSearching) {
+            const hasEmptySlot = (!this.player?.weapons?.weaponSlots[0] || !this.player?.weapons?.weaponSlots[1]);
+            const isSwap = !hasEmptySlot;
+            this.ui?.showDroppedWeaponPrompt(nearestDropped.gunData, nearestDropped.group.position, this.player.camera, nearestDropped.life, isSwap);
+        } else {
+            this.ui?.hideDroppedWeaponPrompt?.();
         }
     }
 
@@ -2016,6 +2393,11 @@ export class LootingSystem {
         while (this.airdropDrops.length) {
             this.airdropDrops.pop().dispose();
         }
+        while (this.droppedWeapons.length) {
+            this.droppedWeapons.pop().dispose();
+        }
+        this.nearestDroppedWeapon = null;
+        this.ui?.hideDroppedWeaponPrompt?.();
         this.activeAirdropZone = null;
         this.closeContainerUI();
     }

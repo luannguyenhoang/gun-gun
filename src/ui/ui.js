@@ -197,6 +197,9 @@ export class UIManager {
         // Các phần tử giao diện Looting & Airdrop
         this.containerPrompt = document.getElementById('container-prompt');
         this.promptLabel = document.getElementById('prompt-label');
+        this.droppedWeaponPrompt = document.getElementById('dropped-weapon-prompt');
+        this.droppedPromptText = document.getElementById('dropped-prompt-text');
+        this.droppedPromptTimer = document.getElementById('dropped-prompt-timer');
 
         this.searchProgressContainer = document.getElementById('search-progress-container');
         this.searchContainerName = document.getElementById('search-container-name');
@@ -305,7 +308,7 @@ export class UIManager {
         // 3. Stamina / Ammo Bar (Cam - thanh thứ 3) - Dirty check
         let stPercent = 100;
         let stText = 'CẬN CHIẾN';
-        if (!curWeapon.isKnife) {
+        if (curWeapon && !curWeapon.isKnife) {
             if (ammoInfo.isReloading) {
                 stPercent = Math.max(0, Math.min(100, Math.round(ammoInfo.reloadProgress * 100)));
                 stText = `NẠP ĐẠN ${stPercent}%`;
@@ -665,6 +668,17 @@ export class UIManager {
                     image.className = 'pubg-silhouette-img';
                     this.thActiveSilhouette.replaceChildren(image);
                 }
+            } else {
+                if (this.pubgGun1Name && this._lastGun1Name !== 'TRỐNG') {
+                    this._lastGun1Name = 'TRỐNG';
+                    this.pubgGun1Name.textContent = 'TRỐNG';
+                }
+                if (this.pubgGun1Cur) this.pubgGun1Cur.textContent = '-';
+                if (this.pubgGun1Res) this.pubgGun1Res.textContent = '-';
+                if (this.thActiveSilhouette && this._lastActiveWeaponSilh !== '') {
+                    this._lastActiveWeaponSilh = '';
+                    this.thActiveSilhouette.replaceChildren();
+                }
             }
 
             // Cập nhật Súng 2 (Súng phụ)
@@ -691,11 +705,22 @@ export class UIManager {
                     image.className = 'pubg-silhouette-img';
                     this.pubgGun2Silhouette.replaceChildren(image);
                 }
+            } else {
+                if (this.pubgGun2Name && this._lastGun2Name !== 'TRỐNG') {
+                    this._lastGun2Name = 'TRỐNG';
+                    this.pubgGun2Name.textContent = 'TRỐNG';
+                }
+                if (this.pubgGun2Cur) this.pubgGun2Cur.textContent = '-';
+                if (this.pubgGun2Res) this.pubgGun2Res.textContent = '-';
+                if (this.pubgGun2Silhouette && this._lastGun2Icon !== '') {
+                    this._lastGun2Icon = '';
+                    this.pubgGun2Silhouette.replaceChildren();
+                }
             }
 
             // Duy trì tương thích ngược cho các phần tử đạn cũ
-            const curAmmoStr = curWeapon.isKnife ? '∞' : String(ammoInfo.current);
-            const resAmmoStr = curWeapon.isKnife ? '∞' : String(ammoInfo.reserve);
+            const curAmmoStr = (curWeapon && curWeapon.isKnife) ? '∞' : String(ammoInfo?.current ?? 0);
+            const resAmmoStr = (curWeapon && curWeapon.isKnife) ? '∞' : String(ammoInfo?.reserve ?? 0);
             if (curAmmoStr !== this._lastAmmoCurText || resAmmoStr !== this._lastAmmoResText) {
                 this._lastAmmoCurText = curAmmoStr;
                 this._lastAmmoResText = resAmmoStr;
@@ -1452,6 +1477,42 @@ export class UIManager {
         }
     }
 
+    // Hiển thị gợi ý nhặt / hoán đổi súng rơi ngoài đất tại vị trí 3D
+    showDroppedWeaponPrompt(gunData, position, camera, timeLeft, isSwap = false) {
+        if (!this.droppedWeaponPrompt) return;
+        if (gunData && this.droppedPromptText) {
+            const actionText = isSwap ? 'ĐỔI' : 'NHẶT';
+            const tierStr = gunData.tier ? ` · CẤP ${gunData.tier}` : '';
+            this.droppedPromptText.textContent = `${actionText} [${(gunData.name || 'SÚNG').toUpperCase()}${tierStr}]`;
+        }
+        if (this.droppedPromptTimer && typeof timeLeft === 'number') {
+            this.droppedPromptTimer.textContent = `${Math.max(1, Math.ceil(timeLeft))}s`;
+        }
+
+        if (position && camera) {
+            this._tempContainerWorldPos.copy(position);
+            this._tempContainerWorldPos.y += 0.55;
+            this._tempPromptNdc.copy(this._tempContainerWorldPos).project(camera);
+
+            if (this._tempPromptNdc.z > -1 && this._tempPromptNdc.z < 1) {
+                const screenX = (this._tempPromptNdc.x * 0.5 + 0.5) * window.innerWidth;
+                const screenY = (-this._tempPromptNdc.y * 0.5 + 0.5) * window.innerHeight;
+                this.droppedWeaponPrompt.style.left = `${Math.round(screenX)}px`;
+                this.droppedWeaponPrompt.style.top = `${Math.round(screenY)}px`;
+                this.droppedWeaponPrompt.style.display = 'flex';
+                return;
+            }
+        }
+        this.droppedWeaponPrompt.style.display = 'none';
+    }
+
+    // Ẩn gợi ý nhặt / hoán đổi súng rơi ngoài đất
+    hideDroppedWeaponPrompt() {
+        if (this.droppedWeaponPrompt) {
+            this.droppedWeaponPrompt.style.display = 'none';
+        }
+    }
+
     // Hiển thị thanh tiến trình lục hòm
     showSearchProgress(duration, containerName) {
         if (!this.searchProgressContainer) return;
@@ -1509,42 +1570,68 @@ export class UIManager {
         }
     }
 
-    showPUBGMiniCrate(container, lootingSystem) {
+    showPUBGMiniCrate(container, lootingSystem, nearbyDropped = null) {
         this.th_initPUBGMiniCrateDOM();
         if (!this.pubgMiniCrate || !container) return;
 
         this._currentLootingSystem = lootingSystem;
         this._currentPUBGContainer = container;
-        if (this.pubgCrateName) {
-            this.pubgCrateName.textContent = (container.name || 'HÒM CHIẾN LỢI PHẨM').toUpperCase();
-        }
-
-        this.refreshPUBGMiniCrate(container, lootingSystem);
+        this.refreshPUBGMiniCrate(container, lootingSystem, nearbyDropped);
         this.pubgMiniCrate.style.display = 'block';
     }
 
-    refreshPUBGMiniCrate(container, lootingSystem) {
+    refreshPUBGMiniCrate(container, lootingSystem, nearbyDropped = null) {
         this.th_initPUBGMiniCrateDOM();
         if (!this.pubgCrateItems) return;
 
+        const effectiveNearby = nearbyDropped !== null 
+            ? nearbyDropped 
+            : (lootingSystem?.getNearbyDroppedWeapons?.(4.5) || []);
+
+        const validContainerItems = [];
+        if (container && container.slots) {
+            container.slots.forEach((slot, idx) => {
+                if (slot && slot.itemId) {
+                    validContainerItems.push({ ...slot, slotIndex: idx, source: 'container' });
+                }
+            });
+        }
+
+        const validGroundItems = effectiveNearby.map(dw => ({
+            itemId: dw.gunData.id,
+            gunData: dw.gunData,
+            source: 'ground',
+            entity: dw
+        }));
+
+        const totalItemsCount = validContainerItems.length + validGroundItems.length;
+
+        // Dirty check để tránh re-render DOM liên tục mỗi frame
+        const renderKey = `${container?.id || 'none'}_${validContainerItems.map(i => i.itemId).join(',')}_${validGroundItems.map(g => g.gunData.id + '_' + Math.floor(g.entity.life)).join(',')}_${Math.floor(container?.life || 0)}`;
+        if (this._lastPUBGRenderKey === renderKey) {
+            return;
+        }
+        this._lastPUBGRenderKey = renderKey;
+
+        // Cập nhật tiêu đề hòm + thời gian tồn tại còn lại
+        if (this.pubgCrateName) {
+            const containerName = container?.name || 'HÒM CHIẾN LỢI PHẨM';
+            const timeLeftStr = (container && typeof container.life === 'number') 
+                ? ` (${Math.max(1, Math.ceil(container.life))}s)` 
+                : '';
+            this.pubgCrateName.textContent = `${containerName.toUpperCase()}${timeLeftStr}`;
+        }
+
         this.pubgCrateItems.innerHTML = '';
-        if (!container || !container.slots) return;
 
-        const validItems = [];
-        container.slots.forEach((slot, idx) => {
-            if (slot && slot.itemId) {
-                validItems.push({ ...slot, slotIndex: idx });
-            }
-        });
-
-        if (validItems.length === 0) {
+        if (totalItemsCount === 0) {
             const emptyEl = document.createElement('div');
             emptyEl.className = 'pubg-crate-empty';
             emptyEl.style.cssText = 'grid-column: 1 / -1; color:#94a3b8; font-size:12px; padding:18px; text-align:center; font-family:Rajdhani,sans-serif; letter-spacing:1px; font-weight:700; background:rgba(0,0,0,0.25); border-radius:4px;';
-            emptyEl.textContent = 'HÒM ĐỒ ĐÃ ĐƯỢC LẤY SẠCH!';
+            emptyEl.textContent = 'KHÔNG CÓ VẬT PHẨM LÂN CẬN!';
             this.pubgCrateItems.appendChild(emptyEl);
             setTimeout(() => {
-                if (this._currentPUBGContainer === container && validItems.length === 0) {
+                if (this._currentPUBGContainer === container && totalItemsCount === 0) {
                     lootingSystem?.closeContainerUI();
                 }
             }, 300);
@@ -1554,52 +1641,111 @@ export class UIManager {
         this._currentPUBGContainer = container;
         this._currentLootingSystem = lootingSystem;
 
-        validItems.forEach((item, index) => {
-            const def = (typeof LOOT_ITEMS !== 'undefined' && LOOT_ITEMS[item.itemId]) || {
-                name: item.itemId,
-                tier: 1,
-                category: 'misc',
-                subText: '',
-                icon: 'assets/previews/kenney-blaster/crate-small.png'
-            };
+        let globalIndex = 0;
 
-            const tier = def.tier || 1;
-            const tierColor = def.color || '#94a3b8';
-            const iconSrc = def.icon || 'assets/previews/kenney-blaster/crate-small.png';
-            const subText = def.subText || def.statSummary || (def.category === 'weapon' ? 'VŨ KHÍ CHIẾN ĐẤU' : 'CHIẾN LỢI PHẨM');
+        // 1. RENDER CÁC MÓN TRONG HÒM (NẾU CÓ)
+        if (validContainerItems.length > 0) {
+            if (validGroundItems.length > 0) {
+                const sectionCrate = document.createElement('div');
+                sectionCrate.className = 'pubg-section-header';
+                sectionCrate.innerHTML = `<span>TRONG HÒM</span><span>${validContainerItems.length} MÓN</span>`;
+                this.pubgCrateItems.appendChild(sectionCrate);
+            }
 
-            const card = document.createElement('div');
-            card.className = `pubg-crate-card${index === 0 ? ' first-target' : ''}`;
-            card.setAttribute('data-slot-index', item.slotIndex);
-            card.title = `${def.name} · Nhấp để trang bị`;
+            validContainerItems.forEach((item) => {
+                const def = (typeof LOOT_ITEMS !== 'undefined' && LOOT_ITEMS[item.itemId]) || {
+                    name: item.itemId,
+                    tier: 1,
+                    category: 'misc',
+                    subText: '',
+                    icon: 'assets/previews/kenney-blaster/crate-small.png'
+                };
 
-            const fBadgeHtml = index === 0 ? `<span class="pubg-card-f-badge">[F]</span>` : '';
+                const tier = def.tier || 1;
+                const tierColor = def.color || '#94a3b8';
+                const iconSrc = def.icon || 'assets/previews/kenney-blaster/crate-small.png';
+                const subText = def.subText || def.statSummary || (def.category === 'weapon' ? 'VŨ KHÍ CHIẾN ĐẤU' : 'CHIẾN LỢI PHẨM');
 
-            card.innerHTML = `
-                <div class="pubg-card-icon-wrap">
-                    <img class="pubg-card-img" src="${iconSrc}" alt="${def.name}" onerror="this.src='assets/previews/kenney-blaster/crate-small.png'">
-                </div>
-                <div class="pubg-card-content">
-                    <span class="pubg-card-title">${def.name}</span>
-                    <span class="pubg-card-subtitle">${subText}</span>
-                </div>
-                <span class="pubg-card-tier-tag" style="background:${tierColor};">T${tier}</span>
-                ${fBadgeHtml}
-            `;
+                const card = document.createElement('div');
+                const isFirst = (globalIndex === 0);
+                card.className = `pubg-crate-card${isFirst ? ' first-target' : ''}`;
+                card.setAttribute('data-slot-index', item.slotIndex);
+                card.title = `${def.name} · Nhấp để trang bị`;
 
-            card.addEventListener('click', (e) => {
-                e.stopPropagation();
-                lootingSystem?.th_smartLootCrate(container, item.slotIndex);
+                const fBadgeHtml = isFirst ? `<span class="pubg-card-f-badge">[F]</span>` : '';
+
+                card.innerHTML = `
+                    <div class="pubg-card-icon-wrap">
+                        <img class="pubg-card-img" src="${iconSrc}" alt="${def.name}" onerror="this.src='assets/previews/kenney-blaster/crate-small.png'">
+                    </div>
+                    <div class="pubg-card-content">
+                        <span class="pubg-card-title">${def.name}</span>
+                        <span class="pubg-card-subtitle">${subText}</span>
+                    </div>
+                    <span class="pubg-card-tier-tag" style="background:${tierColor};">T${tier}</span>
+                    ${fBadgeHtml}
+                `;
+
+                card.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    lootingSystem?.th_smartLootCrate(container, item.slotIndex);
+                });
+
+                this.pubgCrateItems.appendChild(card);
+                globalIndex++;
             });
+        }
 
-            this.pubgCrateItems.appendChild(card);
-        });
+        // 2. RENDER CÁC MÓN SÚNG / VẬT PHẨM RƠI NGOÀI ĐẤT XUNG QUANH (NẾU CÓ)
+        if (validGroundItems.length > 0) {
+            const sectionGround = document.createElement('div');
+            sectionGround.className = 'pubg-section-header';
+            sectionGround.innerHTML = `<span>DƯỚI ĐẤT XUNG QUANH</span><span>${validGroundItems.length} MÓN</span>`;
+            this.pubgCrateItems.appendChild(sectionGround);
+
+            validGroundItems.forEach((groundItem) => {
+                const gunData = groundItem.gunData;
+                const tier = gunData.tier || 1;
+                const tierColor = (typeof LOOT_TIERS !== 'undefined' && LOOT_TIERS[tier]?.color) || '#94a3b8';
+                const iconSrc = gunData.icon || 'assets/previews/kenney-blaster/blaster-a.png';
+                const timeLeft = Math.max(1, Math.ceil(groundItem.entity.life || 30));
+
+                const card = document.createElement('div');
+                const isFirst = (globalIndex === 0);
+                card.className = `pubg-crate-card ground-item${isFirst ? ' first-target' : ''}`;
+                card.title = `${gunData.name} (Dưới đất) · Nhấp để nhặt`;
+
+                const fBadgeHtml = isFirst ? `<span class="pubg-card-f-badge">[F]</span>` : '';
+
+                card.innerHTML = `
+                    <div class="pubg-card-icon-wrap">
+                        <img class="pubg-card-img" src="${iconSrc}" alt="${gunData.name}" onerror="this.src='assets/previews/kenney-blaster/blaster-a.png'">
+                    </div>
+                    <div class="pubg-card-content">
+                        <span class="pubg-card-title">${gunData.name}</span>
+                        <span class="pubg-card-subtitle">Dưới đất · Còn ${timeLeft}s</span>
+                    </div>
+                    <span class="pubg-card-tier-tag" style="background:${tierColor};">T${tier}</span>
+                    <span class="pubg-card-ground-badge">DƯỚI ĐẤT</span>
+                    ${fBadgeHtml}
+                `;
+
+                card.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    lootingSystem?.pickupDroppedWeapon(groundItem.entity);
+                });
+
+                this.pubgCrateItems.appendChild(card);
+                globalIndex++;
+            });
+        }
     }
 
     hidePUBGMiniCrate() {
         if (this.pubgMiniCrate) {
             this.pubgMiniCrate.style.display = 'none';
         }
+        this._lastPUBGRenderKey = '';
         this._currentPUBGContainer = null;
         this._currentLootingSystem = null;
     }

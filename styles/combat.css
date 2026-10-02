@@ -843,6 +843,12 @@
 .container-prompt .prompt-key { background:#ffbe57; color:#2a1f33; font-weight:1000; font-size:13px; padding:2px 7px; border-radius:5px; }
 .container-prompt .prompt-label { color:#fff4d6; font-size:11px; font-weight:900; letter-spacing:0.5px; }
 
+/* Gợi ý nhặt / hoán đổi súng rơi ngoài đất [F] */
+.dropped-weapon-prompt { position:absolute; pointer-events:none; z-index:110; display:flex; align-items:center; gap:8px; padding:6px 14px; background:rgba(18,24,38,0.95); border:2px solid #38bdf8; border-radius:9px; box-shadow:0 4px 18px rgba(0,0,0,0.75); transform:translate(-50%,-100%); transition:opacity .15s ease; }
+.dropped-weapon-prompt .dropped-prompt-key { background:#38bdf8; color:#0b1329; font-weight:1000; font-size:13px; padding:2px 7px; border-radius:5px; }
+.dropped-weapon-prompt .dropped-prompt-text { color:#f1f5f9; font-size:12px; font-weight:900; letter-spacing:0.5px; }
+.dropped-weapon-prompt .dropped-prompt-timer { color:#94a3b8; font-size:11px; font-weight:800; background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px; font-variant-numeric:tabular-nums; }
+
 /* Thanh tiến trình lục hòm Searching Progress Bar */
 .search-progress-container { position:absolute; top:calc(50% + 55px); left:50%; transform:translate(-50%,0); z-index:125; pointer-events:none; }
 .search-panel { min-width:260px; padding:10px 16px; text-align:center; border-color:#ffd06b; box-shadow:0 0 20px rgba(255,208,107,0.4); }
@@ -1610,6 +1616,57 @@
   padding:0px 3px;
   border-radius:2px;
   letter-spacing:0.3px;
+}
+
+/* Phân cách khu vực trong bảng Loot PUBG */
+.pubg-section-header {
+  grid-column: 1 / -1;
+  color:#94a3b8;
+  font-size:9.5px;
+  font-weight:900;
+  letter-spacing:1px;
+  padding:4px 6px 2px 4px;
+  margin-top:2px;
+  border-bottom:1px solid rgba(255, 255, 255, 0.12);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  text-transform:uppercase;
+  font-family:'Rajdhani',sans-serif;
+}
+
+/* Thẻ vật phẩm rơi ngoài mặt đất (Ground Items) */
+.pubg-crate-card.ground-item {
+  background:linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 55%, #a5b4fc 100%);
+  border:1.5px solid #4338ca;
+  box-shadow:0 3px 8px rgba(0, 0, 0, 0.4);
+}
+
+.pubg-crate-card.ground-item .pubg-card-title {
+  color:#1e1b4b;
+}
+
+.pubg-crate-card.ground-item .pubg-card-subtitle {
+  color:#3730a3;
+  font-weight:800;
+}
+
+.pubg-crate-card.ground-item:hover {
+  box-shadow:0 6px 14px rgba(99, 102, 241, 0.5);
+}
+
+.pubg-card-ground-badge {
+  position:absolute;
+  top:3px;
+  right:26px;
+  background:#4f46e5;
+  color:#ffffff;
+  font-size:7.5px;
+  font-weight:900;
+  padding:0px 4px;
+  border-radius:2px;
+  letter-spacing:0.4px;
+  box-shadow:0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .badge-med {
