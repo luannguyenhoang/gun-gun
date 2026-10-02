@@ -29,6 +29,7 @@ class CyberArenaGame {
         this.network = new NetworkRoom(this);
         this.remotePlayers = new Map();
         this.remoteProjectiles = new Map();
+        this.networkEvents = [];
         this.practiceBot = null;
         this.animate = this.animate.bind(this);
         this.radarElapsed = 0;
@@ -111,6 +112,21 @@ class CyberArenaGame {
         this.player.ui = this.ui;
         this.lootingSystem = new LootingSystem(this.scene, this.particles, this.player, this.waveManager, this.ui);
         this.coopPlayers = [this.player];
+
+        // Lắng nghe phát bắn của người chơi Host để broadcast cho đồng đội
+        this.weapons.onShotFired = (info) => {
+            if (this.network.active && this.network.host) {
+                (this.networkEvents ||= []).push({
+                    type: 'shot',
+                    shooterId: 'host',
+                    origin: info.origin.toArray(),
+                    target: info.target.toArray(),
+                    weaponId: info.weapon?.id,
+                    color: info.color,
+                    ads: !!info.ads
+                });
+            }
+        };
     }
 
     initDOM() {
@@ -304,7 +320,11 @@ class CyberArenaGame {
             projectile.mesh.removeFromParent(); projectile.mesh.material.dispose();
         }
         this.remoteProjectiles.clear();
-        this.lootingSystem.spawnInitialContainers(this.arena);
+        if (!this.network.active || this.network.host) {
+            this.lootingSystem.spawnInitialContainers(this.arena);
+        } else {
+            this.lootingSystem.clearAll();
+        }
 
         this.player.setInputEnabled(true);
         this.player.cooperative = this.network.active;
@@ -887,16 +907,59 @@ class CyberArenaGame {
     }
 
     makeCoopSnapshot() {
-        return { bombs: this.waveManager.bombs.snapshot(), state: this.state, wave: this.currentWave, score: this.score,
+        const events = this.networkEvents || [];
+        this.networkEvents = [];
+
+        return {
+            bombs: this.waveManager.bombs.snapshot(),
+            state: this.state,
+            wave: this.currentWave,
+            score: this.score,
+            events,
+            looting: this.lootingSystem?.snapshot ? this.lootingSystem.snapshot() : null,
             projectiles: this.coopPlayers.flatMap(player => (player.weapons?.projectiles || []).filter(p => p.mesh).map(p => ({ id: `${player.id || this.network.playerId}:${p.id}`, owner: player.id || this.network.playerId, position: p.mesh.position.toArray(), direction: p.direction.toArray(), speed: p.speed, color: p.color }))),
             players: this.coopPlayers.map(player => ({ id: player.id || this.network.playerId, name: player.name || 'Bạn', character: player.characterId || this.characterId, position: player.position.toArray(), health: player.health, shield: player.shield, isDead: player.isDead, isDowned: player.isDowned, aim: player.aimYaw, ads: !!player.isADS, moving: player === this.player ? player.velocity.lengthSq() > 0.1 : player.moving, weapons: player.weapons?.getNetworkState(), processedSeq: player.processedSeq || 0 })),
             enemies: this.waveManager.enemies.filter(enemy => !enemy.isDead).map(enemy => ({ id: enemy.id, type: enemy.type, position: enemy.position.toArray(), health: enemy.health, maxHealth: enemy.maxHealth, yaw: enemy.mesh?.rotation.y || 0 })),
-            pickups: this.pickups.pickups.map(pickup => ({ id: pickup.id, type: pickup.type, position: pickup.mesh.position.toArray(), weaponSlot: pickup.weaponSlot, life: pickup.life })) };
+            pickups: this.pickups.pickups.map(pickup => ({ id: pickup.id, type: pickup.type, position: pickup.mesh.position.toArray(), weaponSlot: pickup.weaponSlot, life: pickup.life }))
+        };
     }
 
     applyCoopSnapshot(snapshot, localId) {
         if (!snapshot) return;
         this.waveManager.bombs.applySnapshot(snapshot.bombs || []);
+
+        if (snapshot.looting && this.lootingSystem?.applySnapshot) {
+            this.lootingSystem.applySnapshot(snapshot.looting);
+        }
+
+        // Đồng bộ hiệu ứng đường đạn, ánh chớp nòng và âm thanh khi người chơi khác bắn
+        for (const ev of snapshot.events || []) {
+            if (ev.type === 'shot' && ev.shooterId !== localId) {
+                const origin = new THREE.Vector3().fromArray(ev.origin);
+                const target = new THREE.Vector3().fromArray(ev.target);
+                const dir = new THREE.Vector3().subVectors(target, origin).normalize();
+                const weapon = WEAPON_CONFIGS.find(w => w.id === ev.weaponId) || WEAPON_CONFIGS[0];
+                const bulletColor = ev.color || weapon.color || 0xffee44;
+
+                this.particles.createMuzzleFlash(origin, dir, bulletColor);
+                if (weapon.fireSound) {
+                    sounds.play(weapon.fireSound, { volume: 0.65, pitchVariation: 0.08 });
+                }
+
+                const tracerId = `tracer_${ev.shooterId}_${Math.random().toString(36).substring(2, 7)}`;
+                const mesh = new THREE.Mesh(this.weapons.bulletGeo, new THREE.MeshBasicMaterial({ color: bulletColor }));
+                mesh.position.copy(origin);
+                mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+                this.scene.add(mesh);
+                this.remoteProjectiles.set(tracerId, {
+                    mesh,
+                    direction: dir,
+                    speed: weapon.bulletSpeed || 60,
+                    life: 1.2
+                });
+            }
+        }
+
         const sampleTime = performance.now();
         const projectileIds = new Set();
         for (const state of snapshot.projectiles || []) {
@@ -915,7 +978,7 @@ class CyberArenaGame {
             projectile.speed = state.speed;
         }
         for (const [id, projectile] of this.remoteProjectiles) {
-            if (!projectileIds.has(id)) { projectile.mesh.removeFromParent(); projectile.mesh.material.dispose(); this.remoteProjectiles.delete(id); }
+            if (!projectileIds.has(id) && projectile.life === undefined) { projectile.mesh.removeFromParent(); projectile.mesh.material.dispose(); this.remoteProjectiles.delete(id); }
         }
         this.currentWave = snapshot.wave ?? this.currentWave;
         this.score = snapshot.score ?? this.score;
@@ -1042,20 +1105,45 @@ class CyberArenaGame {
                     (dmg, crit, pt, hitResult) => this.onHitEnemy(dmg, crit, pt, hitResult));
                 for (const remote of this.remotePlayers.values()) {
                     this.network.processCommands(remote);
-                    remote.weapons.update(delta, this.arena, this.waveManager.enemies, remote);
+                    remote.weapons.update(delta, this.arena, this.waveManager.enemies, remote,
+                        (dmg, crit, pt, hitResult) => this.onHitEnemy(dmg, crit, pt, hitResult));
                 }
             } else {
                 this.waveManager.bombs.update(delta, [], false);
-                // Client prediction: animate shots and tick cooldowns without applying damage.
-                // Truyền this.player thay vì [] để client áp dụng đúng cơ chế ngắm bắn (ADS) và nón tản đạn
-                this.weapons.update(delta, this.arena, [], this.player);
-                for (const projectile of this.remoteProjectiles.values()) projectile.mesh.position.addScaledVector(projectile.direction, projectile.speed * delta);
+                // Client prediction: xử lý va chạm trúng đích tức thời và báo cáo sát thương lên Host
+                this.weapons.update(delta, this.arena, this.waveManager.enemies, this.player,
+                    (dmg, crit, pt, hitResult, enemy) => {
+                        this.onHitEnemy(dmg, crit, pt, hitResult);
+                        if (enemy && enemy.id) {
+                            enemy.health = Math.max(0, enemy.health - dmg);
+                            if (enemy.health <= 0) enemy.isDead = true;
+                            this.network.sendCommand({
+                                type: 'hit_enemy',
+                                enemyId: enemy.id,
+                                damage: dmg,
+                                crit: !!crit,
+                                hitPoint: pt ? pt.toArray() : null
+                            });
+                        }
+                    });
+                for (const [id, projectile] of this.remoteProjectiles) {
+                    projectile.mesh.position.addScaledVector(projectile.direction, projectile.speed * delta);
+                    if (projectile.life !== undefined) {
+                        projectile.life -= delta;
+                        if (projectile.life <= 0) {
+                            projectile.mesh.removeFromParent();
+                            projectile.mesh.material.dispose();
+                            this.remoteProjectiles.delete(id);
+                        }
+                    }
+                }
                 for (const enemy of this.waveManager.enemies) {
                     if (enemy.netTarget && enemy.mesh) {
                         const age = Math.min(0.16, Math.max(0, (performance.now() - enemy.netSampleTime) / 1000));
                         const visualTarget = enemy.netTarget.clone().addScaledVector(enemy.netVelocity || new THREE.Vector3(), age);
                         enemy.mesh.position.lerp(visualTarget, 1 - Math.exp(-18 * delta));
                     } else enemy.mesh?.position.lerp(enemy.position, 1 - Math.exp(-18 * delta));
+                    if (enemy.mesh) enemy.position.copy(enemy.mesh.position);
                     enemy.mixer?.update(delta);
                     enemy.healthBar?.update(enemy.mesh?.position || enemy.position, enemy.health, enemy.maxHealth, !enemy.isDead);
                 }

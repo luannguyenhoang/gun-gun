@@ -242,16 +242,66 @@ export class NetworkRoom {
         const queue = player.commandQueue || [];
         if (player.isDead) { queue.length = 0; return; }
         while (queue.length) {
-            const command = queue[0];
-            if (command.type === 'shoot' && (player.weapons.fireCooldown > 0 || player.weapons.isReloading)) break;
-            queue.shift();
-            if (command.type === 'reload') player.weapons.reload();
-            if (command.type === 'switch') player.weapons.switchWeapon(command.slot);
-            if (command.type === 'shoot' && Array.isArray(command.target) && command.target.length === 3 && command.target.every(Number.isFinite)) {
+            const command = queue.shift();
+            if (!command) continue;
+
+            if (command.type === 'reload') {
+                player.weapons.reload();
+            } else if (command.type === 'switch') {
+                player.weapons.switchWeapon(command.slot);
+            } else if (command.type === 'shoot' && Array.isArray(command.target) && command.target.length === 3 && command.target.every(Number.isFinite)) {
                 player.isADS = !!command.ads;
-                const origin = player.weapons.getMuzzlePosition?.() || player.position.clone().add(new THREE.Vector3(0, 1.2, 0));
-                player.weapons.shoot(origin, new THREE.Vector3().fromArray(command.target), !!command.ads, true, 1.0, player);
+
+                // Xác định chính xác tọa độ nòng súng từ lệnh client hoặc fallback
+                const origin = (Array.isArray(command.origin) && command.origin.length === 3 && command.origin.every(Number.isFinite))
+                    ? new THREE.Vector3().fromArray(command.origin)
+                    : (player.weapons.getMuzzlePosition?.() || player.position.clone().add(new THREE.Vector3(0, 1.2, 0)));
+                const target = new THREE.Vector3().fromArray(command.target);
+
+                // Đồng bộ súng nếu Client đang cầm súng khác
+                if (command.weaponId && player.weapons.getCurrentWeapon()?.id !== command.weaponId) {
+                    const foundSlot = player.weapons.weaponSlots.findIndex(w => w?.id === command.weaponId);
+                    if (foundSlot >= 0) player.weapons.switchWeapon(foundSlot, player);
+                }
+
+                // Bảo đảm vũ khí của remote player không bị nghẽn cooldown hay hết đạn trên Host
+                const currentW = player.weapons.getCurrentWeapon();
+                if (currentW) {
+                    player.weapons.ammo[currentW.id] = Math.max(player.weapons.ammo[currentW.id] || 0, 10);
+                    player.weapons.isReloading = false;
+                    player.weapons.fireCooldown = 0;
+                }
+
+                player.weapons.shoot(origin, target, !!command.ads, true, 1.0, player);
+
+                // Đưa sự kiện bắn vào danh sách để broadcast trong snapshot cho mọi người chơi thấy
+                (this.game.networkEvents ||= []).push({
+                    type: 'shot',
+                    shooterId: player.id,
+                    origin: origin.toArray(),
+                    target: target.toArray(),
+                    weaponId: command.weaponId || currentW?.id,
+                    ads: !!command.ads
+                });
+            } else if (command.type === 'hit_enemy' && command.enemyId) {
+                // Xử lý sát thương quái trực tiếp từ Client đã xác nhận trúng đích
+                const enemy = this.game.waveManager?.enemies?.find(e => e.id === command.enemyId && !e.isDead);
+                if (enemy) {
+                    const hitPt = (Array.isArray(command.hitPoint) && command.hitPoint.length === 3)
+                        ? new THREE.Vector3().fromArray(command.hitPoint)
+                        : enemy.position;
+                    this.game.particles?.createImpactSparks?.(hitPt, new THREE.Vector3(0, 1, 0), command.crit ? 0xff2255 : 0xffaa00, command.crit ? 14 : 8);
+                    enemy.takeDamage(command.damage, 2, command.crit, player.position);
+                    if (enemy.isDead) {
+                        this.game.onEnemyKilled(enemy);
+                    }
+                }
+            } else if (command.type === 'loot_slot') {
+                this.game.lootingSystem?.handleRemoteLoot?.(command.containerId, command.slotIndex, command.replacedSlot);
+            } else if (command.type === 'loot_all') {
+                this.game.lootingSystem?.handleRemoteLootAll?.(command.containerId);
             }
+
             player.processedSeq = command.seq;
         }
     }
