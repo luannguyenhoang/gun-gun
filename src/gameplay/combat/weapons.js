@@ -1260,33 +1260,33 @@ export class WeaponSystem {
             stock: null      // Báng súng (Heavy Stock, Tactical Stock)
         };
 
-        // Kho hình học đạn phong phú theo từng dòng súng (kích thước to rõ gấp 2-4 lần)
+        // Kho hình học đạn phong phú theo từng dòng súng (kích thước cân đối, thanh thoát, dễ quan sát)
         this.bulletGeometries = {
             pistol: (() => {
-                const geo = new THREE.CylinderGeometry(0.09, 0.09, 0.95, 6);
+                const geo = new THREE.CylinderGeometry(0.048, 0.048, 0.45, 6);
                 geo.rotateX(Math.PI / 2);
                 return geo;
             })(),
             rifle: (() => {
-                const geo = new THREE.CylinderGeometry(0.12, 0.12, 1.6, 6);
+                const geo = new THREE.CylinderGeometry(0.06, 0.06, 0.75, 6);
                 geo.rotateX(Math.PI / 2);
                 return geo;
             })(),
-            shotgun: new THREE.SphereGeometry(0.16, 8, 8),
+            shotgun: new THREE.SphereGeometry(0.08, 8, 8),
             sniper: (() => {
-                const geo = new THREE.CylinderGeometry(0.16, 0.16, 3.0, 6);
+                const geo = new THREE.CylinderGeometry(0.07, 0.07, 1.25, 6);
                 geo.rotateX(Math.PI / 2);
                 return geo;
             })(),
             minigun: (() => {
-                const geo = new THREE.CylinderGeometry(0.11, 0.11, 1.3, 6);
+                const geo = new THREE.CylinderGeometry(0.052, 0.052, 0.55, 6);
                 geo.rotateX(Math.PI / 2);
                 return geo;
             })(),
-            explosive: new THREE.SphereGeometry(0.38, 12, 12),
-            plasma: new THREE.IcosahedronGeometry(0.28, 1),
+            explosive: new THREE.SphereGeometry(0.16, 10, 10),
+            plasma: new THREE.IcosahedronGeometry(0.13, 1),
             default: (() => {
-                const geo = new THREE.CylinderGeometry(0.11, 0.11, 1.4, 6);
+                const geo = new THREE.CylinderGeometry(0.058, 0.058, 0.65, 6);
                 geo.rotateX(Math.PI / 2);
                 return geo;
             })()
@@ -2484,18 +2484,78 @@ export class WeaponSystem {
                         groundRing: groundRing
                     });
                 } else if (bCfg.bombType === 'fire') {
-                    // 2. BOM LỬA: Vũng lửa thiêu đốt trên mặt đất trong 10 giây
-                    const fireGeo = new THREE.CircleGeometry(radius, 32);
-                    fireGeo.rotateX(-Math.PI / 2);
-                    const fireMat = new THREE.MeshBasicMaterial({
-                        color: 0xef4444,
+                    // 2. BOM LỬA: Vũng lửa 3D đa tầng bùng cháy dữ dội trên mặt đất trong 10 giây
+                    const fireGroup = new THREE.Group();
+                    fireGroup.position.copy(blastPos);
+
+                    // Lớp 1: Vũng dung nham đỏ rực trên mặt đất
+                    const outerRingGeo = new THREE.CircleGeometry(radius, 32);
+                    outerRingGeo.rotateX(-Math.PI / 2);
+                    const outerRingMat = new THREE.MeshBasicMaterial({
+                        color: 0xd9381e,
                         transparent: true,
-                        opacity: 0.8,
+                        opacity: 0.65,
                         side: THREE.DoubleSide
                     });
-                    const fireMesh = new THREE.Mesh(fireGeo, fireMat);
-                    fireMesh.position.set(blastPos.x, 0.05, blastPos.z);
-                    this.scene.add(fireMesh);
+                    const outerMesh = new THREE.Mesh(outerRingGeo, outerRingMat);
+                    outerMesh.position.y = 0.05;
+                    fireGroup.add(outerMesh);
+
+                    // Lớp 2: Lõi lửa vàng cam phát sáng rực rỡ
+                    const coreGeo = new THREE.CircleGeometry(radius * 0.65, 24);
+                    coreGeo.rotateX(-Math.PI / 2);
+                    const coreMat = new THREE.MeshBasicMaterial({
+                        color: 0xffaa00,
+                        transparent: true,
+                        opacity: 0.85,
+                        side: THREE.DoubleSide
+                    });
+                    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+                    coreMesh.position.y = 0.06;
+                    fireGroup.add(coreMesh);
+
+                    // Lớp 3: Viền lửa tàn tro ngoài rìa
+                    const ringBorderGeo = new THREE.RingGeometry(radius * 0.94, radius, 32);
+                    ringBorderGeo.rotateX(-Math.PI / 2);
+                    const ringBorderMat = new THREE.MeshBasicMaterial({
+                        color: 0xff4400,
+                        transparent: true,
+                        opacity: 0.75,
+                        side: THREE.DoubleSide
+                    });
+                    const ringBorderMesh = new THREE.Mesh(ringBorderGeo, ringBorderMat);
+                    ringBorderMesh.position.y = 0.07;
+                    fireGroup.add(ringBorderMesh);
+
+                    // Lớp 4: Cụm các cột lửa 3D bập bùng (Flickering Flame Cones)
+                    const flames = [];
+                    const flameGeo = new THREE.ConeGeometry(0.35, 1.35, 6);
+                    const flameCount = 7;
+                    for (let f = 0; f < flameCount; f++) {
+                        const angle = (f / flameCount) * Math.PI * 2;
+                        const dist = (f === 0) ? 0 : radius * (0.32 + (f % 3) * 0.16);
+                        const flameMat = new THREE.MeshBasicMaterial({
+                            color: (f % 2 === 0) ? 0xff5500 : 0xffaa00,
+                            transparent: true,
+                            opacity: 0.85,
+                            depthWrite: false
+                        });
+                        const flameMesh = new THREE.Mesh(flameGeo, flameMat);
+                        flameMesh.position.set(
+                            Math.cos(angle) * dist,
+                            0.68,
+                            Math.sin(angle) * dist
+                        );
+                        fireGroup.add(flameMesh);
+                        flames.push({
+                            mesh: flameMesh,
+                            mat: flameMat,
+                            baseScaleY: 1.0,
+                            offset: f * 1.2
+                        });
+                    }
+
+                    this.scene.add(fireGroup);
 
                     this.activeZones.push({
                         type: 'fire',
@@ -2505,8 +2565,11 @@ export class WeaponSystem {
                         maxLife: bCfg.duration || 10.0,
                         burnDps: bCfg.burnDps || 25,
                         tickTimer: 0,
-                        mesh: fireMesh,
-                        mat: fireMat
+                        group: fireGroup,
+                        flames: flames,
+                        outerMat: outerRingMat,
+                        coreMat: coreMat,
+                        ringMat: ringBorderMat
                     });
 
                     // Sát thương nổ ban đầu
@@ -2606,9 +2669,34 @@ export class WeaponSystem {
                         }
                     }
 
-                    if (zone.mesh) {
-                        zone.mesh.rotation.z += delta * 0.8;
-                        if (zone.mat) zone.mat.opacity = Math.min(0.85, progress * 0.9);
+                    // Xoay nhẹ nhàng theo trục Y thẳng đứng (giữ phẳng với mặt đất, không bị nghiêng cắm đất)
+                    if (zone.group) {
+                        zone.group.rotation.y += delta * 0.35;
+                    }
+
+                    // Hiệu ứng ngọn lửa 3D nhấp nháy chiều cao bùng cháy
+                    const fade = Math.min(1.0, zone.life / 2.0);
+                    if (zone.flames) {
+                        for (let f = 0; f < zone.flames.length; f++) {
+                            const fl = zone.flames[f];
+                            const flick = 0.75 + 0.35 * Math.sin(zone.life * 14.0 + fl.offset);
+                            fl.mesh.scale.set(flick, flick * fade, flick);
+                            fl.mat.opacity = 0.85 * fade;
+                        }
+                    }
+
+                    if (zone.outerMat) zone.outerMat.opacity = 0.65 * fade;
+                    if (zone.coreMat) zone.coreMat.opacity = 0.85 * fade;
+                    if (zone.ringMat) zone.ringMat.opacity = 0.75 * fade;
+
+                    // Thỉnh thoảng bốc hạt tàn lửa lên cao
+                    if (Math.random() < 0.25 && this.particles?.createImpactSparks) {
+                        const sparkPos = zone.pos.clone().add(new THREE.Vector3(
+                            (Math.random() - 0.5) * zone.radius * 1.2,
+                            0.2 + Math.random() * 0.8,
+                            (Math.random() - 0.5) * zone.radius * 1.2
+                        ));
+                        this.particles.createImpactSparks(sparkPos, new THREE.Vector3(0, 1, 0), 0xff6600, 3);
                     }
                 }
 
