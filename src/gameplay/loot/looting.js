@@ -46,6 +46,8 @@ export const LOOT_ITEMS = {
         rarity: 'uncommon',
         color: '#22c55e',
         tag: 'MEDKIT',
+        icon: 'assets/previews/kenney-blaster/medkit.svg',
+        subText: 'Hồi 50 HP khẩn cấp',
         description: 'Bấm [F] nhặt ngay, tự dồn vào số lượng máu dự trữ. Hồi 50 HP khẩn cấp.',
         statSummary: '+50 Máu Cấp Cứu',
         actionLabel: 'NHẶT CỨU THƯƠNG'
@@ -61,6 +63,8 @@ export const LOOT_ITEMS = {
         rarity: 'common',
         color: '#94a3b8',
         tag: 'NÒNG T1',
+        icon: 'assets/previews/kenney-blaster/silencer-small.png',
+        subText: '+2 Flat DMG · +8% Tầm',
         description: 'Tăng +2 Flat Damage và +8% Tầm bắn cho súng.',
         statSummary: '+2 Flat DMG · +8% Tầm',
         flatDmg: 2,
@@ -75,6 +79,8 @@ export const LOOT_ITEMS = {
         rarity: 'uncommon',
         color: '#22c55e',
         tag: 'NÒNG T2',
+        icon: 'assets/previews/kenney-blaster/silencer-small.png',
+        subText: '+4 Flat DMG · +15% Tầm',
         description: 'Tăng +4 Flat Damage và +15% Tầm bắn.',
         statSummary: '+4 Flat DMG · +15% Tầm',
         flatDmg: 4,
@@ -89,6 +95,8 @@ export const LOOT_ITEMS = {
         rarity: 'rare',
         color: '#3b82f6',
         tag: 'NÒNG T3',
+        icon: 'assets/previews/kenney-blaster/silencer-larger.png',
+        subText: '+7 Flat DMG · +25% Tầm',
         description: 'Tăng +7 Flat Damage và +25% Tầm bắn.',
         statSummary: '+7 Flat DMG · +25% Tầm',
         flatDmg: 7,
@@ -103,6 +111,8 @@ export const LOOT_ITEMS = {
         rarity: 'epic',
         color: '#a855f7',
         tag: 'NÒNG T4',
+        icon: 'assets/previews/kenney-blaster/silencer-larger.png',
+        subText: '+11 Flat DMG · +35% Tầm',
         description: 'Tăng +11 Flat Damage và +35% Tầm bắn.',
         statSummary: '+11 Flat DMG · +35% Tầm',
         flatDmg: 11,
@@ -117,6 +127,8 @@ export const LOOT_ITEMS = {
         rarity: 'legendary',
         color: '#f59e0b',
         tag: 'NÒNG T5',
+        icon: 'assets/previews/kenney-blaster/silencer-larger.png',
+        subText: '+16 Flat DMG · +50% Tầm',
         description: 'Tăng +16 Flat Damage và +50% Tầm bắn siêu xa.',
         statSummary: '+16 Flat DMG · +50% Tầm',
         flatDmg: 16,
@@ -133,6 +145,8 @@ export const LOOT_ITEMS = {
         rarity: 'common',
         color: '#94a3b8',
         tag: 'BĂNG ĐẠN T1',
+        icon: 'assets/previews/kenney-blaster/clip-small.png',
+        subText: '+15% Băng · Nạp +10%',
         description: 'Tăng +15% sức chứa băng đạn, nạp đạn nhanh hơn 10%.',
         statSummary: '+15% Băng đạn · Nạp +10%',
         magBonusPct: 0.15
@@ -146,6 +160,8 @@ export const LOOT_ITEMS = {
         rarity: 'uncommon',
         color: '#22c55e',
         tag: 'BĂNG ĐẠN T2',
+        icon: 'assets/previews/kenney-blaster/clip-small.png',
+        subText: '+25% Băng · Nạp +15%',
         description: 'Tăng +25% sức chứa băng đạn, nạp đạn nhanh hơn 15%.',
         statSummary: '+25% Băng đạn · Nạp +15%',
         magBonusPct: 0.25
@@ -159,6 +175,8 @@ export const LOOT_ITEMS = {
         rarity: 'rare',
         color: '#3b82f6',
         tag: 'BĂNG ĐẠN T3',
+        icon: 'assets/previews/kenney-blaster/clip-large.png',
+        subText: '+40% Băng · Nạp +20%',
         description: 'Tăng +40% sức chứa băng đạn, nạp đạn nhanh hơn 20%.',
         statSummary: '+40% Băng đạn · Nạp +20%',
         magBonusPct: 0.40
@@ -172,6 +190,8 @@ export const LOOT_ITEMS = {
         rarity: 'epic',
         color: '#a855f7',
         tag: 'BĂNG ĐẠN T4',
+        icon: 'assets/previews/kenney-blaster/clip-large.png',
+        subText: '+55% Băng · Nạp +25%',
         description: '+55% Băng đạn, nạp nhanh 25%.',
         statSummary: '+55% Băng đạn · Nạp +25%',
         magBonusPct: 0.55
@@ -185,6 +205,8 @@ export const LOOT_ITEMS = {
         rarity: 'legendary',
         color: '#f59e0b',
         tag: 'BĂNG ĐẠN T5',
+        icon: 'assets/previews/kenney-blaster/clip-large.png',
+        subText: '+75% Băng · Nạp +30%',
         description: '+75% Băng đạn, nạp nhanh 30%.',
         statSummary: '+75% Băng đạn · Nạp +30%',
         magBonusPct: 0.75
@@ -200,6 +222,8 @@ export const LOOT_ITEMS = {
         rarity: 'common',
         color: '#94a3b8',
         tag: 'KÍNH NGẮM T1',
+        icon: 'assets/previews/kenney-blaster/scope-small.png',
+        subText: '+5% Crit · Red Dot',
         description: 'Kính Red Dot: +5% Crit, +0.15x Sát thương bạo kích.',
         statSummary: '+5% Crit · +0.15x Bạo kích',
         critChance: 0.05,
@@ -214,6 +238,8 @@ export const LOOT_ITEMS = {
         rarity: 'uncommon',
         color: '#22c55e',
         tag: 'KÍNH NGẮM T2',
+        icon: 'assets/previews/kenney-blaster/scope-large-a.png',
+        subText: '+10% Crit · Holo 1.5x',
         description: 'Kính Holo: +10% Crit, +0.25x Crit DMG, zoom 1.5x.',
         statSummary: '+10% Crit · Zoom 1.5x',
         critChance: 0.10,
@@ -228,6 +254,8 @@ export const LOOT_ITEMS = {
         rarity: 'rare',
         color: '#3b82f6',
         tag: 'KÍNH NGẮM T3',
+        icon: 'assets/previews/kenney-blaster/scope-large-a.png',
+        subText: '+15% Crit · Scope 2x',
         description: 'Ống ngắm Scope 2x: +15% Crit, +0.35x Crit DMG, zoom 1.75x.',
         statSummary: '+15% Crit · Zoom 1.75x',
         critChance: 0.15,
@@ -242,6 +270,8 @@ export const LOOT_ITEMS = {
         rarity: 'epic',
         color: '#a855f7',
         tag: 'KÍNH NGẮM T4',
+        icon: 'assets/previews/kenney-blaster/scope-large-b.png',
+        subText: '+22% Crit · Scope 4x',
         description: 'Ống ngắm Scope 4x: +22% Crit, +0.45x Crit DMG, zoom 2.2x.',
         statSummary: '+22% Crit · Zoom 2.2x',
         critChance: 0.22,
@@ -256,6 +286,8 @@ export const LOOT_ITEMS = {
         rarity: 'legendary',
         color: '#f59e0b',
         tag: 'KÍNH NGẮM T5',
+        icon: 'assets/previews/kenney-blaster/scope-large-b.png',
+        subText: '+30% Crit · Scope 8x',
         description: 'Kính Thần Ưng: +30% Crit, +0.60x Bạo kích, zoom 2.8x.',
         statSummary: '+30% Crit · Zoom 2.8x',
         critChance: 0.30,
@@ -272,6 +304,8 @@ export const LOOT_ITEMS = {
         rarity: 'common',
         color: '#94a3b8',
         tag: 'TAY CẦM T1',
+        icon: 'assets/previews/kenney-blaster/target-detail.png',
+        subText: '-15% Giật · Tản đạn',
         description: 'Tay cầm dọc: Giảm 15% độ giật, giảm 15% góc tản đạn.',
         statSummary: '-15% Giật · -15% Tản đạn'
     },
@@ -284,6 +318,8 @@ export const LOOT_ITEMS = {
         rarity: 'uncommon',
         color: '#22c55e',
         tag: 'TAY CẦM T2',
+        icon: 'assets/previews/kenney-blaster/target-detail.png',
+        subText: '-25% Giật · Gom đạn',
         description: 'Báng hợp kim: Giảm 25% độ giật, giảm 25% tản đạn.',
         statSummary: '-25% Giật · Gom đạn'
     },
@@ -296,6 +332,8 @@ export const LOOT_ITEMS = {
         rarity: 'rare',
         color: '#3b82f6',
         tag: 'TAY CẦM T3',
+        icon: 'assets/previews/kenney-blaster/target-detail.png',
+        subText: '-35% Giật · Gom đạn',
         description: 'Báng giảm giật cao cấp: Giảm 35% độ giật, gom 35% chùm đạn.',
         statSummary: '-35% Giật · Gom đạn'
     },
@@ -308,6 +346,8 @@ export const LOOT_ITEMS = {
         rarity: 'epic',
         color: '#a855f7',
         tag: 'TAY CẦM T4',
+        icon: 'assets/previews/kenney-blaster/target-detail.png',
+        subText: '-45% Giật · Khung chấn',
         description: 'Khung giảm chấn thủy lực: Giảm 45% độ giật, gom 45% chùm đạn.',
         statSummary: '-45% Giật · Gom đạn'
     },
@@ -320,6 +360,8 @@ export const LOOT_ITEMS = {
         rarity: 'legendary',
         color: '#f59e0b',
         tag: 'TAY CẦM T5',
+        icon: 'assets/previews/kenney-blaster/target-detail.png',
+        subText: '-60% Giật · Laser',
         description: 'Báng cân bằng Laser: Giảm 60% độ giật, gom 55% chùm đạn.',
         statSummary: '-60% Giật · Laser gom đạn'
     },
@@ -334,6 +376,8 @@ export const LOOT_ITEMS = {
         rarity: 'uncommon',
         color: '#22c55e',
         tag: 'SÚNG T2',
+        icon: 'assets/previews/kenney-blaster/blaster-a.png',
+        subText: 'Súng lục bán tự động',
         description: 'Súng ngắn bán tự động Cấp 2 (+15% Damage gốc).',
         statSummary: '+15% Base DMG',
         actionLabel: 'ĐỔI / NHẶT SÚNG'
@@ -347,6 +391,8 @@ export const LOOT_ITEMS = {
         rarity: 'rare',
         color: '#3b82f6',
         tag: 'SÚNG T3',
+        icon: 'assets/previews/kenney-blaster/blaster-a.png',
+        subText: 'Súng lục bán tự động',
         description: 'Súng ngắn bán tự động Cấp 3 (+35% Damage gốc).',
         statSummary: '+35% Base DMG',
         actionLabel: 'ĐỔI / NHẶT SÚNG'
@@ -360,6 +406,8 @@ export const LOOT_ITEMS = {
         rarity: 'uncommon',
         color: '#22c55e',
         tag: 'SÚNG T2',
+        icon: 'assets/previews/kenney-blaster/blaster-d.png',
+        subText: 'Súng trường liên thanh',
         description: 'Súng trường liên thanh tự động Cấp 2 (+15% Damage gốc).',
         statSummary: 'Tự động · +15% Base DMG',
         actionLabel: 'ĐỔI / NHẶT SÚNG'
@@ -373,6 +421,8 @@ export const LOOT_ITEMS = {
         rarity: 'rare',
         color: '#3b82f6',
         tag: 'SÚNG T3',
+        icon: 'assets/previews/kenney-blaster/blaster-d.png',
+        subText: 'Súng trường liên thanh',
         description: 'Súng trường liên thanh tự động Cấp 3 (+35% Damage gốc).',
         statSummary: 'Tự động · +35% Base DMG',
         actionLabel: 'ĐỔI / NHẶT SÚNG'
@@ -386,6 +436,8 @@ export const LOOT_ITEMS = {
         rarity: 'uncommon',
         color: '#22c55e',
         tag: 'SÚNG T2',
+        icon: 'assets/previews/kenney-blaster/blaster-g.png',
+        subText: 'Shotgun tán xạ',
         description: 'Shotgun tán xạ diện rộng Cấp 2 (+15% Damage gốc).',
         statSummary: 'Shotgun · +15% Base DMG',
         actionLabel: 'ĐỔI / NHẶT SÚNG'
@@ -399,6 +451,8 @@ export const LOOT_ITEMS = {
         rarity: 'rare',
         color: '#3b82f6',
         tag: 'SÚNG T3',
+        icon: 'assets/previews/kenney-blaster/blaster-g.png',
+        subText: 'Shotgun tán xạ',
         description: 'Shotgun tán xạ diện rộng Cấp 3 (+35% Damage gốc).',
         statSummary: 'Shotgun · +35% Base DMG',
         actionLabel: 'ĐỔI / NHẶT SÚNG'
@@ -412,6 +466,8 @@ export const LOOT_ITEMS = {
         rarity: 'epic',
         color: '#a855f7',
         tag: 'SÚNG T4 EPIC',
+        icon: 'assets/previews/kenney-blaster/blaster-j.png',
+        subText: 'Pháo Plasma xuyên giáp',
         description: 'Khẩu pháo Plasma sử thi: Sát thương cực lớn, đạn xuyên giáp mạnh.',
         statSummary: 'Sử thi · Xuyên giáp Cấp 3',
         actionLabel: 'ĐỔI / NHẶT SÚNG'
@@ -425,6 +481,8 @@ export const LOOT_ITEMS = {
         rarity: 'epic',
         color: '#a855f7',
         tag: 'SÚNG T4 EPIC',
+        icon: 'assets/previews/kenney-blaster/blaster-e.png',
+        subText: 'Tiểu liên bão đạn 48v',
         description: 'Tiểu liên bão đạn sử thi: Tốc độ xả đạn thần tốc 48 viên/băng.',
         statSummary: 'Sử thi · Tốc độ bắn cực đại',
         actionLabel: 'ĐỔI / NHẶT SÚNG'
@@ -438,6 +496,8 @@ export const LOOT_ITEMS = {
         rarity: 'legendary',
         color: '#f59e0b',
         tag: 'SÚNG T5 LEGENDARY',
+        icon: 'assets/previews/kenney-blaster/blaster-r.png',
+        subText: 'Huyền thoại · Đạn nổ lan',
         description: 'Siêu vũ khí Huyền Thoại: 8 viên đạn nổ lan xuyên thấu mọi zombie!',
         statSummary: 'Huyền thoại · Bắn nổ lan & Xuyên mục tiêu',
         actionLabel: 'ĐỔI / NHẶT SÚNG'
@@ -973,6 +1033,16 @@ export class LootContainer {
                 c.material?.dispose();
             });
         }
+        if (this.interactRing) {
+            this.interactRing.removeFromParent();
+            this.interactRing.geometry?.dispose();
+            this.interactRing.material?.dispose();
+            this.interactRing = null;
+        }
+        if (this.airdropEntity) {
+            this.airdropEntity.dispose();
+            this.airdropEntity = null;
+        }
     }
 }
 
@@ -1074,6 +1144,9 @@ export class AirdropDropEntity {
 
                 // Tạo container Airdrop chính thức
                 this.container = this.lootingSystem.spawnContainer('airdrop_crate', this.targetPos);
+                if (this.container) {
+                    this.container.airdropEntity = this;
+                }
 
                 // Kích động đàn zombie xung quanh lao tới hòm thính
                 this.lootingSystem.alertEnemies(this.targetPos, 26.0);
@@ -1095,6 +1168,7 @@ export class AirdropDropEntity {
     }
 
     dispose() {
+        this.smokeTimer = 0;
         if (this.group) {
             this.group.removeFromParent();
             this.group.traverse(c => {
@@ -1106,6 +1180,12 @@ export class AirdropDropEntity {
             this.shadowMesh.removeFromParent();
             this.shadowMesh.geometry.dispose();
             this.shadowMesh.material.dispose();
+        }
+        if (this.lootingSystem && this.lootingSystem.airdropDrops) {
+            const idx = this.lootingSystem.airdropDrops.indexOf(this);
+            if (idx !== -1) {
+                this.lootingSystem.airdropDrops.splice(idx, 1);
+            }
         }
     }
 }
@@ -1282,10 +1362,37 @@ export class LootingSystem {
         return nearest;
     }
 
+    // Kiểm tra và xóa ngay hòm rỗng khỏi bản đồ nếu đã nhặt hết đồ
+    checkAndRemoveEmptyContainer(container) {
+        if (!container) return false;
+        if (container.checkEmpty()) {
+            const idx = this.containers.indexOf(container);
+            if (idx !== -1) {
+                this.containers.splice(idx, 1);
+            }
+            container.dispose();
+            if (this.activeContainer === container) {
+                this.activeContainer = null;
+                this.closeContainerUI();
+            }
+            return true;
+        }
+        return false;
+    }
+
     // Bắt đầu tiến trình mở hòm khi đứng trong phạm vi
     tryStartSearch(targetContainer = null) {
         const container = targetContainer || this.getNearestInteractableContainer();
-        if (!container || container.isOpen) return false;
+        if (!container || container.isLooted) return false;
+        if (container.checkEmpty()) return false;
+
+        // Nếu hòm đã được mở khóa trước đó (isUnlocked) thì mở ngay giao diện, không cần lục lại
+        if (container.isUnlocked) {
+            this.openContainerUI(container);
+            return true;
+        }
+
+        if (container.isOpen) return false;
         if (this.isSearching && this.activeContainer === container) return true;
 
         this.activeContainer = container;
@@ -1324,9 +1431,10 @@ export class LootingSystem {
         if (!this.activeContainer) return;
         const container = this.activeContainer;
         container.isOpen = true;
+        container.isUnlocked = true; // Đã mở khóa thành công, lần sau mở ngay không cần lục lại
         sounds.playClearJam(); // Tiếng khóa mở hòm cơ khí
 
-        // Hiển thị PUBG Mini Crate UI (góc nhìn thông thoáng 100%, không che màn hình)
+        // Hiển thị PUBG Mini Crate UI
         this.openContainerUI(container);
     }
 
@@ -1345,9 +1453,9 @@ export class LootingSystem {
             if (this.activeContainer.checkEmpty()) {
                 const idx = this.containers.indexOf(this.activeContainer);
                 if (idx !== -1) {
-                    this.activeContainer.dispose();
                     this.containers.splice(idx, 1);
                 }
+                this.activeContainer.dispose();
             }
             this.activeContainer = null;
         }
@@ -1364,6 +1472,7 @@ export class LootingSystem {
             .filter(Boolean);
 
         if (validItems.length === 0) {
+            this.checkAndRemoveEmptyContainer(container);
             this.closeContainerUI();
             return false;
         }
@@ -1389,7 +1498,10 @@ export class LootingSystem {
             container.slots[selected.slotIndex] = null;
             sounds.playMedkit?.();
             this.ui?.showPickupAlert('ĐÃ NHẶT TÚI CỨU THƯƠNG (+1)');
-            container.checkEmpty();
+            if (this.checkAndRemoveEmptyContainer(container)) {
+                this.ui?.showPickupAlert('HÒM ĐÃ HẾT ĐỒ VÀ BIẾN MẤT!');
+                return true;
+            }
             this.ui?.refreshPUBGMiniCrate(container, this);
             return true;
         }
@@ -1408,7 +1520,10 @@ export class LootingSystem {
                 container.slots[selected.slotIndex] = null;
                 sounds.play('switchWeapon', { volume: 0.95, rate: 1.4 });
                 this.ui?.showPickupAlert(`ĐÃ LẮP [${def.name.toUpperCase()}] LÊN SÚNG!`);
-                container.checkEmpty();
+                if (this.checkAndRemoveEmptyContainer(container)) {
+                    this.ui?.showPickupAlert('HÒM ĐÃ HẾT ĐỒ VÀ BIẾN MẤT!');
+                    return true;
+                }
                 this.ui?.refreshPUBGMiniCrate(container, this);
                 return true;
             }
@@ -1439,7 +1554,10 @@ export class LootingSystem {
                     container.slots[selected.slotIndex] = null;
                     sounds.play('switchWeapon', { volume: 0.9, rate: 1.35 });
                     this.ui?.showPickupAlert(`ĐÃ LẮP [${def.name.toUpperCase()}] LÊN SÚNG PHỤ!`);
-                    container.checkEmpty();
+                    if (this.checkAndRemoveEmptyContainer(container)) {
+                        this.ui?.showPickupAlert('HÒM ĐÃ HẾT ĐỒ VÀ BIẾN MẤT!');
+                        return true;
+                    }
                     this.ui?.refreshPUBGMiniCrate(container, this);
                     return true;
                 }
@@ -1468,7 +1586,7 @@ export class LootingSystem {
         if (def.category === 'weapon') {
             const baseGunId = def.baseWeaponId || 'repeater';
             const newTier = def.tier || 2;
-            const gunConfig = [...WEAPON_CONFIGS, ...RARE_WEAPON_CONFIGS].find(w => w.id === baseGunId) || WEAPON_CONFIGS[0];
+            const gunConfig = [...WEAPON_CONFIGS, ...RARE_WEAPON_CONFIGS].find(w => w.id === baseGunId || w.aliases?.includes(baseGunId)) || WEAPON_CONFIGS[0];
             const newGun = {
                 ...gunConfig,
                 tier: newTier,
@@ -1496,7 +1614,6 @@ export class LootingSystem {
             if (weapons.handNode) weapons.attachToArm(weapons.handNode);
             this.ui?.showPickupAlert(`ĐÃ TRANG BỊ [${newGun.name}] CẤP ${newTier}!`);
             this.ui?.refreshPUBGMiniCrate(container, this);
-            return true;
         }
 
         return false;

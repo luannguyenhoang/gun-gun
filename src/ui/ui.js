@@ -1489,41 +1489,23 @@ export class UIManager {
     // =========================================================================
     // 2. GIAO DIỆN NHẶT ĐỒ HÒM PHONG CÁCH PUBG MINI (IN-WORLD CRATE UI)
     // =========================================================================
+    // =========================================================================
+    // 2. GIAO DIỆN NHẶT ĐỒ HÒM PHONG CÁCH PUBG MOBILE (RIGHT LOOT UI)
+    // =========================================================================
     th_initPUBGMiniCrateDOM() {
         if (this._pubgMiniCrateInitialized) return;
         this._pubgMiniCrateInitialized = true;
         this.pubgMiniCrate = document.getElementById('pubg-mini-crate');
         this.pubgCrateName = document.getElementById('pubg-crate-name');
         this.pubgCrateItems = document.getElementById('pubg-crate-items');
-        this.pubgCrateLootAll = document.getElementById('pubg-crate-loot-all');
+        this.pubgCrateClose = document.getElementById('pubg-crate-close');
 
-        if (this.pubgCrateLootAll) {
-            this.pubgCrateLootAll.addEventListener('click', () => {
-                if (this._currentPUBGContainer && this._currentLootingSystem) {
-                    this.lootAllFromCrate(this._currentPUBGContainer, this._currentLootingSystem);
-                }
+        if (this.pubgCrateClose) {
+            this.pubgCrateClose.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this._currentLootingSystem?.closeContainerUI();
+                this.hidePUBGMiniCrate();
             });
-        }
-
-        // Lắng nghe phím Space khi hòm đồ mini đang mở để nhặt toàn bộ
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'Space' && this.pubgMiniCrate && this.pubgMiniCrate.style.display !== 'none') {
-                if (this._currentPUBGContainer && this._currentLootingSystem) {
-                    e.preventDefault();
-                    this.lootAllFromCrate(this._currentPUBGContainer, this._currentLootingSystem);
-                }
-            }
-        });
-    }
-
-    lootAllFromCrate(container, lootingSystem) {
-        if (!container || !container.slots) return;
-        const slotsToLoot = [];
-        container.slots.forEach((slot, idx) => {
-            if (slot && slot.itemId) slotsToLoot.push(idx);
-        });
-        for (const slotIdx of slotsToLoot) {
-            lootingSystem?.th_smartLootCrate(container, slotIdx);
         }
     }
 
@@ -1532,12 +1514,13 @@ export class UIManager {
         if (!this.pubgMiniCrate || !container) return;
 
         this._currentLootingSystem = lootingSystem;
+        this._currentPUBGContainer = container;
         if (this.pubgCrateName) {
             this.pubgCrateName.textContent = (container.name || 'HÒM CHIẾN LỢI PHẨM').toUpperCase();
         }
 
         this.refreshPUBGMiniCrate(container, lootingSystem);
-        this.pubgMiniCrate.style.display = 'flex';
+        this.pubgMiniCrate.style.display = 'block';
     }
 
     refreshPUBGMiniCrate(container, lootingSystem) {
@@ -1557,103 +1540,59 @@ export class UIManager {
         if (validItems.length === 0) {
             const emptyEl = document.createElement('div');
             emptyEl.className = 'pubg-crate-empty';
-            emptyEl.style.cssText = 'color:#64748b; font-size:11px; padding:12px; text-align:center; font-family:Rajdhani,sans-serif; letter-spacing:1px;';
-            emptyEl.textContent = 'HÒM ĐỒ ĐÃ ĐƯỢC VÉT SẠCH!';
+            emptyEl.style.cssText = 'grid-column: 1 / -1; color:#94a3b8; font-size:12px; padding:18px; text-align:center; font-family:Rajdhani,sans-serif; letter-spacing:1px; font-weight:700; background:rgba(0,0,0,0.25); border-radius:4px;';
+            emptyEl.textContent = 'HÒM ĐỒ ĐÃ ĐƯỢC LẤY SẠCH!';
             this.pubgCrateItems.appendChild(emptyEl);
             setTimeout(() => {
                 if (this._currentPUBGContainer === container && validItems.length === 0) {
                     lootingSystem?.closeContainerUI();
                 }
-            }, 600);
+            }, 300);
             return;
         }
 
         this._currentPUBGContainer = container;
         this._currentLootingSystem = lootingSystem;
-        const weapons = lootingSystem?.player?.weapons;
-        const currentGunIdx = weapons?.currentSlotIndex === 1 ? 1 : 0;
-        const currentGunAttach = weapons?.getAttachmentsForGun ? weapons.getAttachmentsForGun(currentGunIdx) : (weapons?.attachments || {});
 
         validItems.forEach((item, index) => {
             const def = (typeof LOOT_ITEMS !== 'undefined' && LOOT_ITEMS[item.itemId]) || {
                 name: item.itemId,
                 tier: 1,
                 category: 'misc',
-                statSummary: ''
+                subText: '',
+                icon: 'assets/previews/kenney-blaster/crate-small.png'
             };
 
             const tier = def.tier || 1;
             const tierColor = def.color || '#94a3b8';
-            const row = document.createElement('div');
-            row.className = `pubg-crate-row${index === 0 ? ' focused' : ''}`;
-            row.style.borderLeftColor = tierColor;
+            const iconSrc = def.icon || 'assets/previews/kenney-blaster/crate-small.png';
+            const subText = def.subText || def.statSummary || (def.category === 'weapon' ? 'VŨ KHÍ CHIẾN ĐẤU' : 'CHIẾN LỢI PHẨM');
 
-            // Xác định Tag phân loại
-            let categoryTag = '';
-            if (def.category === 'medical' || item.itemId === 'medkit') {
-                categoryTag = '<span class="pubg-cat-tag cat-med">Y TẾ</span>';
-            } else if (def.category === 'weapon') {
-                categoryTag = '<span class="pubg-cat-tag cat-gun">SÚNG</span>';
-            } else if (def.category === 'attachment') {
-                categoryTag = '<span class="pubg-cat-tag cat-mod">PHỤ KIỆN</span>';
-            }
+            const card = document.createElement('div');
+            card.className = `pubg-crate-card${index === 0 ? ' first-target' : ''}`;
+            card.setAttribute('data-slot-index', item.slotIndex);
+            card.title = `${def.name} · Nhấp để trang bị`;
 
-            // Xác định nút hành động thông minh (Smart Action Badge)
-            let actionBadgeHtml = '';
-            if (def.category === 'medical' || item.itemId === 'medkit') {
-                actionBadgeHtml = `<span class="pubg-action-btn badge-med">[F] CẤP CỨU</span>`;
-            } else if (def.category === 'weapon') {
-                actionBadgeHtml = `<span class="pubg-action-btn badge-gun">[F] TRANG BỊ</span>`;
-            } else if (def.category === 'attachment') {
-                const attachSlot = def.slot;
-                const equippedModId = currentGunAttach[attachSlot];
-                if (!equippedModId) {
-                    actionBadgeHtml = `<span class="pubg-action-btn badge-equip">[F] LẮP NGAY</span>`;
-                } else {
-                    const equippedTier = (typeof ATTACHMENT_DEFS !== 'undefined' && ATTACHMENT_DEFS[equippedModId]?.tier) || 1;
-                    if (tier > equippedTier) {
-                        actionBadgeHtml = `<span class="pubg-action-btn badge-swap">[F] NÂNG CẤP</span>`;
-                    } else {
-                        actionBadgeHtml = `<span class="pubg-action-btn badge-locked">ĐÃ CÓ CẤP CAO</span>`;
-                    }
-                }
-            } else {
-                actionBadgeHtml = `<span class="pubg-action-btn badge-equip">[F] NHẶT</span>`;
-            }
+            const fBadgeHtml = index === 0 ? `<span class="pubg-card-f-badge">[F]</span>` : '';
 
-            // Tóm tắt chỉ số ngắn gọn
-            let statSummary = def.statSummary || '';
-            if (!statSummary || statSummary.length > 28) {
-                if (def.category === 'attachment') {
-                    if (def.flatDmg) statSummary = `+${def.flatDmg} FLAT DMG`;
-                    else if (def.slot === 'magazine') statSummary = `+BĂNG ĐẠN`;
-                    else if (def.slot === 'optic') statSummary = `+BẠO KÍCH`;
-                    else if (def.slot === 'grip') statSummary = `-GIẬT ĐẠN`;
-                } else if (def.category === 'medical') {
-                    statSummary = `+50 HP CẤP CỨU`;
-                } else if (def.category === 'weapon') {
-                    statSummary = `SÚNG CẤP ${tier}`;
-                }
-            }
-
-            row.innerHTML = `
-                <div class="pubg-item-left">
-                    <span class="pubg-tier-badge" style="background:${tierColor}25; color:${tierColor}; border:1px solid ${tierColor};">T${tier}</span>
-                    <div class="pubg-item-details">
-                        <span class="pubg-item-name" style="color:${tier >= 3 ? tierColor : '#ffffff'};">${categoryTag}${def.name.toUpperCase()}</span>
-                        <span class="pubg-item-stat">${statSummary}</span>
-                    </div>
+            card.innerHTML = `
+                <div class="pubg-card-icon-wrap">
+                    <img class="pubg-card-img" src="${iconSrc}" alt="${def.name}" onerror="this.src='assets/previews/kenney-blaster/crate-small.png'">
                 </div>
-                <div class="pubg-item-action">
-                    ${actionBadgeHtml}
+                <div class="pubg-card-content">
+                    <span class="pubg-card-title">${def.name}</span>
+                    <span class="pubg-card-subtitle">${subText}</span>
                 </div>
+                <span class="pubg-card-tier-tag" style="background:${tierColor};">T${tier}</span>
+                ${fBadgeHtml}
             `;
 
-            row.addEventListener('click', () => {
+            card.addEventListener('click', (e) => {
+                e.stopPropagation();
                 lootingSystem?.th_smartLootCrate(container, item.slotIndex);
             });
 
-            this.pubgCrateItems.appendChild(row);
+            this.pubgCrateItems.appendChild(card);
         });
     }
 
@@ -2472,9 +2411,10 @@ export class UIManager {
         const catText = catBadgeLabels[itemDef.category] || (itemDef.category || 'ĐỒ DÙNG').toUpperCase();
 
         // Icon vuông (40x40px)
-        const iconHtml = itemDef.iconImage
-            ? `<img src="${itemDef.iconImage}" alt="${itemDef.name}">`
-            : `<span class="card-fallback-icon">${itemDef.icon || 'ITM'}</span>`;
+        const iconSrc = itemDef.icon || itemDef.iconImage;
+        const iconHtml = iconSrc
+            ? `<img src="${iconSrc}" alt="${itemDef.name}">`
+            : `<span class="card-fallback-icon">ITM</span>`;
 
         card.innerHTML = `
             <div class="card-icon-box">${iconHtml}</div>

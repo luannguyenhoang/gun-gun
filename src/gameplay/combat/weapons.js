@@ -857,7 +857,7 @@ export const WEAPON_CONFIGS = [
     },
     {
         id: 'blaster_r',
-        aliases: ['blaster-r'],
+        aliases: ['blaster-r', 'nova'],
         name: 'BLASTER-R OMEGA CANNON',
         category: 'PHÁO LƯỢNG TỬ TẬN THẾ',
         tier: 1,

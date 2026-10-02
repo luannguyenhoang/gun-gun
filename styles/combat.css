@@ -1366,40 +1366,45 @@
    2. GIAO DIỆN NHẶT ĐỒ HÒM PHONG CÁCH PUBG MINI (IN-WORLD CRATE UI)
    Hiển thị ngay bên dưới thanh đếm ngược tiến trình lục hòm, giữ góc nhìn thông thoáng
    ========================================================================== */
+/* ==========================================================================
+   2. GIAO DIỆN NHẶT ĐỒ HÒM PHONG CÁCH PUBG MOBILE (RIGHT LOOT UI)
+   Hiển thị ở mép phải màn hình, lưới 2 cột thẻ màu vàng quân dụng đặc trưng
+   ========================================================================== */
 .pubg-mini-crate {
-  position:absolute;
-  bottom:145px;
-  left:50%;
-  transform:translateX(-50%);
-  width:440px;
-  max-width:94vw;
-  background:rgba(8, 14, 24, 0.45);
-  backdrop-filter:blur(8px);
-  -webkit-backdrop-filter:blur(8px);
-  border:1px solid rgba(0, 240, 255, 0.38);
+  position:fixed;
+  right:28px;
+  top:50%;
+  transform:translateY(-50%);
+  width:490px;
+  max-width:92vw;
+  max-height:580px;
+  background:rgba(15, 23, 42, 0.88);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  border:1.5px solid rgba(234, 179, 8, 0.65);
   border-radius:8px;
-  box-shadow:0 8px 32px rgba(0, 0, 0, 0.65), inset 0 0 16px rgba(0, 240, 255, 0.08);
-  z-index:130;
+  box-shadow:0 12px 40px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(234, 179, 8, 0.1);
+  z-index:140;
   pointer-events:auto;
   font-family:'Orbitron','Rajdhani',sans-serif;
   user-select:none;
-  padding:8px 12px;
+  padding:10px 12px;
   box-sizing:border-box;
-  animation:pubgFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  animation:pubgSlideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes pubgFadeIn {
-  from { opacity:0; transform:translateX(-50%) translateY(8px); }
-  to { opacity:1; transform:translateX(-50%) translateY(0); }
+@keyframes pubgSlideInRight {
+  from { opacity:0; transform:translateY(-50%) translateX(24px); }
+  to { opacity:1; transform:translateY(-50%) translateX(0); }
 }
 
 .pubg-crate-header {
   display:flex;
   justify-content:space-between;
   align-items:center;
-  padding-bottom:6px;
-  margin-bottom:6px;
-  border-bottom:1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom:8px;
+  margin-bottom:8px;
+  border-bottom:1.5px solid rgba(234, 179, 8, 0.35);
 }
 
 .pubg-crate-title-wrap {
@@ -1409,82 +1414,75 @@
 }
 
 .pubg-crate-tag {
-  background:rgba(0, 240, 255, 0.22);
-  color:#00f0ff;
-  border:1px solid #00f0ff;
-  font-size:9px;
+  background:#eab308;
+  color:#0f172a;
+  font-size:9.5px;
   font-weight:900;
-  padding:2px 6px;
+  padding:2px 7px;
   border-radius:3px;
   letter-spacing:1px;
 }
 
 .pubg-crate-name {
-  color:#fff;
-  font-size:11.5px;
+  color:#fef08a;
+  font-size:12px;
   font-weight:800;
-  letter-spacing:0.5px;
+  letter-spacing:0.6px;
+  text-shadow:0 1px 3px rgba(0, 0, 0, 0.7);
 }
 
 .pubg-crate-actions {
   display:flex;
   align-items:center;
-  gap:8px;
-}
-
-.pubg-crate-btn-all {
-  background:rgba(0, 240, 255, 0.22);
-  border:1px solid #00f0ff;
-  color:#00f0ff;
-  font-family:'Orbitron','Rajdhani',sans-serif;
-  font-size:9.5px;
-  font-weight:900;
-  padding:3px 8px;
-  border-radius:4px;
-  cursor:pointer;
-  display:inline-flex;
-  align-items:center;
-  gap:4px;
-  transition:all 0.15s ease;
-  letter-spacing:0.5px;
-}
-
-.pubg-crate-btn-all:hover {
-  background:#00f0ff;
-  color:#040914;
-  box-shadow:0 0 10px rgba(0, 240, 255, 0.5);
-  transform:scale(1.02);
-}
-
-.pubg-key-badge-small {
-  background:rgba(0, 0, 0, 0.5);
-  color:#fff;
-  font-size:8px;
-  font-weight:900;
-  padding:1px 4px;
-  border-radius:2px;
-  border:1px solid rgba(255, 255, 255, 0.3);
+  gap:10px;
 }
 
 .pubg-crate-hint {
-  color:#ffd06b;
-  font-size:9.5px;
-  font-weight:900;
+  color:#38bdf8;
+  font-size:10px;
+  font-weight:800;
   letter-spacing:0.5px;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
 }
 
-.badge-locked {
-  background:rgba(100, 116, 139, 0.18);
+.pubg-key-badge-small {
+  background:rgba(0, 240, 255, 0.25);
+  color:#00f0ff;
+  border:1px solid #00f0ff;
+  font-size:8.5px;
+  font-weight:900;
+  padding:1px 5px;
+  border-radius:2px;
+}
+
+.pubg-crate-close-btn {
+  background:rgba(255, 255, 255, 0.08);
+  border:1px solid rgba(255, 255, 255, 0.2);
   color:#94a3b8;
-  border:1px solid rgba(148, 163, 184, 0.3);
-  opacity:0.65;
+  width:22px;
+  height:22px;
+  border-radius:4px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:11px;
+  transition:all 0.15s ease;
+}
+
+.pubg-crate-close-btn:hover {
+  background:#ef4444;
+  border-color:#ef4444;
+  color:#fff;
 }
 
 .pubg-crate-items {
-  display:flex;
-  flex-direction:column;
-  gap:5px;
-  max-height:190px;
+  display:grid;
+  grid-template-columns:repeat(2, 1fr);
+  gap:7px;
+  max-height:460px;
   overflow-y:auto;
   padding-right:2px;
 }
@@ -1493,110 +1491,125 @@
   width:4px;
 }
 .pubg-crate-items::-webkit-scrollbar-thumb {
-  background:rgba(0, 240, 255, 0.3);
+  background:rgba(234, 179, 8, 0.4);
   border-radius:2px;
 }
 
-.pubg-crate-row {
+/* Thẻ vật phẩm phong cách PUBG Mobile: Nền vàng cát quân sự */
+.pubg-crate-card {
   display:flex;
   align-items:center;
-  justify-content:space-between;
   gap:8px;
-  height:38px;
-  padding:0 10px;
-  background:rgba(255, 255, 255, 0.04);
-  border-radius:5px;
-  border-left:3.5px solid #94a3b8;
+  height:62px;
+  padding:4px 8px;
+  background:linear-gradient(135deg, #fef08a 0%, #facc15 55%, #eab308 100%);
+  border:1.5px solid #854d0e;
+  border-radius:4px;
   cursor:pointer;
-  transition:all 0.12s ease;
+  transition:all 0.14s ease;
   box-sizing:border-box;
+  position:relative;
+  overflow:hidden;
+  box-shadow:0 3px 8px rgba(0, 0, 0, 0.4);
 }
 
-.pubg-crate-row:hover, .pubg-crate-row.focused {
-  background:rgba(0, 240, 255, 0.16);
-  box-shadow:inset 0 0 10px rgba(0, 240, 255, 0.2);
-  transform:translateX(2px);
+.pubg-crate-card:hover {
+  transform:translateY(-2px) scale(1.01);
+  box-shadow:0 6px 14px rgba(234, 179, 8, 0.45);
+  filter:brightness(1.06);
 }
 
-.pubg-item-left {
+.pubg-crate-card.first-target {
+  outline:2px solid #00f0ff;
+  outline-offset:-1px;
+  box-shadow:0 0 14px rgba(0, 240, 255, 0.65), 0 3px 8px rgba(0, 0, 0, 0.4);
+}
+
+.pubg-card-icon-wrap {
+  width:58px;
+  height:52px;
+  background:rgba(0, 0, 0, 0.1);
+  border-radius:3px;
   display:flex;
   align-items:center;
-  gap:8px;
-  flex:1;
-  min-width:0;
+  justify-content:center;
+  flex-shrink:0;
   overflow:hidden;
 }
 
-.pubg-tier-badge {
-  font-size:8.5px;
-  font-weight:900;
-  padding:1px 5px;
-  border-radius:3px;
-  letter-spacing:0.5px;
-  flex-shrink:0;
+.pubg-card-img {
+  max-width:54px;
+  max-height:48px;
+  object-fit:contain;
+  filter:drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
+  transition:transform 0.14s ease;
 }
 
-.pubg-item-details {
+.pubg-crate-card:hover .pubg-card-img {
+  transform:scale(1.08);
+}
+
+.pubg-card-content {
   display:flex;
   flex-direction:column;
+  justify-content:center;
   flex:1;
   min-width:0;
   overflow:hidden;
+  padding-right:16px;
 }
 
-.pubg-item-name {
-  color:#fff;
-  font-size:10.5px;
-  font-weight:700;
+.pubg-card-title {
+  color:#0f172a;
+  font-size:11px;
+  font-weight:900;
+  font-family:'Orbitron','Rajdhani',sans-serif;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
   letter-spacing:0.3px;
+  text-transform:uppercase;
+  line-height:1.2;
 }
 
-.pubg-item-stat {
-  color:#94a3b8;
-  font-size:9px;
-  font-weight:600;
+.pubg-card-subtitle {
+  color:#334155;
+  font-size:9.5px;
+  font-weight:700;
   font-family:'Rajdhani',sans-serif;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
+  letter-spacing:0.2px;
+  margin-top:2px;
 }
 
-.pubg-item-action {
-  flex-shrink:0;
-}
-
-.pubg-action-btn {
-  font-size:8.5px;
+.pubg-card-tier-tag {
+  position:absolute;
+  top:3px;
+  right:4px;
+  font-size:8px;
   font-weight:900;
-  padding:3px 7px;
-  border-radius:3px;
+  padding:0px 4px;
+  border-radius:2px;
+  color:#fff;
   letter-spacing:0.4px;
-  text-transform:uppercase;
-  display:inline-flex;
-  align-items:center;
-  white-space:nowrap;
+  text-shadow:0 1px 2px rgba(0, 0, 0, 0.8);
+  box-shadow:0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-.badge-equip {
-  background:rgba(34, 197, 94, 0.25);
-  color:#22c55e;
-  border:1px solid #22c55e;
-}
-
-.badge-swap {
-  background:rgba(0, 240, 255, 0.25);
+.pubg-card-f-badge {
+  position:absolute;
+  bottom:3px;
+  right:4px;
+  background:#0f172a;
   color:#00f0ff;
   border:1px solid #00f0ff;
-  box-shadow:0 0 8px rgba(0, 240, 255, 0.35);
-}
-
-.badge-gun {
-  background:rgba(168, 85, 247, 0.25);
-  color:#c084fc;
-  border:1px solid #a855f7;
+  font-size:7.5px;
+  font-weight:900;
+  padding:0px 3px;
+  border-radius:2px;
+  letter-spacing:0.3px;
 }
 
 .badge-med {
