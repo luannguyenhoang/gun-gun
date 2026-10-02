@@ -275,7 +275,7 @@ export class CharacterShowroom {
             row.innerHTML = `
                 <img class="th_tactical-weapon-row-img" src="${w.icon}" alt="${w.name}">
                 <div class="th_tactical-weapon-row-info">
-                    <div class="th_tactical-weapon-row-name">${isActive ? '[*] ' : '[ ] '}${w.name}</div>
+                    <div class="th_tactical-weapon-row-name">${w.name}</div>
                     <div class="th_tactical-weapon-row-meta">
                         <span class="th_badge-tier tier-${tier}">T${tier}</span>
                         ${enchantHTML}
@@ -317,7 +317,7 @@ export class CharacterShowroom {
         const previewImg = document.getElementById('th_up_preview_img');
         if (previewImg) previewImg.src = item.icon;
         setEl('th_up_watermark', item.name.toUpperCase());
-        setEl('th_up_bay_code', `GUN-ID :: ${item.name.toUpperCase()} | ${item.category}`);
+        setEl('th_up_bay_code', `${item.name.toUpperCase()} - ${item.category}`);
 
         // 2. Cập nhật 4 Slot Bộ phận với tier thực từ dữ liệu người dùng
         this.th_renderPartSlots(id, parts, isUnlocked);
@@ -343,10 +343,10 @@ export class CharacterShowroom {
         const avgTier = Math.floor((parts.optic + parts.barrel + parts.grip + parts.magazine) / 4);
         const tierBadge = document.getElementById('th_up_tier_badge');
         if (tierBadge) {
-            tierBadge.textContent = `BUILD T${avgTier}`;
+            tierBadge.textContent = `CẤP T${avgTier}`;
             tierBadge.className = `th_tactical-tier-badge tier-${avgTier}`;
         }
-        setEl('th_up_grade_tag', `BỘ PHẬN: O:T${parts.optic} B:T${parts.barrel} G:T${parts.grip} M:T${parts.magazine}`);
+        setEl('th_up_grade_tag', `Ngắm: T${parts.optic} | Nòng: T${parts.barrel} | Tay: T${parts.grip} | Băng: T${parts.magazine}`);
 
         // 5. Stats bars: hiển thị stats THỰC sau khi cộng bộ phận
         const bDef = ATTACHMENT_DEFS[`barrel_t${parts.barrel}`] || {};

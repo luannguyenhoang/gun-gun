@@ -64,7 +64,7 @@
         display: flex !important;
         flex-direction: column;
         position: absolute;
-        top: 80px;
+        top: 100px;
         left: 24px;
         bottom: 24px;
         right: calc(38% + 36px) !important;
@@ -809,7 +809,6 @@
         <nav class="showroom-tabs" aria-label="Trang bị nhân vật"><button data-showroom-tab="characters" aria-pressed="true">NHÂN VẬT</button><button data-showroom-tab="weapons" aria-pressed="false">VŨ KHÍ</button><button data-showroom-tab="upgrade" aria-pressed="false">NÂNG CẤP</button></nav>
         <div class="character-header-currency">
           <span class="character-collection" id="armory-gold-display">VÀNG: <b>1,000</b></span>
-          <span class="character-collection th_tactical-parts-badge" id="th_armory_parts_display">LINH KIỆN: <b>142</b></span>
         </div>
       </header>
       <div class="character-showcase">
@@ -918,7 +917,7 @@
         <!-- ================= CỘT 1 (TRÁI - 20%): DANH SÁCH VŨ KHÍ ================= -->
         <div class="th_tactical-col th_tactical-col-left">
           <div class="th_tactical-header-card">
-            <span class="th_tactical-hud-label">ARMORY // WEAPON_REGISTRY</span>
+            <span class="th_tactical-hud-label">DANH SÁCH VŨ KHÍ</span>
             <div class="th_tactical-filter-group">
               <button class="th_tactical-filter-btn active" data-upgrade-cat="primary">SÚNG CHÍNH</button>
               <button class="th_tactical-filter-btn" data-upgrade-cat="secondary">SÚNG PHỤ</button>
@@ -931,77 +930,90 @@
 
         <!-- ================= CỘT 2 (GIỮA - 55%): BỆ VŨ KHÍ 3D & PHỤ KIỆN & LÕI ĐẠN ================= -->
         <div class="th_tactical-col th_tactical-col-center">
-          <!-- Bệ vũ khí Blueprint inspection bay -->
+          <!-- Bệ vũ khí trưng bày nâng cấp -->
           <div class="th_tactical-workbench-bay">
-            <!-- Header góc kỹ thuật -->
+            <!-- Header thông tin bệ -->
             <div class="th_workbench-header">
               <div class="th_workbench-title-tag">
-                <span class="th_hud-subtext">3D BENCH // BLUEPRINT INSPECTION BAY</span>
-                <span class="th_workbench-id" id="th_up_bay_code">BAY-01 :: CARBINE CALIBER 5.56</span>
+                <span class="th_hud-subtext">BÀN NÂNG CẤP // BỘ PHẬN VŨ KHÍ</span>
+                <span class="th_workbench-id" id="th_up_bay_code">BÀN 01 :: SÚNG TRƯỜNG CHIẾN THUẬT</span>
               </div>
               <div class="th_workbench-grid-coords">
-                <span>GRID: 45° CH-12</span>
-                <span class="th_workbench-online">ONLINE</span>
+                <span class="th_workbench-online">SẴN SÀNG</span>
               </div>
             </div>
 
-            <!-- Khung chiếu Blueprint Súng & 4 Ô Phụ Kiện Với Leader Lines Kỹ Thuật -->
+            <!-- Khung chiếu Súng & 4 Ô Phụ Kiện Với Đường Nối Tinh Tế -->
             <div class="th_workbench-blueprint-stage">
-              <!-- Lưới tọa độ Blueprint -->
+              <!-- Hiệu ứng ánh sáng nền bệ -->
               <div class="th_blueprint-grid-overlay"></div>
-              <div class="th_blueprint-crosshairs"></div>
 
-              <!-- Ô Phụ kiện 1: KÍNH NGẮM (OPTIC) - Phía trên giữa -->
+              <!-- Ô Phụ kiện 1: KÍNH NGẮM (OPTIC) - Phía trên gần súng -->
               <div class="th_mod-slot th_mod-slot-optic" data-mod-slot="optic">
-                <div class="th_mod-slot-box">
-                  <span class="th_mod-slot-tag">[O] KÍNH NGẮM</span>
-                  <span class="th_mod-slot-val" id="th_mod_optic_val">HOLOSIGHT REFLEX</span>
+                <div class="th_mod-slot-box" title="Bấm để nâng cấp Kính ngắm">
+                  <div class="th_mod-slot-head">
+                    <span class="th_mod-slot-tag">KÍNH NGẮM</span>
+                    <span class="th_mod-slot-perk">+TẦM BẮN</span>
+                  </div>
+                  <div class="th_mod-slot-val" id="th_mod_optic_val">HOLOSIGHT REFLEX</div>
+                  <div class="th_mod-slot-action">NHẤN ĐỂ NÂNG CẤP</div>
                 </div>
                 <div class="th_leader-line th_leader-optic"></div>
               </div>
 
-              <!-- Ô Phụ kiện 2: NÒNG SÚNG (BARREL) - Bên trái giữa -->
+              <!-- Ô Phụ kiện 2: NÒNG SÚNG (BARREL) - Bên trái sát nòng súng -->
               <div class="th_mod-slot th_mod-slot-barrel" data-mod-slot="barrel">
-                <div class="th_mod-slot-box">
-                  <span class="th_mod-slot-tag">[O] NÒNG (BARREL)</span>
-                  <span class="th_mod-slot-val" id="th_mod_barrel_val">COMPENSATOR T2</span>
+                <div class="th_mod-slot-box" title="Bấm để nâng cấp Nòng súng">
+                  <div class="th_mod-slot-head">
+                    <span class="th_mod-slot-tag">NÒNG SÚNG</span>
+                    <span class="th_mod-slot-perk">+SÁT THƯƠNG</span>
+                  </div>
+                  <div class="th_mod-slot-val" id="th_mod_barrel_val">COMPENSATOR T2</div>
+                  <div class="th_mod-slot-action">NHẤN ĐỂ NÂNG CẤP</div>
                 </div>
                 <div class="th_leader-line th_leader-barrel"></div>
               </div>
 
-              <!-- Ô Phụ kiện 3: TAY CẦM (GRIP) - Phía dưới trái -->
+              <!-- Ô Phụ kiện 3: TAY CẦM (GRIP) - Phía dưới gần tay cầm -->
               <div class="th_mod-slot th_mod-slot-grip" data-mod-slot="grip">
-                <div class="th_mod-slot-box">
-                  <span class="th_mod-slot-tag">[O] TAY CẦM (GRIP)</span>
-                  <span class="th_mod-slot-val" id="th_mod_grip_val">ANGLED FOREGRIP</span>
+                <div class="th_mod-slot-box" title="Bấm để nâng cấp Tay cầm">
+                  <div class="th_mod-slot-head">
+                    <span class="th_mod-slot-tag">TAY CẦM</span>
+                    <span class="th_mod-slot-perk">-ĐỘ GIẬT</span>
+                  </div>
+                  <div class="th_mod-slot-val" id="th_mod_grip_val">ANGLED FOREGRIP</div>
+                  <div class="th_mod-slot-action">NHẤN ĐỂ NÂNG CẤP</div>
                 </div>
                 <div class="th_leader-line th_leader-grip"></div>
               </div>
 
-              <!-- Ô Phụ kiện 4: BĂNG ĐẠN (MAG) - Phía dưới phải -->
+              <!-- Ô Phụ kiện 4: BĂNG ĐẠN (MAG) - Phía dưới gần khay đạn -->
               <div class="th_mod-slot th_mod-slot-mag" data-mod-slot="mag">
-                <div class="th_mod-slot-box">
-                  <span class="th_mod-slot-tag">[O] BĂNG ĐẠN (MAG)</span>
-                  <span class="th_mod-slot-val" id="th_mod_mag_val">EXTENDED +10R</span>
+                <div class="th_mod-slot-box" title="Bấm để nâng cấp Băng đạn">
+                  <div class="th_mod-slot-head">
+                    <span class="th_mod-slot-tag">BĂNG ĐẠN</span>
+                    <span class="th_mod-slot-perk">+CỠ BĂNG</span>
+                  </div>
+                  <div class="th_mod-slot-val" id="th_mod_mag_val">EXTENDED +10R</div>
+                  <div class="th_mod-slot-action">NHẤN ĐỂ NÂNG CẤP</div>
                 </div>
                 <div class="th_leader-line th_leader-mag"></div>
               </div>
 
-              <!-- Trọng tâm: Vũ khí 3D lớn hiển thị trên bệ kính -->
+              <!-- Trọng tâm: Vũ khí hiển thị trên bệ kính -->
               <div class="th_workbench-weapon-viewport">
                 <div class="th_weapon-pedestal-light"></div>
-                <img id="th_up_preview_img" class="th_workbench-weapon-img" src="assets/previews/kenney-blaster/blaster-c.png" alt="Khẩu súng 3D">
-                <div class="th_weapon-laser-scan"></div>
+                <img id="th_up_preview_img" class="th_workbench-weapon-img" src="assets/previews/kenney-blaster/blaster-c.png" alt="Khẩu súng">
               </div>
 
-              <!-- Watermark súng chìm quân sự -->
+              <!-- Watermark súng chìm -->
               <div class="th_workbench-watermark" id="th_up_watermark">PULSE CARBINE</div>
             </div>
 
-            <!-- Khay gắn 4 Lõi Đạn Đặc Biệt (Tech Core / Ammo Chip) mạch điện tử phát sáng -->
+            <!-- Khay gắn 4 Lõi Đạn Đặc Biệt -->
             <div class="th_ammo-core-section">
               <div class="th_ammo-core-header">
-                <span class="th_hud-subtext">MÔ-ĐUN LÕI ĐẠN ĐẶC BIỆT // AMMO CHIP SLOTS</span>
+                <span class="th_hud-subtext">LÕI ĐẠN ĐẶC BIỆT // NGUYÊN TỐ CHIẾN THUẬT</span>
                 <span class="th_ammo-active-status" id="th_ammo_status_text">TRẠNG THÁI: KHÔNG CÓ LÕI</span>
               </div>
               <div class="th_ammo-core-grid" id="th_up_gacha_effects">
@@ -1016,7 +1028,7 @@
           <!-- Thẻ tóm tắt vũ khí đang chọn -->
           <div class="th_tactical-summary-panel">
             <div class="th_summary-header">
-              <span class="th_hud-subtext">WEAPON SPECIFICATION</span>
+              <span class="th_hud-subtext">THÔNG SỐ VŨ KHÍ</span>
               <span class="th_tactical-tier-badge" id="th_up_tier_badge">TIER 2</span>
             </div>
             <h3 class="th_summary-weapon-name" id="th_up_name">BLASTER-L CARBINE</h3>
@@ -1098,28 +1110,21 @@
           <!-- Bảng Chi Phí Nâng Cấp Tier Tiếp Theo -->
           <div class="th_tactical-cost-card">
             <div class="th_cost-card-header">
-              <span class="th_hud-subtext">UPGRADE REQUISITION</span>
-              <span class="th_cost-success-rate" id="th_up_forge_rate">TỶ LỆ: 80%</span>
+              <span class="th_hud-subtext">HƯỚNG DẪN NÂNG CẤP</span>
+              <span class="th_cost-success-rate" id="th_up_forge_rate"></span>
             </div>
             <div class="th_cost-details">
               <div class="th_cost-item">
-                <span class="th_cost-label">NGÂN SÁCH QUÂN DỤNG:</span>
-                <span class="th_cost-value" id="th_cost_gold_val">1,200 VÀNG</span>
-              </div>
-              <div class="th_cost-item">
-                <span class="th_cost-label">LINH KIỆN HỢP KIM T3:</span>
-                <span class="th_cost-value th_cost-parts" id="th_cost_parts_val">15 LINH KIỆN</span>
+                <span class="th_cost-label" style="color: #ffd079;">HÃY CLICK VÀO 4 Ô BỘ PHẬN Ở BỆ GIỮA ĐỂ NÂNG CẤP TỪNG MÓN</span>
               </div>
             </div>
           </div>
 
-          <!-- Cụm nút Thao Tác Cơ Khí 3D Vát Góc Chamfer -->
+          <!-- Cụm nút Thao Tác Nâng Cấp Chuẩn Tone Game -->
           <div class="th_tactical-actions">
             <!-- Nút Nâng Cấp Lên Tier Tiếp Theo -->
             <button id="th_up_btn_forge" class="th_tactical-btn th_btn-upgrade-chamber">
-              <span class="th_btn-bracket-l">[</span>
-              <span class="th_btn-label" id="th_btn_upgrade_text">NÂNG CẤP LÊN TIER 3</span>
-              <span class="th_btn-bracket-r">]</span>
+              <span class="th_btn-label" id="th_btn_upgrade_text">CHỌN BỘ PHẬN ĐỂ NÂNG CẤP</span>
             </button>
 
             <!-- Nút Nạp/Đổi Lõi Đạn Đặc Biệt -->
