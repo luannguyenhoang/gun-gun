@@ -1941,7 +1941,13 @@ export class WeaponSystem {
                 if ((this.reserve[current.id] || 0) > 0) this.reload();
                 return false;
             }
-            this.onCommand({ type: 'shoot', target: targetPoint.toArray(), ads: isADS });
+            this.onCommand({
+                type: 'shoot',
+                origin: origin.toArray(),
+                target: targetPoint.toArray(),
+                ads: !!isADS,
+                weaponId: current.id
+            });
             const send = this.onCommand;
             this.onCommand = null;
             try { return this.shoot(origin, targetPoint, isADS, isPlayer, damageMultiplier, playerRef); }
@@ -2017,6 +2023,7 @@ export class WeaponSystem {
         const enchant = effective.enchant;
         const bulletColor = isOverclockActive ? 0xffdd00 : (enchant ? enchant.hex : (effective.hasLegendary ? 0xf59e0b : w.color));
         this.particles?.createMuzzleFlash?.(origin, new THREE.Vector3().subVectors(targetPoint, origin).normalize(), bulletColor);
+        this.onShotFired?.({ origin, target: targetPoint, ads: isADS, weapon: w, color: bulletColor });
 
         const beams = isPlayer ? this.beamCount : 1;
         const spreadRad = THREE.MathUtils.degToRad(isOverclockActive ? Math.min(this.currentSpreadDeg, 1.0) : this.currentSpreadDeg);
@@ -2511,7 +2518,7 @@ export class WeaponSystem {
                         }
 
                         sounds.playHitMarker(isCrit);
-                        if (onHitCallback) onHitCallback(finalDamage, isCrit, hitInfo.point, hitResult);
+                        if (onHitCallback) onHitCallback(finalDamage, isCrit, hitInfo.point, hitResult, enemy);
 
                         // Hiệu ứng Xuyên mục tiêu (Piercing)
                         if (p.pierceCount > 1) {

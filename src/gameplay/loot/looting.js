@@ -7,6 +7,7 @@ const _gltfLoader = new GLTFLoader();
 const _modelCache = new Map();
 
 function getOrLoadModel(path, onLoad) {
+    if (typeof window === 'undefined') return;
     if (_modelCache.has(path)) {
         onLoad(_modelCache.get(path).clone());
         return;
@@ -851,7 +852,15 @@ export class LootContainer {
         this.mesh = null;
         this.smokeParticles = null;
         this.buildMesh();
-        this.generateLoot();
+        if (options.slots && Array.isArray(options.slots)) {
+            // Khởi tạo từ dữ liệu đồng bộ mạng (Client)
+            this.slots = options.slots.map(s => s ? { ...s } : null);
+            this.isUnlocked = !!options.isUnlocked;
+            this.isOpen = !!options.isOpen;
+            this.isLooted = !!options.isLooted;
+        } else {
+            this.generateLoot();
+        }
     }
 
     // Sinh mô hình 3D cho Container dựa trên phân loại
@@ -1025,6 +1034,22 @@ export class LootContainer {
         return this.isLooted;
     }
 
+    // Đóng gói trạng thái hòm đồ để đồng bộ mạng
+    snapshot() {
+        return {
+            id: this.id,
+            type: this.type,
+            name: this.name,
+            position: this.position.toArray(),
+            slots: this.slots.map(s => s ? { itemId: s.itemId, count: s.count, revealed: !!s.revealed } : null),
+            isOpen: !!this.isOpen,
+            isUnlocked: !!this.isUnlocked,
+            isLooted: !!this.isLooted,
+            searchDuration: this.searchDuration,
+            interactionRadius: this.interactionRadius
+        };
+    }
+
     dispose() {
         if (this.mesh) {
             this.mesh.removeFromParent();
@@ -1048,10 +1073,11 @@ export class LootContainer {
 
 // Đối tượng Hòm Thính Rơi Từ Bầu Trời (Airdrop Drop Simulation)
 export class AirdropDropEntity {
-    constructor(scene, targetPos, lootingSystem) {
+    constructor(scene, targetPos, lootingSystem, options = {}) {
         this.scene = scene;
         this.lootingSystem = lootingSystem;
         this.targetPos = targetPos.clone();
+        this.id = options.id || ('airdrop_' + Math.random().toString(36).substring(2, 9));
         this.currentPos = new THREE.Vector3(targetPos.x, 34, targetPos.z);
         this.fallSpeed = 5.2; // Tốc độ hạ cánh
         this.landed = false;
@@ -1142,14 +1168,15 @@ export class AirdropDropEntity {
                 this.linesMesh.visible = false;
                 sounds.play('land', { volume: 0.95 });
 
-                // Tạo container Airdrop chính thức
-                this.container = this.lootingSystem.spawnContainer('airdrop_crate', this.targetPos);
-                if (this.container) {
-                    this.container.airdropEntity = this;
+                // Ở chế độ Client, hòm airdrop_crate sẽ được tạo thông qua snapshot của Host
+                const isClient = window.game?.network?.active && !window.game?.network?.host;
+                if (!isClient) {
+                    this.container = this.lootingSystem.spawnContainer('airdrop_crate', this.targetPos);
+                    if (this.container) {
+                        this.container.airdropEntity = this;
+                    }
+                    this.lootingSystem.alertEnemies(this.targetPos, 26.0);
                 }
-
-                // Kích động đàn zombie xung quanh lao tới hòm thính
-                this.lootingSystem.alertEnemies(this.targetPos, 26.0);
             }
         } else {
             // Sau khi tiếp đất: Khói hiệu ứng màu đỏ phụt lên liên tục trong 60-90 giây
@@ -1224,6 +1251,7 @@ export class LootingSystem {
     }
 
     initEventListeners() {
+        if (typeof window === 'undefined') return;
         window.addEventListener('keydown', (e) => {
             if (e.repeat || e.target?.matches?.('input, textarea, select, [contenteditable="true"]')) return;
             if (window.game?.state !== 'PLAYING') return;
@@ -1496,6 +1524,7 @@ export class LootingSystem {
         if (def.category === 'medical' || selected.itemId === 'medkit') {
             weapons.inventory.medkits = (weapons.inventory.medkits || 0) + (selected.count || 1);
             container.slots[selected.slotIndex] = null;
+            this.notifyLootAction(container.id, selected.slotIndex, null);
             sounds.playMedkit?.();
             this.ui?.showPickupAlert('ĐÃ NHẶT TÚI CỨU THƯƠNG (+1)');
             if (this.checkAndRemoveEmptyContainer(container)) {
@@ -1518,6 +1547,7 @@ export class LootingSystem {
             if (!currentModId) {
                 weapons.attachMod(attachSlot, selected.itemId, currentGunIdx);
                 container.slots[selected.slotIndex] = null;
+                this.notifyLootAction(container.id, selected.slotIndex, null);
                 sounds.play('switchWeapon', { volume: 0.95, rate: 1.4 });
                 this.ui?.showPickupAlert(`ĐÃ LẮP [${def.name.toUpperCase()}] LÊN SÚNG!`);
                 if (this.checkAndRemoveEmptyContainer(container)) {
@@ -1534,11 +1564,13 @@ export class LootingSystem {
             if (itemTier > currentTier) {
                 // TỰ ĐỘNG SWAP: Lắp phụ kiện cấp cao vào súng, vứt phụ kiện cũ lại hòm
                 const oldModId = weapons.attachMod(attachSlot, selected.itemId, currentGunIdx);
-                container.slots[selected.slotIndex] = {
+                const replacedAttachment = {
                     itemId: oldModId,
                     count: 1,
                     revealed: true
                 };
+                container.slots[selected.slotIndex] = replacedAttachment;
+                this.notifyLootAction(container.id, selected.slotIndex, replacedAttachment);
                 sounds.play('switchWeapon', { volume: 1.0, rate: 1.45 });
                 this.ui?.showPickupAlert(`NÂNG CẤP THÀNH CÔNG: [${def.name.toUpperCase()}] (HOÁN ĐỔI CẤP CŨ)`);
                 container.generateLootSort?.();
@@ -1552,6 +1584,7 @@ export class LootingSystem {
                 if (!secModId) {
                     weapons.attachMod(attachSlot, selected.itemId, secGunIdx);
                     container.slots[selected.slotIndex] = null;
+                    this.notifyLootAction(container.id, selected.slotIndex, null);
                     sounds.play('switchWeapon', { volume: 0.9, rate: 1.35 });
                     this.ui?.showPickupAlert(`ĐÃ LẮP [${def.name.toUpperCase()}] LÊN SÚNG PHỤ!`);
                     if (this.checkAndRemoveEmptyContainer(container)) {
@@ -1604,11 +1637,13 @@ export class LootingSystem {
 
             // Đặt lại súng cũ vào hòm
             const oldGunId = `gun_${currentGun.id}_t${currentGun.tier || 1}`;
-            container.slots[selected.slotIndex] = {
+            const replacedGun = {
                 itemId: LOOT_ITEMS[oldGunId] ? oldGunId : selected.itemId,
                 count: 1,
                 revealed: true
             };
+            container.slots[selected.slotIndex] = replacedGun;
+            this.notifyLootAction(container.id, selected.slotIndex, replacedGun);
 
             sounds.play('switchWeapon', { volume: 1.0, rate: 1.1 });
             if (weapons.handNode) weapons.attachToArm(weapons.handNode);
@@ -1646,6 +1681,7 @@ export class LootingSystem {
                 // Slot súng đang trống: Lắp thẳng lên súng!
                 this.player.weapons.attachMod(attachSlot, slot.itemId);
                 this.activeContainer.slots[slotIndex] = null;
+                this.notifyLootAction(this.activeContainer.id, slotIndex, null);
                 sounds.play('switchWeapon', { volume: 0.95, rate: 1.4 });
                 this.ui?.showPickupAlert(`ĐÃ TỰ ĐỘNG LẮP [${def.name.toUpperCase()}] LÊN SÚNG!`);
                 this.activeContainer.checkEmpty();
@@ -1660,6 +1696,7 @@ export class LootingSystem {
             slot.count -= added;
             if (slot.count <= 0) {
                 this.activeContainer.slots[slotIndex] = null;
+                this.notifyLootAction(this.activeContainer.id, slotIndex, null);
             }
             sounds.playLootTransferSound?.();
             this.activeContainer.checkEmpty();
@@ -1745,6 +1782,7 @@ export class LootingSystem {
             if (!this.player.weapons.attachments[attachSlot]) {
                 this.player.weapons.attachMod(attachSlot, slot.itemId);
                 container.slots[slotIndex] = null;
+                this.notifyLootAction(container.id, slotIndex, null);
                 sounds.playAttachmentEquip?.();
                 this.ui?.showPickupAlert(`ĐÃ TỰ ĐỘNG LẮP [${def.name.toUpperCase()}] LÊN SÚNG!`);
                 container.checkEmpty();
@@ -1760,6 +1798,7 @@ export class LootingSystem {
             if (slot.count <= 0) {
                 container.slots[slotIndex] = null;
             }
+            this.notifyLootAction(container.id, slotIndex, null);
             sounds.playItemMove?.();
             container.checkEmpty();
             this.ui?.refreshSmartInventory();
@@ -1915,11 +1954,14 @@ export class LootingSystem {
 
     // Cập nhật hệ sinh thái Looting & Airdrop mỗi frame
     update(delta) {
-        // 1. Quản lý chu kỳ Airdrop Event
-        this.airdropCountdown -= delta;
-        if (this.airdropCountdown <= 0) {
-            this.airdropCountdown = this.airdropInterval;
-            this.triggerAirdropEvent();
+        // Chỉ Host hoặc chế độ chơi đơn mới điều phối bộ đếm Airdrop
+        const isClient = window.game?.network?.active && !window.game?.network?.host;
+        if (!isClient) {
+            this.airdropCountdown -= delta;
+            if (this.airdropCountdown <= 0) {
+                this.airdropCountdown = this.airdropInterval;
+                this.triggerAirdropEvent();
+            }
         }
 
         // Cập nhật marker Airdrop trên radar
@@ -2006,6 +2048,132 @@ export class LootingSystem {
             this.ui?.showContainerPrompt(nearest.config?.promptLabel, nearest.position, this.player.camera);
         } else if (!this.isSearching) {
             this.ui?.hideContainerPrompt();
+        }
+    }
+
+    // Báo cáo hành động nhặt hòm lên Host (Client)
+    notifyLootAction(containerId, slotIndex, replacedSlot = null) {
+        if (window.game?.network?.active && !window.game?.network?.host) {
+            window.game.network.sendCommand({
+                type: 'loot_slot',
+                containerId,
+                slotIndex,
+                replacedSlot
+            });
+        }
+    }
+
+    // Host xử lý hành động nhặt đồ từ Client
+    handleRemoteLoot(containerId, slotIndex, replacedSlot = null) {
+        const container = this.containers.find(c => c.id === containerId);
+        if (!container) return;
+        if (slotIndex >= 0 && slotIndex < container.slots.length) {
+            container.slots[slotIndex] = replacedSlot ? { ...replacedSlot } : null;
+            this.checkAndRemoveEmptyContainer(container);
+        }
+    }
+
+    // Host xử lý lệnh nhặt toàn bộ hòm từ Client
+    handleRemoteLootAll(containerId) {
+        const container = this.containers.find(c => c.id === containerId);
+        if (!container) return;
+        for (let i = 0; i < container.slots.length; i++) {
+            container.slots[i] = null;
+        }
+        this.checkAndRemoveEmptyContainer(container);
+    }
+
+    // Đóng gói trạng thái tài nguyên hòm đồ & hòm thính của toàn map
+    snapshot() {
+        return {
+            containers: this.containers.map(c => c.snapshot()),
+            airdropDrops: this.airdropDrops.map(d => ({
+                id: d.id,
+                currentPos: d.currentPos.toArray(),
+                targetPos: d.targetPos.toArray(),
+                landed: !!d.landed,
+                smokeTimer: d.smokeTimer
+            })),
+            activeAirdropZone: this.activeAirdropZone ? { ...this.activeAirdropZone } : null
+        };
+    }
+
+    // Client áp dụng trạng thái tài nguyên hòm đồ & hòm thính từ Host
+    applySnapshot(snap) {
+        if (!snap) return;
+
+        // 1. Đồng bộ vùng đánh dấu radar Airdrop
+        this.activeAirdropZone = snap.activeAirdropZone ? { ...snap.activeAirdropZone } : null;
+
+        // 2. Đồng bộ các hòm thính đang rơi
+        const dropSnaps = snap.airdropDrops || [];
+        const snapDropIds = new Set(dropSnaps.map(d => d.id));
+        for (const dSnap of dropSnaps) {
+            let drop = this.airdropDrops.find(d => d.id === dSnap.id);
+            if (!drop) {
+                const targetPos = new THREE.Vector3().fromArray(dSnap.targetPos);
+                drop = new AirdropDropEntity(this.scene, targetPos, this, { id: dSnap.id });
+                drop.currentPos.fromArray(dSnap.currentPos);
+                drop.group.position.copy(drop.currentPos);
+                this.airdropDrops.push(drop);
+                sounds.playAirdropPlaneSound?.();
+                this.ui?.showBanner('CẢNH BÁO: HÒM THÍNH TIẾP TẾ CHIẾN THUẬT ĐANG THẢ DÙ!');
+            }
+            drop.currentPos.fromArray(dSnap.currentPos);
+            drop.group.position.copy(drop.currentPos);
+            drop.landed = !!dSnap.landed;
+            drop.smokeTimer = dSnap.smokeTimer;
+            if (drop.landed) {
+                drop.chuteMesh.visible = false;
+                drop.linesMesh.visible = false;
+            }
+        }
+        for (let i = this.airdropDrops.length - 1; i >= 0; i--) {
+            if (!snapDropIds.has(this.airdropDrops[i].id)) {
+                this.airdropDrops[i].dispose();
+                this.airdropDrops.splice(i, 1);
+            }
+        }
+
+        // 3. Đồng bộ danh sách hòm đồ (Containers)
+        const containerSnaps = snap.containers || [];
+        const snapContainerIds = new Set(containerSnaps.map(c => c.id));
+        const byId = new Map(this.containers.map(c => [c.id, c]));
+
+        for (const cSnap of containerSnaps) {
+            let container = byId.get(cSnap.id);
+            if (!container) {
+                const pos = new THREE.Vector3().fromArray(cSnap.position);
+                container = new LootContainer(this.scene, cSnap.type, pos, {
+                    id: cSnap.id,
+                    customName: cSnap.name,
+                    slots: cSnap.slots,
+                    isOpen: cSnap.isOpen,
+                    isUnlocked: cSnap.isUnlocked,
+                    isLooted: cSnap.isLooted
+                });
+                this.containers.push(container);
+            } else {
+                container.slots = cSnap.slots.map(s => s ? { ...s } : null);
+                container.isOpen = !!cSnap.isOpen;
+                container.isUnlocked = !!cSnap.isUnlocked;
+                container.isLooted = !!cSnap.isLooted;
+                container.checkEmpty();
+            }
+            if (this.activeContainer && this.activeContainer.id === container.id) {
+                this.ui?.refreshPUBGMiniCrate?.(this.activeContainer, this);
+            }
+        }
+
+        for (let i = this.containers.length - 1; i >= 0; i--) {
+            const c = this.containers[i];
+            if (!snapContainerIds.has(c.id)) {
+                if (this.activeContainer === c) {
+                    this.closeContainerUI();
+                }
+                c.dispose();
+                this.containers.splice(i, 1);
+            }
         }
     }
 

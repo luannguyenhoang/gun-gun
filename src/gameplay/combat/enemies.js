@@ -477,10 +477,13 @@ export class Zombie {
         if (!this.mesh || this.isDead || !this.active) return { hit: false };
 
         const height = this.scale * 1.7; // Tinh chieu cao tuong doi cua zombie
+        const posX = this.mesh ? this.mesh.position.x : this.position.x;
+        const posY = this.mesh ? this.mesh.position.y : this.position.y;
+        const posZ = this.mesh ? this.mesh.position.z : this.position.z;
         
         // Dung Bounding Box hinh tru thay vi hinh cau de cover toan bo chieu cao
-        const boxMin = new THREE.Vector3(this.position.x - this.radius, this.position.y, this.position.z - this.radius);
-        const boxMax = new THREE.Vector3(this.position.x + this.radius, this.position.y + height, this.position.z + this.radius);
+        const boxMin = new THREE.Vector3(posX - this.radius, posY, posZ - this.radius);
+        const boxMax = new THREE.Vector3(posX + this.radius, posY + height, posZ + this.radius);
         
         // Dùng biến tạm để tránh rác bộ nhớ (Zero GC)
         if (!this._hitBox) this._hitBox = new THREE.Box3();
