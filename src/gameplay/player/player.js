@@ -57,13 +57,20 @@ export class PlayerController {
         this.aimPoint = this.position.clone().add(new THREE.Vector3(0, 0.85, -10));
         this.pointer = new THREE.Vector2(0, 0.35);
         this.pointerScreen = new THREE.Vector2(window.innerWidth / 2, window.innerHeight * 0.325);
-        this.pointerInCanvas = true;
         this.reviveRequested = false;
         this.toggleBotRequested = false;
         this.isADS = false;
         this.isSearching = false;
         this.th_isRadialMenuOpen = false;
         this.th_toggleADS = false;
+
+        // Trạng thái gục (Downed / Bleed-out) và cứu sống
+        this.isDowned = false;
+        this.bleedOutTimer = 30.0;
+        this.maxBleedOutTime = 30.0;
+        this.reviveProgress = 0.0;
+        this.reviveTimeRequired = 3.5;
+        this.isBeingRevived = false;
 
         // Core Gunplay: Cursor Kickback & Screen Shake Trauma
         this.cursorKick = new THREE.Vector2(0, 0);
@@ -510,28 +517,60 @@ export class PlayerController {
         this.shield = Math.min(this.maxShield, this.shield + amount);
     }
 
-    die() {
+    die(forceDead = false) {
         if (this.isDead) return;
         if (this.developerMode || window.developerMode) return;
+
+        // Kiểm tra nếu có đồng đội hoặc bot trong trận
+        const hasTeammates = this.cooperative || (window.game?.coopPlayers && window.game.coopPlayers.length > 1);
+        if (hasTeammates && !forceDead) {
+            // Chuyển sang trạng thái gục (Downed), chờ đồng đội bước vào vòng cứu
+            this.isDead = false;
+            this.isDowned = true;
+            this.bleedOutTimer = 30.0;
+            this.reviveProgress = 0.0;
+            this.isBeingRevived = false;
+            this.isADS = false;
+            this.th_toggleADS = false;
+            sounds.play('enemyHurt', { volume: 0.9, rate: 0.75 });
+            if (this.holdingAction) this.holdingAction.stop();
+            if (this.model) {
+                this.model.rotation.x = -Math.PI / 2.2;
+                this.model.position.y = this.position.y + 0.2;
+            }
+            this.playAnimation('idle', 0.05);
+            this.ui?.showPickupAlert('BẠN ĐÃ BỊ GỤC! BÒ TÌM GÓC NẤP VÀ CHỜ ĐỒNG ĐỘI ĐẾN VÒNG CỨU TRONG 30 GIÂY!');
+            return;
+        }
+
+        // Chết hoàn toàn
         this.isDead = true;
-        this.isDowned = this.cooperative;
+        this.isDowned = false;
         sounds.play('enemyDestroy', { volume: 0.9 });
         if (this.holdingAction) this.holdingAction.stop();
-        // Keep the character in place without a death animation or burst effect.
+        // Giữ vị trí không vỡ tan
         this.playAnimation('idle', 0.05);
     }
 
     revive() {
-        if (!this.isDowned) return false;
+        if (!this.isDowned && !this.isDead) return false;
         this.isDead = false;
         this.isDowned = false;
         this.reviveRequested = false;
+        this.reviveProgress = 0.0;
+        this.isBeingRevived = false;
+        this.bleedOutTimer = 30.0;
         this.health = 60;
         this.shield = 0;
-        this.invulnerability = 2;
+        this.invulnerability = 2.5;
         this.velocity.set(0, 0, 0);
+        if (this.model) {
+            this.model.rotation.x = 0;
+            this.model.position.y = this.position.y;
+        }
         if (this.holdingAction) this.holdingAction.play();
         this.playAnimation('idle');
+        sounds.play('powerup', { volume: 1.0 });
         return true;
     }
 
@@ -569,6 +608,66 @@ export class PlayerController {
             this.healthBar?.update(this.position, this.health, this.maxHealth, true);
             this.updateCamera(delta);
             return;
+        }
+
+        // Xử lý trạng thái gục (Downed / Bleed-out)
+        if (this.isDowned) {
+            this.bleedOutTimer -= delta;
+            if (this.bleedOutTimer <= 0) {
+                this.bleedOutTimer = 0;
+                this.die(true); // Hết 30 giây chảy máu, chết hẳn
+                return;
+            }
+
+            // Cập nhật thanh hiển thị thời gian chờ cứu
+            this.healthBar?.update(this.position, this.bleedOutTimer, this.maxBleedOutTime, true);
+
+            // Cho phép bò chậm với 20% tốc độ chạy
+            const crawlSpeed = this.speed * 0.20;
+            const moveDir = this.getMovementInput();
+            const isCrawling = moveDir.lengthSq() > 0.01;
+
+            if (isCrawling) {
+                this.velocity.x = moveDir.x * crawlSpeed;
+                this.velocity.z = moveDir.z * crawlSpeed;
+            } else {
+                this.velocity.x *= Math.pow(0.001, delta);
+                this.velocity.z *= Math.pow(0.001, delta);
+            }
+
+            // Trọng lực và va chạm khi bò
+            this.velocity.y -= this.gravity * delta;
+            if (arena.moveCharacter) {
+                arena.moveCharacter(this.position, this.velocity.x * delta, this.velocity.z * delta, this.radius);
+            } else {
+                const probe = this.position.clone();
+                probe.x += this.velocity.x * delta;
+                if (!arena.checkCollision(probe, this.radius)) this.position.x = probe.x;
+                probe.copy(this.position); probe.z += this.velocity.z * delta;
+                if (!arena.checkCollision(probe, this.radius)) this.position.z = probe.z;
+            }
+            this.position.y += this.velocity.y * delta;
+            if (this.position.y <= 0) {
+                this.position.y = 0;
+                this.velocity.y = 0;
+                this.isGrounded = true;
+            }
+
+            // Tư thế bò của model trên sàn đấu
+            if (this.model) {
+                this.model.position.set(this.position.x, this.position.y + 0.2, this.position.z);
+                this.model.rotation.x = -Math.PI / 2.2;
+                if (isCrawling) {
+                    const crawlAngle = Math.atan2(moveDir.x, moveDir.z);
+                    this.model.rotation.y = crawlAngle;
+                    this.playAnimation('walk');
+                } else {
+                    this.playAnimation('idle');
+                }
+            }
+
+            this.updateCamera(delta);
+            return; // Đang bị gục không thể bắn súng hay lướt/nhảy
         }
 
         // Shield auto-regeneration

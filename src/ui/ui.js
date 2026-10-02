@@ -1361,11 +1361,16 @@ export class UIManager {
 
             if (mate.isDowned) {
                 marker.el.classList.add('is-downed');
-                if (dist <= 2.4) {
-                    marker.distSpan.textContent = 'NHẤN E ĐỂ CỨU';
+                const bleedLeft = Math.ceil(mate.bleedOutTimer ?? 30);
+                if (mate.isBeingRevived || (mate.reviveProgress && mate.reviveProgress > 0)) {
+                    const pct = Math.round((mate.reviveProgress || 0) * 100);
+                    marker.distSpan.textContent = `ĐANG CỨU: ${pct}%`;
+                    marker.distSpan.classList.add('can-revive');
+                } else if (dist <= 2.5) {
+                    marker.distSpan.textContent = `TRONG VÒNG CỨU (${bleedLeft}s)`;
                     marker.distSpan.classList.add('can-revive');
                 } else {
-                    marker.distSpan.textContent = `HẠ GỤC · ${Math.round(dist)}m`;
+                    marker.distSpan.textContent = `BỊ GỤC · ${bleedLeft}s · ${Math.round(dist)}m`;
                     marker.distSpan.classList.remove('can-revive');
                 }
             } else {

@@ -900,6 +900,18 @@ for (const w of WEAPON_CONFIGS) {
     w.slotType = SECONDARY_WEAPON_IDS.has(w.id) ? 'secondary' : 'primary';
 }
 
+// Phân loại hình thái và kích cỡ đạn theo từng dòng súng
+export function getBulletType(w) {
+    if (!w) return 'rifle';
+    if (w.isExplosive || w.id === 'blaster_p' || w.id === 'blaster_r') return 'explosive';
+    if (w.pellets > 1 || w.id === 'blaster_f' || w.id === 'blaster_m') return 'shotgun';
+    if (w.id === 'blaster_g' || w.id === 'blaster_l') return 'sniper';
+    if (w.id === 'blaster_j' || w.id === 'blaster_n') return 'plasma';
+    if (w.id === 'blaster_q') return 'minigun';
+    if (['blaster', 'blaster_a', 'blaster_b', 'mac10', 'pew'].includes(w.id)) return 'pistol';
+    return 'rifle';
+}
+
 // Danh sách các loại Bom & Lựu Đạn chiến thuật (Kenney Blaster Kit)
 export const BOMB_CONFIGS = [
     {
@@ -1126,22 +1138,62 @@ export class WeaponSystem {
             stock: null      // Báng súng (Heavy Stock, Tactical Stock)
         };
 
-        // Shared geometries & materials pool
-        this.bulletGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.7, 6);
-        this.bulletGeo.rotateX(Math.PI / 2);
-        this.acidGeo = new THREE.IcosahedronGeometry(0.2, 1);
+        // Kho hình học đạn phong phú theo từng dòng súng (kích thước to rõ gấp 2-4 lần)
+        this.bulletGeometries = {
+            pistol: (() => {
+                const geo = new THREE.CylinderGeometry(0.09, 0.09, 0.95, 6);
+                geo.rotateX(Math.PI / 2);
+                return geo;
+            })(),
+            rifle: (() => {
+                const geo = new THREE.CylinderGeometry(0.12, 0.12, 1.6, 6);
+                geo.rotateX(Math.PI / 2);
+                return geo;
+            })(),
+            shotgun: new THREE.SphereGeometry(0.16, 8, 8),
+            sniper: (() => {
+                const geo = new THREE.CylinderGeometry(0.16, 0.16, 3.0, 6);
+                geo.rotateX(Math.PI / 2);
+                return geo;
+            })(),
+            minigun: (() => {
+                const geo = new THREE.CylinderGeometry(0.11, 0.11, 1.3, 6);
+                geo.rotateX(Math.PI / 2);
+                return geo;
+            })(),
+            explosive: new THREE.SphereGeometry(0.38, 12, 12),
+            plasma: new THREE.IcosahedronGeometry(0.28, 1),
+            default: (() => {
+                const geo = new THREE.CylinderGeometry(0.11, 0.11, 1.4, 6);
+                geo.rotateX(Math.PI / 2);
+                return geo;
+            })()
+        };
+        this.bulletGeo = this.bulletGeometries.rifle;
+        this.acidGeo = new THREE.IcosahedronGeometry(0.25, 1);
 
-        // Pre-cached pool of bullet meshes (NOT added to scene until fired)
-        this.bulletMeshPool = [];
+        // Pool đạn được phân theo từng loại đạn để tái sử dụng tối ưu
+        this.bulletMeshPools = {
+            pistol: [],
+            rifle: [],
+            shotgun: [],
+            sniper: [],
+            minigun: [],
+            explosive: [],
+            plasma: [],
+            default: []
+        };
         this.enemyMeshPool = [];
     }
 
-    getBulletMesh(color) {
-        let entry = this.bulletMeshPool.pop();
+    getBulletMesh(color, bulletType = 'rifle') {
+        const pool = this.bulletMeshPools[bulletType] || this.bulletMeshPools.default;
+        let entry = pool.pop();
         if (!entry) {
+            const geo = this.bulletGeometries[bulletType] || this.bulletGeometries.default;
             const mat = new THREE.MeshBasicMaterial({ color });
-            const mesh = new THREE.Mesh(this.bulletGeo, mat);
-            entry = { mesh, material: mat };
+            const mesh = new THREE.Mesh(geo, mat);
+            entry = { mesh, material: mat, bulletType };
         } else {
             entry.material.color.setHex(color);
         }
@@ -1152,8 +1204,9 @@ export class WeaponSystem {
     recycleBulletMesh(entry) {
         if (!entry || !entry.mesh) return;
         this.scene.remove(entry.mesh);
-        if (this.bulletMeshPool.length < 60) {
-            this.bulletMeshPool.push(entry);
+        const pool = this.bulletMeshPools[entry.bulletType] || this.bulletMeshPools.default;
+        if (pool.length < 60) {
+            pool.push(entry);
         } else {
             entry.material.dispose();
         }
@@ -2089,8 +2142,9 @@ export class WeaponSystem {
         // Phụt tia lửa nòng
         const enchant = effective.enchant;
         const bulletColor = isOverclockActive ? 0xffdd00 : (enchant ? enchant.hex : (effective.hasLegendary ? 0xf59e0b : w.color));
+        const bulletType = getBulletType(w);
         this.particles?.createMuzzleFlash?.(origin, new THREE.Vector3().subVectors(targetPoint, origin).normalize(), bulletColor);
-        this.onShotFired?.({ origin, target: targetPoint, ads: isADS, weapon: w, color: bulletColor });
+        this.onShotFired?.({ origin, target: targetPoint, ads: isADS, weapon: w, color: bulletColor, bulletType });
 
         const beams = isPlayer ? this.beamCount : 1;
         const spreadRad = THREE.MathUtils.degToRad(isOverclockActive ? Math.min(this.currentSpreadDeg, 1.0) : this.currentSpreadDeg);
@@ -2109,8 +2163,8 @@ export class WeaponSystem {
             const lane = Math.floor(i / w.pellets) - (beams - 1) / 2;
             _tempAimDir.applyAxisAngle(_tempRotAxis, lane * 0.07);
 
-            // Lấy mesh từ pool linh hoạt
-            const entry = this.getBulletMesh(bulletColor);
+            // Lấy mesh từ pool linh hoạt theo loại đạn
+            const entry = this.getBulletMesh(bulletColor, bulletType);
             entry.mesh.position.copy(origin);
             entry.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), _tempAimDir);
 
@@ -2120,6 +2174,7 @@ export class WeaponSystem {
             this.projectiles.push({
                 meshEntry: entry,
                 mesh: entry.mesh,
+                bulletType: bulletType,
                 id: this.nextProjectileId++,
                 origin: origin.clone(),
                 direction: _tempAimDir.clone(),
@@ -2617,6 +2672,10 @@ export class WeaponSystem {
 
             if (!hitFound) {
                 p.mesh.position.copy(_tempNextPos);
+                if (p.bulletType === 'explosive' || p.bulletType === 'plasma') {
+                    p.mesh.rotation.z += 0.25;
+                    p.mesh.rotation.y += 0.15;
+                }
             }
         }
     }

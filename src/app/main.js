@@ -3,7 +3,7 @@ import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js';
 import { ParticleSystem } from '../rendering/particles.js?v=22';
 import { Arena } from '../world/arena.js?v=22';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, th_UPGRADE_TIER_CONFIG, th_rollElementalEffect, th_getWeaponTier, th_getWeaponEnchant, th_ELEMENTAL_EFFECTS, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=46';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBulletType, th_UPGRADE_TIER_CONFIG, th_rollElementalEffect, th_getWeaponTier, th_getWeaponEnchant, th_ELEMENTAL_EFFECTS, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=46';
 import { PlayerController } from '../gameplay/player/player.js?v=22';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=39';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
@@ -112,6 +112,7 @@ class CyberArenaGame {
         this.player.ui = this.ui;
         this.lootingSystem = new LootingSystem(this.scene, this.particles, this.player, this.waveManager, this.ui);
         this.coopPlayers = [this.player];
+        this.reviveZoneMeshes = new Map();
 
         // Lắng nghe phát bắn của người chơi Host để broadcast cho đồng đội
         this.weapons.onShotFired = (info) => {
@@ -123,6 +124,7 @@ class CyberArenaGame {
                     target: info.target.toArray(),
                     weaponId: info.weapon?.id,
                     color: info.color,
+                    bulletType: info.bulletType || 'rifle',
                     ads: !!info.ads
                 });
             }
@@ -586,15 +588,132 @@ class CyberArenaGame {
     }
 
     reviveTeammate(teammate, reviver = this.player) {
-        if (!teammate?.isDowned || teammate === reviver || teammate.position.distanceTo(reviver.position) > 2.4) return false;
+        if (!teammate?.isDowned) return false;
         const revived = teammate.revive();
-        if (revived) this.ui.showPickupAlert(`ĐÃ HỒI SINH ${teammate.name || 'ĐỒNG ĐỘI'}`);
+        if (revived) {
+            this.particles.createExplosion(teammate.position, 0x10b981, 16, 2.5);
+            sounds.play('powerup', { volume: 1.0 });
+            this.ui.showPickupAlert(`ĐÃ CỨU SỐNG THÀNH CÔNG ${teammate.name || 'ĐỒNG ĐỘI'}!`);
+            const pId = teammate.id || 'player';
+            const zone = this.reviveZoneMeshes.get(pId);
+            if (zone) {
+                this.scene.remove(zone.group);
+                this.reviveZoneMeshes.delete(pId);
+            }
+        }
         return revived;
     }
 
     reviveNearest(reviver) {
-        const teammate = this.coopPlayers.find(player => player !== reviver && player.isDowned && player.position.distanceTo(reviver.position) <= 2.4);
+        const teammate = this.coopPlayers.find(player => player !== reviver && player.isDowned && player.position.distanceTo(reviver.position) <= 2.5);
         return this.reviveTeammate(teammate, reviver);
+    }
+
+    // Quản lý các vòng cứu người 3D (Revive Zones) và tự động tích lũy tiến trình cứu khi đứng trong vòng 2.5m
+    updateReviveZones(delta) {
+        const activeDownedIds = new Set();
+        const time = performance.now() * 0.003;
+
+        for (const player of this.coopPlayers) {
+            if (!player) continue;
+            const pId = player.id || 'player';
+
+            if (player.isDowned) {
+                activeDownedIds.add(pId);
+                let zone = this.reviveZoneMeshes.get(pId);
+                if (!zone) {
+                    const group = new THREE.Group();
+
+                    // Vòng tròn hào quang cứu hộ ngoài (bán kính 2.5m)
+                    const ringGeo = new THREE.RingGeometry(2.38, 2.52, 48);
+                    ringGeo.rotateX(-Math.PI / 2);
+                    const ringMat = new THREE.MeshBasicMaterial({
+                        color: 0x10b981,
+                        transparent: true,
+                        opacity: 0.85,
+                        side: THREE.DoubleSide
+                    });
+                    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+
+                    // Đĩa năng lượng mờ bên trong
+                    const discGeo = new THREE.CircleGeometry(2.38, 36);
+                    discGeo.rotateX(-Math.PI / 2);
+                    const discMat = new THREE.MeshBasicMaterial({
+                        color: 0x10b981,
+                        transparent: true,
+                        opacity: 0.12,
+                        side: THREE.DoubleSide
+                    });
+                    const discMesh = new THREE.Mesh(discGeo, discMat);
+
+                    // Vòng tiến trình cứu (Progress Ring)
+                    const progGeo = new THREE.RingGeometry(2.15, 2.32, 40);
+                    progGeo.rotateX(-Math.PI / 2);
+                    const progMat = new THREE.MeshBasicMaterial({
+                        color: 0x34d399,
+                        transparent: true,
+                        opacity: 0.95,
+                        side: THREE.DoubleSide
+                    });
+                    const progMesh = new THREE.Mesh(progGeo, progMat);
+
+                    group.add(ringMesh, discMesh, progMesh);
+                    this.scene.add(group);
+
+                    zone = { group, ring: ringMesh, disc: discMat, prog: progMesh };
+                    this.reviveZoneMeshes.set(pId, zone);
+                }
+
+                // Cập nhật vị trí vòng cứu đi theo người chơi đang bò
+                zone.group.position.set(player.position.x, 0.05, player.position.z);
+
+                // Hiệu ứng nhịp đập của vòng cứu
+                const pulse = Math.sin(time * 4) * 0.04;
+                zone.ring.scale.set(1 + pulse, 1, 1 + pulse);
+                zone.disc.opacity = 0.10 + Math.sin(time * 5) * 0.05;
+
+                // Cập nhật tiến trình hiển thị trên vòng
+                const progRatio = Math.max(0.01, player.reviveProgress || 0);
+                zone.prog.scale.set(progRatio, 1, progRatio);
+                zone.prog.visible = progRatio > 0.02;
+
+                // Kiểm tra xem có đồng đội nào đang đứng trong vòng cứu (<= 2.5m)
+                const hasReviverInside = this.coopPlayers.some(other => {
+                    if (!other || other === player || other.isDowned || other.isDead) return false;
+                    return other.position.distanceTo(player.position) <= 2.5;
+                });
+
+                if (hasReviverInside) {
+                    player.isBeingRevived = true;
+                    player.reviveProgress = Math.min(1.0, (player.reviveProgress || 0) + delta / (player.reviveTimeRequired || 3.5));
+
+                    // Hiệu ứng hạt ánh sáng xanh bốc lên khi đang được cứu
+                    if (Math.random() < 0.25) {
+                        this.particles.createImpactSparks(
+                            player.position.clone().add(new THREE.Vector3(0, 0.3, 0)),
+                            new THREE.Vector3(0, 1, 0),
+                            0x10b981,
+                            3
+                        );
+                    }
+
+                    if (player.reviveProgress >= 1.0) {
+                        this.reviveTeammate(player);
+                    }
+                } else {
+                    player.isBeingRevived = false;
+                    player.reviveProgress = Math.max(0, (player.reviveProgress || 0) - delta * 0.35);
+                }
+            }
+        }
+
+        // Dọn dẹp các vòng cứu đã hoàn tất hoặc không còn người gục
+        for (const [id, zone] of this.reviveZoneMeshes) {
+            if (!activeDownedIds.has(id)) {
+                this.scene.remove(zone.group);
+                this.reviveZoneMeshes.delete(id);
+            }
+        }
     }
 
     // Bật hoặc tắt đồng đội bot phục vụ thử nghiệm và chơi đơn
@@ -618,13 +737,55 @@ class CyberArenaGame {
         if (this.btnToggleBot) this.btnToggleBot.textContent = 'ĐỒNG ĐỘI BOT: TẮT (PHÍM B)';
     }
 
-    // Cập nhật hành vi cho đồng đội bot (di chuyển, ngắm bắn quái)
+    // Cập nhật hành vi cho đồng đội bot (di chuyển, ngắm bắn quái, cứu người chơi)
     updatePracticeBot(delta) {
         const bot = this.practiceBot;
         if (!bot || bot.isDead) return;
 
         if (bot.isDowned) {
             bot.moving = false;
+            return;
+        }
+
+        // Nếu người chơi chính bị gục -> Bot ưu tiên số 1 chạy đến vòng cứu
+        if (this.player.isDowned) {
+            const toPlayer = this.player.position.clone().sub(bot.position);
+            toPlayer.y = 0;
+            const distToPlayer = toPlayer.length();
+
+            if (distToPlayer > 1.8) {
+                // Di chuyển nhanh vào trong vòng cứu
+                toPlayer.normalize();
+                bot.position.addScaledVector(toPlayer, 6.5 * delta);
+                bot.aimYaw = Math.atan2(toPlayer.x, toPlayer.z);
+                bot.moving = true;
+            } else {
+                // Đã đứng trong vòng cứu 2.5m, đứng lại canh gác và bắn quái
+                bot.moving = false;
+            }
+
+            // Bắn yểm trợ quái xung quanh khi đang cứu
+            bot.botShootCooldown = Math.max(0, (bot.botShootCooldown || 0) - delta);
+            let nearestEnemy = null;
+            let minDist = 14;
+            for (const enemy of this.waveManager.enemies) {
+                if (enemy.isDead) continue;
+                const d = enemy.position.distanceTo(bot.position);
+                if (d < minDist) {
+                    minDist = d;
+                    nearestEnemy = enemy;
+                }
+            }
+            if (nearestEnemy) {
+                const toEnemy = nearestEnemy.position.clone().sub(bot.position);
+                bot.aimYaw = Math.atan2(toEnemy.x, toEnemy.z);
+                if (bot.botShootCooldown <= 0) {
+                    bot.botShootCooldown = 0.8;
+                    const shootOrigin = bot.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+                    const shootTarget = nearestEnemy.position.clone().add(new THREE.Vector3(0, 0.8, 0));
+                    bot.weapons.shoot(shootOrigin, shootTarget, false, true);
+                }
+            }
             return;
         }
 
@@ -947,7 +1108,9 @@ class CyberArenaGame {
                 }
 
                 const tracerId = `tracer_${ev.shooterId}_${Math.random().toString(36).substring(2, 7)}`;
-                const mesh = new THREE.Mesh(this.weapons.bulletGeo, new THREE.MeshBasicMaterial({ color: bulletColor }));
+                const bulletType = ev.bulletType || getBulletType(weapon);
+                const geo = this.weapons.bulletGeometries[bulletType] || this.weapons.bulletGeo;
+                const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: bulletColor }));
                 mesh.position.copy(origin);
                 mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
                 this.scene.add(mesh);
@@ -1082,7 +1245,7 @@ class CyberArenaGame {
             this.player.update(delta, this.arena, this.waveManager.enemies);
             if (this.player.reviveRequested) {
                 const downed = this.coopPlayers.find(player => player !== this.player && player.isDowned);
-                this.reviveTeammate(downed, this.player);
+                if (downed) this.reviveTeammate(downed, this.player);
                 this.player.reviveRequested = false;
             }
             if (this.player.toggleBotRequested) {
@@ -1093,8 +1256,13 @@ class CyberArenaGame {
                 this.updatePracticeBot(delta);
             }
             for (const player of this.remotePlayers.values()) player.updateVisual(delta);
-            // Player Damage Flash / Game Over check
-            if (this.player.isDead && (!this.network.active || this.coopPlayers.every(player => player.isDead)) && this.state !== 'GAMEOVER') {
+
+            // Cập nhật các vòng cứu người 3D và tự động cứu khi đứng trong vòng 2.5m
+            this.updateReviveZones(delta);
+
+            // Kiểm tra kết thúc trận khi toàn bộ đội bị gục hoặc tử trận
+            const noOneCanRevive = this.coopPlayers.every(player => player.isDead || player.isDowned);
+            if (noOneCanRevive && this.state !== 'GAMEOVER') {
                 this.gameOver();
             }
 
