@@ -541,11 +541,24 @@ export class Zombie {
                 this.takeDamage(this.burnDamage || 8, 1, false, null);
             }
         }
-        if (this.corrosiveTimer > 0) {
-            this.corrosiveTimer -= delta;
+        // Xử lý hiệu ứng Đóng băng (Freeze): bất động hoàn toàn
+        if (this.freezeTimer > 0) {
+            this.freezeTimer -= delta;
+            this.playAnimation('idle');
+            this.setEmissiveColor(0x00f0ff, 0.85);
+            if (this.freezeTimer <= 0) {
+                this.setEmissiveColor(0x000000, 0);
+            }
+            return;
         }
 
         if (player.isDead) {
+            this.playAnimation('idle');
+            return;
+        }
+
+        // Màn khói mù mịt (Smoke Grenade): người chơi tàng hình trong khói, zombie mất dấu
+        if (player.isInSmoke) {
             this.playAnimation('idle');
             return;
         }

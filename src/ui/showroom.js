@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as SkeletonUtils from '../../vendor/SkeletonUtils.js';
 import { CHARACTER_CONFIGS } from '../gameplay/player/characters.js';
-import { WEAPON_CONFIGS, getStartingWeapon, updateHeldWeaponPose, BOMB_CONFIGS, getBombConfig, th_UPGRADE_TIER_CONFIG, th_getWeaponTier, th_getWeaponEnchant, th_ELEMENTAL_EFFECTS, th_getWeaponParts, th_getPartTier, TH_PART_META, ATTACHMENT_DEFS } from '../gameplay/combat/weapons.js?v=46';
+import { WEAPON_CONFIGS, getStartingWeapon, updateHeldWeaponPose, BOMB_CONFIGS, getBombConfig, MEDICAL_CONFIGS, th_UPGRADE_TIER_CONFIG, th_getWeaponTier, th_getWeaponEnchant, th_ELEMENTAL_EFFECTS, th_getWeaponParts, th_getPartTier, TH_PART_META, ATTACHMENT_DEFS } from '../gameplay/combat/weapons.js?v=46';
 
 const DETAILS = {
     soldier: { title: 'LÍNH', subtitle: 'CHIẾN BINH TIỀN TUYẾN', color: '#75bca1', description: 'Giữ vững vị trí. Sẵn sàng đối đầu với bất kỳ đợt zombie nào.' },
@@ -20,10 +20,10 @@ export class CharacterShowroom {
         this.mode = 'characters';
         this.loadout = this.getSavedLoadout();
         this.weaponId = this.loadout.primary;
-        this.allItems = [...WEAPON_CONFIGS, ...BOMB_CONFIGS];
+        this.allItems = [...WEAPON_CONFIGS, ...BOMB_CONFIGS, ...MEDICAL_CONFIGS];
         this.weaponCards = document.getElementById('weapon-cards');
 
-        // Tạo toàn bộ thẻ cho Súng và Bom
+        // Tạo toàn bộ thẻ cho Súng, Bom và Vật phẩm Y tế
         for (const item of this.allItems) {
             const card = document.createElement('button');
             card.className = 'character-card weapon-card';
@@ -33,7 +33,7 @@ export class CharacterShowroom {
             card.style.setProperty('--card-color', tierColor);
             card.innerHTML = `
                 <div class="weapon-card-header">
-                    <span class="weapon-tier-badge tier-${item.tier}">CẤP ${item.tier}</span>
+                    <span class="weapon-tier-badge tier-${item.tier || 1}">CẤP ${item.tier || 1}</span>
                     <span class="weapon-category-tag">${item.category}</span>
                 </div>
                 <div class="weapon-card-portrait">
@@ -129,6 +129,33 @@ export class CharacterShowroom {
             if (this.locked()) return;
             if (this.mode === 'weapons') {
                 const item = this.getItem(this.weaponId);
+                // Mua vật phẩm y tế tiếp tế vào kho
+                if (item.slotType === 'medical') {
+                    const cost = item.price || 150;
+                    if (this.game.coins >= cost) {
+                        this.game.coins -= cost;
+                        if (this.game.weapons) {
+                            this.game.weapons.inventory[item.id] = (this.game.weapons.inventory[item.id] || 0) + 1;
+                            if (item.id === 'bandage_field') this.game.weapons.inventory.bandage = this.game.weapons.inventory[item.id];
+                            if (item.id === 'first_aid_kit') {
+                                this.game.weapons.inventory.first_aid = this.game.weapons.inventory[item.id];
+                                this.game.weapons.inventory.medkits = this.game.weapons.inventory[item.id];
+                            }
+                            if (item.id === 'medkit_military') this.game.weapons.inventory.medkit_military = this.game.weapons.inventory[item.id];
+                            if (item.id === 'energy_drink') this.game.weapons.inventory.energy_drink = this.game.weapons.inventory[item.id];
+                        }
+                        this.game.saveProgress?.();
+                        this.game.updateCoinsUI?.();
+                        this.syncSelection();
+                        this.previewWeapon(item.id);
+                        if (this.game.ui?.showPickupAlert) {
+                            this.game.ui.showPickupAlert(`ĐÃ MUA: ${item.name} (+1)!`);
+                        }
+                    } else if (this.game.ui?.showPickupAlert) {
+                        this.game.ui.showPickupAlert('KHÔNG ĐỦ VÀNG!');
+                    }
+                    return;
+                }
                 const isUnlocked = this.game.isWeaponUnlocked(item.id);
                 if (!isUnlocked) {
                     const bought = this.game.buyWeapon(item.id);
@@ -551,7 +578,10 @@ export class CharacterShowroom {
 
 
     getItem(id) {
-        return BOMB_CONFIGS.find(b => b.id === id) || WEAPON_CONFIGS.find(w => w.id === id) || WEAPON_CONFIGS[0];
+        return BOMB_CONFIGS.find(b => b.id === id) || 
+               MEDICAL_CONFIGS.find(m => m.id === id) || 
+               WEAPON_CONFIGS.find(w => w.id === id) || 
+               WEAPON_CONFIGS[0];
     }
 
     getSavedLoadout() {
@@ -775,7 +805,10 @@ export class CharacterShowroom {
 
             const statusEl = card.querySelector('.weapon-card-status') || card.querySelector('.character-card-status');
             if (statusEl) {
-                if (isEquippedPrimary) statusEl.textContent = '✓ SÚNG CHÍNH';
+                if (item.slotType === 'medical') {
+                    const count = (this.game.weapons && this.game.weapons.inventory) ? (this.game.weapons.inventory[item.id] || 0) : 0;
+                    statusEl.textContent = count > 0 ? `CÓ: ${count} (${item.price} V)` : `${item.price.toLocaleString()} VÀNG`;
+                } else if (isEquippedPrimary) statusEl.textContent = '✓ SÚNG CHÍNH';
                 else if (isEquippedSecondary) statusEl.textContent = '✓ SÚNG PHỤ';
                 else if (isEquippedBomb1) statusEl.textContent = '✓ BOM 1';
                 else if (isEquippedBomb2) statusEl.textContent = '✓ BOM 2';
@@ -784,20 +817,27 @@ export class CharacterShowroom {
             }
         }
 
-        const unlockedCount = this.allItems.filter(w => this.game.isWeaponUnlocked(w.id)).length;
+        const unlockedCount = this.allItems.filter(w => {
+            if (w.slotType === 'medical') {
+                const count = (this.game.weapons && this.game.weapons.inventory) ? (this.game.weapons.inventory[w.id] || 0) : 0;
+                return count > 0;
+            }
+            return this.game.isWeaponUnlocked(w.id);
+        }).length;
         const countEl = document.getElementById('armory-unlocked-count');
         if (countEl) countEl.textContent = `SỞ HỮU: ${unlockedCount}/${this.allItems.length}`;
         this.filterWeapons();
 
         const curItem = this.getItem(this.weaponId);
-        const isWeaponUnlocked = this.game.isWeaponUnlocked(this.weaponId);
+        const isMedical = curItem.slotType === 'medical';
+        const isWeaponUnlocked = isMedical ? true : this.game.isWeaponUnlocked(this.weaponId);
         const selectedTier = th_getWeaponTier(this.weaponId);
         const selectedEnchant = th_getWeaponEnchant(this.weaponId);
         const isBomb = curItem.isBomb;
 
         // Cập nhật nút Cường Hóa & Gacha
         if (this.btnEnhance) {
-            if (!isWeaponUnlocked || isBomb) {
+            if (!isWeaponUnlocked || isBomb || isMedical) {
                 this.btnEnhance.style.display = 'none';
             } else if (selectedTier >= 5) {
                 this.btnEnhance.style.display = '';
@@ -813,7 +853,7 @@ export class CharacterShowroom {
         }
 
         if (this.btnGacha) {
-            if (!isWeaponUnlocked || isBomb) {
+            if (!isWeaponUnlocked || isBomb || isMedical) {
                 this.btnGacha.style.display = 'none';
             } else {
                 this.btnGacha.style.display = '';
@@ -825,12 +865,22 @@ export class CharacterShowroom {
         // Cập nhật badge trạng thái ở bảng mini panel dưới chân nhân vật
         const statusBadge = document.getElementById('armory-status-badge');
         if (statusBadge) {
-            statusBadge.textContent = isWeaponUnlocked ? 'ĐÃ SỞ HỮU' : `${curItem.price.toLocaleString()} VÀNG`;
+            statusBadge.textContent = isMedical
+                ? `KHO: ${(this.game.weapons?.inventory?.[curItem.id] || 0)} CÁI`
+                : (isWeaponUnlocked ? 'ĐÃ SỞ HỮU' : `${curItem.price.toLocaleString()} VÀNG`);
             statusBadge.classList.toggle('locked', !isWeaponUnlocked);
         }
 
         if (this.mode === 'weapons') {
-            if (!isWeaponUnlocked) {
+            if (isMedical) {
+                // Vật phẩm y tế: hiển thị nút Mua Tiếp Tế
+                if (this.armoryActionGroup) this.armoryActionGroup.style.display = 'none';
+                this.confirm.style.display = '';
+                const canBuy = (this.game.coins >= curItem.price);
+                this.confirm.textContent = `MUA TIẾP TẾ (+1) [${curItem.price.toLocaleString()} VÀNG]`;
+                this.confirm.disabled = this.locked() || !canBuy;
+                this.confirm.classList.remove('equipped');
+            } else if (!isWeaponUnlocked) {
                 // Chưa mua -> hiển thị nút MUA
                 if (this.armoryActionGroup) this.armoryActionGroup.style.display = 'none';
                 this.confirm.style.display = '';
@@ -902,7 +952,7 @@ export class CharacterShowroom {
             } else if (currentCat === 'secondary') {
                 match = (item.slotType === 'secondary' && !item.isBomb);
             } else if (currentCat === 'other') {
-                match = (item.isBomb || item.slotType === 'bomb');
+                match = (item.isBomb || item.slotType === 'bomb' || item.slotType === 'medical');
             } else {
                 match = true;
             }
@@ -918,10 +968,16 @@ export class CharacterShowroom {
         const catItems = this.allItems.filter(item => {
             if (currentCat === 'primary') return item.slotType === 'primary' && !item.isBomb;
             if (currentCat === 'secondary') return item.slotType === 'secondary' && !item.isBomb;
-            if (currentCat === 'other') return item.isBomb || item.slotType === 'bomb';
+            if (currentCat === 'other') return item.isBomb || item.slotType === 'bomb' || item.slotType === 'medical';
             return true;
         });
-        const unlockedCatCount = catItems.filter(w => this.game.isWeaponUnlocked(w.id)).length;
+        const unlockedCatCount = catItems.filter(w => {
+            if (w.slotType === 'medical') {
+                const count = (this.game.weapons && this.game.weapons.inventory) ? (this.game.weapons.inventory[w.id] || 0) : 0;
+                return count > 0;
+            }
+            return this.game.isWeaponUnlocked(w.id);
+        }).length;
         const countEl = document.getElementById('armory-unlocked-count');
         if (countEl) countEl.textContent = `SỞ HỮU: ${unlockedCatCount}/${catItems.length}`;
     }
@@ -984,6 +1040,7 @@ export class CharacterShowroom {
     attachGun(entry) {
         entry.gun?.removeFromParent();
         const weapon = this.getItem(this.weaponId);
+        if (!weapon || weapon.slotType === 'medical') return;
         const modelKey = weapon.modelFile;
         const base = this.game.weapons.models[modelKey];
         const hand = entry.model.getObjectByName('arm-right') || entry.model.getObjectByName('hand-right');
@@ -1044,6 +1101,13 @@ export class CharacterShowroom {
             if (ammoEl) ammoEl.textContent = `${item.count} quả`;
             if (reloadEl) reloadEl.textContent = `${item.fuseTime || 0.65}s`;
             if (rangeEl) rangeEl.textContent = `${item.throwRange || 14}m`;
+        } else if (item.slotType === 'medical') {
+            const count = (this.game.weapons && this.game.weapons.inventory) ? (this.game.weapons.inventory[item.id] || 0) : 0;
+            if (dmgEl) dmgEl.textContent = item.healAmount ? `+${item.healAmount} HP` : `+${item.healPercent || 100}% HP`;
+            if (rateEl) rateEl.textContent = `${item.useTime || 3}s`;
+            if (ammoEl) ammoEl.textContent = `${count} cái`;
+            if (reloadEl) reloadEl.textContent = item.healShield ? `+${item.healShield} Khiên` : '-';
+            if (rangeEl) rangeEl.textContent = item.speedBoostDuration ? `Chạy +25% (${item.speedBoostDuration}s)` : '-';
         } else {
             const stats = this.game.weapons ? this.game.weapons.getModifiedStats(item) : null;
             const finalDmg = stats ? stats.damage : item.damage;

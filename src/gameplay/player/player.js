@@ -72,6 +72,11 @@ export class PlayerController {
         this.reviveTimeRequired = 3.5;
         this.isBeingRevived = false;
 
+        // Trạng thái hiệu ứng chiến trường (Khói tàng hình & Tăng tốc)
+        this.isInSmoke = false;
+        this.speedBoostTimer = 0;
+        this.speedBoostFactor = 1.0;
+
         // Core Gunplay: Cursor Kickback & Screen Shake Trauma
         this.cursorKick = new THREE.Vector2(0, 0);
         this.screenShakeTrauma = 0;
@@ -707,6 +712,10 @@ export class PlayerController {
         if (this.isOverweight) {
             currentSpeed *= 0.65; // Phạt giảm tốc độ di chuyển khi balo vượt quá 450 KG
         }
+        if (this.speedBoostTimer > 0) {
+            this.speedBoostTimer -= delta;
+            currentSpeed *= (this.speedBoostFactor || 1.25); // Tăng tốc khi uống Nước tăng lực
+        }
 
         const moveDir = this.getMovementInput();
         const isMoving = moveDir.lengthSq() > 0.01;
@@ -959,6 +968,9 @@ export class PlayerController {
         this.shield = this.maxShield;
         this.isDead = false;
         this.isDowned = false;
+        this.isInSmoke = false;
+        this.speedBoostTimer = 0;
+        this.speedBoostFactor = 1.0;
         this.invulnerability = 0;
         this.aimYaw = Math.PI;
         this.isADS = false;

@@ -912,7 +912,7 @@ export function getBulletType(w) {
     return 'rifle';
 }
 
-// Danh sách các loại Bom & Lựu Đạn chiến thuật (Kenney Blaster Kit)
+// Danh sách các loại Bom & Lựu Đạn chiến thuật (Bộ 4 loại Bom hoàn chỉnh)
 export const BOMB_CONFIGS = [
     {
         id: 'grenade_a',
@@ -923,6 +923,7 @@ export const BOMB_CONFIGS = [
         tier: 1,
         price: 0,
         isBomb: true,
+        bombType: 'frag',
         throwRange: 14.0,
         blastRadius: 5.0,
         damage: 1600,
@@ -934,31 +935,140 @@ export const BOMB_CONFIGS = [
         description: 'Lựu đạn nổ phân mảnh uy lực cao. Gây sát thương nổ diện rộng và hất văng bầy zombie.'
     },
     {
-        id: 'grenade_b',
-        aliases: ['grenade-b'],
-        name: 'LỰU ĐẠN XUNG LỰC B',
+        id: 'grenade_smoke',
+        aliases: ['grenade-smoke', 'grenade_b'],
+        name: 'LỰU ĐẠN KHÓI CHIẾN THUẬT',
         category: 'LỰU ĐẠN TÁC CHIẾN',
         slotType: 'bomb',
-        tier: 1,
-        price: 3500,
+        tier: 2,
+        price: 1200,
         isBomb: true,
+        bombType: 'smoke',
         throwRange: 14.0,
         blastRadius: 5.5,
-        damage: 100,
-        knockback: 7.0,
-        slowDuration: 4.0,
-        slowPct: 0.6,
+        duration: 10.0,
+        damage: 0,
+        knockback: 0,
         fuseTime: 0.65,
         modelFile: 'kenney-blaster/grenade-b.glb',
         icon: 'assets/previews/kenney-blaster/grenade-b.png',
-        color: 0x8b5cf6,
-        description: 'Lựu đạn xung lực tạo màn chấn động. Gây sát thương và làm chậm 60% tốc độ di chuyển của zombie.'
+        color: 0x94a3b8,
+        description: 'Tạo màn khói che chắn tầm nhìn trong 10 giây. Zombie mất dấu và không tấn công người chơi trong phạm vi khói.'
+    },
+    {
+        id: 'grenade_fire',
+        aliases: ['grenade-fire', 'molotov'],
+        name: 'LỰU ĐẠN HỎA THIÊU MOLOTOV',
+        category: 'LỰU ĐẠN TÁC CHIẾN',
+        slotType: 'bomb',
+        tier: 3,
+        price: 1800,
+        isBomb: true,
+        bombType: 'fire',
+        throwRange: 14.0,
+        blastRadius: 4.5,
+        duration: 10.0,
+        burnDps: 25,
+        damage: 80,
+        knockback: 3.0,
+        fuseTime: 0.65,
+        modelFile: 'kenney-blaster/grenade-a.glb',
+        icon: 'assets/previews/kenney-blaster/grenade-a.png',
+        color: 0xef4444,
+        description: 'Tạo biển lửa thiêu đốt diện rộng trên mặt đất trong 10 giây. Gây sát thương liên tục và áp hiệu ứng cháy lên zombie.'
+    },
+    {
+        id: 'grenade_freeze',
+        aliases: ['grenade-freeze', 'cryo'],
+        name: 'LỰU ĐẠN BĂNG GIÁ CRYO',
+        category: 'LỰU ĐẠN TÁC CHIẾN',
+        slotType: 'bomb',
+        tier: 4,
+        price: 2500,
+        isBomb: true,
+        bombType: 'freeze',
+        throwRange: 14.0,
+        blastRadius: 5.5,
+        freezeDuration: 4.0,
+        damage: 200,
+        knockback: 2.0,
+        fuseTime: 0.65,
+        modelFile: 'kenney-blaster/grenade-b.glb',
+        icon: 'assets/previews/kenney-blaster/grenade-b.png',
+        color: 0x38bdf8,
+        description: 'Sóng hàn khí cực mạnh đóng băng toàn bộ zombie trong phạm vi suốt 4 giây (bất động 100%).'
     }
 ];
 
 export function getBombConfig(id) {
     if (!id) return BOMB_CONFIGS[0];
     return BOMB_CONFIGS.find(b => b.id === id || b.aliases?.includes(id)) || BOMB_CONFIGS[0];
+}
+
+// Danh mục 4 Vật phẩm y tế & tăng cường chuẩn PUBG
+export const MEDICAL_CONFIGS = [
+    {
+        id: 'bandage_field',
+        name: 'BĂNG GẠC DÃ CHIẾN',
+        category: 'VẬT PHẨM Y TẾ',
+        slotType: 'medical',
+        tier: 1,
+        price: 150,
+        healAmount: 25,
+        maxHealthCap: 75,
+        useTime: 2.5,
+        icon: 'assets/previews/kenney-blaster/medkit.svg',
+        color: 0x94a3b8,
+        description: 'Băng gạc cơ bản, hồi 25 HP trong 2.5 giây. Chỉ dùng khi máu dưới 75%.'
+    },
+    {
+        id: 'first_aid_kit',
+        name: 'TÚI SƠ CỨU FIRST AID',
+        category: 'VẬT PHẨM Y TẾ',
+        slotType: 'medical',
+        tier: 2,
+        price: 400,
+        healAmount: 75,
+        maxHealthCap: 75,
+        useTime: 4.0,
+        icon: 'assets/previews/kenney-blaster/medkit.svg',
+        color: 0x22c55e,
+        description: 'Túi sơ cứu tiêu chuẩn PUBG, hồi phục ngay lên 75 HP trong 4.0 giây.'
+    },
+    {
+        id: 'medkit_military',
+        name: 'HỘP CỨU THƯƠNG QUÂN SỰ',
+        category: 'VẬT PHẨM Y TẾ',
+        slotType: 'medical',
+        tier: 4,
+        price: 900,
+        healAmount: 100,
+        maxHealthCap: 100,
+        useTime: 6.0,
+        icon: 'assets/previews/kenney-blaster/medkit.svg',
+        color: 0xf59e0b,
+        description: 'Hộp cứu thương cao cấp tối thượng, hồi đầy 100% Máu trong 6.0 giây.'
+    },
+    {
+        id: 'energy_drink',
+        name: 'NƯỚC TĂNG LỰC CHIẾN BINH',
+        category: 'VẬT PHẨM TĂNG CƯỜNG',
+        slotType: 'medical',
+        tier: 2,
+        price: 350,
+        shieldAmount: 50,
+        speedBoostDuration: 12.0,
+        speedBoostPct: 0.25,
+        useTime: 2.0,
+        icon: 'assets/previews/kenney-blaster/medkit.svg',
+        color: 0x06b6d4,
+        description: 'Nước tăng lực uống nhanh trong 2.0 giây. Hồi 50 Khiên giáp và tăng 25% tốc độ chạy trong 12 giây.'
+    }
+];
+
+export function getMedicalConfig(id) {
+    if (!id) return MEDICAL_CONFIGS[1];
+    return MEDICAL_CONFIGS.find(m => m.id === id) || MEDICAL_CONFIGS[1];
 }
 
 // Danh sách các súng hiếm rơi ra trong trận
@@ -994,7 +1104,12 @@ export const ALL_KENNEY_ACCESSORIES = [
 export function getStartingWeapon(id) {
     if (!id) return WEAPON_CONFIGS[0];
     const match = WEAPON_CONFIGS.find(weapon => weapon.id === id || weapon.aliases?.includes(id));
-    return match || WEAPON_CONFIGS[0];
+    if (match) return match;
+    const bombMatch = BOMB_CONFIGS.find(b => b.id === id || b.aliases?.includes(id));
+    if (bombMatch) return bombMatch;
+    const medMatch = MEDICAL_CONFIGS.find(m => m.id === id || m.aliases?.includes(id));
+    if (medMatch) return medMatch;
+    return WEAPON_CONFIGS[0];
 }
 
 export const KNIFE_CONFIG = {
@@ -1103,12 +1218,19 @@ export class WeaponSystem {
         this.ammo = {};
         this.reserve = {};
         this.inventory = {
-            medkits: 3
+            medkits: 3,
+            bandage: 5,
+            first_aid: 2,
+            medkit_military: 1,
+            energy_drink: 2
         };
+        this.activeZones = [];
         this.isUsingMedkit = false;
         this.medkitTimer = 0;
         this.medkitTotalTime = 5.0;
         this.medkitPlayerRef = null;
+        this.currentMedicalItem = null;
+        this.currentMedicalInvKey = 'medkits';
         this.bulletCalibers = [
             { id: 'rusty', name: 'S-Rusty Bullet', dmgMod: 1.0, penMod: 0, speedMod: 1.0 },
             { id: 'ap', name: 'AP-Armor Piercing', dmgMod: 1.2, penMod: 1, speedMod: 1.1 },
@@ -1752,14 +1874,38 @@ export class WeaponSystem {
         };
     }
 
-    // Cơ chế Channeling sơ cứu vết thương trong 5.0 giây
-    startMedkitUse(player) {
+    // Cơ chế Channeling sơ cứu vết thương hoặc uống nước tăng lực
+    startMedkitUse(player, itemType = null) {
         if (!player || player.isDead) return false;
-        if (this.inventory.medkits <= 0) return false;
-        if (player.health >= player.maxHealth) return false;
         if (this.isUsingMedkit) return false;
 
+        // Tự động chọn loại vật phẩm phù hợp nhất nếu không chỉ định
+        if (!itemType) {
+            if ((this.inventory.medkit_military || 0) > 0 && player.health < 40) itemType = 'medkit_military';
+            else if ((this.inventory.first_aid || this.inventory.medkits || 0) > 0 && player.health < 75) itemType = 'first_aid_kit';
+            else if ((this.inventory.bandage || 0) > 0 && player.health < 75) itemType = 'bandage_field';
+            else if ((this.inventory.energy_drink || 0) > 0 && player.shield < player.maxShield) itemType = 'energy_drink';
+            else if ((this.inventory.medkit_military || 0) > 0 && player.health < player.maxHealth) itemType = 'medkit_military';
+            else if ((this.inventory.first_aid || this.inventory.medkits || 0) > 0) itemType = 'first_aid_kit';
+            else if ((this.inventory.bandage || 0) > 0) itemType = 'bandage_field';
+            else if ((this.inventory.energy_drink || 0) > 0) itemType = 'energy_drink';
+            else return false;
+        }
+
+        const medCfg = MEDICAL_CONFIGS.find(m => m.id === itemType) || MEDICAL_CONFIGS[1];
+        const invKey = itemType === 'first_aid_kit' ? (this.inventory.first_aid !== undefined ? 'first_aid' : 'medkits')
+            : itemType === 'bandage_field' ? 'bandage'
+            : itemType;
+
+        if ((this.inventory[invKey] || 0) <= 0 && (this.inventory.medkits || 0) <= 0) return false;
+
+        // Kiểm tra điều kiện máu/khiên
+        if (medCfg.healAmount && player.health >= (medCfg.maxHealthCap || player.maxHealth)) return false;
+
+        this.currentMedicalItem = medCfg;
+        this.currentMedicalInvKey = invKey;
         this.isUsingMedkit = true;
+        this.medkitTotalTime = medCfg.useTime || 4.0;
         this.medkitTimer = this.medkitTotalTime;
         this.medkitPlayerRef = player;
         sounds.playMedkit();
@@ -1771,79 +1917,34 @@ export class WeaponSystem {
             this.isUsingMedkit = false;
             this.medkitTimer = 0;
             this.medkitPlayerRef = null;
+            this.currentMedicalItem = null;
         }
     }
 
-    usePainkiller(player) {
-        if (!player || player.isDead || this.inventory.painkillers <= 0) return false;
-        this.inventory.painkillers--;
-        player.heal(25);
-        player.painTimer = 0;
-        sounds.playMedkit();
-        this.particles.createImpactSparks(player.position.clone().add(new THREE.Vector3(0, 1.0, 0)), new THREE.Vector3(0, 1, 0), 0xffaa00, 14);
-        return true;
-    }
-
-    useGrenade(player, enemies = null) {
-        if (!player || player.isDead || this.inventory.grenades <= 0) return false;
-        this.inventory.grenades--;
-        sounds.play('enemyExplode', { volume: 0.9 });
-        const blastPos = player.position.clone().add(new THREE.Vector3(
-            Math.sin(player.mesh.rotation.y) * 4.2,
-            0.5,
-            Math.cos(player.mesh.rotation.y) * 4.2
-        ));
-        this.particles.createExplosion(blastPos, 0xff5500, 36, 6.0);
-        this.particles.createImpactSparks(blastPos, new THREE.Vector3(0, 1, 0), 0xffdd44, 28);
-        if (enemies && enemies.length) {
-            for (const e of enemies) {
-                if (e && !e.isDead && e.position.distanceTo(blastPos) <= 6.0) {
-                    e.takeDamage(120, null, true, player);
-                }
+    // Lấy danh sách các ô vũ khí có trang bị hợp lệ để con lăn chuột duyệt qua
+    getAvailableSlots() {
+        const slots = [];
+        for (let i = 0; i < this.weaponSlots.length; i++) {
+            const w = this.weaponSlots[i];
+            if (w && (!w.isBomb || (w.count && w.count > 0))) {
+                slots.push(i);
             }
         }
-        return true;
-    }
-
-    useWaterBottle(player) {
-        if (!player || player.isDead || this.inventory.waterBottles <= 0) return false;
-        this.inventory.waterBottles--;
-        sounds.playShieldBattery();
-        this.particles.createImpactSparks(player.position.clone().add(new THREE.Vector3(0, 1.0, 0)), new THREE.Vector3(0, 1, 0), 0x38bdf8, 14);
-        return true;
-    }
-
-    useAmmoPack(player) {
-        if (!player || player.isDead || this.inventory.ammoPacks <= 0) return false;
-        this.inventory.ammoPacks--;
-        for (const w of this.weaponSlots) {
-            if (!w.isKnife && !w.isUtility) {
-                this.reserve[w.id] = (this.reserve[w.id] || 0) + (w.magSize * 2);
-            }
-        }
-        sounds.play('switchWeapon', { volume: 0.8, rate: 0.9 });
-        this.particles.createImpactSparks(player.position.clone().add(new THREE.Vector3(0, 1.0, 0)), new THREE.Vector3(0, 1, 0), 0xffff00, 16);
-        return true;
-    }
-
-    toggleBulletCaliber() {
-        this.currentCaliberIndex = (this.currentCaliberIndex + 1) % this.bulletCalibers.length;
-        sounds.play('switchWeapon', { volume: 0.5, rate: 1.6 });
-        return this.bulletCalibers[this.currentCaliberIndex];
-    }
-
-    getCurrentCaliber() {
-        return this.bulletCalibers[this.currentCaliberIndex] || this.bulletCalibers[0];
+        return slots.length > 0 ? slots : [0];
     }
 
     nextWeapon(player = null) {
-        const next = this.currentSlotIndex === 0 ? 1 : 0;
-        this.switchWeapon(next, player);
+        const available = this.getAvailableSlots();
+        const curPos = available.indexOf(this.currentSlotIndex);
+        const nextIndex = curPos >= 0 ? available[(curPos + 1) % available.length] : available[0];
+        this.switchWeapon(nextIndex, player);
     }
 
     prevWeapon(player = null) {
-        const prev = this.currentSlotIndex === 0 ? 1 : 0;
-        this.switchWeapon(prev, player);
+        const available = this.getAvailableSlots();
+        const curPos = available.indexOf(this.currentSlotIndex);
+        const prevIndex = curPos >= 0 ? available[(curPos - 1 + available.length) % available.length] : available[available.length - 1];
+        this.switchWeapon(prevIndex, player);
     }
 
     reload() {
@@ -2311,40 +2412,104 @@ export class WeaponSystem {
                 }
                 const blastPos = tb.endPos.clone();
                 const bCfg = tb.bombConfig;
+                const radius = bCfg.blastRadius || 5.5;
 
                 // Hiệu ứng hạt nổ & chớp sáng
-                this.particles.createExplosion(blastPos, bCfg.color || 0xf97316, 45, bCfg.blastRadius || 5.5);
-                this.particles.createImpactSparks(blastPos, new THREE.Vector3(0, 1, 0), 0xffdd44, 28);
+                this.particles.createExplosion(blastPos, bCfg.color || 0xf97316, 40, radius);
+                this.particles.createImpactSparks(blastPos, new THREE.Vector3(0, 1, 0), bCfg.color || 0xffdd44, 25);
                 sounds.play('enemyExplode', { volume: 1.0 });
 
                 if (tb.playerRef?.applyKickbackAndShake) {
-                    tb.playerRef.applyKickbackAndShake(4.0, 0.45);
+                    tb.playerRef.applyKickbackAndShake(3.5, 0.4);
                 }
 
-                // Gây sát thương AoE cho toàn bộ zombie trong bán kính
-                const radius = bCfg.blastRadius || 5.5;
-                for (const e of enemies) {
-                    if (!e || e.isDead) continue;
-                    const dist = e.position.distanceTo(blastPos);
-                    if (dist <= radius) {
-                        const falloff = Math.max(0.35, 1 - (dist / radius) * 0.65);
-                        const finalDamage = Math.round(bCfg.damage * falloff);
+                // Xử lý hiệu ứng theo từng chủng loại bom
+                if (bCfg.bombType === 'smoke') {
+                    // 1. BOM KHÓI: Màn khói mù mịt trong 10 giây
+                    const smokeGeo = new THREE.SphereGeometry(1, 16, 16);
+                    const smokeMat = new THREE.MeshBasicMaterial({
+                        color: 0x94a3b8,
+                        transparent: true,
+                        opacity: 0.65,
+                        depthWrite: false
+                    });
+                    const smokeMesh = new THREE.Mesh(smokeGeo, smokeMat);
+                    smokeMesh.position.set(blastPos.x, 1.2, blastPos.z);
+                    smokeMesh.scale.setScalar(radius);
+                    this.scene.add(smokeMesh);
 
-                        // Lực đẩy văng (Knockback) zombie ra xa tâm nổ
-                        if (e.velocity) {
-                            const pushDir = new THREE.Vector3().subVectors(e.position, blastPos);
-                            pushDir.y = 0;
-                            pushDir.normalize();
-                            e.velocity.addScaledVector(pushDir, (bCfg.knockback || 12.0) * falloff);
+                    this.activeZones.push({
+                        type: 'smoke',
+                        pos: blastPos.clone(),
+                        radius: radius,
+                        life: bCfg.duration || 10.0,
+                        maxLife: bCfg.duration || 10.0,
+                        mesh: smokeMesh,
+                        mat: smokeMat
+                    });
+                } else if (bCfg.bombType === 'fire') {
+                    // 2. BOM LỬA: Vũng lửa thiêu đốt trên mặt đất trong 10 giây
+                    const fireGeo = new THREE.CircleGeometry(radius, 32);
+                    fireGeo.rotateX(-Math.PI / 2);
+                    const fireMat = new THREE.MeshBasicMaterial({
+                        color: 0xef4444,
+                        transparent: true,
+                        opacity: 0.8,
+                        side: THREE.DoubleSide
+                    });
+                    const fireMesh = new THREE.Mesh(fireGeo, fireMat);
+                    fireMesh.position.set(blastPos.x, 0.05, blastPos.z);
+                    this.scene.add(fireMesh);
+
+                    this.activeZones.push({
+                        type: 'fire',
+                        pos: blastPos.clone(),
+                        radius: radius,
+                        life: bCfg.duration || 10.0,
+                        maxLife: bCfg.duration || 10.0,
+                        burnDps: bCfg.burnDps || 25,
+                        tickTimer: 0,
+                        mesh: fireMesh,
+                        mat: fireMat
+                    });
+
+                    // Sát thương nổ ban đầu
+                    for (const e of enemies) {
+                        if (!e || e.isDead) continue;
+                        if (e.position.distanceTo(blastPos) <= radius) {
+                            e.burnTimer = 4.0;
+                            e.burnDamage = bCfg.burnDps || 25;
+                            e.takeDamage(bCfg.damage || 80, 3, false, tb.playerRef);
                         }
-
-                        // Hiệu ứng làm chậm nếu có (Grenade B)
-                        if (bCfg.slowDuration) {
-                            e.slowTimer = bCfg.slowDuration;
-                            e.slowFactor = bCfg.slowPct || 0.8;
+                    }
+                } else if (bCfg.bombType === 'freeze') {
+                    // 3. BOM ĐÓNG BĂNG: Sóng hàn khí đóng băng toàn bộ zombie trong 4 giây
+                    for (const e of enemies) {
+                        if (!e || e.isDead) continue;
+                        if (e.position.distanceTo(blastPos) <= radius) {
+                            e.freezeTimer = bCfg.freezeDuration || 4.0;
+                            e.takeDamage(bCfg.damage || 200, 4, true, tb.playerRef);
+                            if (e.setEmissiveColor) e.setEmissiveColor(0x00f0ff, 0.9);
                         }
+                    }
+                } else {
+                    // 4. BOM NỔ MẢNH (Frag) & MẶC ĐỊNH
+                    for (const e of enemies) {
+                        if (!e || e.isDead) continue;
+                        const dist = e.position.distanceTo(blastPos);
+                        if (dist <= radius) {
+                            const falloff = Math.max(0.35, 1 - (dist / radius) * 0.65);
+                            const finalDamage = Math.round(bCfg.damage * falloff);
 
-                        e.takeDamage(finalDamage, 4, true, tb.playerRef);
+                            if (e.velocity) {
+                                const pushDir = new THREE.Vector3().subVectors(e.position, blastPos);
+                                pushDir.y = 0;
+                                pushDir.normalize();
+                                e.velocity.addScaledVector(pushDir, (bCfg.knockback || 12.0) * falloff);
+                            }
+
+                            e.takeDamage(finalDamage, 4, true, tb.playerRef);
+                        }
                     }
                 }
 
@@ -2353,8 +2518,65 @@ export class WeaponSystem {
         }
     }
 
+    // Cập nhật các vùng hiệu ứng chiến trường (Khói, Lửa)
+    updateActiveZones(delta, player, enemies = []) {
+        if (!this.activeZones || !this.activeZones.length) return;
+        const mainPlayer = Array.isArray(player) ? player[0] : player;
+        let playerInAnySmoke = false;
+
+        for (let i = this.activeZones.length - 1; i >= 0; i--) {
+            const zone = this.activeZones[i];
+            zone.life -= delta;
+
+            if (zone.type === 'smoke') {
+                if (mainPlayer && !mainPlayer.isDead) {
+                    const distToPlayer = mainPlayer.position.distanceTo(zone.pos);
+                    if (distToPlayer <= zone.radius) {
+                        playerInAnySmoke = true;
+                    }
+                }
+
+                if (zone.mesh) {
+                    const progress = Math.max(0, zone.life / zone.maxLife);
+                    zone.mesh.rotation.y += delta * 0.2;
+                    zone.mesh.scale.setScalar(zone.radius * (0.8 + 0.2 * Math.sin(zone.life * 2)));
+                    if (zone.mat) zone.mat.opacity = Math.min(0.65, progress * 0.7);
+                }
+            } else if (zone.type === 'fire') {
+                zone.tickTimer = (zone.tickTimer || 0) + delta;
+                if (zone.tickTimer >= 0.5) {
+                    zone.tickTimer = 0;
+                    for (const e of enemies) {
+                        if (!e || e.isDead) continue;
+                        if (e.position.distanceTo(zone.pos) <= zone.radius) {
+                            e.burnTimer = 3.5;
+                            e.burnDamage = zone.burnDps || 25;
+                            e.takeDamage(Math.round((zone.burnDps || 25) * 0.5), 2, false, null);
+                        }
+                    }
+                }
+
+                if (zone.mesh) {
+                    zone.mesh.rotation.z += delta * 0.8;
+                    const progress = Math.max(0, zone.life / zone.maxLife);
+                    if (zone.mat) zone.mat.opacity = Math.min(0.85, progress * 0.9);
+                }
+            }
+
+            if (zone.life <= 0) {
+                if (zone.mesh) this.scene.remove(zone.mesh);
+                this.activeZones.splice(i, 1);
+            }
+        }
+
+        if (mainPlayer) {
+            mainPlayer.isInSmoke = playerInAnySmoke;
+        }
+    }
+
     update(delta, arena, enemies, player, onHitCallback) {
         this.updateThrownBombs(delta, arena, enemies);
+        this.updateActiveZones(delta, player, enemies);
         if (this.fireCooldown > 0) {
             this.fireCooldown -= delta;
         }
@@ -2367,10 +2589,10 @@ export class WeaponSystem {
             this.overclockCooldown -= delta;
         }
 
-        // Xử lý tiến trình sơ cứu Medkit 5 giây
+        // Xử lý tiến trình sơ cứu / uống nước tăng lực
         if (this.isUsingMedkit && this.medkitPlayerRef) {
             const p = this.medkitPlayerRef;
-            if (p.isDead || p.health >= p.maxHealth) {
+            if (p.isDead) {
                 this.cancelMedkitUse();
             } else {
                 this.medkitTimer -= delta;
@@ -2386,13 +2608,33 @@ export class WeaponSystem {
                 if (this.medkitTimer <= 0) {
                     this.isUsingMedkit = false;
                     this.medkitTimer = 0;
-                    if (this.inventory.medkits > 0) {
+                    const medCfg = this.currentMedicalItem || MEDICAL_CONFIGS[1];
+                    const invKey = this.currentMedicalInvKey || 'medkits';
+
+                    if ((this.inventory[invKey] || 0) > 0) {
+                        this.inventory[invKey]--;
+                    } else if (this.inventory.medkits > 0) {
                         this.inventory.medkits--;
-                        p.heal(50);
-                        p.painTimer = 0;
-                        sounds.playMedkit();
-                        this.particles.createImpactSparks(p.position.clone().add(new THREE.Vector3(0, 1.0, 0)), new THREE.Vector3(0, 1, 0), 0x00ff88, 24);
                     }
+
+                    if (medCfg.healAmount) {
+                        if (medCfg.maxHealthCap && medCfg.maxHealthCap < 100) {
+                            p.health = Math.min(medCfg.maxHealthCap, p.health + medCfg.healAmount);
+                        } else {
+                            p.heal(medCfg.healAmount);
+                        }
+                    }
+                    if (medCfg.shieldAmount) {
+                        p.rechargeShield(medCfg.shieldAmount);
+                    }
+                    if (medCfg.speedBoostDuration) {
+                        p.speedBoostTimer = medCfg.speedBoostDuration;
+                        p.speedBoostFactor = 1 + (medCfg.speedBoostPct || 0.25);
+                    }
+
+                    p.painTimer = 0;
+                    sounds.playMedkit();
+                    this.particles.createImpactSparks(p.position.clone().add(new THREE.Vector3(0, 1.0, 0)), new THREE.Vector3(0, 1, 0), medCfg.color || 0x00ff88, 24);
                     this.medkitPlayerRef = null;
                 }
             }

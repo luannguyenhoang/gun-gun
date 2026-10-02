@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../../audio/audio.js';
-import { WEAPON_CONFIGS, RARE_WEAPON_CONFIGS, ATTACHMENT_DEFS } from '../combat/weapons.js';
+import { WEAPON_CONFIGS, RARE_WEAPON_CONFIGS, ATTACHMENT_DEFS, getBombConfig, BOMB_CONFIGS, MEDICAL_CONFIGS } from '../combat/weapons.js';
 
 const _gltfLoader = new GLTFLoader();
 const _modelCache = new Map();
@@ -38,7 +38,35 @@ export const LOOT_TIERS = {
 };
 
 export const LOOT_ITEMS = {
-    // --- 1. VẬT PHẨM Y TẾ DUY NHẤT (FIRST AID KIT) ---
+    // --- 1. CÁC VẬT PHẨM Y TẾ & TĂNG CƯỜNG CHIẾN THUẬT ---
+    bandage_field: {
+        id: 'bandage_field',
+        name: 'Băng Gạc Dã Chiến',
+        category: 'medical',
+        tier: 1,
+        rarity: 'common',
+        color: '#94a3b8',
+        tag: 'BĂNG GẠC',
+        icon: 'assets/previews/kenney-blaster/medkit.svg',
+        subText: 'Hồi 25 HP khẩn cấp (2.5s)',
+        description: 'Băng gạc dã chiến hồi phục 25 HP trong 2.5 giây. Chỉ dùng khi máu dưới 75%.',
+        statSummary: '+25 HP (2.5s)',
+        actionLabel: 'NHẶT BĂNG GẠC'
+    },
+    first_aid_kit: {
+        id: 'first_aid_kit',
+        name: 'Túi Sơ Cứu First Aid',
+        category: 'medical',
+        tier: 2,
+        rarity: 'uncommon',
+        color: '#22c55e',
+        tag: 'FIRST AID',
+        icon: 'assets/previews/kenney-blaster/medkit.svg',
+        subText: 'Hồi lên 75 HP (4.0s)',
+        description: 'Túi sơ cứu tiêu chuẩn PUBG, hồi máu lên mức 75 HP trong 4.0 giây.',
+        statSummary: 'Hồi 75 HP (4s)',
+        actionLabel: 'NHẶT TÚI CỨU THƯƠNG'
+    },
     medkit: {
         id: 'medkit',
         name: 'Túi Cứu Thương PUBG',
@@ -46,12 +74,102 @@ export const LOOT_ITEMS = {
         tier: 2,
         rarity: 'uncommon',
         color: '#22c55e',
-        tag: 'MEDKIT',
+        tag: 'FIRST AID',
         icon: 'assets/previews/kenney-blaster/medkit.svg',
-        subText: 'Hồi 50 HP khẩn cấp',
-        description: 'Bấm [F] nhặt ngay, tự dồn vào số lượng máu dự trữ. Hồi 50 HP khẩn cấp.',
-        statSummary: '+50 Máu Cấp Cứu',
+        subText: 'Hồi 75 HP (4.0s)',
+        description: 'Túi sơ cứu tiêu chuẩn PUBG, hồi máu lên mức 75 HP trong 4.0 giây.',
+        statSummary: 'Hồi 75 HP (4s)',
         actionLabel: 'NHẶT CỨU THƯƠNG'
+    },
+    medkit_military: {
+        id: 'medkit_military',
+        name: 'Hộp Cứu Thương Quân Sự',
+        category: 'medical',
+        tier: 4,
+        rarity: 'epic',
+        color: '#f59e0b',
+        tag: 'MEDKIT VIP',
+        icon: 'assets/previews/kenney-blaster/medkit.svg',
+        subText: 'Hồi đầy 100% Máu (6.0s)',
+        description: 'Hộp cứu thương cao cấp hồi đầy 100% lượng máu tối đa trong 6.0 giây.',
+        statSummary: 'Hồi 100% Full HP (6s)',
+        actionLabel: 'NHẶT MEDKIT VIP'
+    },
+    energy_drink: {
+        id: 'energy_drink',
+        name: 'Nước Tăng Lực Chiến Binh',
+        category: 'medical',
+        tier: 2,
+        rarity: 'uncommon',
+        color: '#06b6d4',
+        tag: 'BOOST DRINK',
+        icon: 'assets/previews/kenney-blaster/medkit.svg',
+        subText: '+50 Khiên & Tăng tốc 25%',
+        description: 'Nước tăng lực uống trong 2.0s, hồi phục 50 Khiên và tăng 25% tốc độ chạy trong 12 giây.',
+        statSummary: '+50 Khiên · Chạy nhanh 12s',
+        actionLabel: 'NHẶT NƯỚC TĂNG LỰC'
+    },
+
+    // --- BOM VÀ LỰU ĐẠN CHIẾN THUẬT ---
+    grenade_a: {
+        id: 'grenade_a',
+        name: 'Lựu Đạn Nổ Mảnh A',
+        category: 'bomb',
+        isBomb: true,
+        tier: 1,
+        rarity: 'common',
+        color: '#f97316',
+        tag: 'BOM NỔ',
+        icon: 'assets/previews/kenney-blaster/grenade-a.png',
+        subText: '1600 Sát thương nổ lớn',
+        description: 'Lựu đạn nổ mảnh gây sát thương diện rộng và hất văng bầy zombie.',
+        statSummary: '1600 DMG · Bán kính 5m',
+        actionLabel: 'NHẶT LỰU ĐẠN NỔ'
+    },
+    grenade_smoke: {
+        id: 'grenade_smoke',
+        name: 'Lựu Đạn Khói Chiến Thuật',
+        category: 'bomb',
+        isBomb: true,
+        tier: 2,
+        rarity: 'uncommon',
+        color: '#94a3b8',
+        tag: 'BOM KHÓI',
+        icon: 'assets/previews/kenney-blaster/grenade-b.png',
+        subText: 'Khói mù 10s · Tàng hình',
+        description: 'Màn khói 10 giây che chắn tầm nhìn. Zombie mất dấu và không tấn công người chơi trong khói.',
+        statSummary: 'Màn khói 10s · Mất dấu',
+        actionLabel: 'NHẶT BOM KHÓI'
+    },
+    grenade_fire: {
+        id: 'grenade_fire',
+        name: 'Lựu Đạn Hỏa Thiêu Molotov',
+        category: 'bomb',
+        isBomb: true,
+        tier: 3,
+        rarity: 'rare',
+        color: '#ef4444',
+        tag: 'BOM LỬA',
+        icon: 'assets/previews/kenney-blaster/grenade-a.png',
+        subText: 'Vũng lửa thiêu đốt 10s',
+        description: 'Tạo biển lửa thiêu đốt diện rộng trên mặt đất trong 10 giây. Gây sát thương liên tục.',
+        statSummary: 'Biển lửa 10s · Đốt 25 DPS',
+        actionLabel: 'NHẶT BOM LỬA'
+    },
+    grenade_freeze: {
+        id: 'grenade_freeze',
+        name: 'Lựu Đạn Băng Giá Cryo',
+        category: 'bomb',
+        isBomb: true,
+        tier: 4,
+        rarity: 'epic',
+        color: '#38bdf8',
+        tag: 'BOM BĂNG',
+        icon: 'assets/previews/kenney-blaster/grenade-b.png',
+        subText: 'Đóng băng zombie 4 giây',
+        description: 'Sóng hàn khí cực mạnh làm đóng băng toàn bộ zombie trong phạm vi 4 giây (bất động 100%).',
+        statSummary: 'Đóng băng 4s · Bất động',
+        actionLabel: 'NHẶT BOM BĂNG'
     },
 
     // --- 2. LINH KIỆN NÒNG SÚNG (BARREL - Flat Damage & Range) ---
@@ -507,12 +625,9 @@ export const LOOT_ITEMS = {
 
 // Ánh xạ tương thích ngược các ID item cũ để tránh lỗi tham chiếu
 const LEGACY_LOOT_ALIASES = {
-    medkit_military: 'medkit',
-    bandage_field: 'medkit',
-    painkiller_bottle: 'medkit',
-    painkiller_morphine: 'medkit',
-    energy_drink: 'medkit',
-    water_purified: 'medkit',
+    painkiller_bottle: 'first_aid_kit',
+    painkiller_morphine: 'first_aid_kit',
+    water_purified: 'energy_drink',
     attach_compensator: 'barrel_t3',
     attach_silencer: 'barrel_t4',
     attach_flash_hider: 'barrel_t2',
@@ -1801,13 +1916,24 @@ export class LootingSystem {
         const weapons = this.player?.weapons;
         if (!weapons) return false;
 
-        // 1. VẬT PHẨM Y TẾ DUY NHẤT (FIRST AID KIT) -> Bấm [F] nhặt ngay, tự dồn vào số lượng máu dự trữ
-        if (def.category === 'medical' || selected.itemId === 'medkit') {
-            weapons.inventory.medkits = (weapons.inventory.medkits || 0) + (selected.count || 1);
+        // 1. VẬT PHẨM Y TẾ & TĂNG CƯỜNG CHIẾN THUẬT
+        if (def.category === 'medical' || selected.itemId === 'medkit' || ['bandage_field', 'first_aid_kit', 'medkit_military', 'energy_drink'].includes(selected.itemId)) {
+            const qty = selected.count || 1;
+            if (selected.itemId === 'bandage_field') {
+                weapons.inventory.bandage = (weapons.inventory.bandage || 0) + qty;
+            } else if (selected.itemId === 'medkit_military') {
+                weapons.inventory.medkit_military = (weapons.inventory.medkit_military || 0) + qty;
+            } else if (selected.itemId === 'energy_drink') {
+                weapons.inventory.energy_drink = (weapons.inventory.energy_drink || 0) + qty;
+            } else {
+                weapons.inventory.first_aid = (weapons.inventory.first_aid || 0) + qty;
+                weapons.inventory.medkits = (weapons.inventory.medkits || 0) + qty;
+            }
+
             container.slots[selected.slotIndex] = null;
             this.notifyLootAction(container.id, selected.slotIndex, null);
             sounds.playMedkit?.();
-            this.ui?.showPickupAlert('ĐÃ NHẶT TÚI CỨU THƯƠNG (+1)');
+            this.ui?.showPickupAlert(`ĐÃ NHẶT [${def.name.toUpperCase()}] (+${qty})`);
             if (this.checkAndRemoveEmptyContainer(container)) {
                 this.ui?.showPickupAlert('HÒM ĐÃ HẾT ĐỒ VÀ BIẾN MẤT!');
                 return true;
@@ -1962,6 +2088,46 @@ export class LootingSystem {
             this.ui?.updateTacticalDock?.(weapons, this.player);
 
             // Kiểm tra xóa hòm nếu hòm đã trống
+            if (this.checkAndRemoveEmptyContainer(container)) {
+                this.ui?.showPickupAlert('HÒM ĐÃ HẾT ĐỒ VÀ BIẾN MẤT!');
+                return true;
+            }
+            this.ui?.refreshPUBGMiniCrate(container, this, this.getNearbyDroppedWeapons(4.5));
+            return true;
+        }
+
+        // 4. BOM & LỰU ĐẠN CHIẾN THUẬT -> Nhặt vào ô bom [3] hoặc [4]
+        if (def.category === 'bomb' || def.isBomb || ['grenade_a', 'grenade_smoke', 'grenade_fire', 'grenade_freeze'].includes(selected.itemId)) {
+            const bombConfig = getBombConfig(selected.itemId);
+            const bombItem = {
+                ...bombConfig,
+                count: selected.count || 1
+            };
+
+            // Ưu tiên nạp vào slot bom 1 (index 2) nếu trống hoặc cùng loại
+            if (!weapons.weaponSlots[2] || weapons.weaponSlots[2].id === bombItem.id) {
+                if (weapons.weaponSlots[2]) {
+                    weapons.weaponSlots[2].count = Math.min(2, (weapons.weaponSlots[2].count || 0) + bombItem.count);
+                } else {
+                    weapons.weaponSlots[2] = bombItem;
+                }
+            } else if (!weapons.weaponSlots[3] || weapons.weaponSlots[3].id === bombItem.id) {
+                // Nhặt vào slot bom 2 (index 3)
+                if (weapons.weaponSlots[3]) {
+                    weapons.weaponSlots[3].count = Math.min(2, (weapons.weaponSlots[3].count || 0) + bombItem.count);
+                } else {
+                    weapons.weaponSlots[3] = bombItem;
+                }
+            } else {
+                // Cả 2 slot bom đã đầy -> Thay thế ô bom slot 2
+                weapons.weaponSlots[2] = bombItem;
+            }
+
+            container.slots[selected.slotIndex] = null;
+            this.notifyLootAction(container.id, selected.slotIndex, null);
+            sounds.play('switchWeapon', { volume: 0.95, rate: 1.4 });
+            this.ui?.showPickupAlert(`ĐÃ TRANG BỊ [${def.name.toUpperCase()}]!`);
+            this.ui?.updateTacticalDock?.(weapons, this.player);
             if (this.checkAndRemoveEmptyContainer(container)) {
                 this.ui?.showPickupAlert('HÒM ĐÃ HẾT ĐỒ VÀ BIẾN MẤT!');
                 return true;

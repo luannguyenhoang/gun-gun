@@ -797,16 +797,18 @@ export class UIManager {
                 vestBars.forEach((bar, idx) => bar.classList.toggle('active', idx < vestLevel));
             }
 
-            // Cập nhật ô vật phẩm hồi máu [5] (Medkit)
+            // Cập nhật ô vật phẩm hồi máu [5] (Medkit & Vật phẩm y tế)
             const inv = player.weapons?.inventory || {};
             const isUsingMed = !!player.weapons?.isUsingMedkit;
-            if (this.thQtyMedkit) this.thQtyMedkit.textContent = `x${inv.medkits ?? 0}`;
+            const totalMeds = (inv.bandage || 0) + (inv.first_aid || 0) + (inv.medkit_military || 0) + (inv.energy_drink || 0);
+            const medQty = Math.max(totalMeds, inv.medkits || 0);
+            if (this.thQtyMedkit) this.thQtyMedkit.textContent = `x${medQty}`;
             if (this.thSlot3) {
-                this.thSlot3.style.opacity = (inv.medkits > 0) ? '1' : '0.45';
+                this.thSlot3.style.opacity = (medQty > 0) ? '1' : '0.45';
                 this.thSlot3.classList.toggle('active', isUsingMed);
             }
 
-            // Hiển thị thanh tiến trình sơ cứu Medkit 5 giây
+            // Hiển thị thanh tiến trình sơ cứu y tế
             if (this.thMedkitChannel) {
                 if (player.weapons?.isUsingMedkit) {
                     this.thMedkitChannel.style.display = 'block';
@@ -814,7 +816,8 @@ export class UIManager {
                     const totalTime = player.weapons.medkitTotalTime || 5.0;
                     const pct = Math.max(0, Math.min(100, (1 - curTime / totalTime) * 100));
                     if (this.thMedkitFill) this.thMedkitFill.style.width = `${pct}%`;
-                    if (this.thMedkitCountdown) this.thMedkitCountdown.textContent = `${curTime.toFixed(1)}s`;
+                    const medName = player.weapons.activeMedkitConfig?.name || 'SƠ CỨU';
+                    if (this.thMedkitCountdown) this.thMedkitCountdown.textContent = `${medName} (${curTime.toFixed(1)}s)`;
                 } else {
                     this.thMedkitChannel.style.display = 'none';
                 }
