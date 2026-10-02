@@ -1,6 +1,6 @@
 """Vercel serverless adapter for the multiplayer room service.
 
-The local game uses ``server.py``; this adapter exposes the same room API when
+The local game uses ``tools/dev-server.py``; this adapter exposes the same room API when
 the static game is deployed to Vercel. Vercel may create more than one worker,
 so this in-memory relay is intended for small play sessions rather than
 durable matchmaking.
@@ -10,7 +10,7 @@ import json
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
-from rooms import RoomError, RoomService
+from backend.rooms import RoomError, RoomService
 
 
 ROOMS = RoomService()

@@ -1,0 +1,2576 @@
+import * as THREE from 'three';
+import { sounds } from '../../audio/audio.js';
+
+// Chuẩn hóa 5 Cấp bậc Độ hiếm (Rarity Tiers) áp dụng cho CẢ SÚNG VÀ PHỤ KIỆN
+export const RARITY_TIERS = {
+    1: { tier: 1, id: 'common', name: 'COMMON', label: 'Cấp 1 · Thường', color: '#94a3b8', hex: 0x94a3b8, dmgMod: 0.00, desc: 'Chỉ số gốc' },
+    2: { tier: 2, id: 'uncommon', name: 'UNCOMMON', label: 'Cấp 2 · Đặc biệt', color: '#22c55e', hex: 0x22c55e, dmgMod: 0.15, desc: '+15% Sát thương' },
+    3: { tier: 3, id: 'rare', name: 'RARE', label: 'Cấp 3 · Hiếm', color: '#3b82f6', hex: 0x3b82f6, dmgMod: 0.35, desc: '+35% Sát thương' },
+    4: { tier: 4, id: 'epic', name: 'EPIC', label: 'Cấp 4 · Sử thi', color: '#a855f7', hex: 0xa855f7, dmgMod: 0.60, desc: '+60% Sát thương' },
+    5: { tier: 5, id: 'legendary', name: 'LEGENDARY', label: 'Cấp 5 · Huyền thoại', color: '#f59e0b', hex: 0xf59e0b, dmgMod: 1.00, desc: '+100% Sát thương, Xuyên 3 mục tiêu' }
+};
+
+// Cấu hình Cường Hóa Đập Đồ (Cấp 1 -> Cấp 5)
+export const th_UPGRADE_TIER_CONFIG = {
+    1: { nextTier: 2, cost: 400, successRate: 1.0, bonusDmgPct: 0.15, recoilReduction: 0.05, label: 'Cấp 1 → 2' },
+    2: { nextTier: 3, cost: 900, successRate: 0.8, bonusDmgPct: 0.35, reloadSpeedBonus: 0.10, label: 'Cấp 2 → 3' },
+    3: { nextTier: 4, cost: 1800, successRate: 0.6, bonusDmgPct: 0.60, magBonusPct: 0.15, label: 'Cấp 3 → 4' },
+    4: { nextTier: 5, cost: 3500, successRate: 0.4, bonusDmgPct: 1.00, pierceBonus: 3, label: 'Cấp 4 → 5' },
+    5: { nextTier: null, cost: 0, successRate: 0, label: 'ĐÃ ĐẠT CẤP TỐI ĐA (MAX)' }
+};
+
+// Danh mục 6 Hiệu ứng Nguyên tố Ép Khảm / Gacha
+export const th_ELEMENTAL_EFFECTS = {
+    frost: {
+        id: 'frost',
+        name: 'BĂNG GIÁ',
+        tag: 'BĂNG',
+        color: '#38bdf8',
+        hex: 0x38bdf8,
+        weight: 20,
+        desc: 'Làm chậm zombie 45% trong 2.5s'
+    },
+    fire: {
+        id: 'fire',
+        name: 'HỎA DIỆM',
+        tag: 'HỎA',
+        color: '#f97316',
+        hex: 0xf97316,
+        weight: 20,
+        desc: 'Thiêu đốt gây 30 sát thương lửa trong 3s'
+    },
+    lightning: {
+        id: 'lightning',
+        name: 'LÔI ĐIỆN',
+        tag: 'LÔI',
+        color: '#60a5fa',
+        hex: 0x60a5fa,
+        weight: 20,
+        desc: 'Giật sét lan sang 2 zombie gần kề (50% ST)'
+    },
+    vampiric: {
+        id: 'vampiric',
+        name: 'HÚT MÁU',
+        tag: 'HÚT MÁU',
+        color: '#f43f5e',
+        hex: 0xf43f5e,
+        weight: 15,
+        desc: 'Bắn trúng hồi 2 HP, hạ gục hồi 8 HP'
+    },
+    corrosive: {
+        id: 'corrosive',
+        name: 'ĂN MÒN',
+        tag: 'ĂN MÒN',
+        color: '#84cc16',
+        hex: 0x84cc16,
+        weight: 15,
+        desc: 'Zombie nhận thêm +25% sát thương trong 4s'
+    },
+    berserk: {
+        id: 'berserk',
+        name: 'CUỒNG NỘ',
+        tag: 'CUỒNG NỘ',
+        color: '#eab308',
+        hex: 0xeab308,
+        weight: 10,
+        desc: '+15% Tỷ lệ bạo kích, sát thương crit x2.5'
+    }
+};
+
+export function th_getWeaponTier(weaponId) {
+    if (!weaponId) return 1;
+    try {
+        const raw = localStorage.getItem('th_arena_weapon_tiers');
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed[weaponId] === 'number') {
+                return Math.max(1, Math.min(5, parsed[weaponId]));
+            }
+        }
+    } catch { }
+    return 1;
+}
+
+export function th_getWeaponEnchant(weaponId) {
+    if (!weaponId) return null;
+    try {
+        const raw = localStorage.getItem('th_arena_weapon_enchants');
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed[weaponId] && th_ELEMENTAL_EFFECTS[parsed[weaponId]]) {
+                return th_ELEMENTAL_EFFECTS[parsed[weaponId]];
+            }
+        }
+    } catch { }
+    return null;
+}
+
+export function th_rollElementalEffect() {
+    const pool = [];
+    for (const eff of Object.values(th_ELEMENTAL_EFFECTS)) {
+        for (let i = 0; i < eff.weight; i++) {
+            pool.push(eff.id);
+        }
+    }
+    const rolledId = pool[Math.floor(Math.random() * pool.length)];
+    return th_ELEMENTAL_EFFECTS[rolledId];
+}
+
+// ============================================================
+// HỆ THỐNG NÂNG CẤP TỪNG BỘ PHẬN VŨ KHÍ (Part-based Upgrade)
+// ============================================================
+
+/**
+ * Lấy tier hiện tại của một bộ phận cụ thể của súng
+ * @param {string} weaponId - ID súng
+ * @param {string} slot - 'optic' | 'barrel' | 'grip' | 'magazine'
+ * @returns {number} 1-5
+ */
+export function th_getPartTier(weaponId, slot) {
+    if (!weaponId || !slot) return 1;
+    try {
+        const raw = localStorage.getItem('th_weapon_parts');
+        if (raw) {
+            const data = JSON.parse(raw);
+            const wData = data[weaponId];
+            if (wData && typeof wData[slot] === 'number') {
+                return Math.max(1, Math.min(5, wData[slot]));
+            }
+        }
+    } catch { }
+    return 1;
+}
+
+/**
+ * Lấy toàn bộ tier bộ phận của một khẩu súng
+ * @param {string} weaponId
+ * @returns {{ optic: number, barrel: number, grip: number, magazine: number }}
+ */
+export function th_getWeaponParts(weaponId) {
+    return {
+        optic: th_getPartTier(weaponId, 'optic'),
+        barrel: th_getPartTier(weaponId, 'barrel'),
+        grip: th_getPartTier(weaponId, 'grip'),
+        magazine: th_getPartTier(weaponId, 'magazine'),
+    };
+}
+
+/**
+ * Tính final stats thực của súng sau khi cộng bonus từ tất cả bộ phận đã nâng cấp
+ * @param {object} weaponConfig - Config gốc từ WEAPON_CONFIGS
+ * @param {string} weaponId
+ * @returns {object} Stats đã tổng hợp bonus bộ phận
+ */
+export function th_computeWeaponFinalStats(weaponConfig, weaponId) {
+    const base = weaponConfig;
+    const parts = th_getWeaponParts(weaponId);
+
+    // Sẽ được resolve sau khi ATTACHMENT_DEFS được export
+    const _getDef = (key) => {
+        try {
+            // ATTACHMENT_DEFS được khai báo ở dưới, dùng dynamic access
+            return ATTACHMENT_DEFS[key] || {};
+        } catch { return {}; }
+    };
+
+    const bDef = _getDef(`barrel_t${parts.barrel}`);
+    const oDef = _getDef(`optic_t${parts.optic}`);
+    const gDef = _getDef(`grip_t${parts.grip}`);
+    const mDef = _getDef(`magazine_t${parts.magazine}`);
+
+    return {
+        damage: base.damage + (bDef.flatDmg || 0),
+        range: (base.range || 20) * (1 + (bDef.rangeBonusPct || 0) + (oDef.rangeBonusPct || 0)),
+        magSize: Math.floor((base.magSize || 30) * (1 + (mDef.magBonusPct || 0))),
+        reloadTime: (base.reloadTime || 1.5) * (1 - (mDef.reloadSpeedBonus || 0)),
+        critChance: (base.critChance || 0) + (oDef.critChance || 0),
+        critMultiplier: (base.critMultiplier || 2.0) + (oDef.critDmgMod || 0),
+        recoilFactor: 1 - (gDef.recoilReduction || 0),
+        spreadFactor: 1 - (gDef.spreadReduction || 0),
+        // Giữ lại các stats khác không bị ảnh hưởng
+        fireRate: base.fireRate,
+        bulletSpeed: base.bulletSpeed,
+        penPower: base.penPower,
+        pellets: base.pellets,
+        isAuto: base.isAuto,
+    };
+}
+
+// Metadata bộ phận để hiển thị UI
+export const TH_PART_META = {
+    optic: { label: 'KÍNH NGẮM', key: 'optic', costs: [0, 250, 600, 1200, 2400], rates: [1, 1.0, 0.80, 0.65, 0.45], statKey: 'Crit Chance' },
+    barrel: { label: 'NÒNG SÚNG', key: 'barrel', costs: [0, 200, 500, 1000, 2000], rates: [1, 1.0, 0.85, 0.70, 0.50], statKey: 'Sát thương' },
+    grip: { label: 'TAY CẦM', key: 'grip', costs: [0, 150, 400, 800, 1600], rates: [1, 1.0, 0.90, 0.75, 0.55], statKey: 'Giật' },
+    magazine: { label: 'BĂNG ĐẠN', key: 'magazine', costs: [0, 180, 450, 900, 1800], rates: [1, 1.0, 0.85, 0.70, 0.50], statKey: 'Băng đạn' },
+};
+
+// 4 Linh kiện Phụ kiện Nâng cấp Súng (Attachments Ecosystem theo 5 Tier)
+export const ATTACHMENT_DEFS = {
+    // 1. Nòng súng (Barrel): Tăng Flat Damage và tầm bắn hiệu dụng ở mức cân đối
+    barrel_t1: { id: 'barrel_t1', name: 'Nòng Cấp 1', slot: 'barrel', tier: 1, flatDmg: 2, rangeBonusPct: 0.08, icon: 'assets/previews/kenney-blaster/silencer-small.png', modelFile: 'kenney-blaster/silencer-small.glb', desc: '+2 Sát thương, +8% Tầm bắn' },
+    barrel_t2: { id: 'barrel_t2', name: 'Nòng Cấp 2', slot: 'barrel', tier: 2, flatDmg: 4, rangeBonusPct: 0.15, icon: 'assets/previews/kenney-blaster/silencer-small.png', modelFile: 'kenney-blaster/silencer-small.glb', desc: '+4 Sát thương, +15% Tầm bắn' },
+    barrel_t3: { id: 'barrel_t3', name: 'Nòng Cấp 3', slot: 'barrel', tier: 3, flatDmg: 7, rangeBonusPct: 0.25, icon: 'assets/previews/kenney-blaster/silencer-larger.png', modelFile: 'kenney-blaster/silencer-larger.glb', desc: '+7 Sát thương, +25% Tầm bắn' },
+    barrel_t4: { id: 'barrel_t4', name: 'Nòng Cấp 4', slot: 'barrel', tier: 4, flatDmg: 11, rangeBonusPct: 0.35, icon: 'assets/previews/kenney-blaster/silencer-larger.png', modelFile: 'kenney-blaster/silencer-larger.glb', desc: '+11 Sát thương, +35% Tầm bắn' },
+    barrel_t5: { id: 'barrel_t5', name: 'Nòng Cấp 5', slot: 'barrel', tier: 5, flatDmg: 16, rangeBonusPct: 0.50, icon: 'assets/previews/kenney-blaster/silencer-larger.png', modelFile: 'kenney-blaster/silencer-larger.glb', desc: '+16 Sát thương, +50% Tầm bắn' },
+
+    // 2. Băng đạn (Magazine): Tăng dung lượng đạn và tốc độ nạp đạn
+    magazine_t1: { id: 'magazine_t1', name: 'Băng Đạn Cấp 1', slot: 'magazine', tier: 1, magBonusPct: 0.15, reloadSpeedBonus: 0.10, icon: 'assets/previews/kenney-blaster/clip-small.png', modelFile: 'kenney-blaster/clip-small.glb', desc: '+15% Dung lượng, nạp nhanh 10%' },
+    magazine_t2: { id: 'magazine_t2', name: 'Băng Đạn Cấp 2', slot: 'magazine', tier: 2, magBonusPct: 0.25, reloadSpeedBonus: 0.15, icon: 'assets/previews/kenney-blaster/clip-small.png', modelFile: 'kenney-blaster/clip-small.glb', desc: '+25% Băng đạn, nạp nhanh 15%' },
+    magazine_t3: { id: 'magazine_t3', name: 'Băng Đạn Cấp 3', slot: 'magazine', tier: 3, magBonusPct: 0.40, reloadSpeedBonus: 0.20, icon: 'assets/previews/kenney-blaster/clip-large.png', modelFile: 'kenney-blaster/clip-large.glb', desc: '+40% Băng đạn, nạp nhanh 20%' },
+    magazine_t4: { id: 'magazine_t4', name: 'Băng Đạn Cấp 4', slot: 'magazine', tier: 4, magBonusPct: 0.55, reloadSpeedBonus: 0.25, icon: 'assets/previews/kenney-blaster/clip-large.png', modelFile: 'kenney-blaster/clip-large.glb', desc: '+55% Băng đạn, nạp nhanh 25%' },
+    magazine_t5: { id: 'magazine_t5', name: 'Băng Đạn Cấp 5', slot: 'magazine', tier: 5, magBonusPct: 0.75, reloadSpeedBonus: 0.30, icon: 'assets/previews/kenney-blaster/clip-large.png', modelFile: 'kenney-blaster/clip-large.glb', desc: '+75% Băng đạn, nạp nhanh 30%' },
+
+    // 3. Kính ngắm (Optic): Tăng tỷ lệ bạo kích và tầm bắn hiệu dụng
+    optic_t1: { id: 'optic_t1', name: 'Kính Ngắm Cấp 1', slot: 'optic', tier: 1, critChance: 0.05, critDmgMod: 0.15, adsZoom: 1.25, rangeBonusPct: 0.00, icon: 'assets/previews/kenney-blaster/scope-small.png', modelFile: 'kenney-blaster/scope-small.glb', desc: '+5% Crit, +0.15x Bạo kích' },
+    optic_t2: { id: 'optic_t2', name: 'Kính Ngắm Cấp 2', slot: 'optic', tier: 2, critChance: 0.10, critDmgMod: 0.25, adsZoom: 1.50, rangeBonusPct: 0.05, icon: 'assets/previews/kenney-blaster/scope-large-a.png', modelFile: 'kenney-blaster/scope-large-a.glb', desc: '+10% Crit, +0.25x Bạo kích, zoom 1.5x' },
+    optic_t3: { id: 'optic_t3', name: 'Kính Ngắm Cấp 3', slot: 'optic', tier: 3, critChance: 0.15, critDmgMod: 0.35, adsZoom: 1.75, rangeBonusPct: 0.10, icon: 'assets/previews/kenney-blaster/scope-large-a.png', modelFile: 'kenney-blaster/scope-large-a.glb', desc: '+15% Crit, +0.35x Bạo kích, zoom 1.75x' },
+    optic_t4: { id: 'optic_t4', name: 'Kính Ngắm Cấp 4', slot: 'optic', tier: 4, critChance: 0.22, critDmgMod: 0.45, adsZoom: 2.20, rangeBonusPct: 0.15, icon: 'assets/previews/kenney-blaster/scope-large-b.png', modelFile: 'kenney-blaster/scope-large-b.glb', desc: '+22% Crit, +0.45x Bạo kích, zoom 2.2x' },
+    optic_t5: { id: 'optic_t5', name: 'Kính Ngắm Cấp 5', slot: 'optic', tier: 5, critChance: 0.30, critDmgMod: 0.60, adsZoom: 2.80, rangeBonusPct: 0.20, icon: 'assets/previews/kenney-blaster/scope-large-b.png', modelFile: 'kenney-blaster/scope-large-b.glb', desc: '+30% Crit, +0.60x Bạo kích, zoom 2.8x' },
+
+    // 4. Báng / Tay cầm (Grip): Giảm độ giật và độ tản đạn
+    grip_t1: { id: 'grip_t1', name: 'Báng Tay Cầm Cấp 1', slot: 'grip', tier: 1, recoilReduction: 0.15, spreadReduction: 0.15, icon: 'assets/previews/kenney-blaster/target-detail.png', modelFile: 'kenney-blaster/target-detail.glb', desc: '-15% Giật, -15% Tản đạn' },
+    grip_t2: { id: 'grip_t2', name: 'Báng Tay Cầm Cấp 2', slot: 'grip', tier: 2, recoilReduction: 0.25, spreadReduction: 0.25, icon: 'assets/previews/kenney-blaster/target-detail.png', modelFile: 'kenney-blaster/target-detail.glb', desc: '-25% Giật, -25% Tản đạn' },
+    grip_t3: { id: 'grip_t3', name: 'Báng Tay Cầm Cấp 3', slot: 'grip', tier: 3, recoilReduction: 0.35, spreadReduction: 0.35, icon: 'assets/previews/kenney-blaster/target-detail.png', modelFile: 'kenney-blaster/target-detail.glb', desc: '-35% Giật, -35% Gom đạn' },
+    grip_t4: { id: 'grip_t4', name: 'Báng Tay Cầm Cấp 4', slot: 'grip', tier: 4, recoilReduction: 0.45, spreadReduction: 0.45, icon: 'assets/previews/kenney-blaster/target-detail.png', modelFile: 'kenney-blaster/target-detail.glb', desc: '-45% Giật, -45% Gom đạn' },
+    grip_t5: { id: 'grip_t5', name: 'Báng Tay Cầm Cấp 5', slot: 'grip', tier: 5, recoilReduction: 0.60, spreadReduction: 0.55, icon: 'assets/previews/kenney-blaster/target-detail.png', modelFile: 'kenney-blaster/target-detail.glb', desc: '-60% Giật, -55% Gom đạn' }
+};
+
+// Ánh xạ tương thích ngược với các ID phụ kiện cũ
+export const ATTACH_ALIAS = {
+    attach_compensator: 'barrel_t3',
+    attach_silencer: 'barrel_t4',
+    attach_flash_hider: 'barrel_t2',
+    attach_red_dot: 'optic_t1',
+    attach_scope_x2: 'optic_t2',
+    attach_scope_x4: 'optic_t3',
+    attach_scope_x6: 'optic_t4',
+    attach_scope_x8: 'optic_t5',
+    attach_ext_mag: 'magazine_t3',
+    attach_quickdraw_mag: 'magazine_t4',
+    attach_grip_tactical: 'grip_t3',
+    attach_stock_heavy: 'grip_t4',
+    attach_stock_tactical: 'grip_t2'
+};
+
+export function th_normalizeAttachment(id) {
+    if (!id) return null;
+    return ATTACH_ALIAS[id] || id;
+}
+
+export const WEAPON_CONFIGS = [
+    {
+        id: 'blaster',
+        aliases: ['blaster_a', 'blaster-a'],
+        name: 'BLASTER-A ALPHA',
+        category: 'SÚNG LỤC TIÊU CHUẨN',
+        tier: 1,
+        price: 0,
+        targetLength: 0.95,
+        isStyloo: false,
+        modelFile: 'kenney-blaster/blaster-a.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-a.png',
+        fireRate: 0.36,
+        damage: 28,
+        penPower: 1,
+        critMultiplier: 2.0,
+        magSize: 16,
+        reloadTime: 1.15,
+        range: 18,
+        bulletSpeed: 105,
+        baseSpreadDegHip: 2.2,
+        baseSpreadDegADS: 0.5,
+        moveSpreadPenalty: 2.5,
+        recoilSpreadPerShot: 0.8,
+        maxSpreadDeg: 9.0,
+        spreadRecoveryRate: 20.0,
+        screenShake: 0.14,
+        cursorKick: 2.8,
+        color: 0x38bdf8,
+        isAuto: false,
+        pellets: 1,
+        recoilPitch: 0.025,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    },
+    {
+        id: 'blaster_b',
+        aliases: ['blaster-b'],
+        name: 'BLASTER-B STRIKER',
+        category: 'SÚNG NGẮN LIÊN THANH',
+        tier: 1,
+        price: 350,
+        targetLength: 0.95,
+        isStyloo: false,
+        modelFile: 'kenney-blaster/blaster-b.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-b.png',
+        fireRate: 0.24,
+        damage: 22,
+        penPower: 1,
+        critMultiplier: 2.0,
+        magSize: 22,
+        reloadTime: 1.1,
+        range: 16,
+        bulletSpeed: 110,
+        baseSpreadDegHip: 2.8,
+        baseSpreadDegADS: 0.8,
+        moveSpreadPenalty: 2.2,
+        recoilSpreadPerShot: 0.6,
+        maxSpreadDeg: 10.0,
+        spreadRecoveryRate: 22.0,
+        screenShake: 0.12,
+        cursorKick: 2.2,
+        color: 0x22c55e,
+        isAuto: true,
+        pellets: 1,
+        recoilPitch: 0.02,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    },
+    {
+        id: 'blaster_c',
+        aliases: ['blaster-c', 'ak47'],
+        name: 'BLASTER-C PHANTOM',
+        category: 'SÚNG TRƯỜNG CHIẾN THUẬT',
+        tier: 1,
+        price: 800,
+        targetLength: 1.05,
+        isStyloo: false,
+        modelFile: 'kenney-blaster/blaster-c.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-c.png',
+        fireRate: 0.26,
+        damage: 36,
+        penPower: 2,
+        critMultiplier: 2.1,
+        magSize: 30,
+        reloadTime: 1.3,
+        range: 22,
+        bulletSpeed: 125,
+        baseSpreadDegHip: 2.4,
+        baseSpreadDegADS: 0.6,
+        moveSpreadPenalty: 2.6,
+        recoilSpreadPerShot: 0.7,
+        maxSpreadDeg: 10.0,
+        spreadRecoveryRate: 21.0,
+        screenShake: 0.16,
+        cursorKick: 3.0,
+        color: 0x60a5fa,
+        isAuto: true,
+        pellets: 1,
+        recoilPitch: 0.028,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    },
+    {
+        id: 'repeater',
+        aliases: ['blaster_d', 'blaster-d'],
+        name: 'BLASTER-D REPEATER',
+        category: 'TIỂU LIÊN SMG CAO TỐC',
+        tier: 1,
+        price: 0,
+        targetLength: 1.10,
+        isStyloo: false,
+        modelFile: 'kenney-blaster/blaster-d.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-d.png',
+        fireRate: 0.18,
+        damage: 18,
+        penPower: 1,
+        critMultiplier: 2.0,
+        magSize: 32,
+        reloadTime: 1.25,
+        range: 15,
+        bulletSpeed: 115,
+        baseSpreadDegHip: 3.5,
+        baseSpreadDegADS: 1.0,
+        moveSpreadPenalty: 3.0,
+        recoilSpreadPerShot: 0.48,
+        maxSpreadDeg: 12.0,
+        spreadRecoveryRate: 24.0,
+        screenShake: 0.10,
+        cursorKick: 2.0,
+        color: 0xf59e0b,
+        isAuto: true,
+        pellets: 1,
+        recoilPitch: 0.018,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    },
+    {
+        id: 'blaster_e',
+        aliases: ['blaster-e', 'storm'],
+        name: 'BLASTER-E STORM MK-II',
+        category: 'SÚNG TRƯỜNG BÃO TỐ',
+        tier: 1,
+        price: 1300,
+        targetLength: 1.15,
+        isStyloo: false,
+        modelFile: 'kenney-blaster/blaster-e.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-e.png',
+        fireRate: 0.16,
+        damage: 32,
+        penPower: 2,
+        critMultiplier: 2.2,
+        magSize: 36,
+        reloadTime: 1.35,
+        range: 24,
+        bulletSpeed: 130,
+        baseSpreadDegHip: 2.5,
+        baseSpreadDegADS: 0.6,
+        moveSpreadPenalty: 2.4,
+        recoilSpreadPerShot: 0.55,
+        maxSpreadDeg: 9.5,
+        spreadRecoveryRate: 23.0,
+        screenShake: 0.14,
+        cursorKick: 2.4,
+        color: 0x10b981,
+        isAuto: true,
+        pellets: 1,
+        recoilPitch: 0.026,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    },
+    {
+        id: 'shotgun',
+        aliases: ['blaster_f', 'blaster-f'],
+        name: 'BLASTER-F ENFORCER',
+        category: 'SHOTGUN CHIẾN THUẬT',
+        tier: 1,
+        price: 750,
+        targetLength: 1.00,
+        isStyloo: false,
+        modelFile: 'kenney-blaster/blaster-f.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-f.png',
+        fireRate: 0.845,
+        damage: 16,
+        penPower: 2,
+        critMultiplier: 1.9,
+        magSize: 8,
+        reloadTime: 1.6,
+        range: 12,
+        bulletSpeed: 100,
+        baseSpreadDegHip: 8.5,
+        baseSpreadDegADS: 4.0,
+        moveSpreadPenalty: 3.5,
+        recoilSpreadPerShot: 2.2,
+        maxSpreadDeg: 17.0,
+        spreadRecoveryRate: 25.0,
+        screenShake: 0.38,
+        cursorKick: 7.2,
+        color: 0x8b5cf6,
+        isAuto: false,
+        pellets: 8,
+        recoilPitch: 0.065,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    },
+    {
+        id: 'scatter',
+        aliases: ['blaster_g', 'blaster-g'],
+        name: 'BLASTER-G SCATTER-V',
+        category: 'SHOTGUN TÁN XẠ NẶNG',
+        tier: 1,
+        price: 0,
+        targetLength: 0.90,
+        isStyloo: false,
+        modelFile: 'kenney-blaster/blaster-g.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-g.png',
+        fireRate: 0.715,
+        damage: 14,
+        penPower: 1,
+        critMultiplier: 1.8,
+        magSize: 8,
+        reloadTime: 1.5,
+        range: 10,
+        bulletSpeed: 95,
+        baseSpreadDegHip: 9.0,
+        baseSpreadDegADS: 4.5,
+        moveSpreadPenalty: 4.0,
+        recoilSpreadPerShot: 2.0,
+        maxSpreadDeg: 18.0,
+        spreadRecoveryRate: 28.0,
+        screenShake: 0.35,
+        cursorKick: 6.8,
+        color: 0xec4899,
+        isAuto: false,
+        pellets: 6,
+        recoilPitch: 0.06,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    },
+    {
+        id: 'mac10',
+        aliases: ['blaster_h', 'blaster-h'],
+        name: 'BLASTER-H VIPER',
+        category: 'TIỂU LIÊN CƠ ĐỘNG',
+        tier: 1,
+        price: 650,
+        targetLength: 0.85,
+        isStyloo: false,
+        modelFile: 'kenney-blaster/blaster-h.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-h.png',
+        fireRate: 0.13,
+        damage: 16,
+        penPower: 1,
+        critMultiplier: 1.9,
+        magSize: 40,
+        reloadTime: 1.1,
+        range: 14,
+        bulletSpeed: 110,
+        baseSpreadDegHip: 4.0,
+        baseSpreadDegADS: 1.2,
+        moveSpreadPenalty: 2.0,
+        recoilSpreadPerShot: 0.35,
+        maxSpreadDeg: 12.5,
+        spreadRecoveryRate: 26.0,
+        screenShake: 0.09,
+        cursorKick: 1.8,
+        color: 0x14b8a6,
+        isAuto: true,
+        pellets: 1,
+        recoilPitch: 0.016,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    },
+    {
+        id: 'blaster_i',
+        aliases: ['blaster-i'],
+        name: 'BLASTER-I SHARPSHOOTER',
+        category: 'SÚNG TRƯỜNG XẠ THỦ',
+        tier: 1,
+        price: 950,
+        targetLength: 1.20,
+        isStyloo: false,
+        modelFile: 'kenney-blaster/blaster-i.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-i.png',
+        fireRate: 0.416,
+        damage: 68,
+        penPower: 3,
+        critMultiplier: 2.4,
+        magSize: 15,
+        reloadTime: 1.4,
+        range: 28,
+        bulletSpeed: 150,
+        baseSpreadDegHip: 2.0,
+        baseSpreadDegADS: 0.3,
+        moveSpreadPenalty: 3.0,
+        recoilSpreadPerShot: 1.5,
+        maxSpreadDeg: 9.0,
+        spreadRecoveryRate: 20.0,
+        screenShake: 0.22,
+        cursorKick: 4.2,
+        color: 0x3b82f6,
+        isAuto: false,
+        pellets: 1,
+        recoilPitch: 0.045,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    },
+    {
+        id: 'plasma',
+        aliases: ['blaster_j', 'blaster-j'],
+        name: 'BLASTER-J PLASMA LANCE',
+        category: 'ĐẠI BÁC PLASMA CAO ÁP',
+        tier: 1,
+        price: 2100,
+        targetLength: 1.25,
+        isStyloo: false,
+        modelFile: 'kenney-blaster/blaster-j.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-j.png',
+        fireRate: 0.3,
+        damage: 56,
+        penPower: 4,
+        critMultiplier: 2.3,
+        magSize: 26,
+        reloadTime: 1.35,
+        range: 25,
+        bulletSpeed: 140,
+        baseSpreadDegHip: 1.8,
+        baseSpreadDegADS: 0.4,
+        moveSpreadPenalty: 2.0,
+        recoilSpreadPerShot: 0.5,
+        maxSpreadDeg: 8.0,
+        spreadRecoveryRate: 22.0,
+        screenShake: 0.22,
+        cursorKick: 3.8,
+        color: 0x9966ff,
+        isAuto: true,
+        pellets: 1,
+        recoilPitch: 0.028,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    },
+    {
+        id: 'pew',
+        aliases: ['blaster_k', 'blaster-k'],
+        name: 'BLASTER-K CYBER LASER',
+        category: 'SÚNG LỤC NĂNG LƯỢNG',
+        tier: 1,
+        price: 450,
+        targetLength: 0.90,
+        isStyloo: false,
+        modelFile: 'kenney-blaster/blaster-k.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-k.png',
+        fireRate: 0.26,
+        damage: 26,
+        penPower: 2,
+        critMultiplier: 2.1,
+        magSize: 20,
+        reloadTime: 0.95,
+        range: 18,
+        bulletSpeed: 130,
+        baseSpreadDegHip: 1.5,
+        baseSpreadDegADS: 0.3,
+        moveSpreadPenalty: 1.5,
+        recoilSpreadPerShot: 0.4,
+        maxSpreadDeg: 7.0,
+        spreadRecoveryRate: 24.0,
+        screenShake: 0.10,
+        cursorKick: 1.9,
+        color: 0x06b6d4,
+        isAuto: false,
+        pellets: 1,
+        recoilPitch: 0.016,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    },
+    {
+        id: 'blaster_l',
+        aliases: ['blaster-l'],
+        name: 'BLASTER-L PULSE CARBINE',
+        category: 'CARBINE XUNG LỰC',
+        tier: 1,
+        price: 1500,
+        targetLength: 1.15,
+        isStyloo: false,
+        modelFile: 'kenney-blaster/blaster-l.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-l.png',
+        fireRate: 0.2,
+        damage: 40,
+        penPower: 3,
+        critMultiplier: 2.2,
+        magSize: 30,
+        reloadTime: 1.25,
+        range: 24,
+        bulletSpeed: 135,
+        baseSpreadDegHip: 2.2,
+        baseSpreadDegADS: 0.5,
+        moveSpreadPenalty: 2.3,
+        recoilSpreadPerShot: 0.6,
+        maxSpreadDeg: 9.0,
+        spreadRecoveryRate: 23.0,
+        screenShake: 0.15,
+        cursorKick: 2.6,
+        color: 0xf97316,
+        isAuto: true,
+        pellets: 1,
+        recoilPitch: 0.027,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    },
+    {
+        id: 'blaster_m',
+        aliases: ['blaster-m'],
+        name: 'BLASTER-M GUARDIAN DMR',
+        category: 'SÚNG BẮN TỈA BÁN TỰ ĐỘNG',
+        tier: 1,
+        price: 1750,
+        targetLength: 1.30,
+        isStyloo: false,
+        modelFile: 'kenney-blaster/blaster-m.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-m.png',
+        fireRate: 0.50,
+        damage: 65,
+        penPower: 2,
+        critMultiplier: 2.2,
+        magSize: 10,
+        reloadTime: 1.5,
+        range: 30,
+        bulletSpeed: 160,
+        baseSpreadDegHip: 2.5,
+        baseSpreadDegADS: 0.2,
+        moveSpreadPenalty: 3.0,
+        recoilSpreadPerShot: 1.8,
+        maxSpreadDeg: 9.0,
+        spreadRecoveryRate: 19.0,
+        screenShake: 0.24,
+        cursorKick: 4.8,
+        color: 0x6366f1,
+        isAuto: false,
+        pellets: 1,
+        recoilPitch: 0.05,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    },
+    {
+        id: 'awp',
+        aliases: ['blaster_n', 'blaster-n'],
+        name: 'BLASTER-N VORTEX SNIPER',
+        category: 'SÚNG BẮN TỈA CỰC NẶNG',
+        tier: 1,
+        price: 2500,
+        targetLength: 1.40,
+        isStyloo: false,
+        modelFile: 'kenney-blaster/blaster-n.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-n.png',
+        fireRate: 1.35,
+        damage: 110,
+        penPower: 2,
+        critMultiplier: 2.4,
+        magSize: 5,
+        reloadTime: 2.0,
+        range: 36,
+        bulletSpeed: 175,
+        baseSpreadDegHip: 4.0,
+        baseSpreadDegADS: 0.1,
+        moveSpreadPenalty: 4.5,
+        recoilSpreadPerShot: 3.5,
+        maxSpreadDeg: 12.0,
+        spreadRecoveryRate: 16.0,
+        screenShake: 0.42,
+        cursorKick: 7.5,
+        color: 0xef4444,
+        isAuto: false,
+        pellets: 1,
+        recoilPitch: 0.075,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    },
+    {
+        id: 'blaster_o',
+        aliases: ['blaster-o'],
+        name: 'BLASTER-O TITAN BLASTER',
+        category: 'SÚNG TRƯỜNG CÔNG PHÁ HẠNG NẶNG',
+        tier: 1,
+        price: 2700,
+        targetLength: 1.25,
+        isStyloo: false,
+        modelFile: 'kenney-blaster/blaster-o.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-o.png',
+        fireRate: 0.24,
+        damage: 42,
+        penPower: 2,
+        critMultiplier: 2.1,
+        magSize: 32,
+        reloadTime: 1.4,
+        range: 26,
+        bulletSpeed: 140,
+        baseSpreadDegHip: 2.0,
+        baseSpreadDegADS: 0.4,
+        moveSpreadPenalty: 2.4,
+        recoilSpreadPerShot: 0.65,
+        maxSpreadDeg: 9.0,
+        spreadRecoveryRate: 21.0,
+        screenShake: 0.20,
+        cursorKick: 3.5,
+        color: 0xd946ef,
+        isAuto: true,
+        pellets: 1,
+        recoilPitch: 0.03,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    },
+    {
+        id: 'rocket',
+        aliases: ['blaster_p', 'blaster-p'],
+        name: 'BLASTER-P RPG DEVASTATOR',
+        category: 'VŨ KHÍ NỔ LAN HẠNG NẶNG',
+        tier: 1,
+        price: 3200,
+        targetLength: 1.30,
+        isStyloo: false,
+        isExplosive: true,
+        splashRadius: 3.6,
+        modelFile: 'kenney-blaster/blaster-p.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-p.png',
+        fireRate: 2.0,
+        damage: 120,
+        penPower: 2,
+        critMultiplier: 1.8,
+        magSize: 2,
+        reloadTime: 2.2,
+        range: 26,
+        bulletSpeed: 80,
+        baseSpreadDegHip: 1.2,
+        baseSpreadDegADS: 0.2,
+        moveSpreadPenalty: 3.5,
+        recoilSpreadPerShot: 3.5,
+        maxSpreadDeg: 8.0,
+        spreadRecoveryRate: 14.0,
+        screenShake: 0.50,
+        cursorKick: 7.5,
+        color: 0xf43f5e,
+        isAuto: false,
+        pellets: 1,
+        recoilPitch: 0.09,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    },
+    {
+        id: 'blaster_q',
+        aliases: ['blaster-q'],
+        name: 'BLASTER-Q VULCAN MINIGUN',
+        category: 'SÚNG MÁY GATLING HUYỀN THOẠI',
+        tier: 1,
+        price: 4200,
+        targetLength: 1.35,
+        isStyloo: false,
+        modelFile: 'kenney-blaster/blaster-q.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-q.png',
+        fireRate: 0.10,
+        damage: 16,
+        penPower: 2,
+        critMultiplier: 1.8,
+        magSize: 75,
+        reloadTime: 2.6,
+        range: 24,
+        bulletSpeed: 135,
+        baseSpreadDegHip: 4.2,
+        baseSpreadDegADS: 1.5,
+        moveSpreadPenalty: 4.0,
+        recoilSpreadPerShot: 0.35,
+        maxSpreadDeg: 14.0,
+        spreadRecoveryRate: 18.0,
+        screenShake: 0.16,
+        cursorKick: 2.2,
+        color: 0xeab308,
+        isAuto: true,
+        pellets: 1,
+        recoilPitch: 0.02,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    },
+    {
+        id: 'blaster_r',
+        aliases: ['blaster-r'],
+        name: 'BLASTER-R OMEGA CANNON',
+        category: 'PHÁO LƯỢNG TỬ TẬN THẾ',
+        tier: 1,
+        price: 5000,
+        targetLength: 1.45,
+        isStyloo: false,
+        isExplosive: true,
+        splashRadius: 4.2,
+        modelFile: 'kenney-blaster/blaster-r.glb',
+        icon: 'assets/previews/kenney-blaster/blaster-r.png',
+        fireRate: 2.2,
+        damage: 150,
+        penPower: 2,
+        critMultiplier: 2.0,
+        magSize: 3,
+        reloadTime: 2.4,
+        range: 32,
+        bulletSpeed: 85,
+        baseSpreadDegHip: 1.5,
+        baseSpreadDegADS: 0.2,
+        moveSpreadPenalty: 4.0,
+        recoilSpreadPerShot: 4.0,
+        maxSpreadDeg: 9.0,
+        spreadRecoveryRate: 12.0,
+        screenShake: 0.55,
+        cursorKick: 8.5,
+        color: 0xec4899,
+        isAuto: false,
+        pellets: 1,
+        recoilPitch: 0.10,
+        scale: 0.24,
+        offset: new THREE.Vector3(-0.24, -0.05, 0.02),
+        rotOffset: new THREE.Euler(0, Math.PI * 0.35, 0)
+    }
+];
+
+// Phân loại danh mục súng chính và súng phụ (Súng lục)
+export const SECONDARY_WEAPON_IDS = new Set(['blaster', 'blaster_a', 'blaster-a', 'blaster_b', 'blaster-b', 'mac10', 'blaster-h', 'pew', 'blaster-k']);
+for (const w of WEAPON_CONFIGS) {
+    w.slotType = SECONDARY_WEAPON_IDS.has(w.id) ? 'secondary' : 'primary';
+}
+
+// Danh sách các loại Bom & Lựu Đạn chiến thuật (Kenney Blaster Kit)
+export const BOMB_CONFIGS = [
+    {
+        id: 'grenade_a',
+        aliases: ['grenade-a'],
+        name: 'LỰU ĐẠN NỔ MẢNH A',
+        category: 'LỰU ĐẠN NỔ MẢNH',
+        slotType: 'bomb',
+        tier: 1,
+        price: 0,
+        isBomb: true,
+        throwRange: 14.0,
+        blastRadius: 5.0,
+        damage: 1600,
+        knockback: 10.0,
+        fuseTime: 0.65,
+        modelFile: 'kenney-blaster/grenade-a.glb',
+        icon: 'assets/previews/kenney-blaster/grenade-a.png',
+        color: 0xf97316,
+        description: 'Lựu đạn nổ phân mảnh uy lực cao. Gây sát thương nổ diện rộng và hất văng bầy zombie.'
+    },
+    {
+        id: 'grenade_b',
+        aliases: ['grenade-b'],
+        name: 'LỰU ĐẠN XUNG LỰC B',
+        category: 'LỰU ĐẠN TÁC CHIẾN',
+        slotType: 'bomb',
+        tier: 1,
+        price: 3500,
+        isBomb: true,
+        throwRange: 14.0,
+        blastRadius: 5.5,
+        damage: 100,
+        knockback: 7.0,
+        slowDuration: 4.0,
+        slowPct: 0.6,
+        fuseTime: 0.65,
+        modelFile: 'kenney-blaster/grenade-b.glb',
+        icon: 'assets/previews/kenney-blaster/grenade-b.png',
+        color: 0x8b5cf6,
+        description: 'Lựu đạn xung lực tạo màn chấn động. Gây sát thương và làm chậm 60% tốc độ di chuyển của zombie.'
+    }
+];
+
+export function getBombConfig(id) {
+    if (!id) return BOMB_CONFIGS[0];
+    return BOMB_CONFIGS.find(b => b.id === id || b.aliases?.includes(id)) || BOMB_CONFIGS[0];
+}
+
+// Danh sách các súng hiếm rơi ra trong trận
+export const RARE_WEAPON_CONFIGS = [
+    WEAPON_CONFIGS[4], // BLASTER-E STORM
+    WEAPON_CONFIGS[9], // BLASTER-J PLASMA
+    WEAPON_CONFIGS[13], // BLASTER-N VORTEX
+    WEAPON_CONFIGS[15], // BLASTER-P RPG
+    WEAPON_CONFIGS[16], // BLASTER-Q MINIGUN
+    WEAPON_CONFIGS[17]  // BLASTER-R OMEGA
+];
+
+// Toàn bộ phụ kiện và trang bị Kenney Blaster Kit
+export const ALL_KENNEY_ACCESSORIES = [
+    { id: 'silencer_small', name: 'Giảm Thanh Mini', category: 'Nòng súng', slot: 'barrel', modelFile: 'kenney-blaster/silencer-small.glb', icon: 'assets/previews/kenney-blaster/silencer-small.png', desc: 'Giảm thanh nhỏ gọn, tăng nhẹ tầm bắn và giảm tiếng động' },
+    { id: 'silencer_large', name: 'Giảm Thanh Hạng Nặng', category: 'Nòng súng', slot: 'barrel', modelFile: 'kenney-blaster/silencer-larger.glb', icon: 'assets/previews/kenney-blaster/silencer-larger.png', desc: 'Ống giảm thanh cỡ lớn triệt tiêu độ giật và tăng flat damage' },
+    { id: 'scope_small', name: 'Kính Ngắm Phản Xạ Red Dot', category: 'Kính ngắm', slot: 'optic', modelFile: 'kenney-blaster/scope-small.glb', icon: 'assets/previews/kenney-blaster/scope-small.png', desc: 'Kính ngắm cự ly gần hỗ trợ ngắm nhanh chính xác' },
+    { id: 'scope_large_a', name: 'Kính Ngắm Tác Chiến x4', category: 'Kính ngắm', slot: 'optic', modelFile: 'kenney-blaster/scope-large-a.glb', icon: 'assets/previews/kenney-blaster/scope-large-a.png', desc: 'Kính ngắm tầm trung độ phóng đại 4x tăng tỷ lệ bạo kích' },
+    { id: 'scope_large_b', name: 'Kính Ngắm Tỉa Viễn Vọng x8', category: 'Kính ngắm', slot: 'optic', modelFile: 'kenney-blaster/scope-large-b.glb', icon: 'assets/previews/kenney-blaster/scope-large-b.png', desc: 'Kính ngắm cự ly siêu xa x8 chuyên dụng cho súng bắn tỉa' },
+    { id: 'clip_small', name: 'Băng Đạn Tiêu Chuẩn', category: 'Băng đạn', slot: 'magazine', modelFile: 'kenney-blaster/clip-small.glb', icon: 'assets/previews/kenney-blaster/clip-small.png', desc: 'Hộp tiếp đạn tiêu chuẩn nạp đạn nhanh' },
+    { id: 'clip_large', name: 'Băng Đạn Trống Mở Rộng', category: 'Băng đạn', slot: 'magazine', modelFile: 'kenney-blaster/clip-large.glb', icon: 'assets/previews/kenney-blaster/clip-large.png', desc: 'Băng đạn cỡ lớn tăng gấp đôi dung lượng đạn' },
+    { id: 'grenade_a', name: 'Lựu Đạn Nổ Phân Mảnh', category: 'Vũ khí nổ', slot: 'grenade', modelFile: 'kenney-blaster/grenade-a.glb', icon: 'assets/previews/kenney-blaster/grenade-a.png', desc: 'Lựu đạn gây sát thương nổ diện rộng cực lớn' },
+    { id: 'grenade_b', name: 'Lựu Đạn Khói Chiến Thuật', category: 'Vũ khí nổ', slot: 'grenade', modelFile: 'kenney-blaster/grenade-b.glb', icon: 'assets/previews/kenney-blaster/grenade-b.png', desc: 'Tạo màn khói che chắn tầm nhìn của zombie' },
+    { id: 'bullet_foam', name: 'Đạn Xốp Tiêu Chuẩn', category: 'Đạn dược', slot: 'ammo', modelFile: 'kenney-blaster/bullet-foam.glb', icon: 'assets/previews/kenney-blaster/bullet-foam.png', desc: 'Đạn xốp cơ bản năng động' },
+    { id: 'bullet_foam_thick', name: 'Đạn Xốp Hạng Nặng', category: 'Đạn dược', slot: 'ammo', modelFile: 'kenney-blaster/bullet-foam-thick.glb', icon: 'assets/previews/kenney-blaster/bullet-foam-thick.png', desc: 'Đạn xốp cỡ to tạo lực đẩy lùi mạnh' },
+    { id: 'bullet_foam_tip', name: 'Đạn Xốp Xuyên Phá', category: 'Đạn dược', slot: 'ammo', modelFile: 'kenney-blaster/bullet-foam-tip.glb', icon: 'assets/previews/kenney-blaster/bullet-foam-tip.png', desc: 'Đạn có đầu nhọn xuyên giáp kẻ địch' },
+    { id: 'bullet_foam_tip_thick', name: 'Đạn Xốp Công Phá Cao', category: 'Đạn dược', slot: 'ammo', modelFile: 'kenney-blaster/bullet-foam-tip-thick.glb', icon: 'assets/previews/kenney-blaster/bullet-foam-tip-thick.png', desc: 'Đạn xốp hạng nặng tối thượng gây sát thương chí mạng' },
+    { id: 'crate_small', name: 'Thùng Vật Tư Nhỏ', category: 'Hòm đồ', slot: 'crate', modelFile: 'kenney-blaster/crate-small.glb', icon: 'assets/previews/kenney-blaster/crate-small.png', desc: 'Hòm tiếp tế đạn và cứu thương' },
+    { id: 'crate_medium', name: 'Hòm Vũ Khí Quân Sự', category: 'Hòm đồ', slot: 'crate', modelFile: 'kenney-blaster/crate-medium.glb', icon: 'assets/previews/kenney-blaster/crate-medium.png', desc: 'Hòm chứa súng và phụ kiện cấp cao' },
+    { id: 'crate_wide', name: 'Hòm Tiếp Tế Airdrop', category: 'Hòm đồ', slot: 'crate', modelFile: 'kenney-blaster/crate-wide.glb', icon: 'assets/previews/kenney-blaster/crate-wide.png', desc: 'Hòm thính chứa súng Huyền thoại và nòng cấp 5' }
+];
+
+export function getStartingWeapon(id) {
+    if (!id) return WEAPON_CONFIGS[0];
+    const match = WEAPON_CONFIGS.find(weapon => weapon.id === id || weapon.aliases?.includes(id));
+    return match || WEAPON_CONFIGS[0];
+}
+
+export const KNIFE_CONFIG = {
+    id: 'knife',
+    name: 'DAO BẾP',
+    modelFile: 'kenney-food/cooking-knife.glb',
+    icon: 'assets/previews/kenney-food/cooking-knife.png',
+    category: 'VŨ KHÍ CẬN CHIẾN',
+    damage: 32,
+    penPower: 2, // Dao găm sắc bén xuyên giáp cấp 2
+    fireRate: 0.30,
+    range: 1.1,
+    screenShake: 0.10,
+    cursorKick: 1.2,
+    baseSpreadDegHip: 0,
+    baseSpreadDegADS: 0,
+    moveSpreadPenalty: 0,
+    recoilSpreadPerShot: 0,
+    maxSpreadDeg: 0,
+    spreadRecoveryRate: 0,
+    color: 0x99e6ff,
+    isKnife: true,
+    isAuto: false,
+    pellets: 1
+};
+
+export const MEDKIT_CONFIG = {
+    id: 'medkit',
+    name: 'TÚI CỨU THƯƠNG',
+    category: 'TIỆN ÍCH HỒI PHỤC',
+    healAmount: 45,
+    isUtility: true,
+    color: 0x00ff88
+};
+
+export const SHIELD_BATTERY_CONFIG = {
+    id: 'shield_battery',
+    name: 'PIN NĂNG LƯỢNG GIÁP',
+    category: 'TIỆN ÍCH KHIÊN',
+    shieldAmount: 50,
+    isUtility: true,
+    color: 0x00d0ff
+};
+
+// Reusable math objects to eliminate memory allocations in game loop
+const _tempRay = new THREE.Ray();
+const _tempNextPos = new THREE.Vector3();
+const _tempHitPoint = new THREE.Vector3();
+const _tempAimDir = new THREE.Vector3();
+const _tempRotAxis = new THREE.Vector3(0, 1, 0);
+const _tempSlashForward = new THREE.Vector3();
+const _tempToEnemy = new THREE.Vector3();
+const _tempToEnemyHoriz = new THREE.Vector3();
+const _tempCheckRay = new THREE.Ray();
+const _tempCheckRayDir = new THREE.Vector3();
+const _tempSparkDir = new THREE.Vector3();
+const _tempHitPointSparks = new THREE.Vector3();
+const _heldParentRotation = new THREE.Quaternion();
+const _heldFacing = new THREE.Quaternion();
+const _barrelCorrection = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+const _stylooCorrection = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
+
+export function updateHeldWeaponPose(mesh, hand, character) {
+    if (!mesh?.userData.gripOffset || !hand || !character) return;
+    hand.updateWorldMatrix(true, false);
+    hand.getWorldQuaternion(_heldParentRotation);
+    character.getWorldQuaternion(_heldFacing);
+    if (mesh.userData.isStyloo) {
+        _heldFacing.multiply(_stylooCorrection);
+    } else if (mesh.userData.barrelForward === -1) {
+        _heldFacing.multiply(_barrelCorrection);
+    }
+    mesh.quaternion.copy(_heldParentRotation.invert().multiply(_heldFacing));
+
+    // Động tác thay đạn bằng Code (Procedural Reload Animation)
+    if (mesh.userData.reloadProgress !== undefined && mesh.userData.reloadProgress < 1.0) {
+        const p = mesh.userData.reloadProgress;
+        // Dùng hàm sine để tạo đường cong vồng xuống mượt mà (0 -> 1 -> 0)
+        const dip = Math.sin(p * Math.PI);
+        // Xoay súng chúi nòng xuống 60 độ và hơi nghiêng qua phải
+        const reloadRot = new THREE.Quaternion().setFromEuler(new THREE.Euler(-dip * 1.0, 0, -dip * 0.5));
+        mesh.quaternion.multiply(reloadRot);
+    }
+
+    mesh.position.copy(mesh.userData.gripOffset).applyQuaternion(mesh.quaternion).add(mesh.userData.handOffset);
+
+    // Giật súng xuống thấp khi thay đạn
+    if (mesh.userData.reloadProgress !== undefined && mesh.userData.reloadProgress < 1.0) {
+        const dip = Math.sin(mesh.userData.reloadProgress * Math.PI);
+        mesh.position.y -= dip * 0.15;
+        mesh.position.z += dip * 0.1;
+    }
+
+    mesh.updateWorldMatrix(false, true);
+}
+
+export class WeaponSystem {
+    constructor(scene, gltfLoader, particleSystem) {
+        this.scene = scene;
+        this.loader = gltfLoader;
+        this.particles = particleSystem;
+
+        this.models = {};
+        this.weaponSlots = [];
+        this.currentSlotIndex = 0;
+        this.ammo = {};
+        this.reserve = {};
+        this.inventory = {
+            medkits: 3
+        };
+        this.isUsingMedkit = false;
+        this.medkitTimer = 0;
+        this.medkitTotalTime = 5.0;
+        this.medkitPlayerRef = null;
+        this.bulletCalibers = [
+            { id: 'rusty', name: 'S-Rusty Bullet', dmgMod: 1.0, penMod: 0, speedMod: 1.0 },
+            { id: 'ap', name: 'AP-Armor Piercing', dmgMod: 1.2, penMod: 1, speedMod: 1.1 },
+            { id: 'hv', name: 'HV-High Velocity', dmgMod: 0.95, penMod: 0, speedMod: 1.4 }
+        ];
+        this.currentCaliberIndex = 0;
+        this.isReloading = false;
+        this.reloadTimer = 0;
+        this.fireCooldown = 0;
+        this.recoilOffset = 0;
+        this.upgrades = { damage: 0, rapid: 0, multishot: 0 };
+
+        // Aim & Cone of fire state
+        this.currentSpreadDeg = 2.2;
+
+        // Active projectiles list
+        this.projectiles = [];
+        this.nextProjectileId = 1;
+        this.thrownBombs = [];
+
+        // Cấu hình phụ kiện mod vũ khí (Attachments Ecosystem)
+        this.attachments = {
+            muzzle: null,    // Đầu nòng (Compensator, Silencer, Flash Hider)
+            optic: null,     // Kính ngắm (Red Dot, Scope x2, Scope x4, Scope x6, Scope x8)
+            magazine: null,  // Băng đạn (Extended Mag, Quick-draw Mag)
+            grip: null,      // Tay cầm (Tactical Grip)
+            stock: null      // Báng súng (Heavy Stock, Tactical Stock)
+        };
+
+        // Shared geometries & materials pool
+        this.bulletGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.7, 6);
+        this.bulletGeo.rotateX(Math.PI / 2);
+        this.acidGeo = new THREE.IcosahedronGeometry(0.2, 1);
+
+        // Pre-cached pool of bullet meshes (NOT added to scene until fired)
+        this.bulletMeshPool = [];
+        this.enemyMeshPool = [];
+    }
+
+    getBulletMesh(color) {
+        let entry = this.bulletMeshPool.pop();
+        if (!entry) {
+            const mat = new THREE.MeshBasicMaterial({ color });
+            const mesh = new THREE.Mesh(this.bulletGeo, mat);
+            entry = { mesh, material: mat };
+        } else {
+            entry.material.color.setHex(color);
+        }
+        this.scene.add(entry.mesh);
+        return entry;
+    }
+
+    recycleBulletMesh(entry) {
+        if (!entry || !entry.mesh) return;
+        this.scene.remove(entry.mesh);
+        if (this.bulletMeshPool.length < 60) {
+            this.bulletMeshPool.push(entry);
+        } else {
+            entry.material.dispose();
+        }
+    }
+
+    getEnemyMesh(color, acid = false) {
+        let entry = this.enemyMeshPool.pop();
+        if (!entry) {
+            const mat = new THREE.MeshBasicMaterial({ color });
+            const mesh = new THREE.Mesh(acid ? this.acidGeo : this.bulletGeo, mat);
+            entry = { mesh, material: mat };
+        } else {
+            entry.material.color.setHex(color);
+        }
+        this.scene.add(entry.mesh);
+        return entry;
+    }
+
+    recycleEnemyMesh(entry) {
+        if (!entry || !entry.mesh) return;
+        this.scene.remove(entry.mesh);
+        if (this.enemyMeshPool.length < 30) {
+            this.enemyMeshPool.push(entry);
+        } else {
+            entry.material.dispose();
+        }
+    }
+
+    async init() {
+        const loadModel = (file) => new Promise((resolve) => {
+            this.loader.load(`assets/models/${file}`, (gltf) => {
+                gltf.scene.traverse(c => {
+                    if (c.isMesh) {
+                        c.castShadow = true;
+                        c.receiveShadow = true;
+                    }
+                });
+                this.models[file] = gltf.scene;
+                resolve();
+            }, undefined, () => resolve());
+        });
+
+        const allModels = [
+            ...WEAPON_CONFIGS.map(w => w.modelFile),
+            ...ALL_KENNEY_ACCESSORIES.map(a => a.modelFile),
+            ...BOMB_CONFIGS.map(b => b.modelFile),
+            KNIFE_CONFIG.modelFile
+        ].filter(Boolean);
+        await Promise.all([...new Set(allModels)].map(loadModel));
+
+        this.resetRun();
+    }
+
+    resetRun(weaponId = this.startingWeaponId, secondaryId = null, bomb1Id = null, bomb2Id = null) {
+        const starter = getStartingWeapon(weaponId);
+        this.startingWeaponId = starter.id;
+        this.clear();
+
+        // 5 ô trang bị: [0] Súng chính, [1] Súng phụ (Lục), [2] Bom 1, [3] Bom 2, [4] Dao cận chiến
+        const secCfg = secondaryId ? getStartingWeapon(secondaryId) : getStartingWeapon('blaster_b');
+        this.secondaryWeapon = { ...secCfg, tier: secCfg.tier || 1 };
+
+        const b1Cfg = getBombConfig(bomb1Id || 'grenade_a');
+        const b2Cfg = getBombConfig(bomb2Id || 'grenade_b');
+        this.bombSlot1 = { ...b1Cfg, count: 2 };
+        this.bombSlot2 = { ...b2Cfg, count: 2 };
+
+        this.weaponSlots = [
+            starter,               // 0: Súng chính
+            this.secondaryWeapon,  // 1: Súng phụ
+            this.bombSlot1,        // 2: Ô Bom 1
+            this.bombSlot2,        // 3: Ô Bom 2
+            KNIFE_CONFIG           // 4: Dao găm
+        ];
+        this.currentSlotIndex = 0;
+        this.ammo = {
+            [starter.id]: starter.magSize,
+            [this.secondaryWeapon.id]: this.secondaryWeapon.magSize
+        };
+        // Đạn dự trữ là vô hạn để người chơi tập trung 100% vào việc bắn và nâng cấp đồ
+        this.reserve = {
+            [starter.id]: Infinity,
+            [this.secondaryWeapon.id]: Infinity
+        };
+        this.thrownBombs = [];
+        this.inventory = {
+            medkits: 3
+        };
+        this.isUsingMedkit = false;
+        this.medkitTimer = 0;
+        this.medkitTotalTime = 5.0;
+        this.medkitPlayerRef = null;
+        this.currentCaliberIndex = 0;
+        this.upgrades = { damage: 0, rapid: 0, multishot: 0 };
+
+        // 4 Linh kiện Phụ kiện Nâng cấp Súng (Attachments Ecosystem):
+        // 1. barrel (Nòng), 2. magazine (Băng đạn), 3. optic (Kính ngắm), 4. grip (Báng/Tay cầm)
+        this.primaryAttachments = {
+            barrel: null,
+            magazine: null,
+            optic: null,
+            grip: null
+        };
+        this.secondaryAttachments = {
+            barrel: null,
+            magazine: null,
+            optic: null,
+            grip: null
+        };
+        this.attachments = this.primaryAttachments;
+
+        // Chế độ Overclock (Xả đạn tăng cường)
+        this.overclockTimer = 0;
+        this.overclockDuration = 6.0;
+        this.overclockCooldown = 0;
+        this.overclockMaxCooldown = 15.0;
+
+        this.isReloading = false;
+        this.reloadTimer = 0;
+        this.fireCooldown = 0;
+        this.recoilOffset = 0;
+        this.currentSpreadDeg = starter.baseSpreadDegHip;
+        if (this.handNode) this.attachToArm(this.handNode);
+    }
+
+    get damageBoost() { return 1 + this.upgrades.damage * 0.2; }
+    get fireRateBoost() { return 1 + this.upgrades.rapid * 0.125; }
+    get beamCount() { return 1 + this.upgrades.multishot * 2; }
+
+    // Lấy phụ kiện tương ứng theo súng (0: Súng chính, 1: Súng phụ)
+    getAttachmentsForGun(gunIndex = 0) {
+        return gunIndex === 1 ? this.secondaryAttachments : this.primaryAttachments;
+    }
+
+    // Tự động tìm khẩu súng có slot phụ kiện tương ứng còn trống
+    // Ưu tiên súng chính (Khẩu 1), nếu đã lắp thì kiểm tra tiếp súng phụ (Khẩu 2)
+    findEmptyAttachmentSlot(slotType) {
+        const normSlot = (slotType === 'muzzle' ? 'barrel' : (slotType === 'stock' ? 'grip' : slotType));
+        if (!['barrel', 'magazine', 'optic', 'grip'].includes(normSlot)) return null;
+        if (!this.primaryAttachments[normSlot]) return 0;
+        if (!this.secondaryAttachments[normSlot]) return 1;
+        return null;
+    }
+
+    // Kiểm tra xem phụ kiện mới có thể hoán đổi nâng cấp (Swap) vào súng không
+    th_canSwapAttachment(gunIndex, slotType, newTier) {
+        const normSlot = (slotType === 'muzzle' ? 'barrel' : (slotType === 'stock' ? 'grip' : slotType));
+        const attachMap = this.getAttachmentsForGun(gunIndex);
+        const currentAttachId = attachMap[normSlot];
+        if (!currentAttachId) return { canEquip: true, canUpgrade: false, currentTier: 0 };
+        const currentDef = ATTACHMENT_DEFS[th_normalizeAttachment(currentAttachId)];
+        const currentTier = currentDef ? currentDef.tier : 1;
+        if (newTier > currentTier) {
+            return { canEquip: true, canUpgrade: true, currentTier };
+        }
+        return { canEquip: false, canUpgrade: false, currentTier };
+    }
+
+    // Tính toán chỉ số vũ khí hiệu dụng theo Cấp bậc & Phụ kiện (Tier & Direct Damage Scaling)
+    // Công thức: FinalDamage = (WeaponBaseDamage * (1 + WeaponTierMod) + BarrelFlatDamage) * (1 + SumAttachmentDamageModifiers)
+    getModifiedStats(weapon = null, gunIndex = null) {
+        const w = weapon || this.getCurrentWeapon();
+        const effectiveGunIdx = gunIndex !== null ? gunIndex : (w?.id === this.secondaryWeapon?.id ? 1 : 0);
+        const attachMap = this.getAttachmentsForGun(effectiveGunIdx);
+
+        if (!w || w.isKnife || w.isUtility) {
+            return {
+                damage: w?.damage || 0,
+                magSize: w?.magSize || 0,
+                reloadTime: w?.reloadTime || 1.0,
+                baseRange: w?.range || (w?.isKnife ? 1.1 : 0),
+                maxRange: w?.range || (w?.isKnife ? 1.1 : 0),
+                rangeBonusPct: 0,
+                recoilPitch: w?.recoilPitch || 0,
+                cursorKick: w?.cursorKick || 0,
+                screenShake: w?.screenShake || 0,
+                spreadRecoveryRate: w?.spreadRecoveryRate || 20,
+                moveSpreadPenalty: w?.moveSpreadPenalty || 2.5,
+                baseSpreadDegHip: w?.baseSpreadDegHip || 2.0,
+                baseSpreadDegADS: w?.baseSpreadDegADS || 0.5,
+                adsZoom: 1.0,
+                soundRadius: 26.0,
+                attachments: { ...attachMap },
+                extraCritChance: 0,
+                extraCritDmgMod: 0,
+                hasLegendary: false
+            };
+        }
+
+        const savedTier = th_getWeaponTier(w.id);
+        const weaponTier = Math.max(savedTier, w.tier || 1);
+        const weaponTierMod = RARITY_TIERS[weaponTier]?.dmgMod || 0;
+
+        let barrelFlat = 0;
+        let sumAttachMods = 0;
+        let magBonusPct = 0;
+        let reloadSpeedBonus = 0;
+        let extraCritChance = 0;
+        let extraCritDmgMod = 0;
+        let recoilReduction = 0;
+        let spreadReduction = 0;
+        let rangeBonusPct = 0;
+        let adsZoom = 1.0;
+        let hasLegendary = (weaponTier >= 5);
+
+        // Chỉ số thưởng theo cấp độ cường hóa
+        if (weaponTier >= 2) recoilReduction += 0.05;
+        if (weaponTier >= 3) reloadSpeedBonus += 0.10;
+        if (weaponTier >= 4) magBonusPct += 0.15;
+
+        // Hiệu ứng khảm nguyên tố Gacha
+        const enchant = th_getWeaponEnchant(w.id);
+        if (enchant?.id === 'berserk') {
+            extraCritChance += 0.15;
+            extraCritDmgMod += 0.50;
+        }
+
+        for (const [slotKey, rawId] of Object.entries(attachMap)) {
+            if (!rawId) continue;
+            const attachId = th_normalizeAttachment(rawId);
+            const def = ATTACHMENT_DEFS[attachId];
+            if (!def) continue;
+
+            // Mỗi phụ kiện đóng góp modifier sát thương theo Tier (+15%, +35%, +60%, +100%)
+            sumAttachMods += (RARITY_TIERS[def.tier]?.dmgMod || 0);
+            if (def.tier >= 5) hasLegendary = true;
+
+            if (def.slot === 'barrel') {
+                barrelFlat += (def.flatDmg || 0);
+                rangeBonusPct += (def.rangeBonusPct || 0);
+            } else if (def.slot === 'magazine') {
+                magBonusPct += (def.magBonusPct || 0);
+                reloadSpeedBonus += (def.reloadSpeedBonus || 0);
+            } else if (def.slot === 'optic') {
+                extraCritChance += (def.critChance || 0);
+                extraCritDmgMod += (def.critDmgMod || 0);
+                adsZoom = Math.max(adsZoom, def.adsZoom || 1.25);
+                if (def.rangeBonusPct) rangeBonusPct += def.rangeBonusPct;
+            } else if (def.slot === 'grip') {
+                recoilReduction += (def.recoilReduction || 0);
+                spreadReduction += (def.spreadReduction || 0);
+            }
+        }
+
+        // Tính FinalDamage theo đúng công thức cốt lõi
+        const finalBaseDamage = (w.damage * (1 + weaponTierMod) + barrelFlat);
+        const damage = Math.round(finalBaseDamage * (1 + sumAttachMods));
+        const magSize = Math.max(w.magSize, Math.round(w.magSize * (1 + magBonusPct)));
+        const reloadTime = Math.max(0.35, w.reloadTime * (1 - Math.min(0.75, reloadSpeedBonus)));
+
+        const recoilFactor = Math.max(0.12, 1 - recoilReduction);
+        const spreadFactor = Math.max(0.15, 1 - spreadReduction);
+
+        // Tính toán tầm bắn hiệu dụng theo súng và các phụ kiện chuyên biệt
+        const baseRange = w.range || 45;
+        const maxRange = Math.round(baseRange * (1 + rangeBonusPct));
+
+        return {
+            damage,
+            magSize,
+            reloadTime,
+            baseRange,
+            maxRange,
+            rangeBonusPct,
+            recoilPitch: w.recoilPitch * recoilFactor,
+            cursorKick: w.cursorKick * recoilFactor,
+            screenShake: w.screenShake * recoilFactor,
+            spreadRecoveryRate: (w.spreadRecoveryRate || 20) * (1 + spreadReduction * 0.8),
+            moveSpreadPenalty: (w.moveSpreadPenalty || 2.5) * spreadFactor,
+            baseSpreadDegHip: (w.baseSpreadDegHip || 2.0) * spreadFactor,
+            baseSpreadDegADS: (w.baseSpreadDegADS || 0.5) * spreadFactor,
+            adsZoom,
+            soundRadius: 26.0,
+            turnPenalty: 0,
+            attachments: { ...attachMap },
+            extraCritChance,
+            extraCritDmgMod,
+            hasLegendary,
+            weaponTier,
+            enchant
+        };
+    }
+
+    // Lắp phụ kiện vào ô chỉ định của khẩu súng chỉ định (0: Khẩu 1, 1: Khẩu 2)
+    attachMod(slot, attachmentId, gunIndex = 0) {
+        const normSlot = (slot === 'muzzle' ? 'barrel' : (slot === 'stock' ? 'grip' : slot));
+        if (!['barrel', 'magazine', 'optic', 'grip'].includes(normSlot)) return null;
+        const targetMap = this.getAttachmentsForGun(gunIndex);
+        const previousId = targetMap[normSlot];
+        targetMap[normSlot] = th_normalizeAttachment(attachmentId);
+        sounds.play('switchWeapon', { volume: 0.85, rate: 1.35 });
+        return previousId;
+    }
+
+    // Tháo phụ kiện khỏi ô chỉ định của khẩu súng chỉ định
+    detachMod(slot, gunIndex = 0) {
+        const normSlot = (slot === 'muzzle' ? 'barrel' : (slot === 'stock' ? 'grip' : slot));
+        if (!['barrel', 'magazine', 'optic', 'grip'].includes(normSlot)) return null;
+        const targetMap = this.getAttachmentsForGun(gunIndex);
+        const removed = targetMap[normSlot];
+        targetMap[normSlot] = null;
+        if (removed) {
+            sounds.play('switchWeapon', { volume: 0.7, rate: 0.95 });
+        }
+        return removed;
+    }
+
+    // Kích hoạt chế độ Overclock (Xả đạn nhanh trong 6 giây)
+    th_activateOverclock() {
+        if (this.overclockCooldown > 0) return false;
+        this.overclockTimer = this.overclockDuration;
+        this.overclockCooldown = this.overclockMaxCooldown;
+        sounds.play('switchWeapon', { volume: 0.95, rate: 2.1 });
+        return true;
+    }
+
+    // Bơm máu nhanh cấp cứu (Quick Heal)
+    th_quickHeal(player) {
+        if (!player || player.isDead) return false;
+        if ((this.inventory.medkits || 0) <= 0) return false;
+        if (player.health >= player.maxHealth) return false;
+        this.inventory.medkits--;
+        player.heal(50);
+        player.painTimer = 0;
+        sounds.playMedkit();
+        this.particles?.createImpactSparks?.(player.position.clone().add(new THREE.Vector3(0, 1.0, 0)), new THREE.Vector3(0, 1, 0), 0x00ff88, 22);
+        return true;
+    }
+
+    // Đổi nhanh giữa Súng chính <-> Súng phụ
+    th_swapWeapons(player) {
+        const nextSlot = (this.currentSlotIndex === 0) ? 1 : 0;
+        this.switchWeapon(nextSlot, player);
+    }
+
+    getNetworkState() {
+        return {
+            gun: this.weaponSlots[0]?.id || this.startingWeaponId,
+            guns: this.weaponSlots.slice(0, 2).map(w => ({ id: w.id, tier: w.tier })),
+            primaryAttachments: { ...this.primaryAttachments },
+            secondaryAttachments: { ...this.secondaryAttachments },
+            slot: this.currentSlotIndex,
+            ammo: { ...this.ammo },
+            // PeerJS BinaryPack rejects Infinity. Use -1 only on the wire for unlimited ammo.
+            reserve: Object.fromEntries(Object.entries(this.reserve).map(([id, count]) => [id, count === Infinity ? -1 : count])),
+            upgrades: { ...this.upgrades },
+            attachments: { ...this.attachments },
+            isReloading: this.isReloading,
+            reloadTimer: this.reloadTimer,
+            currentSpreadDeg: this.currentSpreadDeg,
+            inventory: { ...this.inventory }
+        };
+    }
+
+    applyNetworkState(state) {
+        if (!state) return;
+        const gun = [...WEAPON_CONFIGS, ...RARE_WEAPON_CONFIGS].find(w => w.id === state.gun) || WEAPON_CONFIGS[0];
+        const changed = this.weaponSlots[0]?.id !== gun.id;
+        this.weaponSlots[0] = gun;
+        if (state.guns) {
+            state.guns.forEach((entry, index) => {
+                const config = WEAPON_CONFIGS.find(w => w.id === entry.id);
+                if (index < 2 && config) this.weaponSlots[index] = { ...config, tier: entry.tier ?? config.tier };
+            });
+        }
+        this.weaponSlots[2] = KNIFE_CONFIG;
+        this.secondaryWeapon = this.weaponSlots[1];
+        this.currentSlotIndex = Math.min(2, Math.max(0, state.slot || 0));
+        if (state.primaryAttachments) this.primaryAttachments = { ...state.primaryAttachments };
+        if (state.secondaryAttachments) this.secondaryAttachments = { ...state.secondaryAttachments };
+        this.ammo = { ...state.ammo };
+        this.reserve = Object.fromEntries(Object.entries(state.reserve || {}).map(([id, count]) => [id, count === -1 ? Infinity : count]));
+        if (state.inventory) this.inventory = { ...state.inventory };
+        this.attachments = this.currentSlotIndex === 1 ? this.secondaryAttachments : this.primaryAttachments;
+        this.upgrades = { ...state.upgrades };
+        this.isReloading = !!state.isReloading;
+        this.reloadTimer = state.reloadTimer || 0;
+        if (changed && this.handNode) this.attachToArm(this.handNode);
+        this.updateEquippedMesh();
+    }
+
+    applyUpgrade(type) {
+        const limits = { damage: 10, rapid: 8, multishot: 2 };
+        if (!(type in limits)) return false;
+        if (this.upgrades[type] >= limits[type]) return false;
+        this.upgrades[type]++;
+        return true;
+    }
+
+    equipRareWeapon(slot) {
+        const weapon = RARE_WEAPON_CONFIGS[slot];
+        const targetSlot = 0; // Trang bị vào súng chính
+        const previous = this.weaponSlots[targetSlot];
+        if (!weapon || (previous && previous.tier >= weapon.tier)) return false;
+        const reserve = this.reserve[previous.id] || 0;
+        delete this.ammo[previous.id];
+        delete this.reserve[previous.id];
+        this.weaponSlots[targetSlot] = weapon;
+        this.ammo[weapon.id] = weapon.magSize;
+        // Băng đạn dự trữ dồi dào khởi đầu: tối thiểu 6 băng đạn
+        this.reserve[weapon.id] = Math.max(reserve, weapon.magSize * 6);
+        this.currentSlotIndex = targetSlot;
+        this.isReloading = false;
+        this.reloadTimer = 0;
+        this.fireCooldown = 0.15;
+        if (this.handNode) this.attachToArm(this.handNode);
+        return true;
+    }
+
+    getCurrentWeapon() {
+        return this.weaponSlots[this.currentSlotIndex] || this.weaponSlots[0];
+    }
+
+    getCurrentAmmo() {
+        const w = this.getCurrentWeapon();
+        if (w.isKnife) {
+            return { current: '∞', max: '∞', reserve: '∞', isKnife: true, isReloading: false, reloadProgress: 1 };
+        }
+        if (w.isBomb) {
+            return { current: w.count ?? 0, max: 2, reserve: 0, isBomb: true, isReloading: false, reloadProgress: 1 };
+        }
+        if (w.isUtility) {
+            return { current: this.inventory.medkits, max: this.inventory.medkits, reserve: 0, isUtility: true, isReloading: false, reloadProgress: 1 };
+        }
+        const effective = this.getModifiedStats(w);
+        return {
+            current: this.ammo[w.id] ?? 0,
+            max: effective.magSize,
+            reserve: this.reserve[w.id] ?? 0,
+            isReloading: this.isReloading,
+            reloadProgress: this.isReloading ? (1 - this.reloadTimer / effective.reloadTime) : 1
+        };
+    }
+
+    switchWeapon(index, player = null) {
+        if (index < 0 || index >= this.weaponSlots.length) return;
+
+        // Bất kỳ hành động đổi vũ khí nào cũng sẽ hủy tiến trình sơ cứu dở dang
+        if (this.isUsingMedkit) {
+            this.cancelMedkitUse();
+        }
+
+        if (index === this.currentSlotIndex) return;
+
+        if (this.onCommand) this.onCommand({ type: 'switch', slot: index });
+        this.currentSlotIndex = index;
+        this.cancelReload();
+        this.fireCooldown = 0.18;
+        sounds.play('switchWeapon', { volume: 0.7 });
+
+        // Cập nhật mô hình vũ khí hiển thị trên tay nhân vật
+        this.updateEquippedMesh();
+
+        // Tự động nạp đạn nếu chuyển sang vũ khí đang hết đạn trong băng
+        const nextW = this.getCurrentWeapon();
+        if (nextW && !nextW.isKnife && !nextW.isBomb && !nextW.isUtility && (this.ammo[nextW.id] || 0) <= 0 && (this.reserve[nextW.id] || 0) > 0) {
+            this.reload();
+        }
+    }
+
+    // Lấy thông tin đạn và trạng thái theo từng ô vũ khí cho giao diện HUD
+    getSlotAmmo(index) {
+        const w = this.weaponSlots[index];
+        if (!w) return null;
+        if (w.isKnife) {
+            return { current: '∞', max: '∞', reserve: '∞', isKnife: true, name: w.name, icon: w.icon };
+        }
+        if (w.isBomb) {
+            return { current: w.count ?? 0, max: 2, reserve: 0, isBomb: true, name: w.name, icon: w.icon, tier: w.tier || 2 };
+        }
+        const effective = this.getModifiedStats(w);
+        return {
+            current: this.ammo[w.id] ?? 0,
+            max: effective.magSize,
+            reserve: this.reserve[w.id] ?? 0,
+            name: w.name,
+            icon: w.icon,
+            isAuto: !!w.isAuto,
+            tier: w.tier || 1
+        };
+    }
+
+    // Cơ chế Channeling sơ cứu vết thương trong 5.0 giây
+    startMedkitUse(player) {
+        if (!player || player.isDead) return false;
+        if (this.inventory.medkits <= 0) return false;
+        if (player.health >= player.maxHealth) return false;
+        if (this.isUsingMedkit) return false;
+
+        this.isUsingMedkit = true;
+        this.medkitTimer = this.medkitTotalTime;
+        this.medkitPlayerRef = player;
+        sounds.playMedkit();
+        return true;
+    }
+
+    cancelMedkitUse() {
+        if (this.isUsingMedkit) {
+            this.isUsingMedkit = false;
+            this.medkitTimer = 0;
+            this.medkitPlayerRef = null;
+        }
+    }
+
+    usePainkiller(player) {
+        if (!player || player.isDead || this.inventory.painkillers <= 0) return false;
+        this.inventory.painkillers--;
+        player.heal(25);
+        player.painTimer = 0;
+        sounds.playMedkit();
+        this.particles.createImpactSparks(player.position.clone().add(new THREE.Vector3(0, 1.0, 0)), new THREE.Vector3(0, 1, 0), 0xffaa00, 14);
+        return true;
+    }
+
+    useGrenade(player, enemies = null) {
+        if (!player || player.isDead || this.inventory.grenades <= 0) return false;
+        this.inventory.grenades--;
+        sounds.play('enemyExplode', { volume: 0.9 });
+        const blastPos = player.position.clone().add(new THREE.Vector3(
+            Math.sin(player.mesh.rotation.y) * 4.2,
+            0.5,
+            Math.cos(player.mesh.rotation.y) * 4.2
+        ));
+        this.particles.createExplosion(blastPos, 0xff5500, 36, 6.0);
+        this.particles.createImpactSparks(blastPos, new THREE.Vector3(0, 1, 0), 0xffdd44, 28);
+        if (enemies && enemies.length) {
+            for (const e of enemies) {
+                if (e && !e.isDead && e.position.distanceTo(blastPos) <= 6.0) {
+                    e.takeDamage(120, null, true, player);
+                }
+            }
+        }
+        return true;
+    }
+
+    useWaterBottle(player) {
+        if (!player || player.isDead || this.inventory.waterBottles <= 0) return false;
+        this.inventory.waterBottles--;
+        sounds.playShieldBattery();
+        this.particles.createImpactSparks(player.position.clone().add(new THREE.Vector3(0, 1.0, 0)), new THREE.Vector3(0, 1, 0), 0x38bdf8, 14);
+        return true;
+    }
+
+    useAmmoPack(player) {
+        if (!player || player.isDead || this.inventory.ammoPacks <= 0) return false;
+        this.inventory.ammoPacks--;
+        for (const w of this.weaponSlots) {
+            if (!w.isKnife && !w.isUtility) {
+                this.reserve[w.id] = (this.reserve[w.id] || 0) + (w.magSize * 2);
+            }
+        }
+        sounds.play('switchWeapon', { volume: 0.8, rate: 0.9 });
+        this.particles.createImpactSparks(player.position.clone().add(new THREE.Vector3(0, 1.0, 0)), new THREE.Vector3(0, 1, 0), 0xffff00, 16);
+        return true;
+    }
+
+    toggleBulletCaliber() {
+        this.currentCaliberIndex = (this.currentCaliberIndex + 1) % this.bulletCalibers.length;
+        sounds.play('switchWeapon', { volume: 0.5, rate: 1.6 });
+        return this.bulletCalibers[this.currentCaliberIndex];
+    }
+
+    getCurrentCaliber() {
+        return this.bulletCalibers[this.currentCaliberIndex] || this.bulletCalibers[0];
+    }
+
+    nextWeapon(player = null) {
+        const next = this.currentSlotIndex === 0 ? 1 : 0;
+        this.switchWeapon(next, player);
+    }
+
+    prevWeapon(player = null) {
+        const prev = this.currentSlotIndex === 0 ? 1 : 0;
+        this.switchWeapon(prev, player);
+    }
+
+    reload() {
+        const w = this.getCurrentWeapon();
+        if (w.isKnife || w.isUtility) return;
+        const effective = this.getModifiedStats(w);
+        if (this.isReloading || this.ammo[w.id] >= effective.magSize || !this.reserve[w.id]) return;
+        if (this.onCommand) this.onCommand({ type: 'reload' });
+        this.isReloading = true;
+        this.reloadTimer = effective.reloadTime;
+        sounds.play('switchWeapon', { volume: 0.6, rate: 1.2 });
+    }
+
+    cancelReload() {
+        if (this.isReloading) {
+            this.isReloading = false;
+            this.reloadTimer = 0;
+        }
+    }
+
+    addAmmo(packs = 2) {
+        for (const w of this.weaponSlots) {
+            if (w && !w.isKnife && !w.isUtility) {
+                this.reserve[w.id] = Math.min(w.magSize * 15, (this.reserve[w.id] || 0) + w.magSize * packs);
+            }
+        }
+    }
+
+    attachToArm(handNode) {
+        if (!handNode) return;
+        for (const mesh of Object.values(this.weaponMeshes || {})) {
+            mesh.removeFromParent();
+            if (mesh.userData.ownsMaterials) mesh.traverse(child => {
+                const materials = Array.isArray(child.material) ? child.material : [child.material];
+                for (const material of materials) material?.dispose();
+            });
+        }
+        this.handNode = handNode;
+        this.weaponMeshes = {};
+
+        this.weaponSlots.forEach(w => {
+            if (!w) return;
+            if (w.isKnife) {
+                const mesh = this.createKnifeMesh(w);
+                if (!mesh) return;
+                handNode.add(mesh);
+                this.weaponMeshes[w.id] = mesh;
+                return;
+            }
+            if (w.isBomb) {
+                const base = this.models[w.modelFile];
+                if (!base) return;
+                const mesh = base.clone(true);
+                mesh.userData.ownsMaterials = true;
+                mesh.traverse(child => {
+                    if (!child.isMesh) return;
+                    if (Array.isArray(child.material)) child.material = child.material.map(m => m.clone());
+                    else if (child.material) child.material = child.material.clone();
+                });
+                const scale = 0.65;
+                mesh.scale.setScalar(scale);
+                mesh.userData.isBomb = true;
+                mesh.position.set(-0.24, -0.05, 0.05);
+                mesh.rotation.set(0, 0, 0);
+                mesh.visible = false;
+                handNode.add(mesh);
+                this.weaponMeshes[w.id] = mesh;
+                return;
+            }
+            if (w.isUtility) return;
+
+            const base = this.models[w.modelFile];
+            if (!base) return;
+
+            const mesh = base.clone(true);
+            mesh.userData.ownsMaterials = true;
+            mesh.traverse(child => {
+                if (!child.isMesh) return;
+                if (Array.isArray(child.material)) {
+                    child.material = child.material.map(m => m.clone());
+                } else if (child.material) {
+                    child.material = child.material.clone();
+                }
+
+                if (w.tier) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(m => {
+                            m.color.setHex(w.color);
+                            if (m.emissive) { m.emissive.setHex(w.color); m.emissiveIntensity = 0.35; }
+                        });
+                    } else {
+                        child.material.color.setHex(w.color);
+                        if (child.material.emissive) {
+                            child.material.emissive.setHex(w.color);
+                            child.material.emissiveIntensity = 0.35;
+                        }
+                    }
+                }
+            });
+            // Chuẩn hóa tỷ lệ kích thước vật lý chính xác theo từng model
+            const bounds = new THREE.Box3().setFromObject(mesh);
+            const size = new THREE.Vector3();
+            bounds.getSize(size);
+
+            handNode.updateWorldMatrix(true, false);
+            const armScaleZ = handNode.getWorldScale(new THREE.Vector3()).z || 1.0;
+            const armScaleX = handNode.getWorldScale(new THREE.Vector3()).x || 1.0;
+
+            const targetLength = w.targetLength || (w.modelFile.includes('blaster-a') ? 0.95 : 1.15);
+
+            if (w.isStyloo) {
+                // Súng Styloo: nòng chạy dọc trục X (+X là đầu nòng súng)
+                const scale = (targetLength / Math.max(0.01, size.x)) / armScaleX;
+                mesh.scale.setScalar(scale);
+                mesh.userData.isStyloo = true;
+                mesh.userData.gripOffset = new THREE.Vector3(0, 0.08, 0).multiplyScalar(scale);
+                mesh.userData.handOffset = new THREE.Vector3(-0.24, -0.05, 0.02);
+                mesh.rotation.set(0, -Math.PI / 2 - Math.PI / 3, 0);
+                mesh.position.copy(mesh.userData.gripOffset).applyQuaternion(mesh.quaternion).add(mesh.userData.handOffset);
+                const muzzle = new THREE.Object3D();
+                muzzle.name = 'weapon-muzzle';
+                muzzle.position.set(bounds.max.x + 0.05, 0.03, 0);
+                mesh.add(muzzle);
+            } else {
+                // Súng Kenney Blaster: nòng chạy dọc trục Z (-Z là đầu nòng súng)
+                const scale = (targetLength / Math.max(0.01, bounds.max.z - bounds.min.z)) / armScaleZ;
+                mesh.scale.setScalar(scale);
+                mesh.userData.barrelForward = -1;
+                mesh.userData.gripOffset = new THREE.Vector3(0, 0.14, -0.18).multiplyScalar(scale);
+                mesh.userData.handOffset = w.offset ? w.offset.clone() : new THREE.Vector3(-0.24, -0.05, 0.02);
+                mesh.rotation.set(0, -Math.PI / 3, 0);
+                mesh.position.copy(mesh.userData.gripOffset).applyQuaternion(mesh.quaternion).add(mesh.userData.handOffset);
+                const muzzle = new THREE.Object3D();
+                muzzle.name = 'weapon-muzzle';
+                muzzle.position.set(0, 0.04, bounds.min.z - 0.025);
+                mesh.add(muzzle);
+            }
+            mesh.visible = false;
+            handNode.add(mesh);
+            this.weaponMeshes[w.id] = mesh;
+        });
+
+        this.updateEquippedMesh();
+    }
+
+    createKnifeMesh(config = KNIFE_CONFIG) {
+        const source = this.models[config.modelFile];
+        if (!source) return null;
+        const group = new THREE.Group();
+        group.name = 'kenney-cooking-knife';
+        const model = source.clone(true);
+        const bounds = new THREE.Box3().setFromObject(model);
+        this.handNode.updateWorldMatrix(true, false);
+        const armScale = this.handNode.getWorldScale(new THREE.Vector3()).x;
+        const scale = 0.8 / ((bounds.max.x - bounds.min.x) * armScale);
+        // Food Kit's tip points along -X and its wooden grip is at +X.
+        model.scale.setScalar(scale);
+        model.rotation.y = Math.PI / 2;
+        model.position.set(0.045 * scale, -0.02 * scale, 0.24 * scale);
+        group.add(model);
+        group.userData.gripOffset = new THREE.Vector3();
+        group.userData.handOffset = new THREE.Vector3(-0.24, -0.05, 0.02);
+        group.position.copy(group.userData.handOffset);
+        return group;
+    }
+    updateEquippedMesh() {
+        const currentId = this.getCurrentWeapon().id;
+        for (const [id, mesh] of Object.entries(this.weaponMeshes || {})) {
+            mesh.visible = (id === currentId);
+        }
+    }
+
+    updateHeldPose(character) {
+        const mesh = this.weaponMeshes?.[this.getCurrentWeapon().id];
+        if (mesh) {
+            const w = this.getCurrentWeapon();
+            const effective = this.getModifiedStats(w);
+            mesh.userData.reloadProgress = this.isReloading ? (1 - this.reloadTimer / effective.reloadTime) : 1.0;
+        }
+        updateHeldWeaponPose(mesh, this.handNode, character);
+    }
+
+    getMuzzlePosition(target = new THREE.Vector3()) {
+        const muzzle = this.weaponMeshes?.[this.getCurrentWeapon().id]?.getObjectByName('weapon-muzzle');
+        if (!muzzle) return null;
+        muzzle.updateWorldMatrix(true, false);
+        return muzzle.getWorldPosition(target);
+    }
+
+    shoot(origin, targetPoint, isADS = false, isPlayer = true, damageMultiplier = 1.0, playerRef = null) {
+        const current = this.getCurrentWeapon();
+        if (current.isUtility) return false;
+
+        // Nếu đang sơ cứu Medkit mà hành động bắn/chém -> Hủy sơ cứu ngay
+        if (this.isUsingMedkit) {
+            this.cancelMedkitUse();
+        }
+
+        // Tự động chuyển dao nếu cả súng và đạn dự trữ đều hết
+        if (isPlayer && !current.isKnife && (this.ammo[current.id] <= 0) && !(this.reserve[current.id] > 0)) {
+            this.switchWeapon(1, playerRef);
+            return false;
+        }
+
+        // Giữ chuột bắn không ngắt quãng tiến trình tự động nạp đạn (Reload)
+        if (this.isReloading) return false;
+
+        if (this.onCommand && isPlayer) {
+            if (this.fireCooldown > 0) return false;
+            if (!current.isKnife && (this.ammo[current.id] || 0) <= 0) {
+                if ((this.reserve[current.id] || 0) > 0) this.reload();
+                return false;
+            }
+            this.onCommand({ type: 'shoot', target: targetPoint.toArray(), ads: isADS });
+            const send = this.onCommand;
+            this.onCommand = null;
+            try { return this.shoot(origin, targetPoint, isADS, isPlayer, damageMultiplier, playerRef); }
+            finally { this.onCommand = send; }
+        }
+
+        const w = this.getCurrentWeapon();
+
+        // Xử lý chém dao
+        if (w.isKnife) {
+            if (this.fireCooldown > 0) return false;
+            const direction = new THREE.Vector3().subVectors(targetPoint, origin);
+            if (direction.lengthSq() < 0.001) direction.set(0, 0, -1);
+            direction.normalize();
+            this.fireCooldown = w.fireRate;
+            sounds.play('enemyAttack', { volume: 0.5, rate: 1.45 });
+            this.particles?.createKnifeSlash?.(origin, direction, w.color, w.range);
+
+            if (playerRef?.applyKickbackAndShake) playerRef.applyKickbackAndShake(w.cursorKick, w.screenShake);
+
+            this.projectiles.push({
+                meshEntry: null,
+                mesh: null,
+                origin: origin.clone(),
+                direction,
+                range: w.range,
+                damage: w.damage * damageMultiplier * (isPlayer ? this.damageBoost : 1),
+                penPower: w.penPower,
+                critMultiplier: 1.8,
+                life: 0.12,
+                isPlayer,
+                isKnife: true,
+                ownerId: 'player'
+            });
+            return true;
+        }
+
+        const effective = this.getModifiedStats(w);
+
+        // Kiểm tra hết băng đạn -> Tự động nạp đạn (Đạn dự trữ là vô hạn)
+        if (this.ammo[w.id] <= 0) {
+            this.reload();
+            return false;
+        }
+
+        if (this.fireCooldown > 0) return false;
+
+        this.ammo[w.id]--;
+
+        // Xử lý chế độ Bắn Tăng Cường (Overclock): Tốc độ xả đạn cực nhanh, độ giật triệt tiêu
+        const isOverclockActive = this.overclockTimer > 0;
+        const speedFactor = isOverclockActive ? 0.55 : 1.0;
+        this.fireCooldown = (w.fireRate / this.fireRateBoost) * speedFactor;
+        this.recoilOffset = isOverclockActive ? (effective.recoilPitch * 0.2) : effective.recoilPitch;
+
+        // Tăng nón tản đạn sau mỗi phát bắn (Recoil Spread có tính phụ kiện giảm giật)
+        const recoilSpread = isOverclockActive ? 0.05 : ((w.recoilSpreadPerShot || 0.8) * (effective.recoilPitch / Math.max(0.001, w.recoilPitch)));
+        this.currentSpreadDeg = Math.min(w.maxSpreadDeg, this.currentSpreadDeg + recoilSpread);
+
+        // Phản lực con trỏ và rung màn hình (Cursor Kickback & Screen Shake)
+        if (playerRef?.applyKickbackAndShake && !isOverclockActive) {
+            playerRef.applyKickbackAndShake(effective.cursorKick, effective.screenShake);
+        }
+
+        // Hiệu ứng âm thanh bắn
+        if (isOverclockActive) {
+            sounds.playShot(w.id);
+        } else {
+            sounds.playShot(w.id);
+        }
+
+        // Phụt tia lửa nòng
+        const enchant = effective.enchant;
+        const bulletColor = isOverclockActive ? 0xffdd00 : (enchant ? enchant.hex : (effective.hasLegendary ? 0xf59e0b : w.color));
+        this.particles?.createMuzzleFlash?.(origin, new THREE.Vector3().subVectors(targetPoint, origin).normalize(), bulletColor);
+
+        const beams = isPlayer ? this.beamCount : 1;
+        const spreadRad = THREE.MathUtils.degToRad(isOverclockActive ? Math.min(this.currentSpreadDeg, 1.0) : this.currentSpreadDeg);
+
+        for (let i = 0; i < w.pellets * beams; i++) {
+            _tempAimDir.subVectors(targetPoint, origin).normalize();
+
+            // Tính toán góc lệch Cone of Fire toán học
+            const angleY = (Math.random() - 0.5) * spreadRad;
+            const anglePitch = (Math.random() - 0.5) * (spreadRad * 0.3);
+            _tempAimDir.applyAxisAngle(_tempRotAxis, angleY);
+            _tempAimDir.y += anglePitch;
+            _tempAimDir.normalize();
+
+            // Phân nhánh đòn đánh đa tia
+            const lane = Math.floor(i / w.pellets) - (beams - 1) / 2;
+            _tempAimDir.applyAxisAngle(_tempRotAxis, lane * 0.07);
+
+            // Lấy mesh từ pool linh hoạt
+            const entry = this.getBulletMesh(bulletColor);
+            entry.mesh.position.copy(origin);
+            entry.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), _tempAimDir);
+
+            // Đạn huyền thoại (Tier 5): Xuyên 3 mục tiêu + Bắn nổ lan
+            const pierceCount = effective.hasLegendary ? 3 : (w.penPower || 1);
+
+            this.projectiles.push({
+                meshEntry: entry,
+                mesh: entry.mesh,
+                id: this.nextProjectileId++,
+                origin: origin.clone(),
+                direction: _tempAimDir.clone(),
+                speed: w.bulletSpeed * (isOverclockActive ? 1.25 : 1.0),
+                damage: effective.damage * damageMultiplier * (isPlayer ? this.damageBoost : 1),
+                baseDamage: effective.damage * damageMultiplier * (isPlayer ? this.damageBoost : 1),
+                maxRange: effective.maxRange,
+                distanceTraveled: 0,
+                penPower: effective.hasLegendary ? Math.max(3, w.penPower) : w.penPower,
+                critMultiplier: (w.critMultiplier || 2.0) + (effective.extraCritDmgMod || 0),
+                critChance: 0.12 + (effective.extraCritChance || 0),
+                hasLegendary: !!effective.hasLegendary,
+                pierceCount: pierceCount,
+                hitEnemies: new Set(),
+                color: bulletColor,
+                life: 2.0,
+                isPlayer: true,
+                ownerId: 'player',
+                isKnife: false,
+                isExplosive: !!w.isExplosive,
+                splashRadius: w.splashRadius || 4.8,
+                th_enchant: enchant
+            });
+        }
+
+        if (this.ammo[w.id] <= 0) {
+            this.reload();
+        }
+
+        return true;
+    }
+
+    shootEnemyBolt(origin, targetPos, damage = 12, speed = 35, acid = false) {
+        _tempAimDir.subVectors(targetPos, origin).normalize();
+        _tempAimDir.x += (Math.random() - 0.5) * 0.05;
+        _tempAimDir.y += (Math.random() - 0.5) * 0.05;
+        _tempAimDir.z += (Math.random() - 0.5) * 0.05;
+        _tempAimDir.normalize();
+
+        const color = acid ? 0x99ff22 : 0xff3322;
+        this.particles.createMuzzleFlash(origin, _tempAimDir, color);
+        sounds.play('enemyAttack', { volume: 0.65, pitchVariation: 0.1 });
+
+        const entry = this.getEnemyMesh(color, acid);
+        entry.mesh.position.copy(origin);
+        entry.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), _tempAimDir);
+
+        this.projectiles.push({
+            meshEntry: entry,
+            mesh: entry.mesh,
+            id: this.nextProjectileId++,
+            origin: origin.clone(),
+            direction: _tempAimDir.clone(),
+            speed: speed,
+            damage: damage,
+            penPower: 1,
+            critMultiplier: 1.0,
+            color: color,
+            life: 3.2,
+            isPlayer: false,
+            ownerId: 'enemy',
+            isKnife: false
+        });
+    }
+
+    throwBomb(origin, targetPoint, playerRef, enemies = []) {
+        const w = this.getCurrentWeapon();
+        if (!w || !w.isBomb) return false;
+        if ((w.count || 0) <= 0) return false;
+
+        w.count--;
+        sounds.play('switchWeapon', { volume: 0.8, rate: 1.5 });
+
+        // Tạo quả bom 3D bay trong scene
+        const base = this.models[w.modelFile];
+        let mesh = null;
+        if (base) {
+            mesh = base.clone(true);
+            mesh.scale.setScalar(0.75);
+            mesh.position.copy(origin);
+            this.scene.add(mesh);
+        }
+
+        const startPos = origin.clone();
+        const endPos = targetPoint.clone();
+        endPos.y = 0.1; // Chạm sát mặt đất
+
+        const duration = w.fuseTime || 0.65;
+        this.thrownBombs.push({
+            mesh,
+            startPos,
+            endPos,
+            time: 0,
+            duration,
+            bombConfig: { ...w },
+            playerRef
+        });
+
+        // Tự động kiểm tra: nếu hết quả bom này, chuyển về súng chính
+        if (w.count <= 0) {
+            setTimeout(() => {
+                if (this.getCurrentWeapon()?.id === w.id) {
+                    this.switchWeapon(0, playerRef);
+                }
+            }, 300);
+        }
+
+        return true;
+    }
+
+    updateThrownBombs(delta, arena, enemies = []) {
+        if (!this.thrownBombs || !this.thrownBombs.length) return;
+        for (let i = this.thrownBombs.length - 1; i >= 0; i--) {
+            const tb = this.thrownBombs[i];
+            tb.time += delta;
+            const progress = Math.min(1.0, tb.time / tb.duration);
+
+            // Phương trình quỹ đạo parabol
+            const curX = tb.startPos.x + (tb.endPos.x - tb.startPos.x) * progress;
+            const curZ = tb.startPos.z + (tb.endPos.z - tb.startPos.z) * progress;
+            const peakHeight = 2.8;
+            const curY = tb.startPos.y + (tb.endPos.y - tb.startPos.y) * progress + 4 * peakHeight * progress * (1 - progress);
+
+            if (tb.mesh) {
+                tb.mesh.position.set(curX, curY, curZ);
+                tb.mesh.rotation.x += delta * 14;
+                tb.mesh.rotation.z += delta * 10;
+            }
+
+            if (progress >= 1.0) {
+                // Tiếp đất -> Kích nổ diện rộng!
+                if (tb.mesh) {
+                    this.scene.remove(tb.mesh);
+                }
+                const blastPos = tb.endPos.clone();
+                const bCfg = tb.bombConfig;
+
+                // Hiệu ứng hạt nổ & chớp sáng
+                this.particles.createExplosion(blastPos, bCfg.color || 0xf97316, 45, bCfg.blastRadius || 5.5);
+                this.particles.createImpactSparks(blastPos, new THREE.Vector3(0, 1, 0), 0xffdd44, 28);
+                sounds.play('enemyExplode', { volume: 1.0 });
+
+                if (tb.playerRef?.applyKickbackAndShake) {
+                    tb.playerRef.applyKickbackAndShake(4.0, 0.45);
+                }
+
+                // Gây sát thương AoE cho toàn bộ zombie trong bán kính
+                const radius = bCfg.blastRadius || 5.5;
+                for (const e of enemies) {
+                    if (!e || e.isDead) continue;
+                    const dist = e.position.distanceTo(blastPos);
+                    if (dist <= radius) {
+                        const falloff = Math.max(0.35, 1 - (dist / radius) * 0.65);
+                        const finalDamage = Math.round(bCfg.damage * falloff);
+
+                        // Lực đẩy văng (Knockback) zombie ra xa tâm nổ
+                        if (e.velocity) {
+                            const pushDir = new THREE.Vector3().subVectors(e.position, blastPos);
+                            pushDir.y = 0;
+                            pushDir.normalize();
+                            e.velocity.addScaledVector(pushDir, (bCfg.knockback || 12.0) * falloff);
+                        }
+
+                        // Hiệu ứng làm chậm nếu có (Grenade B)
+                        if (bCfg.slowDuration) {
+                            e.slowTimer = bCfg.slowDuration;
+                            e.slowFactor = bCfg.slowPct || 0.8;
+                        }
+
+                        e.takeDamage(finalDamage, 4, true, tb.playerRef);
+                    }
+                }
+
+                this.thrownBombs.splice(i, 1);
+            }
+        }
+    }
+
+    update(delta, arena, enemies, player, onHitCallback) {
+        this.updateThrownBombs(delta, arena, enemies);
+        if (this.fireCooldown > 0) {
+            this.fireCooldown -= delta;
+        }
+
+        // Cập nhật bộ đếm thời gian Overclock
+        if (this.overclockTimer > 0) {
+            this.overclockTimer -= delta;
+        }
+        if (this.overclockCooldown > 0) {
+            this.overclockCooldown -= delta;
+        }
+
+        // Xử lý tiến trình sơ cứu Medkit 5 giây
+        if (this.isUsingMedkit && this.medkitPlayerRef) {
+            const p = this.medkitPlayerRef;
+            if (p.isDead || p.health >= p.maxHealth) {
+                this.cancelMedkitUse();
+            } else {
+                this.medkitTimer -= delta;
+                if (Math.random() < 0.28) {
+                    const sparkPos = p.position.clone().add(new THREE.Vector3(
+                        (Math.random() - 0.5) * 0.7,
+                        0.4 + Math.random() * 0.9,
+                        (Math.random() - 0.5) * 0.7
+                    ));
+                    this.particles.createImpactSparks(sparkPos, new THREE.Vector3(0, 1, 0), 0x00ff88, 2);
+                }
+
+                if (this.medkitTimer <= 0) {
+                    this.isUsingMedkit = false;
+                    this.medkitTimer = 0;
+                    if (this.inventory.medkits > 0) {
+                        this.inventory.medkits--;
+                        p.heal(50);
+                        p.painTimer = 0;
+                        sounds.playMedkit();
+                        this.particles.createImpactSparks(p.position.clone().add(new THREE.Vector3(0, 1.0, 0)), new THREE.Vector3(0, 1, 0), 0x00ff88, 24);
+                    }
+                    this.medkitPlayerRef = null;
+                }
+            }
+        }
+
+        const currentW = this.getCurrentWeapon();
+        const mainPlayer = Array.isArray(player) ? player[0] : player;
+
+        // Cập nhật nón tản đạn (Cone of Fire co nhỏ theo thời gian)
+        if (mainPlayer && !currentW.isKnife && !currentW.isUtility) {
+            const effective = this.getModifiedStats(currentW);
+            const isMoving = mainPlayer.velocity && (mainPlayer.velocity.x * mainPlayer.velocity.x + mainPlayer.velocity.z * mainPlayer.velocity.z > 0.05);
+            const isADS = mainPlayer.isADS;
+            const targetMinSpread = (isADS ? effective.baseSpreadDegADS : effective.baseSpreadDegHip) + (isMoving ? effective.moveSpreadPenalty : 0);
+
+            // Tự động co nhỏ lại về mức tối thiểu theo spreadRecoveryRate
+            if (this.currentSpreadDeg > targetMinSpread) {
+                this.currentSpreadDeg = Math.max(targetMinSpread, this.currentSpreadDeg - (effective.spreadRecoveryRate || 20) * delta);
+            } else if (this.currentSpreadDeg < targetMinSpread) {
+                this.currentSpreadDeg = Math.min(targetMinSpread, this.currentSpreadDeg + (effective.spreadRecoveryRate || 20) * delta);
+            }
+        }
+
+        // Tự động nạp đạn nếu súng hết đạn trong băng (đạn dự trữ là vô hạn)
+        if (!currentW.isKnife && !currentW.isUtility && !this.isReloading && (this.ammo[currentW.id] || 0) <= 0) {
+            this.reload();
+        }
+
+        // Cập nhật tiến trình nạp đạn
+        if (this.isReloading) {
+            this.reloadTimer -= delta;
+            if (this.reloadTimer <= 0) {
+                const w = this.getCurrentWeapon();
+                const effective = this.getModifiedStats(w);
+                this.ammo[w.id] = effective.magSize;
+                this.reserve[w.id] = Infinity;
+                this.isReloading = false;
+                this.reloadTimer = 0;
+                sounds.playClearJam(); // Âm thanh lên đạn cơ khí giòn giã khi nạp xong
+            }
+        }
+
+        this.updateEquippedMesh();
+
+        // Cập nhật đường đạn với Continuous Collision Detection (CCD)
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            const p = this.projectiles[i];
+            p.life -= delta;
+
+            // Xử lý quét đòn chém diện rộng của dao
+            if (p.isKnife) {
+                const startPos = p.origin;
+                _tempSlashForward.copy(p.direction);
+                _tempSlashForward.y = 0;
+                _tempSlashForward.normalize();
+                const slashRange = p.range;
+                let hitCount = 0;
+
+                if (p.isPlayer) {
+                    for (const enemy of enemies) {
+                        if (enemy.isDead) continue;
+                        _tempToEnemy.subVectors(enemy.position, startPos);
+                        const dist = _tempToEnemy.length();
+                        if (dist > slashRange + (enemy.radius || 0.6)) continue;
+                        if (Math.abs(_tempToEnemy.y) > 2.2) continue;
+
+                        _tempToEnemyHoriz.copy(_tempToEnemy);
+                        _tempToEnemyHoriz.y = 0;
+                        _tempToEnemyHoriz.normalize();
+                        const dot = _tempSlashForward.dot(_tempToEnemyHoriz);
+                        if (dot < 0.75) continue; // Đòn chọc thẳng (góc hẹp)
+
+                        // Check cản tường
+                        _tempCheckRayDir.copy(_tempToEnemy).normalize();
+                        _tempCheckRay.set(startPos, _tempCheckRayDir);
+                        let blocked = false;
+                        for (const col of arena.colliders) {
+                            const hit = _tempCheckRay.intersectBox(col, _tempHitPoint);
+                            if (hit && startPos.distanceTo(hit) < dist - 0.3) {
+                                blocked = true;
+                                break;
+                            }
+                        }
+                        if (blocked) continue;
+
+                        hitCount++;
+                        const isCrit = dot > 0.82 && (Math.random() < 0.35);
+                        const finalDamage = p.damage * (isCrit ? p.critMultiplier : 1.0);
+
+                        if (enemy.velocity) {
+                            enemy.velocity.addScaledVector(_tempToEnemyHoriz, 4.5);
+                        }
+
+                        // Sát thương dao với Pen Power 2
+                        const hitResult = enemy.takeDamage(finalDamage, p.penPower, isCrit, _tempSlashForward);
+                        _tempHitPointSparks.copy(enemy.position);
+                        _tempHitPointSparks.y += 1.0;
+                        _tempSparkDir.copy(_tempSlashForward).negate();
+                        this.particles.createImpactSparks(_tempHitPointSparks, _tempSparkDir, isCrit ? 0xff2255 : 0x99e6ff, isCrit ? 14 : 9);
+                        if (onHitCallback) onHitCallback(finalDamage, isCrit, _tempHitPointSparks, hitResult);
+                    }
+
+                    if (hitCount > 0) {
+                        sounds.playHitMarker(false);
+                    }
+                }
+                this.projectiles.splice(i, 1);
+                continue;
+            }
+
+            if (p.life <= 0) {
+                this.removeProjectile(i);
+                continue;
+            }
+
+            // Continuous Collision Detection (CCD) theo frame
+            const stepDist = p.speed * delta;
+            p.distanceTraveled = (p.distanceTraveled || 0) + stepDist;
+
+            const startPos = p.mesh.position;
+
+            // Kiểm tra giới hạn tầm bắn tối đa theo từng súng và phụ kiện chuyên biệt
+            if (p.maxRange && p.distanceTraveled >= p.maxRange) {
+                // Tạo hiệu ứng hạt tàn đạn nhẹ khi viên đạn bay hết cự ly hiệu dụng
+                if (startPos) {
+                    this.particles?.createImpactSparks?.(startPos, p.direction.clone().negate(), p.color, 4);
+                }
+                this.removeProjectile(i);
+                continue;
+            }
+
+            _tempNextPos.copy(startPos).addScaledVector(p.direction, stepDist);
+            _tempRay.set(startPos, p.direction);
+            let hitFound = false;
+
+            // 1. Va chạm chướng ngại vật Arena
+            for (const col of arena.colliders) {
+                const hit = _tempRay.intersectBox(col, _tempHitPoint);
+                if (hit && startPos.distanceTo(hit) <= stepDist) {
+                    if (p.isExplosive) {
+                        this.particles.createExplosion(hit, 0xff5500, 32);
+                        sounds.play('enemyDestroy', { volume: 0.9 });
+                        for (const enemy of enemies) {
+                            if (!enemy.isDead && enemy.position.distanceTo(hit) <= p.splashRadius) {
+                                const dist = enemy.position.distanceTo(hit);
+                                const splashDmg = Math.round(p.damage * (1 - (dist / p.splashRadius) * 0.45));
+                                const dir = enemy.position.clone().sub(hit).normalize();
+                                enemy.takeDamage(splashDmg, p.penPower, false, dir);
+                            }
+                        }
+                    } else {
+                        this.particles.createImpactSparks(hit, p.direction.clone().negate(), p.color, 8);
+                    }
+                    this.removeProjectile(i);
+                    hitFound = true;
+                    break;
+                }
+            }
+            if (hitFound) continue;
+
+            // 2. Đạn người chơi va chạm quái
+            if (p.isPlayer) {
+                for (const enemy of enemies) {
+                    if (enemy.isDead || p.hitEnemies?.has(enemy)) continue;
+                    const hitInfo = enemy.checkHit(startPos, _tempNextPos, _tempRay);
+                    if (hitInfo.hit) {
+                        p.hitEnemies?.add(enemy);
+
+                        // Tính toán sát thương và cơ chế suy giảm theo cự ly (Damage Drop-off từ 70% tầm bắn)
+                        let currentBaseDmg = p.baseDamage !== undefined ? p.baseDamage : p.damage;
+                        if (p.maxRange && p.distanceTraveled > p.maxRange * 0.7) {
+                            const dropRatio = (p.distanceTraveled - p.maxRange * 0.7) / (p.maxRange * 0.3);
+                            const dropFactor = 1.0 - Math.min(0.5, Math.max(0, dropRatio) * 0.5); // Giảm tối đa 50% ở cuối tầm bắn
+                            currentBaseDmg = Math.round(currentBaseDmg * dropFactor);
+                        }
+
+                        // Tính tỷ lệ bạo kích theo Phụ kiện Kính ngắm (Optic Crit Chance)
+                        const isCrit = hitInfo.isCrit || (Math.random() < (p.critChance || 0.12));
+                        const finalDamage = currentBaseDmg * (isCrit ? p.critMultiplier : 1.0);
+
+                        // Gọi takeDamage kèm penPower
+                        const hitResult = enemy.takeDamage(finalDamage, p.penPower, isCrit, p.direction);
+
+                        // Tia lửa phụ thuộc vào việc xuyên máu hay bị giáp cản
+                        const sparkColor = hitResult?.isPenetrated ? (isCrit ? 0xff2255 : p.color) : 0xffffff;
+                        this.particles.createImpactSparks(hitInfo.point, p.direction.clone().negate(), sparkColor, isCrit ? 14 : 8);
+
+                        // Hiệu ứng Đạn nổ RPG (Devastator)
+                        if (p.isExplosive) {
+                            this.particles.createExplosion(hitInfo.point, 0xff5500, 36);
+                            sounds.play('enemyDestroy', { volume: 1.0 });
+                            for (const other of enemies) {
+                                if (other !== enemy && !other.isDead && other.position.distanceTo(hitInfo.point) <= p.splashRadius) {
+                                    const dist = other.position.distanceTo(hitInfo.point);
+                                    const splashDmg = Math.round(finalDamage * (1 - (dist / p.splashRadius) * 0.45));
+                                    const dir = other.position.clone().sub(hitInfo.point).normalize();
+                                    other.takeDamage(splashDmg, p.penPower, false, dir);
+                                }
+                            }
+                        }
+
+                        // Hiệu ứng Đồ Huyền Thoại (Tier 5): Tia lửa va chạm hoàng kim uy lực (Chỉ vũ khí isExplosive mới tạo vụ nổ AoE)
+                        if (p.hasLegendary && !p.isExplosive) {
+                            this.particles?.createImpactSparks?.(hitInfo.point, p.direction.clone().negate(), 0xf59e0b, 12);
+                        }
+
+                        // Kích hoạt Hiệu ứng Nguyên Tố (Elemental Enchantment)
+                        if (p.th_enchant) {
+                            const enchId = p.th_enchant.id;
+                            if (enchId === 'frost') {
+                                enemy.slowTimer = 2.5;
+                                enemy.slowFactor = 0.55;
+                                this.particles?.createImpactSparks?.(hitInfo.point, p.direction.clone().negate(), 0x38bdf8, 14);
+                            } else if (enchId === 'fire') {
+                                enemy.burnTimer = 3.0;
+                                enemy.burnDamage = 10;
+                                this.particles?.createImpactSparks?.(hitInfo.point, p.direction.clone().negate(), 0xf97316, 14);
+                            } else if (enchId === 'lightning') {
+                                this.particles?.createImpactSparks?.(hitInfo.point, p.direction.clone().negate(), 0x60a5fa, 16);
+                                let chained = 0;
+                                for (const other of enemies) {
+                                    if (other !== enemy && !other.isDead && other.position.distanceTo(hitInfo.point) <= 4.8) {
+                                        other.takeDamage(Math.round(finalDamage * 0.5), p.penPower, false, other.position.clone().sub(hitInfo.point).normalize());
+                                        this.particles?.createImpactSparks?.(other.position.clone().add(new THREE.Vector3(0, 1, 0)), new THREE.Vector3(0, 1, 0), 0x60a5fa, 10);
+                                        chained++;
+                                        if (chained >= 2) break;
+                                    }
+                                }
+                            } else if (enchId === 'vampiric') {
+                                if (player && !player.isDead) {
+                                    player.heal(2);
+                                }
+                                this.particles?.createImpactSparks?.(hitInfo.point, p.direction.clone().negate(), 0xf43f5e, 12);
+                            } else if (enchId === 'corrosive') {
+                                enemy.corrosiveTimer = 4.0;
+                                this.particles?.createImpactSparks?.(hitInfo.point, p.direction.clone().negate(), 0x84cc16, 14);
+                            } else if (enchId === 'berserk') {
+                                this.particles?.createImpactSparks?.(hitInfo.point, p.direction.clone().negate(), 0xeab308, 14);
+                            }
+                        }
+
+                        // Nếu quái chết bởi súng Hút máu -> hồi thêm 8 HP
+                        if (p.th_enchant?.id === 'vampiric' && enemy.isDead && player && !player.isDead) {
+                            player.heal(8);
+                        }
+
+                        sounds.playHitMarker(isCrit);
+                        if (onHitCallback) onHitCallback(finalDamage, isCrit, hitInfo.point, hitResult);
+
+                        // Hiệu ứng Xuyên mục tiêu (Piercing)
+                        if (p.pierceCount > 1) {
+                            p.pierceCount--;
+                            p.damage *= 0.85; // Giảm nhẹ sát thương qua từng quái
+                            // Đạn vẫn tiếp tục bay
+                        } else {
+                            this.removeProjectile(i);
+                            hitFound = true;
+                            break;
+                        }
+                    }
+                }
+            } else {
+                // 3. Đạn quái va chạm người chơi
+                const targets = this.enemyTargets || (Array.isArray(player) ? player : [player]);
+                for (const target of targets) {
+                    if (!target || target.isDead) continue;
+                    const hitInfo = target.checkHit(startPos, _tempNextPos, _tempRay);
+                    if (hitInfo.hit) {
+                        target.takeDamage(p.damage, p.direction);
+                        this.particles.createImpactSparks(hitInfo.point, p.direction.clone().negate(), p.color, 10);
+                        this.removeProjectile(i);
+                        hitFound = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!hitFound) {
+                p.mesh.position.copy(_tempNextPos);
+            }
+        }
+    }
+
+    removeProjectile(index) {
+        const p = this.projectiles[index];
+        if (p) {
+            if (p.meshEntry) {
+                if (p.isPlayer) {
+                    this.recycleBulletMesh(p.meshEntry);
+                } else {
+                    this.recycleEnemyMesh(p.meshEntry);
+                }
+            }
+            this.projectiles.splice(index, 1);
+        }
+    }
+
+    clear() {
+        for (const p of this.projectiles) {
+            if (p.meshEntry) {
+                if (p.isPlayer) {
+                    this.recycleBulletMesh(p.meshEntry);
+                } else {
+                    this.recycleEnemyMesh(p.meshEntry);
+                }
+            }
+        }
+        this.projectiles = [];
+    }
+}

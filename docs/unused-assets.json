@@ -1,0 +1,32 @@
+[
+  {
+    "path": "assets/models/blaster.glb",
+    "bytes": 70112,
+    "reason": "not in verified runtime asset graph"
+  },
+  {
+    "path": "assets/models/cloud.glb",
+    "bytes": 34336,
+    "reason": "not in verified runtime asset graph"
+  },
+  {
+    "path": "assets/models/grass.glb",
+    "bytes": 19584,
+    "reason": "not in verified runtime asset graph"
+  },
+  {
+    "path": "assets/models/kenney-blaster/target-small.glb",
+    "bytes": 7592,
+    "reason": "not in verified runtime asset graph"
+  },
+  {
+    "path": "assets/models/Textures/colormap.png",
+    "bytes": 10306,
+    "reason": "not in verified runtime asset graph"
+  },
+  {
+    "path": "assets/textures/colormap.png",
+    "bytes": 10306,
+    "reason": "not in verified runtime asset graph"
+  }
+]
