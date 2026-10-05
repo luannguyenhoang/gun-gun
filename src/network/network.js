@@ -306,12 +306,36 @@ export class NetworkRoom {
                     const hitPt = (Array.isArray(command.hitPoint) && command.hitPoint.length === 3)
                         ? new THREE.Vector3().fromArray(command.hitPoint)
                         : enemy.position;
-                    this.game.particles?.createImpactSparks?.(hitPt, new THREE.Vector3(0, 1, 0), command.crit ? 0xff2255 : 0xffaa00, command.crit ? 14 : 8);
-                    enemy.takeDamage(command.damage, 2, command.crit, player.position);
+                    // Tính vector hướng từ vị trí người chơi tới quái vật trên mặt phẳng ngang
+                    let hitDir = null;
+                    if (enemy.position && player.position) {
+                        hitDir = new THREE.Vector3().subVectors(enemy.position, player.position).setY(0);
+                        if (hitDir.lengthSq() > 0.0001) hitDir.normalize();
+                        else hitDir.set(0, 0, 1);
+                    } else {
+                        hitDir = new THREE.Vector3(0, 0, 1);
+                    }
+
+                    enemy.takeDamage(command.damage, 2, command.crit, hitDir);
                     if (enemy.isDead) {
                         this.game.onEnemyKilled(enemy);
                     }
                 }
+            } else if (command.type === 'throw_bomb' && Array.isArray(command.origin) && Array.isArray(command.target)) {
+                // Xử lý ném bom từ Client gửi lên Host
+                const origin = new THREE.Vector3().fromArray(command.origin);
+                const target = new THREE.Vector3().fromArray(command.target);
+                if (player.weapons) {
+                    player.weapons.throwBomb(origin, target, player, this.game.waveManager?.enemies || []);
+                }
+                // Broadcast sự kiện ném bom cho các người chơi khác
+                (this.game.networkEvents ||= []).push({
+                    type: 'throw_bomb',
+                    throwerId: player.id,
+                    origin: command.origin,
+                    target: command.target,
+                    weaponId: command.weaponId
+                });
             } else if (command.type === 'loot_slot') {
                 this.game.lootingSystem?.handleRemoteLoot?.(command.containerId, command.slotIndex, command.replacedSlot);
             } else if (command.type === 'loot_all') {

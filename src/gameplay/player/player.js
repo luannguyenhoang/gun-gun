@@ -91,6 +91,11 @@ export class PlayerController {
         this.isOverweight = false; // Trạng thái quá tải balo (Overweight)
         this.stepTimer = 0;
 
+        // Trạng thái theo dõi đồng đội khi chết (Spectator Mode)
+        this.isSpectating = false;
+        this.spectateTarget = null;
+        this.spectateIndex = 0;
+
         // 3D Model & Animation
         this.model = null;
         this.mixer = null;
@@ -155,6 +160,21 @@ export class PlayerController {
 
         window.addEventListener('keydown', (e) => {
             if (!this.inputEnabled || e.target?.matches?.('input, textarea, select, [contenteditable="true"]')) return;
+
+            // Nếu người chơi đã chết: Cho phép phím A/D hoặc mũi tên trái/phải để chuyển đổi góc nhìn theo dõi đồng đội
+            if (this.isDead) {
+                if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
+                    e.preventDefault();
+                    this.switchSpectatorTarget(-1);
+                    return;
+                }
+                if (e.code === 'KeyD' || e.code === 'ArrowRight') {
+                    e.preventDefault();
+                    this.switchSpectatorTarget(1);
+                    return;
+                }
+                return;
+            }
 
             // Nếu Radial Menu đang mở:
             if (this.th_isRadialMenuOpen) {
@@ -257,6 +277,17 @@ export class PlayerController {
                 }
             }
             if (e.target !== this.domElement) return;
+
+            // Nếu người chơi đã chết: Cho phép nhấp chuột trái / phải để chuyển đổi người xem
+            if (this.isDead) {
+                if (e.button === 0) {
+                    this.switchSpectatorTarget(1);
+                } else if (e.button === 2) {
+                    this.switchSpectatorTarget(-1);
+                }
+                return;
+            }
+
             if (e.button === 0) this.mouseButtons.left = true;
             if (e.button === 2) this.mouseButtons.right = true;
         });
@@ -927,20 +958,71 @@ export class PlayerController {
         }
     }
 
+    getAliveTeammates() {
+        const game = window.game;
+        if (!game) return [];
+        const remotes = Array.from(game.remotePlayers?.values() || []);
+        // Ưu tiên đồng đội còn sống, nếu không có ai thì lấy đồng đội đang chờ cứu
+        const alive = remotes.filter(p => p && !p.isDead && !p.isDowned);
+        if (alive.length > 0) return alive;
+        return remotes.filter(p => p && (!p.isDead || p.isDowned));
+    }
+
+    switchSpectatorTarget(direction = 1) {
+        const mates = this.getAliveTeammates();
+        if (mates.length === 0) {
+            this.spectateTarget = null;
+            return;
+        }
+        this.spectateIndex = (this.spectateIndex + direction + mates.length) % mates.length;
+        this.spectateTarget = mates[this.spectateIndex];
+        sounds.play('switchWeapon', { volume: 0.6, rate: 1.8 });
+    }
+
     updateCamera(delta) {
-        // Tâm điểm máy ảnh: Dịch nhẹ về phía chuột khi ADS (giữ chuột phải)
-        const target = new THREE.Vector3(this.position.x, 0.7, this.position.z);
+        let target = new THREE.Vector3(this.position.x, 0.7, this.position.z);
         let targetFov = 50; // Default FOV
 
-        if (this.isADS) {
-            const aimVec = new THREE.Vector3().subVectors(this.aimPoint, this.position);
-            aimVec.y = 0;
-            aimVec.clampLength(0, 4.2);
-            target.addScaledVector(aimVec, 0.45); // Dịch 45% về phía con trỏ chuột
-            targetFov = 30; // Zoom in for ADS
+        // Chế độ quan sát đồng đội khi nhân vật đã chết (Spectator Mode)
+        if (this.isDead) {
+            const mates = this.getAliveTeammates();
+            if (mates.length > 0) {
+                this.isSpectating = true;
+                // Nếu mục tiêu hiện tại đã mất hoặc đã chết, tự động chọn mục tiêu hợp lệ tiếp theo
+                if (!this.spectateTarget || (this.spectateTarget.isDead && !this.spectateTarget.isDowned) || !mates.includes(this.spectateTarget)) {
+                    this.spectateIndex = Math.max(0, this.spectateIndex % mates.length);
+                    this.spectateTarget = mates[this.spectateIndex];
+                }
+                if (this.spectateTarget) {
+                    target.set(this.spectateTarget.position.x, 0.7, this.spectateTarget.position.z);
+                }
+                // Hiển thị HUD quan sát đồng đội
+                const ui = this.ui || window.game?.ui;
+                ui?.updateSpectatorHUD?.(this.spectateTarget, mates.length, this.spectateIndex);
+            } else {
+                this.isSpectating = false;
+                this.spectateTarget = null;
+                const ui = this.ui || window.game?.ui;
+                ui?.hideSpectatorHUD?.();
+            }
+        } else {
+            if (this.isSpectating) {
+                this.isSpectating = false;
+                this.spectateTarget = null;
+                const ui = this.ui || window.game?.ui;
+                ui?.hideSpectatorHUD?.();
+            }
+            if (this.isADS) {
+                const aimVec = new THREE.Vector3().subVectors(this.aimPoint, this.position);
+                aimVec.y = 0;
+                aimVec.clampLength(0, 4.2);
+                target.addScaledVector(aimVec, 0.45); // Dịch 45% về phía con trỏ chuột
+                targetFov = 30; // Zoom in for ADS
+            }
         }
 
-        this.cameraFocus.lerp(target, 1 - Math.exp(-12 * Math.max(0, delta)));
+        const lerpSpeed = this.isDead ? 6 : 12;
+        this.cameraFocus.lerp(target, 1 - Math.exp(-lerpSpeed * Math.max(0, delta)));
         this.camera.position.copy(this.cameraFocus).add(this.cameraOffset);
 
         // Smooth FOV zoom (Aiming Animation)
@@ -969,6 +1051,11 @@ export class PlayerController {
         this.isDead = false;
         this.isDowned = false;
         this.isInSmoke = false;
+        this.isSpectating = false;
+        this.spectateTarget = null;
+        this.spectateIndex = 0;
+        const ui = this.ui || window.game?.ui;
+        ui?.hideSpectatorHUD?.();
         this.speedBoostTimer = 0;
         this.speedBoostFactor = 1.0;
         this.invulnerability = 0;

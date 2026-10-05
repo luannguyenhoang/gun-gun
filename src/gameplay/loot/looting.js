@@ -2410,7 +2410,10 @@ export class LootingSystem {
                     const d = enemy.position.distanceTo(targetPos);
                     if (d <= radius) {
                         const falloff = 1 - (d / radius) * 0.45;
-                        enemy.takeDamage(dmg * falloff, this.player.position);
+                        const pushDir = new THREE.Vector3().subVectors(enemy.position, targetPos).setY(0);
+                        if (pushDir.lengthSq() > 0.0001) pushDir.normalize();
+                        else pushDir.set(0, 0, 1);
+                        enemy.takeDamage(dmg * falloff, 3, false, pushDir);
                     }
                 }
             }
@@ -2421,13 +2424,18 @@ export class LootingSystem {
             sounds.play?.('enemyExplode', { volume: 1.0 }) || sounds.play?.('enemyDestroy', { volume: 1.0 });
             used = true;
         } else if (effect.type === 'smoke_grenade') {
-            // Ném lựu đạn khói: Làm chậm và che mắt quái vật trong 10 giây
+            // Ném lựu đạn khói: Tạo cụm khói 3D che mắt và làm chậm quái vật trong 10 giây
             const targetPos = this.player.aimPoint ? this.player.aimPoint.clone() : this.player.position.clone();
+            targetPos.y = 0.05;
+            this.player?.weapons?.createSmokeZone?.(targetPos, 6.0, 10.0);
+            const particles = this.player?.weapons?.particles || window.game?.particles;
+            particles?.createExplosion?.(targetPos, 0x94a3b8, 25, 6.0);
+            particles?.createImpactSparks?.(targetPos, new THREE.Vector3(0, 1, 0), 0xb0bec5, 20);
             if (this.waveManager?.enemies) {
                 for (const enemy of this.waveManager.enemies) {
                     if (enemy.isDead) continue;
                     if (enemy.position.distanceTo(targetPos) <= 9.0) {
-                        if (enemy.speed) enemy.speed *= (1 - effect.slow);
+                        if (enemy.speed && effect.slow) enemy.speed *= (1 - effect.slow);
                     }
                 }
             }

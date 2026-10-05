@@ -2687,6 +2687,76 @@ export class UIManager {
         const pct = Math.max(0, Math.min(100, Math.round(progress * 100)));
         slotEl.innerHTML = `<span class="unrevealed-question">?</span><small class="unrevealed-label">${pct}%</small>`;
     }
+
+    // Cập nhật giao diện góc nhìn theo dõi đồng đội khi nhân vật đã chết
+    updateSpectatorHUD(targetPlayer, totalCandidates = 1, currentIndex = 0) {
+        let el = document.getElementById('spectator-hud');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'spectator-hud';
+            el.className = 'spectator-hud-overlay';
+            el.innerHTML = `
+                <div class="spectator-card">
+                    <div class="spectator-badge">CHẾ ĐỘ THEO DÕI (SPECTATING)</div>
+                    <div class="spectator-controls-row">
+                        <button id="spectate-btn-prev" class="spectate-nav-btn" title="Đồng đội trước [A hoặc Chuột Trái]">◀</button>
+                        <div class="spectator-target-info">
+                            <div class="spectator-target-name" id="spectate-target-name">Đồng đội</div>
+                            <div class="spectator-target-status" id="spectate-target-status">100 / 100 HP</div>
+                            <div class="spectator-meter-track">
+                                <div class="spectator-meter-fill" id="spectate-target-hp"></div>
+                            </div>
+                        </div>
+                        <button id="spectate-btn-next" class="spectate-nav-btn" title="Đồng đội kế tiếp [D hoặc Chuột Phải]">▶</button>
+                    </div>
+                    <div class="spectator-tips">Bấm <b>[A] / [D]</b> hoặc <b>[Chuột Trái / Phải]</b> để đổi người xem</div>
+                </div>
+            `;
+            document.body.appendChild(el);
+
+            document.getElementById('spectate-btn-prev')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.game?.player?.switchSpectatorTarget(-1);
+            });
+            document.getElementById('spectate-btn-next')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.game?.player?.switchSpectatorTarget(1);
+            });
+        }
+
+        el.style.display = 'flex';
+
+        if (targetPlayer) {
+            const nameEl = document.getElementById('spectate-target-name');
+            const statusEl = document.getElementById('spectate-target-status');
+            const hpFillEl = document.getElementById('spectate-target-hp');
+
+            const name = targetPlayer.name || 'Chiến binh';
+            const curHp = Math.max(0, Math.round(targetPlayer.health || 0));
+            const maxHp = targetPlayer.maxHealth || 100;
+            const hpPct = Math.max(0, Math.min(100, Math.round((curHp / maxHp) * 100)));
+
+            if (nameEl) nameEl.textContent = `${name.toUpperCase()} (${currentIndex + 1}/${totalCandidates})`;
+            if (statusEl) {
+                if (targetPlayer.isDowned) {
+                    statusEl.textContent = 'BỊ HẠ GỤC (CHỜ CỨU)';
+                    statusEl.style.color = '#ef4444';
+                } else {
+                    statusEl.textContent = `${curHp} / ${maxHp} HP`;
+                    statusEl.style.color = hpPct > 30 ? '#22c55e' : '#f59e0b';
+                }
+            }
+            if (hpFillEl) {
+                hpFillEl.style.width = `${hpPct}%`;
+                hpFillEl.style.backgroundColor = targetPlayer.isDowned ? '#ef4444' : (hpPct > 30 ? '#22c55e' : '#f59e0b');
+            }
+        }
+    }
+
+    hideSpectatorHUD() {
+        const el = document.getElementById('spectator-hud');
+        if (el) el.style.display = 'none';
+    }
 }
 
 // =========================================================================

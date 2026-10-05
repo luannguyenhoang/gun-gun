@@ -3,7 +3,7 @@ import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js';
 import { ParticleSystem } from '../rendering/particles.js?v=22';
 import { Arena } from '../world/arena.js?v=22';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBulletType, th_UPGRADE_TIER_CONFIG, th_rollElementalEffect, th_getWeaponTier, th_getWeaponEnchant, th_ELEMENTAL_EFFECTS, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=46';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, getBulletType, th_UPGRADE_TIER_CONFIG, th_rollElementalEffect, th_getWeaponTier, th_getWeaponEnchant, th_ELEMENTAL_EFFECTS, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=46';
 import { PlayerController } from '../gameplay/player/player.js?v=22';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=39';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
@@ -126,6 +126,19 @@ class CyberArenaGame {
                     color: info.color,
                     bulletType: info.bulletType || 'rifle',
                     ads: !!info.ads
+                });
+            }
+        };
+
+        // Lắng nghe ném bom của người chơi Host để broadcast cho đồng đội
+        this.weapons.onBombThrown = (info) => {
+            if (this.network.active && this.network.host) {
+                (this.networkEvents ||= []).push({
+                    type: 'throw_bomb',
+                    throwerId: info.throwerId || 'host',
+                    origin: info.origin.toArray(),
+                    target: info.target.toArray(),
+                    weaponId: info.weaponId || info.weapon?.id
                 });
             }
         };
@@ -1121,6 +1134,13 @@ class CyberArenaGame {
                     speed: weapon.bulletSpeed || 60,
                     life: 1.2
                 });
+            } else if (ev.type === 'throw_bomb' && ev.throwerId !== localId) {
+                const origin = new THREE.Vector3().fromArray(ev.origin);
+                const target = new THREE.Vector3().fromArray(ev.target);
+                const bombCfg = getBombConfig(ev.weaponId);
+                if (bombCfg) {
+                    this.weapons.spawnVisualBomb(origin, target, bombCfg);
+                }
             }
         }
 

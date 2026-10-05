@@ -2357,6 +2357,25 @@ export class WeaponSystem {
         w.count--;
         sounds.play('switchWeapon', { volume: 0.8, rate: 1.5 });
 
+        // Đồng bộ sự kiện ném bom trong phòng Multiplayer
+        if (this.onCommand) {
+            this.onCommand({
+                type: 'throw_bomb',
+                origin: origin.toArray(),
+                target: targetPoint.toArray(),
+                weaponId: w.id
+            });
+        }
+        if (this.onBombThrown) {
+            this.onBombThrown({
+                origin,
+                target: targetPoint,
+                weapon: w,
+                weaponId: w.id,
+                throwerId: playerRef?.id || 'host'
+            });
+        }
+
         // Tạo quả bom 3D bay trong scene
         const base = this.models[w.modelFile];
         let mesh = null;
@@ -2392,6 +2411,96 @@ export class WeaponSystem {
         }
 
         return true;
+    }
+
+    // Hiển thị bom ném thị giác cho đồng đội trong Multiplayer mà không trừ kho đồ
+    spawnVisualBomb(origin, targetPoint, bombConfig, playerRef = null) {
+        if (!bombConfig) return;
+        const base = this.models[bombConfig.modelFile];
+        let mesh = null;
+        if (base) {
+            mesh = base.clone(true);
+            mesh.scale.setScalar(0.75);
+            mesh.position.copy(origin);
+            this.scene.add(mesh);
+        }
+
+        const startPos = origin.clone();
+        const endPos = targetPoint.clone();
+        endPos.y = 0.1;
+
+        const duration = bombConfig.fuseTime || 0.65;
+        this.thrownBombs.push({
+            mesh,
+            startPos,
+            endPos,
+            time: 0,
+            duration,
+            bombConfig: { ...bombConfig },
+            playerRef
+        });
+        sounds.play('switchWeapon', { volume: 0.8, rate: 1.5 });
+    }
+
+    // Tạo cụm khói 3D chiến thuật bồng bềnh
+    createSmokeZone(blastPos, radius = 5.5, duration = 10.0) {
+        const smokeGroup = new THREE.Group();
+        smokeGroup.position.copy(blastPos);
+
+        // Vòng tròn mờ báo hiệu phạm vi trên sàn
+        const groundRingGeo = new THREE.RingGeometry(radius * 0.94, radius, 32);
+        groundRingGeo.rotateX(-Math.PI / 2);
+        const groundRingMat = new THREE.MeshBasicMaterial({
+            color: 0x94a3b8,
+            transparent: true,
+            opacity: 0.35,
+            side: THREE.DoubleSide
+        });
+        const groundRing = new THREE.Mesh(groundRingGeo, groundRingMat);
+        groundRing.position.y = 0.04;
+        smokeGroup.add(groundRing);
+
+        // Cụm các khối mây khói mềm bồng bềnh
+        const puffs = [];
+        const puffGeo = new THREE.SphereGeometry(1, 14, 14);
+        const puffCount = 6;
+        for (let p = 0; p < puffCount; p++) {
+            const angle = (p / puffCount) * Math.PI * 2;
+            const dist = (p === 0) ? 0 : radius * 0.42;
+            const puffMat = new THREE.MeshBasicMaterial({
+                color: (p % 2 === 0) ? 0x94a3b8 : 0xb0bec5,
+                transparent: true,
+                opacity: 0.45,
+                depthWrite: false
+            });
+            const puffMesh = new THREE.Mesh(puffGeo, puffMat);
+            puffMesh.position.set(
+                Math.cos(angle) * dist,
+                0.7 + (p % 3) * 0.4,
+                Math.sin(angle) * dist
+            );
+            puffMesh.scale.setScalar(radius * (0.65 + (p % 2) * 0.2));
+            smokeGroup.add(puffMesh);
+            puffs.push({
+                mesh: puffMesh,
+                mat: puffMat,
+                baseScale: puffMesh.scale.x,
+                rotSpeed: 0.15 + p * 0.05
+            });
+        }
+
+        this.scene.add(smokeGroup);
+
+        this.activeZones.push({
+            type: 'smoke',
+            pos: blastPos.clone(),
+            radius: radius,
+            life: duration,
+            maxLife: duration,
+            group: smokeGroup,
+            puffs: puffs,
+            groundRing: groundRing
+        });
     }
 
     updateThrownBombs(delta, arena, enemies = []) {
@@ -2433,64 +2542,8 @@ export class WeaponSystem {
 
                 // Xử lý hiệu ứng theo từng chủng loại bom
                 if (bCfg.bombType === 'smoke') {
-                    // 1. BOM KHÓI: Cụm sương mù khói 3D bồng bềnh trong 10 giây
-                    const smokeGroup = new THREE.Group();
-                    smokeGroup.position.copy(blastPos);
-
-                    // Vòng tròn mờ báo hiệu phạm vi trên sàn
-                    const groundRingGeo = new THREE.RingGeometry(radius * 0.94, radius, 32);
-                    groundRingGeo.rotateX(-Math.PI / 2);
-                    const groundRingMat = new THREE.MeshBasicMaterial({
-                        color: 0x94a3b8,
-                        transparent: true,
-                        opacity: 0.35,
-                        side: THREE.DoubleSide
-                    });
-                    const groundRing = new THREE.Mesh(groundRingGeo, groundRingMat);
-                    groundRing.position.y = 0.04;
-                    smokeGroup.add(groundRing);
-
-                    // Cụm các khối mây khói mềm bồng bềnh
-                    const puffs = [];
-                    const puffGeo = new THREE.SphereGeometry(1, 14, 14);
-                    const puffCount = 6;
-                    for (let p = 0; p < puffCount; p++) {
-                        const angle = (p / puffCount) * Math.PI * 2;
-                        const dist = (p === 0) ? 0 : radius * 0.42;
-                        const puffMat = new THREE.MeshBasicMaterial({
-                            color: (p % 2 === 0) ? 0x94a3b8 : 0xb0bec5,
-                            transparent: true,
-                            opacity: 0.45,
-                            depthWrite: false
-                        });
-                        const puffMesh = new THREE.Mesh(puffGeo, puffMat);
-                        puffMesh.position.set(
-                            Math.cos(angle) * dist,
-                            0.7 + (p % 3) * 0.4,
-                            Math.sin(angle) * dist
-                        );
-                        puffMesh.scale.setScalar(radius * (0.65 + (p % 2) * 0.2));
-                        smokeGroup.add(puffMesh);
-                        puffs.push({
-                            mesh: puffMesh,
-                            mat: puffMat,
-                            baseScale: puffMesh.scale.x,
-                            rotSpeed: 0.15 + p * 0.05
-                        });
-                    }
-
-                    this.scene.add(smokeGroup);
-
-                    this.activeZones.push({
-                        type: 'smoke',
-                        pos: blastPos.clone(),
-                        radius: radius,
-                        life: bCfg.duration || 10.0,
-                        maxLife: bCfg.duration || 10.0,
-                        group: smokeGroup,
-                        puffs: puffs,
-                        groundRing: groundRing
-                    });
+                    // 1. BOM KHÓI: Cụm sương mù khói 3D bồng bềnh
+                    this.createSmokeZone(blastPos, radius, bCfg.duration || 10.0);
                 } else if (bCfg.bombType === 'fire') {
                     // 2. BOM LỬA: Vũng lửa 3D đa tầng bùng cháy dữ dội trên mặt đất trong 10 giây
                     const fireGroup = new THREE.Group();
@@ -2586,7 +2639,9 @@ export class WeaponSystem {
                         if (e.position.distanceTo(blastPos) <= radius) {
                             e.burnTimer = 4.0;
                             e.burnDamage = bCfg.burnDps || 25;
-                            e.takeDamage(bCfg.damage || 80, 3, false, tb.playerRef);
+                            const pushDir = new THREE.Vector3().subVectors(e.position, blastPos).setY(0);
+                            if (pushDir.lengthSq() > 0.0001) pushDir.normalize(); else pushDir.set(0, 0, 1);
+                            e.takeDamage(bCfg.damage || 80, 3, false, pushDir);
                         }
                     }
                 } else if (bCfg.bombType === 'freeze') {
@@ -2595,7 +2650,9 @@ export class WeaponSystem {
                         if (!e || e.isDead) continue;
                         if (e.position.distanceTo(blastPos) <= radius) {
                             e.freezeTimer = bCfg.freezeDuration || 4.0;
-                            e.takeDamage(bCfg.damage || 200, 4, true, tb.playerRef);
+                            const pushDir = new THREE.Vector3().subVectors(e.position, blastPos).setY(0);
+                            if (pushDir.lengthSq() > 0.0001) pushDir.normalize(); else pushDir.set(0, 0, 1);
+                            e.takeDamage(bCfg.damage || 200, 4, true, pushDir);
                             if (e.setEmissiveColor) e.setEmissiveColor(0x00f0ff, 0.9);
                         }
                     }
@@ -2608,14 +2665,14 @@ export class WeaponSystem {
                             const falloff = Math.max(0.35, 1 - (dist / radius) * 0.65);
                             const finalDamage = Math.round(bCfg.damage * falloff);
 
+                            const pushDir = new THREE.Vector3().subVectors(e.position, blastPos).setY(0);
+                            if (pushDir.lengthSq() > 0.0001) pushDir.normalize(); else pushDir.set(0, 0, 1);
+
                             if (e.velocity) {
-                                const pushDir = new THREE.Vector3().subVectors(e.position, blastPos);
-                                pushDir.y = 0;
-                                pushDir.normalize();
                                 e.velocity.addScaledVector(pushDir, (bCfg.knockback || 12.0) * falloff);
                             }
 
-                            e.takeDamage(finalDamage, 4, true, tb.playerRef);
+                            e.takeDamage(finalDamage, 4, true, pushDir);
                         }
                     }
                 }
@@ -2627,8 +2684,10 @@ export class WeaponSystem {
 
     // Cập nhật các vùng hiệu ứng chiến trường (Khói, Lửa)
     updateActiveZones(delta, player, enemies = []) {
-        const mainPlayer = Array.isArray(player) ? player[0] : player;
-        let playerInAnySmoke = false;
+        const allTargets = this.enemyTargets || (Array.isArray(player) ? player : (player ? [player] : []));
+        for (const p of allTargets) {
+            if (p) p._tempInSmoke = false;
+        }
 
         if (this.activeZones && this.activeZones.length > 0) {
             for (let i = this.activeZones.length - 1; i >= 0; i--) {
@@ -2637,10 +2696,9 @@ export class WeaponSystem {
                 const progress = Math.max(0, zone.life / zone.maxLife);
 
                 if (zone.type === 'smoke') {
-                    if (mainPlayer && !mainPlayer.isDead) {
-                        const distToPlayer = mainPlayer.position.distanceTo(zone.pos);
-                        if (distToPlayer <= zone.radius) {
-                            playerInAnySmoke = true;
+                    for (const p of allTargets) {
+                        if (p && !p.isDead && p.position.distanceTo(zone.pos) <= zone.radius) {
+                            p._tempInSmoke = true;
                         }
                     }
 
@@ -2720,8 +2778,8 @@ export class WeaponSystem {
         }
 
         // Đảm bảo cờ isInSmoke được cập nhật chính xác mỗi frame kể cả khi không còn vùng khói
-        if (mainPlayer) {
-            mainPlayer.isInSmoke = playerInAnySmoke;
+        for (const p of allTargets) {
+            if (p) p.isInSmoke = !!p._tempInSmoke;
         }
     }
 

@@ -424,11 +424,19 @@ export class Zombie {
             this.combatTimer = this.stunDuration;
         }
 
-        // Tinh toan luc day lui knockback nguoc huong dan bay (xet he so khang cua Tanker)
+        // Tính toán lực đẩy lùi knockback ngược hướng đạn bay (chuẩn hóa vector hướng và kẹp trần vận tốc)
         if (hitDir && this.type !== 'boss') {
             const baseKb = this.type === 'giant' ? 0.08 : this.type === 'tank' ? 0.15 : 0.55;
             const effectiveKb = baseKb * Math.max(0, 1.0 - (this.knockbackResistance || 0));
-            this.knockbackVelocity.addScaledVector(new THREE.Vector3(hitDir.x, 0, hitDir.z), effectiveKb * 7.5);
+            const kbDir = new THREE.Vector3(hitDir.x || 0, 0, hitDir.z || 0);
+            if (kbDir.lengthSq() > 0.0001) {
+                kbDir.normalize();
+                this.knockbackVelocity.addScaledVector(kbDir, effectiveKb * 7.5);
+                // Giới hạn trần vận tốc đẩy lùi để tránh zombie bị văng phi lý ra ngoài bản đồ
+                if (this.knockbackVelocity.length() > 5.5) {
+                    this.knockbackVelocity.clampLength(0, 5.5);
+                }
+            }
         }
 
         if (this.health <= 0) {
