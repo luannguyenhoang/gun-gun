@@ -762,7 +762,7 @@ export class CharacterShowroom {
         document.getElementById('character-subtitle').textContent = `${charCfg.tierName || 'CƠ BẢN'} · ${charCfg.subtitle}`;
         
         const passiveText = charCfg.passives?.passiveDesc ? `[NỘI TẠI]: ${charCfg.passives.passiveDesc}` : '';
-        const skillText = charCfg.activeSkill ? `[KỸ NĂNG Q/E - ${charCfg.activeSkill.name.toUpperCase()}]: ${charCfg.activeSkill.description} (${charCfg.activeSkill.cooldown}s)` : '';
+        const skillText = charCfg.activeSkill ? `[KỸ NĂNG Q - ${charCfg.activeSkill.name.toUpperCase()}]: ${charCfg.activeSkill.description} (${charCfg.activeSkill.cooldown}s)` : '';
         document.getElementById('character-description').textContent = `${charCfg.description} | ${passiveText} | ${skillText}`;
         document.getElementById('character-watermark').textContent = charCfg.label;
 
@@ -1132,7 +1132,13 @@ export class CharacterShowroom {
         gun.scale.setScalar(scale);
         gun.userData.barrelForward = -1;
         gun.userData.gripOffset = new THREE.Vector3(0, 0.14, -0.18).multiplyScalar(scale);
-        gun.userData.handOffset = new THREE.Vector3(-0.24, -0.05, 0.02);
+
+        // Định vị súng đúng vị trí bàn tay: nhân vật Kenney Blocky v2 có cánh tay dọc theo trục Y
+        if (hand.geometry && !hand.geometry.boundingBox) {
+            hand.geometry.computeBoundingBox();
+        }
+        const isV2Blocky = hand.geometry && (hand.geometry.boundingBox?.min.y < -0.5);
+        gun.userData.handOffset = isV2Blocky ? new THREE.Vector3(-0.20, -0.72, 0.02) : new THREE.Vector3(-0.24, -0.05, 0.02);
 
         gun.name = `showroom-${weapon.id}`;
         hand.add(gun);

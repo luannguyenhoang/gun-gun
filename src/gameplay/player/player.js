@@ -254,14 +254,12 @@ export class PlayerController {
             if (e.code === 'Digit5') this.weapons.startMedkitUse(this);
             if (e.code === 'KeyV') this.weapons.switchWeapon(4, this);
 
-            // Kích hoạt Kỹ năng chủ động (Q hoặc E) và Cứu đồng đội khi đứng gần
+            // Kích hoạt Kỹ năng chủ động (chỉ phím Q) và Cứu đồng đội khi đứng gần (phím E)
             if (e.code === 'KeyQ') this.tryActiveSkill();
             if (e.code === 'KeyE') {
                 const hasDownedNearby = window.game?.coopPlayers?.some(p => p !== this && p.isDowned && p.position.distanceTo(this.position) < 3.5);
                 if (hasDownedNearby) {
                     this.reviveRequested = true;
-                } else {
-                    this.tryActiveSkill();
                 }
             }
             if (e.code === 'KeyP') this.toggleBotRequested = true;

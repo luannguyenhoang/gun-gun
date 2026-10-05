@@ -1,540 +1,543 @@
-// Cau hinh toan bo he thong nhan vat, ky nang noi tai, ky nang chu dong va gia mua bang Vang
+// Cấu hình toàn bộ hệ thống nhân vật, kỹ năng nội tại, kỹ năng chủ động và giá mua bằng Vàng
 export const CHARACTER_CONFIGS = {
     soldier: {
         id: 'soldier',
-        label: 'LINH CHIEN',
-        subtitle: 'CHIEN BINH TIEN TUYEN',
+        label: 'LÍNH CHIẾN',
+        subtitle: 'CHIẾN BINH TIỀN TUYẾN',
         modelFile: 'character-soldier.glb',
         color: '#22e6a5',
         preview: 'assets/previews/character-a.png',
         tier: 1,
-        tierName: 'CO BAN',
+        tierName: 'CƠ BẢN',
         price: 0,
-        description: 'Chien binh can truong, kiem soat do giat sung tuyet voi va tang toc do thao tac chien thuat.',
+        description: 'Chiến binh can trường với khả năng kiểm soát độ giật súng tuyệt vời và tốc độ thao tác chiến thuật cao.',
         passives: {
             recoilMult: 0.85,
             healthBonus: 0,
             armorBonus: 0,
             speedMult: 1.0,
-            passiveDesc: 'Giam 15% do giat moi loai sung'
+            passiveDesc: 'Giảm 15% độ giật của mọi loại súng'
         },
         activeSkill: {
             id: 'tactical_rapid',
-            name: 'Chien Thuat Ap Dao',
-            key: 'Q / E',
+            name: 'Chiến Thuật Áp Đảo',
+            key: 'Q',
             cooldown: 18,
             duration: 6,
-            description: 'Tang 30% toc do thay dan va 15% toc do ban trong 6 giay',
+            description: 'Tăng 30% tốc độ thay đạn và 15% tốc độ bắn trong 6 giây',
             effectType: 'rapid_fire'
         }
     },
     char_a: {
         id: 'char_a',
-        label: 'DAC NHIEM ALPHA',
-        subtitle: 'TIEN PHONG CO DONG',
+        label: 'ĐẶC NHIỆM ALPHA',
+        subtitle: 'TIÊN PHONG CƠ ĐỘNG',
         modelFile: 'character-a.glb',
         color: '#38bdf8',
         preview: 'assets/previews/character-a.png',
         tier: 1,
-        tierName: 'CO BAN',
+        tierName: 'CƠ BẢN',
         price: 1000,
-        description: 'Chuyen gia dot kich voi toc do di chuyen vuot troi tren moi dia hinh.',
+        description: 'Chuyên gia đột kích với tốc độ di chuyển vượt trội và bước lướt né thần tốc trên mọi địa hình.',
         passives: {
             speedMult: 1.08,
             dodgeDistMult: 1.15,
-            passiveDesc: 'Tang 8% toc do chay co ban va 15% khoang cach luot'
+            passiveDesc: 'Tăng 8% tốc độ di chuyển cơ bản và 15% khoảng cách lướt né'
         },
         activeSkill: {
             id: 'sprint_boost',
-            name: 'Nuoc Rut Sieu Toc',
-            key: 'Q / E',
+            name: 'Nước Rút Siêu Tốc',
+            key: 'Q',
             cooldown: 15,
             duration: 4,
-            description: 'Tang 45% toc do di chuyen trong 4 giay de thoat vay hoac ap sat',
+            description: 'Tăng 45% tốc độ di chuyển trong 4 giây để áp sát hoặc thoát vây',
             effectType: 'speed_boost'
         }
     },
     char_b: {
         id: 'char_b',
-        label: 'DAC VU BRAVO',
-        subtitle: 'CHUYEN GIA HAU CAN',
+        label: 'ĐẶC VỤ BRAVO',
+        subtitle: 'CHUYÊN GIA HẬU CẦN',
         modelFile: 'character-b.glb',
         color: '#4ade80',
         preview: 'assets/previews/character-b.png',
         tier: 1,
-        tierName: 'CO BAN',
+        tierName: 'CƠ BẢN',
         price: 1200,
-        description: 'Binh nhi chuyen quan ly dan duoc va kho vu khi chien truong.',
+        description: 'Binh nhì chuyên quản lý kho đạn dược và tối ưu hóa tài nguyên trên chiến trường.',
         passives: {
             ammoPickupMult: 1.25,
             reloadSpeedMult: 1.15,
-            passiveDesc: 'Nhat duoc nhieu hon 25% luong dan tu hom tiep te'
+            passiveDesc: 'Nhặt thêm 25% lượng đạn từ hòm tiếp tế và nạp đạn nhanh hơn 15%'
         },
         activeSkill: {
             id: 'instant_reload',
-            name: 'Tiep Te Khan Cap',
-            key: 'Q / E',
-            cooldown: 20,
+            name: 'Tiếp Tế Khẩn Cấp',
+            key: 'Q',
+            cooldown: 18,
             duration: 0,
-            description: 'Lap tuc nap day bang dan cho vu khi dang cam tren tay',
+            description: 'Lập tức nạp đầy băng đạn cho vũ khí đang cầm trên tay',
             effectType: 'instant_reload'
         }
     },
     char_c: {
         id: 'char_c',
-        label: 'KY SU CO KHI',
-        subtitle: 'BAC THAY PHONG THU',
+        label: 'KỸ SƯ CƠ KHÍ',
+        subtitle: 'BẬC THẦY PHÒNG THỦ',
         modelFile: 'character-c.glb',
         color: '#fb923c',
         preview: 'assets/previews/character-c.png',
         tier: 1,
-        tierName: 'CO BAN',
+        tierName: 'CƠ BẢN',
         price: 1500,
-        description: 'Nghien cuu va gia co giap phong ho tien tien cho ban than.',
+        description: 'Nhà nghiên cứu gia cố giáp hộ thân tiên tiến, tăng sức chống chịu trước mọi hiểm nguy.',
         passives: {
             armorBonus: 25,
             damageTakenMult: 0.95,
-            passiveDesc: 'Khoi dau voi +25 Giap toi da va giam 5% sat thuong'
+            passiveDesc: 'Khởi đầu với +25 Giáp tối đa và giảm 5% sát thương nhận vào'
         },
         activeSkill: {
             id: 'repair_armor',
-            name: 'Han Giap Cap Toc',
-            key: 'Q / E',
-            cooldown: 22,
+            name: 'Hàn Giáp Cấp Tốc',
+            key: 'Q',
+            cooldown: 20,
             duration: 0,
-            description: 'Lap tuc phuc hoi 35 diem Giap phong ho',
-            effectType: 'heal_armor'
+            description: 'Lập tức phục hồi 35 điểm Giáp phòng hộ'
+            ,effectType: 'heal_armor'
         }
     },
     char_d: {
         id: 'char_d',
-        label: 'ORC CHIEN BINH',
-        subtitle: 'DAU SI KHONG LO',
+        label: 'CHIẾN BINH ORC',
+        subtitle: 'ĐẤU SĨ DŨNG MÃNH',
         modelFile: 'character-d.glb',
         color: '#22c55e',
         preview: 'assets/previews/character-d.png',
         tier: 2,
-        tierName: 'HIEM',
+        tierName: 'HIẾM',
         price: 2800,
-        description: 'The luc phi phuong voi luong mau khong lo va tieng gam tran ap ke dich.',
+        description: 'Thể lực phi thường với lượng máu dồi dào và tiếng gầm chấn động đẩy lùi kẻ thù.',
         passives: {
-            healthBonus: 60,
+            healthBonus: 50,
             knockbackResist: 0.35,
-            passiveDesc: 'Tang 60 Mau toi da va khang 35% luc day lui'
+            passiveDesc: 'Tăng 50 Máu tối đa và kháng 35% lực đẩy lùi'
         },
         activeSkill: {
             id: 'savage_roar',
-            name: 'Tieng Gam Man Ro',
-            key: 'Q / E',
+            name: 'Tiếng Gầm Man Rợ',
+            key: 'Q',
             cooldown: 20,
             duration: 1,
-            description: 'Gam the the hien suc manh, danh bat lui toan bo zombie ban kinh 7m',
+            description: 'Gầm thét dũng mãnh, đánh bật lùi toàn bộ quái vật trong bán kính 7m',
             effectType: 'shockwave_push'
         }
     },
     char_e: {
         id: 'char_e',
-        label: 'HAI TAC DOT BIEN',
-        subtitle: 'CHUYEN GIA CHAY NO',
+        label: 'THỢ SĂN KHO BÁU',
+        subtitle: 'CHUYÊN GIA CHÁY NỔ',
         modelFile: 'character-e.glb',
         color: '#e11d48',
         preview: 'assets/previews/character-e.png',
         tier: 2,
-        tierName: 'HIEM',
+        tierName: 'HIẾM',
         price: 3000,
-        description: 'Thich su dung vu khi no de quet sach dam dong quai vat hung han.',
+        description: 'Kẻ thích phiêu lưu mạo hiểm, thuần thục các loại thuốc nổ để quét sạch đàn quái vật.',
         passives: {
             explosiveBonus: 0.25,
-            passiveDesc: 'Tang 25% ban kinh va sat thuong tat ca loai bom min'
+            passiveDesc: 'Tăng 25% bán kính và sát thương của mọi loại bom mìn'
         },
         activeSkill: {
             id: 'cluster_mines',
-            name: 'Mua Phao Kich',
-            key: 'Q / E',
-            cooldown: 25,
+            name: 'Mưa Pháo Kích',
+            key: 'Q',
+            cooldown: 22,
             duration: 0,
-            description: 'Tha tuc thi 3 qua min no mini xung quanh gay sat thuong dien rong',
+            description: 'Thả tức thì cụm mìn nổ mini xung quanh gây sát thương diện rộng',
             effectType: 'cluster_grenades'
         }
     },
     char_f: {
         id: 'char_f',
-        label: 'VE BINH HOANG GIA',
-        subtitle: 'BUC TUONG THEP',
+        label: 'VỆ BINH HOÀNG GIA',
+        subtitle: 'BỨC TƯỜNG THÉP',
         modelFile: 'character-f.glb',
         color: '#f59e0b',
         preview: 'assets/previews/character-f.png',
         tier: 1,
-        tierName: 'CO BAN',
+        tierName: 'CƠ BẢN',
         price: 1500,
-        description: 'Huan luyen chuyen nghiep trong cac tinh huong bi bao vay giam thieu sat thuong.',
+        description: 'Được tôi luyện vững vàng để làm lá chắn kiên cố bảo vệ toàn đội ngũ.',
         passives: {
+            armorBonus: 15,
             damageTakenMult: 0.90,
-            passiveDesc: 'Giam 10% moi loai sat thuong nhan vao'
+            passiveDesc: 'Tăng 15 Giáp tối đa và giảm 10% mọi sát thương nhận vào'
         },
         activeSkill: {
             id: 'iron_wall',
-            name: 'Hang Rao Kien Co',
-            key: 'Q / E',
-            cooldown: 25,
+            name: 'Hàng Rào Kiên Cố',
+            key: 'Q',
+            cooldown: 22,
             duration: 3.5,
-            description: 'Giam 50% moi sat thuong nhan vao trong 3.5 giay',
+            description: 'Giảm 50% mọi sát thương nhận vào trong 3.5 giây',
             effectType: 'iron_wall'
         }
     },
     char_g: {
         id: 'char_g',
-        label: 'THO SAN TIEN THUONG',
-        subtitle: 'DINH VI CON MOI',
+        label: 'THỢ SĂN TIỀN THƯỞNG',
+        subtitle: 'ĐỊNH VỊ CON MỒI',
         modelFile: 'character-g.glb',
         color: '#84cc16',
         preview: 'assets/previews/character-g.png',
         tier: 2,
-        tierName: 'HIEM',
+        tierName: 'HIẾM',
         price: 3200,
-        description: 'Chuyen gia truy lung quai va tich luy tien vang chien loi pham vuot troi.',
+        description: 'Truy vết quái vật tinh tường và tối ưu hóa lượng chiến lợi phẩm thu thập.',
         passives: {
             goldBonus: 0.25,
-            passiveDesc: 'Tang 25% luong Vang thu duoc khi tieu diet zombie'
+            passiveDesc: 'Nhận thêm 25% lượng Vàng khi tiêu diệt quái vật'
         },
         activeSkill: {
             id: 'radar_scan',
-            name: 'Dinh Vi Muc Tieu',
-            key: 'Q / E',
+            name: 'Định Vị Mục Tiêu',
+            key: 'Q',
             cooldown: 18,
             duration: 6,
-            description: 'Quet radar lam lo dien toan bo vi tri quai vat xuyen tuong trong 6s',
+            description: 'Quét radar làm lộ diện toàn bộ quái vật xuyên tường trong 6 giây',
             effectType: 'scanner'
         }
     },
     char_h: {
         id: 'char_h',
-        label: 'SI QUAN AN NINH',
-        subtitle: 'HO TRO DONG DOI',
+        label: 'SĨ QUAN AN NINH',
+        subtitle: 'HỖ TRỢ ĐỒNG ĐỘI',
         modelFile: 'character-h.glb',
         color: '#06b6d4',
         preview: 'assets/previews/character-h.png',
         tier: 1,
-        tierName: 'CO BAN',
+        tierName: 'CƠ BẢN',
         price: 1400,
-        description: 'Thanh thạo ky nang cuu thuong va khong che dam dong bang luu dan gay choang.',
+        description: 'Thành thạo kỹ năng cứu thương tác chiến và kiểm soát đám đông bằng lựu đạn gây choáng.',
         passives: {
-            reviveSpeedMult: 1.30,
-            passiveDesc: 'Toc do cuu song dong doi bi guc nhanh hon 30%'
+            reviveSpeedMult: 1.35,
+            passiveDesc: 'Tốc độ cứu sống đồng đội bị gục nhanh hơn 35%'
         },
         activeSkill: {
             id: 'stun_pulse',
-            name: 'Luu Dan Gay Choang',
-            key: 'Q / E',
-            cooldown: 22,
+            name: 'Xung Điện Gây Choáng',
+            key: 'Q',
+            cooldown: 20,
             duration: 3,
-            description: 'Phat xung shockwave lam te liet va bat dong zombie xung quanh trong 3 giay',
+            description: 'Phát xung làm tê liệt và bất động quái vật xung quanh trong 3 giây',
             effectType: 'stun_grenade'
         }
     },
     char_i: {
         id: 'char_i',
-        label: 'QUAI NHAN DOC NHAN',
-        subtitle: 'HOA LUC XUYEN PHA',
+        label: 'CHIẾN BINH CYBORG',
+        subtitle: 'HỎA LỰC XUYÊN PHÁ',
         modelFile: 'character-i.glb',
         color: '#ec4899',
         preview: 'assets/previews/character-i.png',
         tier: 2,
-        tierName: 'HIEM',
+        tierName: 'HIẾM',
         price: 3500,
-        description: 'Giac quan vuot troi giup ban trung yeu huyet va xuyen qua ke dich.',
+        description: 'Thị lực quang học nâng cấp giúp phát hiện điểm yếu và bắn xuyên mục tiêu.',
         passives: {
             penetrationBonus: 1,
             critChance: 0.10,
-            passiveDesc: 'Dan ban ra xuyen them 1 muc tieu va +10% ty le chi mang'
+            passiveDesc: 'Đạn bắn ra xuyên thêm 1 mục tiêu và +10% tỉ lệ chí mạng'
         },
         activeSkill: {
             id: 'laser_beam',
-            name: 'Tia Tu Ngoai',
-            key: 'Q / E',
-            cooldown: 24,
+            name: 'Tia Laser Xuyên Thấu',
+            key: 'Q',
+            cooldown: 22,
             duration: 0,
-            description: 'Ban mot tia nang luong cuc manh xuyen qua moi ke dich phia truoc',
+            description: 'Bắn một tia năng lượng cực mạnh quét sạch mục tiêu theo đường thẳng',
             effectType: 'piercing_beam'
         }
     },
     char_j: {
         id: 'char_j',
-        label: 'ZOMBIE NAM VUNG',
-        subtitle: 'BONG MA NGUY TRANG',
+        label: 'TRINH SÁT NGUY TRANG',
+        subtitle: 'BÓNG MA CHIẾN TRƯỜNG',
         modelFile: 'character-j.glb',
         color: '#10b981',
         preview: 'assets/previews/character-j.png',
         tier: 2,
-        tierName: 'HIEM',
+        tierName: 'HIẾM',
         price: 3000,
-        description: 'Mang theo mui tu khi khien lu zombie thuong kho nhan dien va bo qua.',
+        description: 'Kỹ thuật ngụy trang đặc biệt khiến quái vật khó phát hiện và mất phương hướng.',
         passives: {
             detectionDelayMult: 1.35,
-            passiveDesc: 'Zombie phat hien ban cham hon 35% so voi binh thuong'
+            passiveDesc: 'Quái vật phát hiện bạn chậm hơn 35% so với bình thường'
         },
         activeSkill: {
             id: 'undead_scent',
-            name: 'Mui Tu Khi',
-            key: 'Q / E',
-            cooldown: 26,
+            name: 'Ngụy Trang Tàng Hình',
+            key: 'Q',
+            cooldown: 24,
             duration: 4,
-            description: 'Nguy trang tuyet doi khien zombie phot lo ban trong 4 giay',
+            description: 'Ngụy trang tuyệt đối khiến quái vật mất mục tiêu trong 4 giây',
             effectType: 'smoke_camo'
         }
     },
     char_k: {
         id: 'char_k',
         label: 'CYBER MECHA',
-        subtitle: 'CONG NGHE TUONG LAI',
+        subtitle: 'CÔNG NGHỆ TƯƠNG LAI',
         modelFile: 'character-k.glb',
         color: '#a855f7',
         preview: 'assets/previews/character-k.png',
         tier: 3,
-        tierName: 'HUYEN THOAI',
+        tierName: 'SỬ THI',
         price: 6500,
-        description: 'Chien binh nguoi may tich hop cong nghe phong dien tu giap nang luong cao cap.',
+        description: 'Người máy chiến đấu thế hệ mới tích hợp trường điện từ EMP hủy diệt.',
         passives: {
             armorBonus: 40,
             shieldRegenRate: 1.5,
-            passiveDesc: 'Tang 40 Giap toi da va toc do hoi phuc giap nhanh hon 50%'
+            passiveDesc: 'Tăng 40 Giáp tối đa và tốc độ hồi phục Giáp nhanh hơn 50%'
         },
         activeSkill: {
             id: 'emp_discharge',
-            name: 'Xung Dien EMP',
-            key: 'Q / E',
-            cooldown: 24,
+            name: 'Xung Điện EMP',
+            key: 'Q',
+            cooldown: 22,
             duration: 1,
-            description: 'Phong dien shock toan ban kinh 8m gay 120 sat thuong va lam te liet',
+            description: 'Phóng điện shock toàn bán kính 8.5m gây 120 sát thương và làm tê liệt quái vật',
             effectType: 'emp_blast'
         }
     },
     char_l: {
         id: 'char_l',
         label: 'NANO ANDROID',
-        subtitle: 'HOA LUC TU TUONG',
+        subtitle: 'LÁ CHẮN TỪ TRƯỜNG',
         modelFile: 'character-l.glb',
         color: '#6366f1',
         preview: 'assets/previews/character-l.png',
         tier: 3,
-        tierName: 'HUYEN THOAI',
+        tierName: 'SỬ THI',
         price: 7000,
-        description: 'Tao ra tu hat phan tu Nanite giup tao khien vo hieu hoa sat thuong tuyet doi.',
+        description: 'Cấu tạo từ các hạt vi phân Nanite có khả năng tạo màn bảo vệ tuyệt đối.',
         passives: {
             speedMult: 1.05,
-            healthBonus: 20,
-            passiveDesc: 'Tang nhe 5% toc do chay va 20 Mau co ban'
+            healthBonus: 25,
+            passiveDesc: 'Tăng 5% tốc độ chạy và +25 Máu cơ bản'
         },
         activeSkill: {
             id: 'nanite_barrier',
-            name: 'Khien Tu Truong Nanite',
-            key: 'Q / E',
-            cooldown: 30,
+            name: 'Khiên Từ Trường Nanite',
+            key: 'Q',
+            cooldown: 26,
             duration: 3,
-            description: 'Tao lop bao ho vo hieu hoa 100% sat thuong trong 3 giay',
+            description: 'Kích hoạt màng bảo vệ vô hiệu hóa 100% sát thương trong 3 giây',
             effectType: 'nanite_shield'
         }
     },
     char_m: {
         id: 'char_m',
-        label: 'XAC UOP CO DAI',
-        subtitle: 'LOI NGUYEN NGHIN NAM',
+        label: 'XÁC ƯỚP CỔ ĐẠI',
+        subtitle: 'LỜI NGUYỀN NGHÌN NĂM',
         modelFile: 'character-m.glb',
         color: '#d97706',
         preview: 'assets/previews/character-m.png',
         tier: 2,
-        tierName: 'HIEM',
+        tierName: 'HIẾM',
         price: 3800,
-        description: 'Suc song ben bi vuot thoi gian cung loi nguyen lam cham ke dich.',
+        description: 'Sức sống bền bỉ vượt thời gian cùng khả năng triệu hồi bão cát trừng phạt kẻ địch.',
         passives: {
             regenRate: 2.0,
-            passiveDesc: 'Tu hoi phuc 2 Mau moi giay khi luong Mau con duoi 50%'
+            passiveDesc: 'Tự phục hồi 2 Máu mỗi giây khi lượng Máu còn dưới 50%'
         },
         activeSkill: {
             id: 'sand_curse',
-            name: 'Loi Nguyen Cat Bui',
-            key: 'Q / E',
-            cooldown: 25,
+            name: 'Bão Cát Sa Mạc',
+            key: 'Q',
+            cooldown: 24,
             duration: 5,
-            description: 'Trieu hoi bao cat lam cham 60% toc do di chuyen cua zombie xung quanh',
+            description: 'Triệu hồi bão cát làm chậm 60% tốc độ di chuyển của quái vật xung quanh',
             effectType: 'sandstorm'
         }
     },
     char_n: {
         id: 'char_n',
-        label: 'NINJA BONG DEM',
-        subtitle: 'SAT THU VO HINH',
+        label: 'NỮ KIẾM SĨ KIMONO',
+        subtitle: 'ẢO ẢNH PHÂN THÂN',
         modelFile: 'character-n.glb',
-        color: '#1e293b',
+        color: '#ec4899',
         preview: 'assets/previews/character-n.png',
-        tier: 3,
-        tierName: 'HUYEN THOAI',
+        tier: 4,
+        tierName: 'HUYỀN THOẠI',
         price: 7500,
-        description: 'Bac thay thuat nhan gia voi kha nang luot xa va tao hinh nom phan than danh lac huong.',
+        description: 'Nữ kiếm sĩ phương Đông tinh thông bộ pháp lướt né thần tốc và thuật phân thân đánh lạc hướng.',
         passives: {
-            dodgeDistMult: 1.40,
+            dodgeDistMult: 1.35,
             dodgeCdMult: 0.70,
-            passiveDesc: 'Khoang cach Luot +40% va hoi phuc Luot nhanh hon 30%'
+            passiveDesc: 'Khoảng cách lướt né +35% và hồi phục chiêu lướt nhanh hơn 30%'
         },
         activeSkill: {
             id: 'shadow_decoy',
-            name: 'Ao Anh Phan Than',
-            key: 'Q / E',
-            cooldown: 22,
+            name: 'Ảo Ảnh Phân Thân',
+            key: 'Q',
+            cooldown: 20,
             duration: 3.5,
-            description: 'Tang hinh trong 3.5 giay va de lai hinh nom hut toan bo su chu y cua zombie',
+            description: 'Tàng hình trong 3.5 giây và để lại hình nộm thu hút toàn bộ sự chú ý của quái vật',
             effectType: 'shadow_decoy'
         }
     },
     char_o: {
         id: 'char_o',
-        label: 'TAY SUNG CAO BOI',
-        subtitle: 'XA THU THIET XAT',
+        label: 'CHIẾN BINH ĐỘT BIẾN',
+        subtitle: 'SỨC MẠNH TIỀM TẨNG',
         modelFile: 'character-o.glb',
-        color: '#b45309',
+        color: '#10b981',
         preview: 'assets/previews/character-o.png',
         tier: 2,
-        tierName: 'HIEM',
+        tierName: 'HIẾM',
         price: 3200,
-        description: 'Doi tay nhanh nhu chop voi nhung phat ban chi mang cuc ky nguy hiem.',
+        description: 'Cơ thể biến dị ban tặng sức chịu đựng dẻo dai và khả năng tung đòn chí mạng bất ngờ.',
         passives: {
             critChance: 0.15,
-            passiveDesc: 'Tang 15% ty le gay sat thuong chi mang cho moi vien dan'
+            healthBonus: 20,
+            passiveDesc: 'Tăng 15% tỉ lệ chí mạng và +20 Máu cơ bản'
         },
         activeSkill: {
             id: 'dead_eye',
-            name: 'Tu Than Mien Tay',
-            key: 'Q / E',
+            name: 'Cuồng Nộ Đột Biến',
+            key: 'Q',
             cooldown: 20,
             duration: 4,
-            description: 'Trong 4 giay ke tiep, 100% phat ban deu gay sat thuong chi mang',
+            description: 'Trong 4 giây, toàn bộ phát bắn đều kích hoạt sát thương chí mạng 100%',
             effectType: 'guaranteed_crit'
         }
     },
     char_p: {
         id: 'char_p',
-        label: 'CHUYEN VIEN SINH HOC',
-        subtitle: 'BAC THAY DOC TO',
+        label: 'THUYỀN TRƯỞNG HẢI TẶC',
+        subtitle: 'BẬC THẦY HÓA CHẤT',
         modelFile: 'character-p.glb',
-        color: '#059669',
+        color: '#8b5cf6',
         preview: 'assets/previews/character-p.png',
         tier: 3,
-        tierName: 'HUYEN THOAI',
+        tierName: 'SỬ THI',
         price: 6000,
-        description: 'Nghien cuu virut zombie va tao ra hoi thuoc giai hoa chat an mon cuc manh.',
+        description: 'Thuyền trưởng kỳ cựu với kho hóa chất ăn mòn cực mạnh và khả năng dùng hộp cứu thương vượt trội.',
         passives: {
             medkitHealMult: 1.50,
-            passiveDesc: 'Tang 50% luong Mau va Giap duoc hoi phuc khi dung Medkit'
+            passiveDesc: 'Tăng 50% lượng Máu và Giáp được phục hồi khi sử dụng Medkit'
         },
         activeSkill: {
             id: 'toxic_spray',
-            name: 'Khi Doc Diet Khuan',
-            key: 'Q / E',
-            cooldown: 25,
+            name: 'Màn Sương Độc Ăn Mòn',
+            key: 'Q',
+            cooldown: 22,
             duration: 5,
-            description: 'Rai dam suong hoa chat an mon thieu dot quai vat lọt vao',
+            description: 'Rải màn sương hóa chất ăn mòn thiêu đốt quái vật bước vào trong 5 giây',
             effectType: 'toxic_cloud'
         }
     },
     char_q: {
         id: 'char_q',
-        label: 'PHI CONG DOT KICH',
-        subtitle: 'CHIEN BINH KHONG GIAN',
+        label: 'ĐIỆP VIÊN ÁO ĐEN',
+        subtitle: 'TIẾP TẾ HỎA LỰC',
         modelFile: 'character-q.glb',
         color: '#0284c7',
         preview: 'assets/previews/character-q.png',
         tier: 2,
-        tierName: 'HIEM',
+        tierName: 'HIẾM',
         price: 3400,
-        description: 'Kha nang ngam ban phan xa cuc nhay va ket noi vien thong voi tau ho tro.',
+        description: 'Đặc vụ ngầm với khả năng ngắm bắn chuẩn xác và liên lạc tiếp tế đạn đạo từ vệ tinh.',
         passives: {
             adsSpeedMult: 1.40,
-            passiveDesc: 'Toc do bat ngam ban ADS nhanh hon 40%'
+            recoilMult: 0.90,
+            passiveDesc: 'Tốc độ bật ngắm nhanh hơn 40% và giảm 10% độ giật súng'
         },
         activeSkill: {
             id: 'supply_drop',
-            name: 'Tiep Te Hoa Luc',
-            key: 'Q / E',
-            cooldown: 35,
+            name: 'Tiếp Tế Hỏa Lực',
+            key: 'Q',
+            cooldown: 30,
             duration: 0,
-            description: 'Goi tiep te hoi day 100% dan duoc va tang them 1 qua bom chien thuat',
+            description: 'Gọi tiếp viện nạp đầy 100% đạn dự trữ cho mọi vũ khí đang mang',
             effectType: 'supply_drop'
         }
     },
     char_r: {
         id: 'char_r',
-        label: 'CHIEN BINH TUONG LAI',
-        subtitle: 'SIEU CHIEN BINH OMEGA',
+        label: 'NINJA BÓNG ĐÊM',
+        subtitle: 'SIÊU CHIẾN BINH OMEGA',
         modelFile: 'character-r.glb',
         color: '#dc2626',
         preview: 'assets/previews/character-r.png',
-        tier: 3,
-        tierName: 'HUYEN THOAI',
-        price: 8000,
-        description: 'San pham dinh cao cua cong nghe gen voi sat thuong va phan xa toan dien.',
+        tier: 4,
+        tierName: 'HUYỀN THOẠI',
+        price: 8500,
+        description: 'Sát thủ ninja siêu cấp với tốc độ di chuyển kinh hoàng và trạng thái Overdrive toàn diện.',
         passives: {
             damageMult: 1.10,
-            speedMult: 1.05,
-            passiveDesc: 'Tang 10% tong sat thuong moi loai vu khi va 5% toc do'
+            speedMult: 1.08,
+            passiveDesc: 'Tăng 10% tổng sát thương mọi vũ khí và 8% tốc độ di chuyển'
         },
         activeSkill: {
             id: 'overdrive',
-            name: 'Che Do Overdrive',
-            key: 'Q / E',
-            cooldown: 28,
+            name: 'Trạng Thái Overdrive',
+            key: 'Q',
+            cooldown: 25,
             duration: 5,
-            description: 'Tang 35% toc do ban, 25% toc do di chuyen va mien nhiem lam cham trong 5s',
+            description: 'Tăng 35% tốc độ bắn, 25% tốc độ chạy và miễn nhiễm làm chậm trong 5 giây',
             effectType: 'overdrive'
         }
     },
     skeleton: {
         id: 'skeleton',
-        label: 'KHUNG XUONG',
-        subtitle: 'KE SONG SOT BAT DIET',
+        label: 'KHUNG XƯƠNG',
+        subtitle: 'BỘ XƯƠNG BẤT TỬ',
         modelFile: 'character-skeleton.glb',
         color: '#ffe06a',
         preview: 'assets/previews/character-h.png',
         tier: 1,
-        tierName: 'CO BAN',
+        tierName: 'CƠ BẢN',
         price: 1000,
-        description: 'Chi con xuong, trong luong cuc nhe giup than thoat luot qua ke thu.',
+        description: 'Thân hình chỉ còn xương nhẹ bẫng giúp di chuyển thoăn thoắt và ném khúc xương định mệnh.',
         passives: {
             dodgeDistMult: 1.25,
             speedMult: 1.06,
-            passiveDesc: 'Than phap nhe nhang: Toc do luot +25% va toc do chay +6%'
+            passiveDesc: 'Thân pháp nhẹ nhàng: Khoảng cách lướt +25% và tốc độ chạy +6%'
         },
         activeSkill: {
             id: 'bone_throw',
-            name: 'Khuc Xuong Dinh Menh',
-            key: 'Q / E',
+            name: 'Khúc Xương Định Mệnh',
+            key: 'Q',
             cooldown: 16,
             duration: 1,
-            description: 'Nem khuc xuong gay 90 sat thuong va lam choang muc tieu dau tien 2 giay',
+            description: 'Ném khúc xương gây 90 sát thương và làm choáng mục tiêu trúng đòn',
             effectType: 'bone_toss'
         }
     },
     vampire: {
         id: 'vampire',
-        label: 'MA CA RONG',
-        subtitle: 'CHIEN BINH BONG DEM',
+        label: 'MA CÀ RỒNG',
+        subtitle: 'CHÚA TỂ BÓNG ĐÊM',
         modelFile: 'character-vampire.glb',
         color: '#ff5577',
         preview: 'assets/previews/character-e.png',
         tier: 2,
-        tierName: 'HIEM',
+        tierName: 'HIẾM',
         price: 3500,
-        description: 'Hut sinh luc tu ke thu trong bong dem de duy tri su bat tu tren dau truong.',
+        description: 'Hút sinh lực từ kẻ thù trong bóng tối để duy trì sự bất tử giữa vòng vây quái vật.',
         passives: {
-            lifesteal: 0.08,
-            passiveDesc: 'Hut 8% sat thuong gay ra thanh luong Mau cho ban than'
+            lifesteal: 0.10,
+            passiveDesc: 'Hút 10% lượng sát thương gây ra thành Máu cho bản thân'
         },
         activeSkill: {
             id: 'vampire_drain',
-            name: 'Doi Dem San Moi',
-            key: 'Q / E',
-            cooldown: 22,
+            name: 'Dơi Đêm Hút Máu',
+            key: 'Q',
+            cooldown: 20,
             duration: 0,
-            description: 'Hut 35 Mau tu dam quai vat xung quanh de hoi phuc tuc thi',
+            description: 'Hút tức thì 35 Máu từ toàn bộ quái vật trong vùng lân cận',
             effectType: 'vampire_drain'
         }
     }

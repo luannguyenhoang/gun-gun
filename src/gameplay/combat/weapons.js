@@ -2063,13 +2063,20 @@ export class WeaponSystem {
 
             const targetLength = w.targetLength || (w.modelFile.includes('blaster-a') ? 0.95 : 1.15);
 
+            // Kiểm tra xem handNode có phải là nhân vật Kenney Blocky v2 (cánh tay kéo dài theo trục Y)
+            if (handNode.geometry && !handNode.geometry.boundingBox) {
+                handNode.geometry.computeBoundingBox();
+            }
+            const isV2Blocky = handNode.geometry && (handNode.geometry.boundingBox?.min.y < -0.5);
+            const defaultHandOffset = isV2Blocky ? new THREE.Vector3(-0.20, -0.72, 0.02) : new THREE.Vector3(-0.24, -0.05, 0.02);
+
             if (w.isStyloo) {
                 // Súng Styloo: nòng chạy dọc trục X (+X là đầu nòng súng)
                 const scale = (targetLength / Math.max(0.01, size.x)) / armScaleX;
                 mesh.scale.setScalar(scale);
                 mesh.userData.isStyloo = true;
                 mesh.userData.gripOffset = new THREE.Vector3(0, 0.08, 0).multiplyScalar(scale);
-                mesh.userData.handOffset = new THREE.Vector3(-0.24, -0.05, 0.02);
+                mesh.userData.handOffset = defaultHandOffset.clone();
                 mesh.rotation.set(0, -Math.PI / 2 - Math.PI / 3, 0);
                 mesh.position.copy(mesh.userData.gripOffset).applyQuaternion(mesh.quaternion).add(mesh.userData.handOffset);
                 const muzzle = new THREE.Object3D();
@@ -2082,7 +2089,7 @@ export class WeaponSystem {
                 mesh.scale.setScalar(scale);
                 mesh.userData.barrelForward = -1;
                 mesh.userData.gripOffset = new THREE.Vector3(0, 0.14, -0.18).multiplyScalar(scale);
-                mesh.userData.handOffset = w.offset ? w.offset.clone() : new THREE.Vector3(-0.24, -0.05, 0.02);
+                mesh.userData.handOffset = w.offset ? w.offset.clone() : defaultHandOffset.clone();
                 mesh.rotation.set(0, -Math.PI / 3, 0);
                 mesh.position.copy(mesh.userData.gripOffset).applyQuaternion(mesh.quaternion).add(mesh.userData.handOffset);
                 const muzzle = new THREE.Object3D();
@@ -2114,7 +2121,11 @@ export class WeaponSystem {
         model.position.set(0.045 * scale, -0.02 * scale, 0.24 * scale);
         group.add(model);
         group.userData.gripOffset = new THREE.Vector3();
-        group.userData.handOffset = new THREE.Vector3(-0.24, -0.05, 0.02);
+        if (this.handNode?.geometry && !this.handNode.geometry.boundingBox) {
+            this.handNode.geometry.computeBoundingBox();
+        }
+        const isV2Blocky = this.handNode?.geometry && (this.handNode.geometry.boundingBox?.min.y < -0.5);
+        group.userData.handOffset = isV2Blocky ? new THREE.Vector3(-0.20, -0.72, 0.02) : new THREE.Vector3(-0.24, -0.05, 0.02);
         group.position.copy(group.userData.handOffset);
         return group;
     }

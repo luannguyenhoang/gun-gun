@@ -639,7 +639,7 @@ export class UIManager {
                 this.thCircleEnergy.style.opacity = player.isDodging ? '0.5' : '1';
             }
 
-            // Cập nhật Widget Kỹ năng chủ động Nhân vật (Q / E)
+            // Cập nhật Widget Kỹ năng chủ động Nhân vật (phím Q)
             if (this.skillWidget && player) {
                 const cfg = CHARACTER_CONFIGS[player.characterId] || CHARACTER_CONFIGS.soldier;
                 const skill = cfg?.activeSkill;
