@@ -1,7 +1,36 @@
 import * as THREE from 'three';
+import { GLTFLoader } from '../../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../../audio/audio.js';
 import { RARE_WEAPON_CONFIGS, ATTACHMENT_DEFS, RARITY_TIERS } from '../combat/weapons.js';
 import { LOOT_ITEMS } from './looting.js';
+
+// Cache mô hình 3D cho vật phẩm nhặt
+const _gltfLoader = typeof window !== 'undefined' ? new GLTFLoader() : null;
+const _pickupModelCache = new Map();
+
+function getOrLoadPickupModel(path, onLoad) {
+    if (typeof window === 'undefined' || !_gltfLoader) return;
+    if (_pickupModelCache.has(path)) {
+        onLoad(_pickupModelCache.get(path).clone());
+        return;
+    }
+    _gltfLoader.load(path, (gltf) => {
+        gltf.scene.traverse(c => {
+            if (c.isMesh) {
+                c.castShadow = true;
+                c.receiveShadow = true;
+            }
+        });
+        _pickupModelCache.set(path, gltf.scene);
+        onLoad(gltf.scene.clone());
+    }, undefined, () => {});
+}
+
+// Nạp trước 2 mô hình thiết bị y tế
+if (typeof window !== 'undefined' && _gltfLoader) {
+    getOrLoadPickupModel('assets/models/aid-defibrillator-green.glb', () => {});
+    getOrLoadPickupModel('assets/models/aid-defibrillator-red.glb', () => {});
+}
 
 // Danh mục phần thưởng rơi từ Zombie: Chủ yếu rơi Hồi Máu, Giáp và Cứu thương; Phụ kiện rơi hiếm hơn
 export const DROP_TYPES = [
@@ -94,6 +123,40 @@ export class PickupManager {
             g.scale.set(0.35, 0.7, 0.35);
             g.position.set(-0.16, -0.2, 0);
             body.add(b, g);
+        } else if (type === 'health') {
+            const modelPath = 'assets/models/aid-defibrillator-green.glb';
+            if (_pickupModelCache.has(modelPath)) {
+                const model = _pickupModelCache.get(modelPath).clone();
+                model.scale.setScalar(0.75);
+                model.position.y = -0.15;
+                body.add(model);
+            } else {
+                const core = new THREE.Mesh(this.geoBox, material);
+                body.add(core);
+                getOrLoadPickupModel(modelPath, (loaded) => {
+                    loaded.scale.setScalar(0.75);
+                    loaded.position.y = -0.15;
+                    body.remove(core);
+                    body.add(loaded);
+                });
+            }
+        } else if (type === 'medkit') {
+            const modelPath = 'assets/models/aid-defibrillator-red.glb';
+            if (_pickupModelCache.has(modelPath)) {
+                const model = _pickupModelCache.get(modelPath).clone();
+                model.scale.setScalar(0.75);
+                model.position.y = -0.15;
+                body.add(model);
+            } else {
+                const core = new THREE.Mesh(this.geoBox, material);
+                body.add(core);
+                getOrLoadPickupModel(modelPath, (loaded) => {
+                    loaded.scale.setScalar(0.75);
+                    loaded.position.y = -0.15;
+                    body.remove(core);
+                    body.add(loaded);
+                });
+            }
         } else {
             const core = new THREE.Mesh(this.geoBox, material);
             body.add(core);

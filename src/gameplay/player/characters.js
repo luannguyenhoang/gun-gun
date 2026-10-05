@@ -19,13 +19,13 @@ export const CHARACTER_CONFIGS = {
             passiveDesc: 'Giảm 15% độ giật của mọi loại súng'
         },
         activeSkill: {
-            id: 'tactical_rapid',
-            name: 'Chiến Thuật Áp Đảo',
+            id: 'riot_charge',
+            name: 'Húc Khiên Bạo Động',
             key: 'Q',
             cooldown: 18,
-            duration: 6,
-            description: 'Tăng 30% tốc độ thay đạn và 15% tốc độ bắn trong 6 giây',
-            effectType: 'rapid_fire'
+            duration: 4,
+            description: 'Bật khiên năng lượng bất tử 4 giây, tăng 40% tốc chạy và húc văng quái cản đường gây 70 sát thương',
+            effectType: 'riot_charge'
         }
     },
     commando: {
@@ -45,13 +45,13 @@ export const CHARACTER_CONFIGS = {
             passiveDesc: 'Tăng 8% tốc độ di chuyển và 20% khoảng cách lướt né'
         },
         activeSkill: {
-            id: 'sprint_boost',
-            name: 'Nước Rút Siêu Tốc',
+            id: 'cluster_grenades',
+            name: 'Cụm Lựu Đạn Ném',
             key: 'Q',
-            cooldown: 15,
-            duration: 4,
-            description: 'Tăng 45% tốc độ di chuyển trong 4 giây để áp sát hoặc thoát vây',
-            effectType: 'speed_boost'
+            cooldown: 16,
+            duration: 0,
+            description: 'Ném 3 quả lựu đạn nổ liên hoàn hình quạt phía trước, hất tung bầy quái diện rộng',
+            effectType: 'cluster_grenades'
         }
     },
     medic: {
@@ -71,13 +71,13 @@ export const CHARACTER_CONFIGS = {
             passiveDesc: 'Cứu đồng đội nhanh hơn 40% và Medkit hồi thêm 35% Máu/Giáp'
         },
         activeSkill: {
-            id: 'toxic_spray',
-            name: 'Sương Kháng Khuẩn',
+            id: 'healing_beacon',
+            name: 'Trạm Cứu Thương Dã Chiến',
             key: 'Q',
-            cooldown: 20,
-            duration: 5,
-            description: 'Phun màn sương độc hóa chất thiêu đốt quái vật bước vào trong 5 giây',
-            effectType: 'toxic_cloud'
+            cooldown: 22,
+            duration: 6,
+            description: 'Triệu hồi trạm cứu thương tại chỗ trong 6 giây, liên tục hồi 15 Máu/giây cho bản thân và đồng đội gần đó',
+            effectType: 'healing_beacon'
         }
     },
     analyst: {
@@ -96,13 +96,13 @@ export const CHARACTER_CONFIGS = {
             passiveDesc: 'Nhận thêm 30% lượng Vàng khi tiêu diệt quái vật'
         },
         activeSkill: {
-            id: 'radar_scan',
-            name: 'Quét Radar Mục Tiêu',
+            id: 'vulnerability_scan',
+            name: 'Radar Suy Yếu Mục Tiêu',
             key: 'Q',
-            cooldown: 18,
+            cooldown: 20,
             duration: 6,
-            description: 'Lộ diện vị trí toàn bộ quái vật xuyên tường trong 6 giây',
-            effectType: 'scanner'
+            description: 'Quét lộ diện toàn bộ quái vật xuyên tường trong 6 giây và khiến chúng phải nhận thêm 35% sát thương',
+            effectType: 'vulnerability_scan'
         }
     },
     engineer: {
@@ -122,13 +122,13 @@ export const CHARACTER_CONFIGS = {
             passiveDesc: 'Khởi đầu với +35 Giáp tối đa và giảm 10% sát thương nhận vào'
         },
         activeSkill: {
-            id: 'repair_armor',
-            name: 'Hàn Giáp Cấp Tốc',
+            id: 'auto_turret',
+            name: 'Tháp Súng Tự Động',
             key: 'Q',
-            cooldown: 20,
-            duration: 0,
-            description: 'Lập tức phục hồi 40 điểm Giáp phòng hộ',
-            effectType: 'heal_armor'
+            cooldown: 24,
+            duration: 8,
+            description: 'Triệu hồi một tháp súng máy mini tự động xoay và xả đạn liên tục vào các zombie xung quanh trong 8 giây',
+            effectType: 'auto_turret'
         }
     },
     agent: {
@@ -148,13 +148,13 @@ export const CHARACTER_CONFIGS = {
             passiveDesc: 'Bật ngắm ADS nhanh hơn 40% và giảm 10% độ giật súng'
         },
         activeSkill: {
-            id: 'supply_drop',
-            name: 'Tiếp Tế Hỏa Lực',
+            id: 'orbital_strike',
+            name: 'Không Kích Vệ Tinh',
             key: 'Q',
-            cooldown: 28,
-            duration: 0,
-            description: 'Gọi tiếp viện nạp đầy 100% đạn dự trữ cho toàn bộ vũ khí',
-            effectType: 'supply_drop'
+            cooldown: 25,
+            duration: 0.8,
+            description: 'Đánh dấu tọa độ trước mặt, sau 0.8 giây gọi pháo kích năng lượng quỹ đạo gây 260 sát thương thiêu rụi bầy quái',
+            effectType: 'orbital_strike'
         }
     },
     miner: {
@@ -174,13 +174,13 @@ export const CHARACTER_CONFIGS = {
             passiveDesc: 'Tăng 60 Máu tối đa và kháng 40% lực đẩy lùi'
         },
         activeSkill: {
-            id: 'savage_roar',
-            name: 'Tiếng Gầm Chấn Động',
+            id: 'ground_smash',
+            name: 'Địa Chấn Chấn Động',
             key: 'Q',
-            cooldown: 20,
-            duration: 1,
-            description: 'Gầm vang chấn động, đẩy lùi toàn bộ quái vật bán kính 7.5m',
-            effectType: 'shockwave_push'
+            cooldown: 18,
+            duration: 3,
+            description: 'Dộng mạnh vũ khí xuống đất tạo sóng chấn động hất tung bầy quái, gây 90 sát thương và làm choáng 3 giây',
+            effectType: 'ground_smash'
         }
     },
     schoolgirl: {
@@ -200,13 +200,13 @@ export const CHARACTER_CONFIGS = {
             passiveDesc: 'Tăng 6% tốc độ chạy và hồi chiêu lướt né nhanh hơn 20%'
         },
         activeSkill: {
-            id: 'stun_pulse',
-            name: 'Xung Điện Gây Choáng',
+            id: 'bullet_frenzy',
+            name: 'Cuồng Xả Đạn Vô Hạn',
             key: 'Q',
-            cooldown: 18,
-            duration: 3,
-            description: 'Phát xung làm tê liệt và bất động quái vật xung quanh trong 3 giây',
-            effectType: 'stun_grenade'
+            cooldown: 22,
+            duration: 5,
+            description: 'Bắn không tốn đạn, tăng 60% tốc độ xả đạn và giảm 80% độ giật súng trong 5 giây',
+            effectType: 'bullet_frenzy'
         }
     },
     secretary: {
@@ -226,13 +226,13 @@ export const CHARACTER_CONFIGS = {
             passiveDesc: 'Nhặt thêm 30% đạn từ hòm tiếp tế và nạp đạn nhanh hơn 20%'
         },
         activeSkill: {
-            id: 'instant_reload',
-            name: 'Nạp Đạn Khẩn Cấp',
+            id: 'supply_drop',
+            name: 'Hòm Tiếp Tế Chiến Thuật',
             key: 'Q',
-            cooldown: 16,
+            cooldown: 26,
             duration: 0,
-            description: 'Lập tức nạp đầy băng đạn cho vũ khí đang cầm trên tay',
-            effectType: 'instant_reload'
+            description: 'Thả ngay tại chỗ hòm quân nhu: nạp đầy 100% đạn dự trữ cho toàn bộ súng và cấp 1 túi Medkit cấp cứu',
+            effectType: 'supply_drop'
         }
     },
     athlete: {
@@ -252,13 +252,13 @@ export const CHARACTER_CONFIGS = {
             passiveDesc: 'Tăng 10% tốc độ chạy và +20 Máu cơ bản'
         },
         activeSkill: {
-            id: 'sand_curse',
-            name: 'Bão Cát Sa Mạc',
+            id: 'sand_vortex',
+            name: 'Lốc Xoáy Hút Quái',
             key: 'Q',
             cooldown: 22,
             duration: 5,
-            description: 'Tạo bão cát làm chậm 60% tốc độ di chuyển của quái vật xung quanh',
-            effectType: 'sandstorm'
+            description: 'Tạo cơn lốc xoáy bão cát hút toàn bộ zombie xung quanh vào tâm bão, làm chậm 70% và gây sát thương kéo dài',
+            effectType: 'sand_vortex'
         }
     },
     cyber_girl: {
@@ -278,13 +278,13 @@ export const CHARACTER_CONFIGS = {
             passiveDesc: 'Tăng 40 Giáp tối đa và tốc độ phục hồi Giáp nhanh hơn 50%'
         },
         activeSkill: {
-            id: 'emp_discharge',
-            name: 'Xung Điện EMP',
+            id: 'chain_lightning',
+            name: 'Tia Sét Lan Truyền EMP',
             key: 'Q',
-            cooldown: 22,
-            duration: 1,
-            description: 'Phóng sóng xung kích 8.5m gây 120 sát thương và làm tê liệt quái vật',
-            effectType: 'emp_blast'
+            cooldown: 20,
+            duration: 2,
+            description: 'Phóng luồng điện cao thế giật nhảy liên hoàn qua tối đa 8 con zombie gần nhau, gây tê liệt và 110 sát thương',
+            effectType: 'chain_lightning'
         }
     },
     assassin: {
@@ -304,13 +304,13 @@ export const CHARACTER_CONFIGS = {
             passiveDesc: 'Tăng 12% tổng sát thương vũ khí và 35% khoảng cách lướt né'
         },
         activeSkill: {
-            id: 'shadow_decoy',
-            name: 'Ảo Ảnh Phân Thân',
+            id: 'shadow_veil',
+            name: 'Bóng Ma Ám Sát',
             key: 'Q',
             cooldown: 20,
-            duration: 3.5,
-            description: 'Tàng hình trong 3.5 giây và để lại hình nộm thu hút mọi đòn tấn công của quái',
-            effectType: 'shadow_decoy'
+            duration: 4,
+            description: 'Tàng hình hoàn toàn trong 4 giây (quái mất dấu), tăng 50% tốc độ chạy và đòn đánh đầu tiên phá tàng hình chí mạng x3',
+            effectType: 'shadow_veil'
         }
     }
 };

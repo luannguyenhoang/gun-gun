@@ -2231,19 +2231,23 @@ export class WeaponSystem {
 
         const effective = this.getModifiedStats(w);
 
-        // Kiểm tra hết băng đạn -> Tự động nạp đạn (Đạn dự trữ là vô hạn)
-        if (this.ammo[w.id] <= 0) {
+        const isBulletFrenzy = (playerRef?.bulletFrenzyTimer > 0) || (window.game?.player?.bulletFrenzyTimer > 0);
+
+        // Kiểm tra hết băng đạn -> Tự động nạp đạn (trừ khi đang cuồng xả đạn vô hạn)
+        if (!isBulletFrenzy && this.ammo[w.id] <= 0) {
             this.reload();
             return false;
         }
 
         if (this.fireCooldown > 0) return false;
 
-        this.ammo[w.id]--;
+        if (!isBulletFrenzy) {
+            this.ammo[w.id]--;
+        }
 
-        // Xử lý chế độ Bắn Tăng Cường (Overclock): Tốc độ xả đạn cực nhanh, độ giật triệt tiêu
-        const isOverclockActive = this.overclockTimer > 0;
-        const speedFactor = isOverclockActive ? 0.55 : 1.0;
+        // Xử lý chế độ Bắn Tăng Cường (Overclock / Bullet Frenzy): Tốc độ xả đạn cực nhanh, độ giật triệt tiêu
+        const isOverclockActive = this.overclockTimer > 0 || isBulletFrenzy;
+        const speedFactor = isBulletFrenzy ? 0.40 : (isOverclockActive ? 0.55 : 1.0);
         this.fireCooldown = (w.fireRate / this.fireRateBoost) * speedFactor;
         this.recoilOffset = isOverclockActive ? (effective.recoilPitch * 0.2) : effective.recoilPitch;
 
@@ -3039,9 +3043,18 @@ export class WeaponSystem {
                             currentBaseDmg = Math.round(currentBaseDmg * dropFactor);
                         }
 
-                        // Tính tỷ lệ bạo kích theo Phụ kiện Kính ngắm (Optic Crit Chance)
-                        const isCrit = hitInfo.isCrit || (Math.random() < (p.critChance || 0.12));
-                        const finalDamage = currentBaseDmg * (isCrit ? p.critMultiplier : 1.0);
+                        // Tính tỷ lệ bạo kích theo Phụ kiện Kính ngắm hoặc Kỹ năng Ám sát
+                        let isCrit = hitInfo.isCrit || (Math.random() < (p.critChance || 0.12));
+                        let critMult = isCrit ? (p.critMultiplier || 1.8) : 1.0;
+                        if (window.game?.player?.assassinCritReady) {
+                            isCrit = true;
+                            critMult = 3.0;
+                            window.game.player.assassinCritReady = false;
+                            window.game.player.shadowVeilTimer = 0;
+                            window.game.player.isInSmoke = false;
+                            sounds.play('enemyDestroy', { volume: 0.9, pitchVariation: 0.2 });
+                        }
+                        const finalDamage = Math.round(currentBaseDmg * critMult);
 
                         // Gọi takeDamage kèm penPower
                         const hitResult = enemy.takeDamage(finalDamage, p.penPower, isCrit, p.direction);

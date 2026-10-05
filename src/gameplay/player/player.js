@@ -60,6 +60,16 @@ export class PlayerController {
         this.passiveRegenRate = 0;
         this.latestEnemies = null;
 
+        // Trạng thái các kỹ năng độc đáo
+        this.riotChargeTimer = 0;
+        this.bulletFrenzyTimer = 0;
+        this.shadowVeilTimer = 0;
+        this.assassinCritReady = false;
+        this.activeBeacons = [];
+        this.activeTurrets = [];
+        this.activeVortexes = [];
+        this.activeGrenades = [];
+
         // Dodge / Dash
         this.dodgeCooldown = 0;
         this.isDodging = false;
@@ -498,79 +508,46 @@ export class PlayerController {
 
         sounds.play('jump', { volume: 0.6, rate: 1.8 });
 
-        // Kich hoat hieu ung cu the cua tung ky nang
+        // Kích hoạt hiệu ứng cụ thể của từng kỹ năng độc đáo
         switch (skill.effectType) {
-            case 'rapid_fire':
-                break;
-            case 'speed_boost':
-                this.speedBoostTimer = Math.max(this.speedBoostTimer || 0, skill.duration);
-                this.speedBoostFactor = 1.45;
-                break;
-            case 'instant_reload':
-                if (this.weapons?.currentWeapon) {
-                    this.weapons.currentWeapon.ammo = this.weapons.currentWeapon.maxAmmo;
-                    this.weapons.cancelReload();
-                }
-                sounds.play('reload', { volume: 0.8 });
-                break;
-            case 'heal_armor':
-                this.shield = Math.min(this.maxShield, this.shield + 35);
-                sounds.play('pickupMedkit', { volume: 0.8 });
-                break;
-            case 'shockwave_push':
-                this.triggerShockwave(7.0, 35, 25);
+            case 'riot_charge':
+                this.triggerRiotCharge(skill.duration || 4.0);
                 break;
             case 'cluster_grenades':
-                this.triggerClusterMines();
+                this.triggerClusterGrenades();
                 break;
-            case 'iron_wall':
+            case 'healing_beacon':
+                this.triggerHealingBeacon(skill.duration || 6.0);
                 break;
-            case 'scanner':
-                this.radarScanTimer = skill.duration;
+            case 'vulnerability_scan':
+                this.triggerVulnerabilityScan(skill.duration || 6.0);
                 break;
-            case 'stun_grenade':
-                this.triggerStunPulse(8.0, 3.0);
+            case 'auto_turret':
+                this.triggerAutoTurret(skill.duration || 8.0);
                 break;
-            case 'piercing_beam':
-                this.triggerPiercingBeam();
+            case 'orbital_strike':
+                this.triggerOrbitalStrike();
                 break;
-            case 'smoke_camo':
-                this.isInSmoke = true;
+            case 'ground_smash':
+                this.triggerGroundSmash();
                 break;
-            case 'emp_blast':
-                this.triggerEmpBlast(8.5, 120);
-                break;
-            case 'nanite_shield':
-                break;
-            case 'sandstorm':
-                this.triggerSandstorm(8.5, skill.duration);
-                break;
-            case 'shadow_decoy':
-                this.isInSmoke = true;
-                this.triggerShockwave(5.0, 20, 10);
-                break;
-            case 'guaranteed_crit':
-                break;
-            case 'toxic_cloud':
-                this.triggerToxicCloud(6.5, skill.duration);
+            case 'bullet_frenzy':
+                this.triggerBulletFrenzy(skill.duration || 5.0);
                 break;
             case 'supply_drop':
-                if (this.weapons) {
-                    for (const wp of this.weapons.weapons) {
-                        if (wp) wp.ammo = wp.maxAmmo;
-                    }
-                }
-                sounds.play('pickupAmmo', { volume: 0.9 });
+                this.triggerSupplyDrop();
                 break;
-            case 'overdrive':
-                this.speedBoostTimer = Math.max(this.speedBoostTimer || 0, skill.duration);
-                this.speedBoostFactor = 1.35;
+            case 'sand_vortex':
+                this.triggerSandVortex(skill.duration || 5.0);
                 break;
-            case 'bone_toss':
-                this.triggerPiercingBeam(85);
+            case 'chain_lightning':
+                this.triggerChainLightning();
                 break;
-            case 'vampire_drain':
-                this.triggerVampireDrain(7.0, 35);
+            case 'shadow_veil':
+                this.triggerShadowVeil(skill.duration || 4.0);
+                break;
+            default:
+                this.triggerShockwave(7.0, 30, 25);
                 break;
         }
 
@@ -582,13 +559,19 @@ export class PlayerController {
         if (!this.scene) return;
         const geometry = new THREE.RingGeometry(0.5, 1.2, 32);
         geometry.rotateX(-Math.PI / 2);
-        let color = 0x00f0ff;
-        if (effectType === 'emp_blast') color = 0xa855f7;
-        else if (effectType === 'shockwave_push') color = 0x22c55e;
-        else if (effectType === 'vampire_drain') color = 0xff2255;
-        else if (effectType === 'toxic_cloud') color = 0x10b981;
-        else if (effectType === 'nanite_shield' || effectType === 'iron_wall') color = 0xf59e0b;
-        else if (effectType === 'guaranteed_crit') color = 0xb45309;
+        let color = 0x0284c7;
+        if (effectType === 'riot_charge') color = 0x0284c7;
+        else if (effectType === 'cluster_grenades') color = 0x38bdf8;
+        else if (effectType === 'healing_beacon') color = 0x10b981;
+        else if (effectType === 'vulnerability_scan') color = 0x84cc16;
+        else if (effectType === 'auto_turret') color = 0xfb923c;
+        else if (effectType === 'orbital_strike') color = 0xef4444;
+        else if (effectType === 'ground_smash') color = 0xea580c;
+        else if (effectType === 'bullet_frenzy') color = 0xeab308;
+        else if (effectType === 'supply_drop') color = 0x64748b;
+        else if (effectType === 'sand_vortex') color = 0xd97706;
+        else if (effectType === 'chain_lightning') color = 0xa855f7;
+        else if (effectType === 'shadow_veil') color = 0x8b5cf6;
 
         const material = new THREE.MeshBasicMaterial({
             color: color,
@@ -619,6 +602,467 @@ export class PlayerController {
         requestAnimationFrame(anim);
     }
 
+    // 1. Cảnh sát trưởng: Húc khiên bạo động bất tử và tông văng quái
+    triggerRiotCharge(duration = 4.0) {
+        this.riotChargeTimer = duration;
+        this.invulnerability = Math.max(this.invulnerability || 0, duration);
+        this.speedBoostTimer = Math.max(this.speedBoostTimer || 0, duration);
+        this.speedBoostFactor = 1.40;
+    }
+
+    // 2. Nữ đặc nhiệm: Cụm lựu đạn ném theo hình quạt
+    triggerClusterGrenades() {
+        const angles = [-0.28, 0, 0.28];
+        for (let i = 0; i < angles.length; i++) {
+            const yaw = this.aimYaw + angles[i];
+            const dir = new THREE.Vector3(Math.sin(yaw), 0.3, Math.cos(yaw)).normalize();
+            const pos = this.position.clone().add(new THREE.Vector3(0, 1.0, 0));
+            const geom = new THREE.SphereGeometry(0.18, 8, 8);
+            const mat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.7 });
+            const mesh = new THREE.Mesh(geom, mat);
+            mesh.position.copy(pos);
+            this.scene.add(mesh);
+            this.activeGrenades.push({
+                mesh,
+                velocity: dir.multiplyScalar(16.0),
+                timer: 0.5 + i * 0.18,
+                damage: 130,
+                radius: 4.8
+            });
+        }
+        sounds.play('jump', { volume: 0.8, rate: 1.5 });
+    }
+
+    // 3. Bác sĩ tác chiến: Trạm cứu thương dã chiến hồi 15 HP/s trong 6s
+    triggerHealingBeacon(duration = 6.0) {
+        const pos = this.position.clone();
+        pos.y = 0.05;
+        const group = new THREE.Group();
+        group.position.copy(pos);
+
+        const ringGeom = new THREE.RingGeometry(0.5, 6.0, 32);
+        ringGeom.rotateX(-Math.PI / 2);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.35, side: THREE.DoubleSide });
+        const ring = new THREE.Mesh(ringGeom, ringMat);
+        group.add(ring);
+
+        const pillarGeom = new THREE.CylinderGeometry(0.2, 0.3, 1.1, 8);
+        const pillarMat = new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x10b981, emissiveIntensity: 0.6 });
+        const pillar = new THREE.Mesh(pillarGeom, pillarMat);
+        pillar.position.y = 0.55;
+        group.add(pillar);
+
+        this.scene.add(group);
+        this.activeBeacons.push({
+            group,
+            position: pos,
+            timer: duration,
+            tickTimer: 0,
+            radius: 6.0
+        });
+        sounds.playMedkit();
+    }
+
+    // 4. Chuyên viên phân tích: Quét radar và khiến quái chịu thêm 35% sát thương
+    triggerVulnerabilityScan(duration = 6.0) {
+        this.radarScanTimer = duration;
+        const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
+        for (const enemy of enemies) {
+            if (!enemy || enemy.isDead) continue;
+            const dist = this.position.distanceTo(enemy.position);
+            if (dist <= 35) {
+                enemy.vulnerableTimer = duration;
+                enemy.vulnerableMultiplier = 1.35;
+                enemy.setEmissiveColor?.(0x84cc16, 0.9);
+            }
+        }
+    }
+
+    // 5. Kỹ sư cơ khí: Tháp súng mini tự động bắn zombie trong 8s
+    triggerAutoTurret(duration = 8.0) {
+        const forward = new THREE.Vector3(Math.sin(this.aimYaw), 0, Math.cos(this.aimYaw)).normalize();
+        const pos = this.position.clone().add(forward.clone().multiplyScalar(1.2));
+        pos.y = 0.05;
+
+        const group = new THREE.Group();
+        group.position.copy(pos);
+
+        const baseGeom = new THREE.CylinderGeometry(0.35, 0.45, 0.3, 8);
+        const baseMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4 });
+        const baseMesh = new THREE.Mesh(baseGeom, baseMat);
+        baseMesh.position.y = 0.15;
+        group.add(baseMesh);
+
+        const headGroup = new THREE.Group();
+        headGroup.position.y = 0.4;
+        const boxGeom = new THREE.BoxGeometry(0.25, 0.25, 0.35);
+        const boxMat = new THREE.MeshStandardMaterial({ color: 0xfb923c, roughness: 0.3 });
+        const boxMesh = new THREE.Mesh(boxGeom, boxMat);
+        headGroup.add(boxMesh);
+
+        const barrelGeom = new THREE.CylinderGeometry(0.04, 0.04, 0.45, 8);
+        barrelGeom.rotateX(Math.PI / 2);
+        const barrelMat = new THREE.MeshStandardMaterial({ color: 0x0f172a });
+        const barrelMesh = new THREE.Mesh(barrelGeom, barrelMat);
+        barrelMesh.position.z = 0.25;
+        headGroup.add(barrelMesh);
+
+        group.add(headGroup);
+        this.scene.add(group);
+
+        this.activeTurrets.push({
+            group,
+            headGroup,
+            position: pos,
+            timer: duration,
+            fireCooldown: 0,
+            fireRate: 0.22,
+            damage: 28,
+            range: 18
+        });
+        sounds.play('reload', { volume: 0.7 });
+    }
+
+    // 6. Điệp viên áo đen: Không kích vệ tinh oanh tạc quỹ đạo
+    triggerOrbitalStrike() {
+        const forward = new THREE.Vector3(Math.sin(this.aimYaw), 0, Math.cos(this.aimYaw)).normalize();
+        const targetPos = this.position.clone().add(forward.multiplyScalar(7.5));
+        targetPos.y = 0.05;
+
+        const reticleGeom = new THREE.RingGeometry(0.4, 5.0, 32);
+        reticleGeom.rotateX(-Math.PI / 2);
+        const reticleMat = new THREE.MeshBasicMaterial({ color: 0xff1133, transparent: true, opacity: 0.75, side: THREE.DoubleSide });
+        const reticle = new THREE.Mesh(reticleGeom, reticleMat);
+        reticle.position.copy(targetPos);
+        this.scene.add(reticle);
+
+        setTimeout(() => {
+            const beamGeom = new THREE.CylinderGeometry(1.8, 2.8, 45, 16);
+            const beamMat = new THREE.MeshBasicMaterial({ color: 0xff3355, transparent: true, opacity: 0.85 });
+            const beam = new THREE.Mesh(beamGeom, beamMat);
+            beam.position.copy(targetPos);
+            beam.position.y = 22;
+            this.scene.add(beam);
+
+            const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
+            for (const enemy of enemies) {
+                if (!enemy || enemy.isDead) continue;
+                const d = targetPos.distanceTo(enemy.position);
+                if (d <= 5.5) {
+                    const pushDir = new THREE.Vector3().subVectors(enemy.position, targetPos).normalize();
+                    pushDir.y = 0.3;
+                    enemy.takeDamage(260, 4, true, pushDir);
+                    if (enemy.knockbackVelocity) enemy.knockbackVelocity.addScaledVector(pushDir, 40);
+                    enemy.burnTimer = 3.5;
+                    enemy.burnDamage = 16;
+                }
+            }
+
+            this.particles?.createExplosion?.(targetPos, 0xff2244, 40);
+            sounds.play('enemyDestroy', { volume: 1.0 });
+            this.applyKickbackAndShake?.(new THREE.Vector2(0, 0), 0.75);
+
+            setTimeout(() => {
+                this.scene.remove(beam);
+                this.scene.remove(reticle);
+                beamGeom.dispose();
+                beamMat.dispose();
+                reticleGeom.dispose();
+                reticleMat.dispose();
+            }, 350);
+        }, 800);
+    }
+
+    // 7. Đấu sĩ dũng mãnh: Dộng đất hất tung quái và làm choáng 3s
+    triggerGroundSmash() {
+        const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
+        for (const enemy of enemies) {
+            if (!enemy || enemy.isDead) continue;
+            const dist = this.position.distanceTo(enemy.position);
+            if (dist <= 8.5) {
+                const pushDir = new THREE.Vector3().subVectors(enemy.position, this.position).normalize();
+                pushDir.y = 0.9;
+                enemy.takeDamage(90, 3, true, pushDir);
+                if (enemy.knockbackVelocity) {
+                    enemy.knockbackVelocity.set(pushDir.x * 24, 12, pushDir.z * 24);
+                }
+                enemy.combatState = 'STUNNED';
+                enemy.combatTimer = 3.0;
+            }
+        }
+        this.particles?.createExplosion?.(this.position, 0xea580c, 35);
+        this.applyKickbackAndShake?.(new THREE.Vector2(0, 0), 0.8);
+        sounds.play('enemyDestroy', { volume: 1.0 });
+    }
+
+    // 8. Tiểu thư nổi loạn: Cuồng xả đạn vô hạn trong 5s
+    triggerBulletFrenzy(duration = 5.0) {
+        this.bulletFrenzyTimer = duration;
+        sounds.play('pickupAmmo', { volume: 0.9 });
+    }
+
+    // 9. Quản lý chiến trường: Hòm tiếp tế đạn và medkit
+    triggerSupplyDrop() {
+        if (this.weapons) {
+            for (const wp of this.weapons.weapons) {
+                if (wp) {
+                    wp.ammo = wp.maxAmmo;
+                    if (this.weapons.ammo) this.weapons.ammo[wp.id] = wp.maxAmmo;
+                    if (this.weapons.reserve) this.weapons.reserve[wp.id] = (wp.maxReserve || 200);
+                }
+            }
+            if (this.weapons.inventory) {
+                this.weapons.inventory.medkits = (this.weapons.inventory.medkits || 0) + 1;
+            }
+        }
+        sounds.play('pickupAmmo', { volume: 0.95 });
+        sounds.playMedkit();
+        this.particles?.createImpactSparks?.(this.position, new THREE.Vector3(0, 1, 0), 0x10b981, 20);
+    }
+
+    // 10. Vận động viên cơ động: Lốc xoáy bão cát hút quái
+    triggerSandVortex(duration = 5.0) {
+        const forward = new THREE.Vector3(Math.sin(this.aimYaw), 0, Math.cos(this.aimYaw)).normalize();
+        const pos = this.position.clone().add(forward.multiplyScalar(5.5));
+        pos.y = 0.05;
+
+        const group = new THREE.Group();
+        group.position.copy(pos);
+
+        const vortexGeom = new THREE.RingGeometry(0.5, 8.5, 32);
+        vortexGeom.rotateX(-Math.PI / 2);
+        const vortexMat = new THREE.MeshBasicMaterial({ color: 0xd97706, transparent: true, opacity: 0.45, side: THREE.DoubleSide });
+        const ring = new THREE.Mesh(vortexGeom, vortexMat);
+        group.add(ring);
+
+        this.scene.add(group);
+        this.activeVortexes.push({
+            group,
+            ring,
+            position: pos,
+            timer: duration,
+            radius: 8.5,
+            tickTimer: 0
+        });
+    }
+
+    // 11. Chiến binh Cyber: Tia sét giật lan truyền qua 8 zombie
+    triggerChainLightning() {
+        const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
+        const living = enemies.filter(e => e && !e.isDead && e.active);
+        if (living.length === 0) return;
+
+        const forward = new THREE.Vector3(Math.sin(this.aimYaw), 0, Math.cos(this.aimYaw)).normalize();
+        let first = null;
+        let bestScore = -Infinity;
+        for (const e of living) {
+            const toE = new THREE.Vector3().subVectors(e.position, this.position);
+            const dist = toE.length();
+            if (dist > 22) continue;
+            toE.normalize();
+            const dot = forward.dot(toE);
+            const score = dot * 10 - dist;
+            if (score > bestScore) {
+                bestScore = score;
+                first = e;
+            }
+        }
+        if (!first) first = living[0];
+
+        const chain = [first];
+        const visited = new Set([first]);
+        while (chain.length < 8) {
+            const current = chain[chain.length - 1];
+            let next = null;
+            let closestDist = Infinity;
+            for (const other of living) {
+                if (visited.has(other)) continue;
+                const d = current.position.distanceTo(other.position);
+                if (d < 8.0 && d < closestDist) {
+                    closestDist = d;
+                    next = other;
+                }
+            }
+            if (!next) break;
+            visited.add(next);
+            chain.push(next);
+        }
+
+        const points = [this.position.clone().add(new THREE.Vector3(0, 1.0, 0))];
+        for (const target of chain) {
+            target.takeDamage(110, 3, true, null);
+            target.combatState = 'STUNNED';
+            target.combatTimer = 2.0;
+            target.setEmissiveColor?.(0x00f0ff, 1.0);
+            points.push(target.position.clone().add(new THREE.Vector3(0, 1.0, 0)));
+        }
+
+        if (points.length > 1) {
+            const lineGeom = new THREE.BufferGeometry().setFromPoints(points);
+            const lineMat = new THREE.LineBasicMaterial({ color: 0x00f0ff });
+            const line = new THREE.Line(lineGeom, lineMat);
+            this.scene.add(line);
+            setTimeout(() => {
+                this.scene.remove(line);
+                lineGeom.dispose();
+                lineMat.dispose();
+            }, 300);
+        }
+    }
+
+    // 12. Sát thủ bóng đêm: Tàng hình và đòn đánh kế tiếp chí mạng x3
+    triggerShadowVeil(duration = 4.0) {
+        this.isInSmoke = true;
+        this.shadowVeilTimer = duration;
+        this.speedBoostTimer = Math.max(this.speedBoostTimer || 0, duration);
+        this.speedBoostFactor = 1.50;
+        this.assassinCritReady = true;
+    }
+
+    // Cập nhật vòng lặp các thực thể kỹ năng độc đáo
+    updateActiveSkills(delta, arena, enemies = []) {
+        // Cập nhật Húc khiên bạo động
+        if (this.riotChargeTimer > 0) {
+            this.riotChargeTimer -= delta;
+            for (const enemy of enemies) {
+                if (!enemy || enemy.isDead || !enemy.active) continue;
+                const d = this.position.distanceTo(enemy.position);
+                if (d < 2.2) {
+                    const pushDir = new THREE.Vector3().subVectors(enemy.position, this.position).normalize();
+                    pushDir.y = 0.25;
+                    enemy.takeDamage(70, 3, true, pushDir);
+                    if (enemy.knockbackVelocity) enemy.knockbackVelocity.addScaledVector(pushDir, 35);
+                    this.particles?.createImpactSparks?.(enemy.position, pushDir, 0x0284c7, 8);
+                }
+            }
+        }
+
+        // Cập nhật Cuồng xả đạn vô hạn
+        if (this.bulletFrenzyTimer > 0) {
+            this.bulletFrenzyTimer -= delta;
+        }
+
+        // Cập nhật Tàng hình bóng ma
+        if (this.shadowVeilTimer > 0) {
+            this.shadowVeilTimer -= delta;
+            if (this.shadowVeilTimer <= 0) {
+                this.isInSmoke = false;
+                this.assassinCritReady = false;
+            }
+        }
+
+        // Cập nhật Lựu đạn chùm
+        for (let i = this.activeGrenades.length - 1; i >= 0; i--) {
+            const g = this.activeGrenades[i];
+            g.mesh.position.addScaledVector(g.velocity, delta);
+            g.velocity.y -= 22 * delta;
+            g.timer -= delta;
+            if (g.timer <= 0 || g.mesh.position.y <= 0.2) {
+                this.particles?.createExplosion?.(g.mesh.position, 0x38bdf8, 25);
+                sounds.play('enemyDestroy', { volume: 0.85 });
+                for (const enemy of enemies) {
+                    if (!enemy || enemy.isDead) continue;
+                    const d = g.mesh.position.distanceTo(enemy.position);
+                    if (d <= g.radius) {
+                        const pushDir = new THREE.Vector3().subVectors(enemy.position, g.mesh.position).normalize();
+                        pushDir.y = 0.4;
+                        enemy.takeDamage(g.damage, 3, true, pushDir);
+                        if (enemy.knockbackVelocity) enemy.knockbackVelocity.addScaledVector(pushDir, 30);
+                    }
+                }
+                this.scene.remove(g.mesh);
+                g.mesh.geometry?.dispose();
+                g.mesh.material?.dispose();
+                this.activeGrenades.splice(i, 1);
+            }
+        }
+
+        // Cập nhật Trạm cứu thương dã chiến
+        for (let i = this.activeBeacons.length - 1; i >= 0; i--) {
+            const b = this.activeBeacons[i];
+            b.timer -= delta;
+            b.tickTimer += delta;
+            if (b.tickTimer >= 1.0) {
+                b.tickTimer = 0;
+                if (this.position.distanceTo(b.position) <= b.radius) {
+                    this.heal(15);
+                    this.particles?.createImpactSparks?.(this.position, new THREE.Vector3(0, 1, 0), 0x10b981, 10);
+                }
+                const coopPlayers = window.game?.coopPlayers || [];
+                for (const teammate of coopPlayers) {
+                    if (teammate !== this && teammate.position && teammate.position.distanceTo(b.position) <= b.radius) {
+                        teammate.heal?.(15);
+                    }
+                }
+            }
+            if (b.timer <= 0) {
+                this.scene.remove(b.group);
+                this.activeBeacons.splice(i, 1);
+            }
+        }
+
+        // Cập nhật Tháp súng mini tự động
+        for (let i = this.activeTurrets.length - 1; i >= 0; i--) {
+            const t = this.activeTurrets[i];
+            t.timer -= delta;
+            t.fireCooldown -= delta;
+
+            let closest = null;
+            let minDist = t.range;
+            for (const enemy of enemies) {
+                if (!enemy || enemy.isDead || !enemy.active) continue;
+                const d = t.position.distanceTo(enemy.position);
+                if (d < minDist) {
+                    minDist = d;
+                    closest = enemy;
+                }
+            }
+
+            if (closest) {
+                const toEnemy = new THREE.Vector3().subVectors(closest.position, t.position);
+                t.headGroup.rotation.y = Math.atan2(toEnemy.x, toEnemy.z);
+                if (t.fireCooldown <= 0) {
+                    t.fireCooldown = t.fireRate;
+                    closest.takeDamage(t.damage, 2, false, null);
+                    sounds.play('pistol', { volume: 0.45, pitchVariation: 0.2 });
+                    this.particles?.createImpactSparks?.(closest.position, new THREE.Vector3(0, 1, 0), 0xfb923c, 6);
+                }
+            }
+
+            if (t.timer <= 0) {
+                this.scene.remove(t.group);
+                this.activeTurrets.splice(i, 1);
+            }
+        }
+
+        // Cập nhật Lốc xoáy bão cát
+        for (let i = this.activeVortexes.length - 1; i >= 0; i--) {
+            const v = this.activeVortexes[i];
+            v.timer -= delta;
+            v.tickTimer += delta;
+            v.ring.rotation.z += delta * 5.0;
+
+            for (const enemy of enemies) {
+                if (!enemy || enemy.isDead || !enemy.active) continue;
+                const d = v.position.distanceTo(enemy.position);
+                if (d <= v.radius) {
+                    enemy.position.lerp(v.position, delta * 2.8);
+                    enemy.speed = Math.min(enemy.speed || 3.5, 1.8);
+                    if (v.tickTimer >= 0.5) {
+                        enemy.takeDamage(18, 2, false, null);
+                    }
+                }
+            }
+            if (v.tickTimer >= 0.5) v.tickTimer = 0;
+
+            if (v.timer <= 0) {
+                this.scene.remove(v.group);
+                this.activeVortexes.splice(i, 1);
+            }
+        }
+    }
+
+    // Hàm hỗ trợ tương thích ngược
     triggerShockwave(radius = 7.0, pushForce = 30, damage = 25) {
         const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
         for (const enemy of enemies) {
@@ -1011,6 +1455,9 @@ export class PlayerController {
                 this.activeSkillEffect = null;
             }
         }
+        // Cập nhật các thực thể kỹ năng độc đáo (Trạm hồi máu, Tháp súng, Lốc xoáy, Lựu đạn...)
+        this.updateActiveSkills(delta, arena, enemies);
+
         // Noi tai tu phuc hoi mau (Xac uop / Mummy)
         if (this.passiveRegenRate > 0 && this.health < this.maxHealth * 0.5 && !this.isDead && !this.isDowned) {
             this.health = Math.min(this.maxHealth * 0.5, this.health + this.passiveRegenRate * delta);
@@ -1373,6 +1820,18 @@ export class PlayerController {
         this.isGrounded = true;
         this.dodgeCooldown = 0;
         this.shieldRegenTimer = 0;
+        this.riotChargeTimer = 0;
+        this.bulletFrenzyTimer = 0;
+        this.shadowVeilTimer = 0;
+        this.assassinCritReady = false;
+        if (this.activeBeacons) for (const b of this.activeBeacons) this.scene.remove(b.group);
+        if (this.activeTurrets) for (const t of this.activeTurrets) this.scene.remove(t.group);
+        if (this.activeVortexes) for (const v of this.activeVortexes) this.scene.remove(v.group);
+        if (this.activeGrenades) for (const g of this.activeGrenades) this.scene.remove(g.mesh);
+        this.activeBeacons = [];
+        this.activeTurrets = [];
+        this.activeVortexes = [];
+        this.activeGrenades = [];
         if (this.model) this.model.rotation.y = Math.PI;
         this.healthBar?.update(this.position, this.health, this.maxHealth, true);
         if (this.holdingAction) this.holdingAction.play();

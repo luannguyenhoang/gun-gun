@@ -452,6 +452,11 @@ export class Zombie {
             amount = Math.round(amount * 1.25);
         }
 
+        // Hiệu ứng Suy Yếu mục tiêu từ Radar (Vulnerability Scan): tăng thêm 35% sát thương nhận vào
+        if (this.vulnerableTimer > 0) {
+            amount = Math.round(amount * (this.vulnerableMultiplier || 1.35));
+        }
+
         const ac = this.armorClass || 0;
         const isPenetrated = (penPower >= ac) || (this.armor <= 0);
         let healthDmg = 0;
@@ -614,6 +619,11 @@ export class Zombie {
                 this.takeDamage(this.burnDamage || 8, 1, false, null);
             }
         }
+        // Xử lý hiệu ứng Suy Yếu (Vulnerability)
+        if (this.vulnerableTimer > 0) {
+            this.vulnerableTimer -= delta;
+        }
+
         // Xử lý hiệu ứng Đóng băng (Freeze): bất động hoàn toàn
         if (this.freezeTimer > 0) {
             this.freezeTimer -= delta;
