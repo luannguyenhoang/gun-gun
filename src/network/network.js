@@ -23,7 +23,7 @@ export class NetworkRoom {
         this.startedEpoch = null;
     }
 
-    async create(name, character = 'soldier') {
+    async create(name, character = 'police') {
         return new Promise((resolve, reject) => {
             const code = Math.random().toString(36).substring(2, 6).toUpperCase();
             this.peer = new window.Peer('gungun-room-' + code);
@@ -52,7 +52,7 @@ export class NetworkRoom {
             this.peer.on('connection', (conn) => {
                 let pId = 'p' + Math.random().toString(36).substring(2, 8);
                 let pName = 'Player';
-                let pChar = 'soldier';
+                let pChar = 'police';
                 let clientState = { id: pId, conn, input: {}, commands: [], ack: 0 };
                 this.connections.push(clientState);
                 
@@ -97,7 +97,7 @@ export class NetworkRoom {
         this.game.showRoomState({ code: this.code, host: 'host', you: 'host', players: this.players, isHost: true });
     }
 
-    async join(code, name, character = 'soldier') {
+    async join(code, name, character = 'police') {
         return new Promise((resolve, reject) => {
             code = code.toUpperCase();
             this.peer = new window.Peer();
@@ -405,7 +405,7 @@ export class NetworkRoom {
     }
 }
 
-export function makeRemotePlayer(scene, loader, id, name, characterId = 'soldier') {
+export function makeRemotePlayer(scene, loader, id, name, characterId = 'police') {
     const group = new THREE.Group();
     const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.35, 0.8, 4, 8), new THREE.MeshStandardMaterial({ color: 0x44aaff, emissive: 0x113355 }));
     const marker = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.53, 24), new THREE.MeshBasicMaterial({ color: 0x44ddff, side: THREE.DoubleSide }));

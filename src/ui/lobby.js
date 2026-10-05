@@ -22,8 +22,10 @@ export class RoomLobby {
 
     load(character) {
         if (!this.models.has(character)) {
+            const config = CHARACTER_CONFIGS[character] || CHARACTER_CONFIGS[normalizeCharacter(character)];
+            const file = config ? config.modelFile : 'character-male-d.glb';
             this.models.set(character, new Promise((resolve, reject) => this.loader.load(
-                `assets/models/${CHARACTER_CONFIGS[character].modelFile}`, resolve, undefined, reject)));
+                `assets/models/${file}`, resolve, undefined, reject)));
         }
         return this.models.get(character);
     }
@@ -92,11 +94,12 @@ export class RoomLobby {
             label.className = 'lobby-nameplate';
             this.labels.append(label);
             if (!player) { label.textContent = '+ Chờ đồng đội'; continue; }
-            const character = normalizeCharacter(player.character);
+            const character = player.character || 'police';
             const name = document.createElement('strong');
             name.textContent = player.name + (player.id === data.you ? ' (Bạn)' : '');
+            const charLabel = CHARACTER_CONFIGS[character]?.label || CHARACTER_CONFIGS[normalizeCharacter(character)]?.label || 'Chiến binh';
             const role = document.createElement('small');
-            role.textContent = `${player.id === data.host ? '★ CHỦ PHÒNG' : 'ĐỒNG ĐỘI'} · ${CHARACTER_CONFIGS[character].label}`;
+            role.textContent = `${player.id === data.host ? '★ CHỦ PHÒNG' : 'ĐỒNG ĐỘI'} · ${charLabel}`;
             label.append(name, role);
             let member = this.members.get(player.id);
             if (member?.character !== character) {

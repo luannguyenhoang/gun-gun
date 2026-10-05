@@ -641,7 +641,7 @@ export class UIManager {
 
             // Cập nhật Widget Kỹ năng chủ động Nhân vật (phím Q)
             if (this.skillWidget && player) {
-                const cfg = CHARACTER_CONFIGS[player.characterId] || CHARACTER_CONFIGS.soldier;
+                const cfg = CHARACTER_CONFIGS[player.characterId] || CHARACTER_CONFIGS.police;
                 const skill = cfg?.activeSkill;
                 if (skill) {
                     if (this.skillNameLabel && this._lastSkillName !== skill.name) {
@@ -1240,7 +1240,7 @@ export class UIManager {
 
             let marker = this.teammateMarkers.get(mate.id);
             if (!marker) {
-                marker = this.createTeammateMarker(mate.id, mate.characterId || 'soldier');
+                marker = this.createTeammateMarker(mate.id, mate.characterId || 'police');
                 if (!marker) continue;
             }
 

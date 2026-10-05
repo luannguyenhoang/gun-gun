@@ -9,7 +9,7 @@ export class CharacterShowroom {
         this.dialog = document.getElementById('character-screen');
         this.stage = document.getElementById('character-stage');
         this.entries = new Map();
-        this.selected = this.game.characterId || 'soldier';
+        this.selected = this.game.characterId || 'police';
         this.mode = 'characters';
         this.loadout = this.getSavedLoadout();
         this.weaponId = this.loadout.primary;
@@ -732,7 +732,7 @@ export class CharacterShowroom {
             const holding = gltf.animations?.find(clip => clip.name === 'holding-right');
             if (holding) mixer.clipAction(holding).play();
             model.rotation.y = -0.35;
-            const currentSelected = this.selected || this.game.characterId || 'soldier';
+            const currentSelected = this.selected || this.game.characterId || 'police';
             model.visible = (id === currentSelected);
             this.scene.add(model);
             const entry = { model, mixer, thumbnail: false };
@@ -972,7 +972,7 @@ export class CharacterShowroom {
             // Chế độ Nhân vật
             if (this.armoryActionGroup) this.armoryActionGroup.style.display = 'none';
             this.confirm.style.display = '';
-            const charCfg = CHARACTER_CONFIGS[this.selected] || CHARACTER_CONFIGS.soldier;
+            const charCfg = CHARACTER_CONFIGS[this.selected] || CHARACTER_CONFIGS.police;
             const isUnlocked = isCharacterUnlocked(this.selected);
             const equipped = (this.selected === this.game.characterId);
 
@@ -1083,7 +1083,7 @@ export class CharacterShowroom {
         this.width = 0;
         this.height = 0;
 
-        const charId = this.selected || this.game.characterId || 'soldier';
+        const charId = this.selected || this.game.characterId || 'police';
         for (const [key, entry] of this.entries) {
             if (entry) {
                 entry.model.visible = (key === charId);
@@ -1156,7 +1156,7 @@ export class CharacterShowroom {
             if (entry) this.attachGun(entry);
         }
 
-        const curChar = this.selected || this.game.characterId || 'soldier';
+        const curChar = this.selected || this.game.characterId || 'police';
         if (this.entries.get(curChar)) {
             this.status.hidden = true;
         }
@@ -1245,7 +1245,7 @@ export class CharacterShowroom {
             entry.thumbnail = true;
             this.width = 0;
         }
-        const currentSelected = this.selected || this.game.characterId || 'soldier';
+        const currentSelected = this.selected || this.game.characterId || 'police';
         for (const [id, entry] of this.entries) if (entry) entry.model.visible = (id === currentSelected);
         if (this.width !== width || this.height !== height) {
             this.width = width;

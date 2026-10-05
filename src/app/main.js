@@ -23,7 +23,7 @@ class CyberArenaGame {
         this.score = 0;
         this.highScore = parseInt(localStorage.getItem('cyber_arena_highscore') || '0', 10);
         this.currentWave = 1; // Infinite Phase counter
-        this.characterId = normalizeCharacter(localStorage.getItem('cyber_arena_character') || 'soldier');
+        this.characterId = normalizeCharacter(localStorage.getItem('cyber_arena_character') || 'police');
         this.nextWaveTimer = 0;
         this.clock = new THREE.Clock();
         this.network = new NetworkRoom(this);
@@ -569,7 +569,7 @@ class CyberArenaGame {
         this.homeMenu?.room(null);
     }
 
-    ensureCoopPlayer(id, name, character = 'soldier') {
+    ensureCoopPlayer(id, name, character = 'police') {
         if (id === this.network.playerId) return this.player;
         if (this.remotePlayers.has(id)) {
             const remote = this.remotePlayers.get(id);
@@ -741,7 +741,7 @@ class CyberArenaGame {
         }
 
         const botId = 'bot_practice';
-        const bot = this.ensureCoopPlayer(botId, 'Chiến binh AI', 'soldier');
+        const bot = this.ensureCoopPlayer(botId, 'Chiến binh AI', 'police');
         bot.isBot = true;
         bot.botShootCooldown = 0;
         // Đặt vị trí ban đầu ngoài tầm nhìn màn hình (15m) để quan sát định vị rìa màn hình

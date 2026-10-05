@@ -252,28 +252,30 @@ export class Zombie {
     setupVisuals(models) {
         if (!models) return;
 
-        let baseModelKey = 'character-zombie';
-        if (this.type === 'sprinter') {
-            baseModelKey = models['character-n'] ? 'character-n' : (models['character-skeleton'] ? 'character-skeleton' : 'character-zombie');
+        let baseModelKey = 'mini-male-f';
+        if (this.type === 'sprinter' || this.type === 'shadow_stalker') {
+            baseModelKey = 'mini-female-a';
+        } else if (this.type === 'spitter' || this.type === 'toxic_spitter') {
+            baseModelKey = 'mini-male-a';
         } else if (this.type === 'boss') {
-            baseModelKey = models['character-d'] ? 'character-d' : (models['character-vampire'] ? 'character-vampire' : 'character-zombie');
-        } else if (this.type === 'orc_brawler') {
-            baseModelKey = models['character-d'] ? 'character-d' : 'character-zombie';
-        } else if (this.type === 'cyber_enforcer') {
-            baseModelKey = models['character-k'] ? 'character-k' : 'character-zombie';
-        } else if (this.type === 'shadow_stalker') {
-            baseModelKey = models['character-n'] ? 'character-n' : 'character-zombie';
-        } else if (this.type === 'toxic_spitter') {
-            baseModelKey = models['character-p'] ? 'character-p' : 'character-zombie';
+            baseModelKey = 'mini-male-c';
+        } else if (this.type === 'crawler') {
+            baseModelKey = 'mini-female-d';
+        } else if (this.type === 'tank' || this.type === 'orc_brawler' || this.type === 'giant') {
+            baseModelKey = 'mini-male-f';
+        } else {
+            // Walker, bomber...
+            baseModelKey = Math.random() < 0.5 ? 'mini-male-f' : 'mini-female-d';
         }
 
-        const base = models[baseModelKey] || models['character-zombie'];
+        const base = models[baseModelKey] || models['mini-male-f'] || models['character-zombie'] || Object.values(models)[0];
         if (!base) return;
 
         this.mesh = SkeletonUtils.clone(base.scene);
         this.mesh.scale.set(this.scale, this.scale, this.scale);
-        if (this.type === 'sprinter') this.mesh.scale.multiply(new THREE.Vector3(0.82, 1, 0.82));
-        if (this.type === 'giant') this.mesh.scale.multiply(new THREE.Vector3(1.15, 1, 1.15));
+        if (this.type === 'sprinter') this.mesh.scale.multiply(new THREE.Vector3(0.85, 1, 0.85));
+        if (this.type === 'giant' || this.type === 'tank') this.mesh.scale.multiply(new THREE.Vector3(1.25, 1.15, 1.25));
+        if (this.type === 'boss') this.mesh.scale.multiply(new THREE.Vector3(1.6, 1.45, 1.6));
         this.mesh.position.copy(this.position);
         this.mesh.rotation.y = Math.random() * Math.PI * 2;
 
@@ -285,23 +287,26 @@ export class Zombie {
                 child.material = child.material.clone();
                 this.meshMaterials.push(child.material);
 
-                // Chi doi mau voi model khong co texture map san
-                if (!child.material.map) {
-                    if (this.type === 'giant') {
-                        child.material.color.setHex(0x996044);
-                    } else if (this.type === 'bomber') {
-                        child.material.color.setHex(0x9d4aab);
-                    } else if (this.type === 'spitter') {
-                        child.material.color.setHex(0x709d28);
-                    } else if (this.type === 'tank') {
-                        child.material.color.setHex(0x554433);
-                    } else if (this.type === 'boss') {
-                        child.material.color.setHex(0x770022);
-                    } else if (this.type === 'sprinter' || this.type === 'crawler') {
-                        child.material.color.setHex(0xffd34e);
-                    } else if (this.type === 'boomer') {
-                        child.material.color.setHex(0x55aa33);
-                    }
+                // Áp dụng tông màu Zombie cho mô hình Mini
+                if (this.type === 'boss') {
+                    child.material.color.setHex(0x992233);
+                    child.material.emissive = new THREE.Color(0xaa1122);
+                    child.material.emissiveIntensity = 0.35;
+                } else if (this.type === 'spitter' || this.type === 'toxic_spitter') {
+                    child.material.color.setHex(0x448833);
+                    child.material.emissive = new THREE.Color(0x22cc44);
+                    child.material.emissiveIntensity = 0.30;
+                } else if (this.type === 'sprinter' || this.type === 'shadow_stalker') {
+                    child.material.color.setHex(0x557766);
+                    child.material.emissive = new THREE.Color(0x38bdf8);
+                    child.material.emissiveIntensity = 0.20;
+                } else if (this.type === 'tank' || this.type === 'orc_brawler' || this.type === 'giant') {
+                    child.material.color.setHex(0x556644);
+                    child.material.emissive = new THREE.Color(0x336622);
+                    child.material.emissiveIntensity = 0.25;
+                } else {
+                    // Zombie Walker thường (màu da xanh tái)
+                    child.material.color.setHex(0x668866);
                 }
             }
         });
@@ -975,13 +980,11 @@ export class WaveManager {
         });
 
         await Promise.all([
-            load('character-zombie', 'character-zombie.glb'),
-            load('character-skeleton', 'character-skeleton.glb'),
-            load('character-vampire', 'character-vampire.glb'),
-            load('character-d', 'character-d.glb'),
-            load('character-k', 'character-k.glb'),
-            load('character-n', 'character-n.glb'),
-            load('character-p', 'character-p.glb')
+            load('mini-male-f', 'character-male-f.glb'),
+            load('mini-female-d', 'character-female-d.glb'),
+            load('mini-female-a', 'character-female-a.glb'),
+            load('mini-male-a', 'character-male-a.glb'),
+            load('mini-male-c', 'character-male-c.glb')
         ]);
     }
 

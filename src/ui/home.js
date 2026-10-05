@@ -58,7 +58,8 @@ export class HomeMenu {
 
     refreshLoadout() {
         const gun = getStartingWeapon(this.game.weapons.startingWeaponId);
-        document.getElementById('home-equipped-character').textContent = CHARACTER_CONFIGS[this.game.characterId].label;
+        const cfg = CHARACTER_CONFIGS[this.game.characterId] || CHARACTER_CONFIGS.police;
+        document.getElementById('home-equipped-character').textContent = cfg?.label || 'CẢNH SÁT TRƯỞNG';
         document.getElementById('home-equipped-weapon').textContent = gun.name;
         document.getElementById('home-equipped-icon').src = gun.icon;
     }

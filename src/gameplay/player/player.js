@@ -9,7 +9,7 @@ const _tempBoxMax = new THREE.Vector3();
 const _tempPlayerHitPoint = new THREE.Vector3();
 
 export class PlayerController {
-    constructor(camera, domElement, arena, weaponSystem, bindInput = true, characterId = 'soldier') {
+    constructor(camera, domElement, arena, weaponSystem, bindInput = true, characterId = 'police') {
         this.camera = camera;
         this.domElement = domElement;
         this.arena = arena;
@@ -463,7 +463,7 @@ export class PlayerController {
     }
 
     applyCharacterStats() {
-        const cfg = CHARACTER_CONFIGS[this.characterId] || CHARACTER_CONFIGS.soldier;
+        const cfg = CHARACTER_CONFIGS[this.characterId] || CHARACTER_CONFIGS.police;
         const passives = cfg?.passives || {};
         this.maxHealth = 100 + (passives.healthBonus || 0);
         this.health = Math.min(this.health || this.maxHealth, this.maxHealth);
@@ -487,7 +487,7 @@ export class PlayerController {
         if (this.isDead || this.isDowned) return false;
         if (this.activeSkillCooldownTimer > 0) return false;
 
-        const cfg = CHARACTER_CONFIGS[this.characterId] || CHARACTER_CONFIGS.soldier;
+        const cfg = CHARACTER_CONFIGS[this.characterId] || CHARACTER_CONFIGS.police;
         const skill = cfg.activeSkill;
         if (!skill) return false;
 
