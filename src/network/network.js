@@ -403,7 +403,14 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
             this.weapons?.updateHeldPose(group);
             healthBar.update(group.position, this.isDowned ? (this.bleedOutTimer || 30.0) : this.health, this.isDowned ? 30.0 : this.maxHealth, group.visible);
         },
-        checkHit(start, end, ray) { const hit = ray.intersectBox(new THREE.Box3(this.position.clone().add(new THREE.Vector3(-.55, 0, -.55)), this.position.clone().add(new THREE.Vector3(.55, 1.6, .55))), new THREE.Vector3()); return hit ? { hit: true, point: hit } : { hit: false }; },
+        checkHit(start, end, ray) {
+            if (this.isDead || this.isDowned) return { hit: false };
+            const box = new THREE.Box3(this.position.clone().add(new THREE.Vector3(-.55, 0, -.55)), this.position.clone().add(new THREE.Vector3(.55, 1.6, .55)));
+            const point = ray.intersectBox(box, new THREE.Vector3());
+            // Test only the distance travelled this frame, just like PlayerController.
+            return point && start.distanceToSquared(point) <= start.distanceToSquared(end)
+                ? { hit: true, point } : { hit: false };
+        },
         takeDamage(amount) {
             if (this.isDead || this.isDowned || this.isDodging || this.invulnerability > 0) return;
             this.shieldRegenTimer = 4;

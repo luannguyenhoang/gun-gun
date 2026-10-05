@@ -1356,8 +1356,9 @@ export class PlayerController {
     }
 
     update(delta, arena, enemies = []) {
+        const authoritative = !window.game?.network?.active || window.game.network.host;
         // Duy tri trang thai day mau va song sot khi bat Che do Developer
-        if (this.developerMode || window.developerMode) {
+        if (authoritative && (this.developerMode || window.developerMode)) {
             this.health = this.maxHealth;
             this.shield = this.maxShield;
             this.isDead = false;
@@ -1439,9 +1440,9 @@ export class PlayerController {
         }
 
         // Shield auto-regeneration
-        if (this.shieldRegenTimer > 0) {
+        if (authoritative && this.shieldRegenTimer > 0) {
             this.shieldRegenTimer -= delta;
-        } else if (this.shield < this.maxShield) {
+        } else if (authoritative && this.shield < this.maxShield) {
             this.shield = Math.min(this.maxShield, this.shield + this.shieldRegenRate * delta);
         }
 
@@ -1459,7 +1460,7 @@ export class PlayerController {
         this.updateActiveSkills(delta, arena, enemies);
 
         // Noi tai tu phuc hoi mau (Xac uop / Mummy)
-        if (this.passiveRegenRate > 0 && this.health < this.maxHealth * 0.5 && !this.isDead && !this.isDowned) {
+        if (authoritative && this.passiveRegenRate > 0 && this.health < this.maxHealth * 0.5 && !this.isDead && !this.isDowned) {
             this.health = Math.min(this.maxHealth * 0.5, this.health + this.passiveRegenRate * delta);
         }
 

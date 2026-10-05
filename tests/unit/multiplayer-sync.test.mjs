@@ -178,3 +178,45 @@ test('automatic rescue completes after 3.5 seconds and uses the nearby rescuer e
  Game.prototype.updateReviveZones.call(g,.2);
  assert.equal(host.isDead,false);assert.equal(host.health,60);
 });
+
+test('gameOver cannot stop the room when only the host is dead', () => {
+ const host={isDead:true,isDowned:false}, guest={isDead:false,isDowned:false,health:100};
+ const g={state:'PLAYING',network:{active:true},coopPlayers:[host,guest]};
+ assert.equal(Game.prototype.gameOver.call(g),false);
+ assert.equal(g.state,'PLAYING');assert.equal(guest.health,100);assert.equal(guest.isDead,false);
+});
+
+test('a contradictory GAMEOVER snapshot preserves the living guest', () => {
+ const g=game();let ended=0;g.gameOver=()=>ended++;
+ Game.prototype.applyCoopSnapshot.call(g,{state:'GAMEOVER',players:[
+  {id:'host',position:[0,0,0],health:0,shield:0,isDead:true},
+  {id:'guest',position:[2,0,0],health:85,shield:20,isDead:false,isDowned:false}
+ ]},'guest');
+ assert.equal(ended,0);assert.equal(g.player.health,85);assert.equal(g.player.isDead,false);
+});
+
+test('host and guest hits send the same damage result to every viewer, without duplicate popups', () => {
+ const host=game(), clients=[game(),game()];
+ host.network={active:true,host:true,playerId:'host'};host.networkEvents=[];
+ host.ui={triggerHitmarker(){this.markers=(this.markers||0)+1;},showDamageNumber(){}};
+ Game.prototype.onHitEnemy.call(host,37,false,new THREE.Vector3(1,1,1),{healthDamage:12,armorDamage:25,isBlunt:true},'guest');
+ assert.equal(host.ui.markers,undefined);
+ Game.prototype.onHitEnemy.call(host,20,true,new THREE.Vector3(1,1,1),{healthDamage:20,armorDamage:0},'host');
+ assert.equal(host.ui.markers,1);
+ for(const [i,g] of clients.entries()) {
+  const seen=[];let markers=0;g.ui={showDamageNumber(...args){seen.push(args);},triggerHitmarker(){markers++;}};
+  const snap={players:[],events:structuredClone(host.networkEvents)};
+  Game.prototype.applyCoopSnapshot.call(g,snap,i===0?'guest':'observer');
+  Game.prototype.applyCoopSnapshot.call(g,snap,i===0?'guest':'observer');
+  assert.equal(seen.length,2);assert.equal(seen[0][4].healthDamage,12);assert.equal(seen[0][4].armorDamage,25);
+  assert.equal(markers,i===0?1:0);
+ }
+});
+
+test('enemy bullets cannot damage a remote player before reaching their body', () => {
+ const p=makeRemotePlayer(new THREE.Scene(),null,'guest','Guest');p.position.set(0,0,20);
+ const start=new THREE.Vector3(0,1,0), ray=new THREE.Ray(start,new THREE.Vector3(0,0,1));
+ assert.equal(p.checkHit(start,new THREE.Vector3(0,1,1),ray).hit,false);
+ assert.equal(p.checkHit(start,new THREE.Vector3(0,1,21),ray).hit,true);
+ p.isDowned=true;assert.equal(p.checkHit(start,new THREE.Vector3(0,1,21),ray).hit,false);
+});

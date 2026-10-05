@@ -30,6 +30,8 @@ class CyberArenaGame {
         this.remotePlayers = new Map();
         this.remoteProjectiles = new Map();
         this.networkEvents = [];
+        this.hitEventSeq = 0;
+        this.lastHitEventId = 0;
         this.practiceBot = null;
         this.animate = this.animate.bind(this);
         this.radarElapsed = 0;
@@ -309,6 +311,8 @@ class CyberArenaGame {
         this.state = 'PLAYING';
         this.pauseMenuOpen = false;
         this.networkEvents = [];
+        this.hitEventSeq = 0;
+        this.lastHitEventId = 0;
         if (this.screenMenu) this.screenMenu.style.display = 'none';
         if (this.screenPause) this.screenPause.style.display = 'none';
         if (this.screenGameOver) this.screenGameOver.style.display = 'none';
@@ -398,6 +402,8 @@ class CyberArenaGame {
     }
 
     gameOver() {
+        // A player's death never ends a cooperative match while somebody can still play.
+        if (this.network.active && (!this.coopPlayers.length || this.coopPlayers.some(p => !p.isDead && !p.isDowned))) return false;
         this.pauseMenuOpen = false;
         if (this.screenPause) this.screenPause.style.display = 'none';
         this.state = 'GAMEOVER';
@@ -421,9 +427,16 @@ class CyberArenaGame {
         }, 1200);
     }
 
-    onHitEnemy(damage, isCrit, hitPoint, hitResult = null) {
-        this.ui.triggerHitmarker(isCrit);
+    onHitEnemy(damage, isCrit, hitPoint, hitResult = null, shooterId = this.network.playerId) {
+        if (!this.network.active || shooterId === this.network.playerId) this.ui.triggerHitmarker(isCrit);
         this.ui.showDamageNumber(damage, isCrit, hitPoint, this.camera, hitResult);
+        if (this.network.active && this.network.host && hitPoint) {
+            (this.networkEvents ||= []).push({
+                type: 'hit', id: this.hitEventSeq = (this.hitEventSeq || 0) + 1,
+                shooterId, damage, crit: !!isCrit, position: hitPoint.toArray(),
+                result: hitResult ? { ...hitResult } : null
+            });
+        }
     }
 
     onEnemyKilled(enemy) {
@@ -1134,7 +1147,11 @@ class CyberArenaGame {
 
         // Đồng bộ hiệu ứng đường đạn, ánh chớp nòng và âm thanh khi người chơi khác bắn
         for (const ev of snapshot.events || []) {
-            if (ev.type === 'shot' && ev.shooterId !== localId) {
+            if (ev.type === 'hit' && ev.id > (this.lastHitEventId || 0)) {
+                this.lastHitEventId = ev.id;
+                if (ev.shooterId === localId) this.ui.triggerHitmarker(ev.crit);
+                this.ui.showDamageNumber(ev.damage, ev.crit, new THREE.Vector3().fromArray(ev.position), this.camera, ev.result);
+            } else if (ev.type === 'shot' && ev.shooterId !== localId) {
                 const origin = new THREE.Vector3().fromArray(ev.origin);
                 const target = new THREE.Vector3().fromArray(ev.target);
                 const dir = new THREE.Vector3().subVectors(target, origin).normalize();
@@ -1205,6 +1222,8 @@ class CyberArenaGame {
             remote.netTarget = nextPosition;
             remote.netSampleTime = sampleTime;
             remote.position.copy(nextPosition); remote.health = state.health; remote.shield = state.shield;
+            remote.maxHealth = state.maxHealth ?? remote.maxHealth;
+            remote.maxShield = state.maxShield ?? remote.maxShield;
             remote.isDead = state.isDead; remote.isDowned = state.isDowned;
             remote.bleedOutTimer = state.bleedOutTimer ?? 30; remote.reviveProgress = state.reviveProgress || 0;
             remote.isBeingRevived = !!state.isBeingRevived;
@@ -1242,7 +1261,8 @@ class CyberArenaGame {
                 this.waveManager.enemies.splice(i, 1);
             }
         }
-        if (snapshot.state === 'GAMEOVER' && this.state !== 'GAMEOVER') this.gameOver();
+        if (snapshot.state === 'GAMEOVER' && this.state !== 'GAMEOVER' &&
+            snapshot.players?.some(p => p.id === localId) && snapshot.players.every(p => p.isDead || p.isDowned)) this.gameOver();
         const pickupIds = new Set((snapshot.pickups || []).map(pickup => pickup.id));
         for (const state of snapshot.pickups || []) {
             let pickup = this.pickups.pickups.find(candidate => candidate.id === state.id);
@@ -1326,7 +1346,7 @@ class CyberArenaGame {
                 for (const remote of this.remotePlayers.values()) {
                     this.network.processCommands(remote);
                     remote.weapons.update(delta, this.arena, this.waveManager.enemies, remote,
-                        (dmg, crit, pt, hitResult) => this.onHitEnemy(dmg, crit, pt, hitResult));
+                        (dmg, crit, pt, hitResult) => this.onHitEnemy(dmg, crit, pt, hitResult, remote.id));
                 }
             } else {
                 this.waveManager.bombs.update(delta, [], false);
@@ -1382,7 +1402,7 @@ class CyberArenaGame {
             // Update UI & Radar with 4 Portals, Teammates, and Tactical Airdrop Zone
             const teammates = Array.from(this.remotePlayers.values());
             this.ui.updateStats(this.player, this.waveManager, this.score);
-            this.ui.updateOverheadVitals(this.player, this.camera, this.renderer.domElement);
+            this.ui.updateOverheadVitals(this.player, this.camera, this.renderer.domElement, teammates);
             this.ui.updateTeammateIndicators(teammates, this.player, this.camera);
             this.ui.updateTeamRoster(teammates, this.player);
             this.radarElapsed += delta;

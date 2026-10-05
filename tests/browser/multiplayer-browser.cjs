@@ -76,6 +76,84 @@ const assert = require('node:assert/strict');
         });
         await guest.evaluate(() => { game.player.position.set(0, 0, 8); game.player.developerMode = false; window.developerMode = false; });
         await guest.waitForFunction(() => game.waveManager.enemies.length === 0);
+        const guestPlayerId = await guest.evaluate(() => game.network.playerId);
+        await host.evaluate(id => {
+            game.player.position.set(-3,0,8);
+            game.player.health=73; game.player.shield=42; game.player.maxShield=120; game.player.shieldRegenTimer=999;
+            const mate=game.remotePlayers.get(id); mate.health=68; mate.shield=30; mate.maxShield=150; mate.shieldRegenTimer=999;
+        },guestPlayerId);
+        await guest.waitForFunction(() => game.player.health===68 && game.player.shield===30 && game.remotePlayers.get('host').maxShield===120);
+        for (const [page,id,hp,shieldPct] of [[host,guestPlayerId,'68','20%'],[guest,'host','73','35%']]) {
+            await page.waitForFunction(({id,hp,shieldPct}) => {
+                const meter=game.ui.teammateVitals.get(id);
+                return meter && !meter.hidden && meter.querySelector('.overhead-health strong').textContent===hp && meter.querySelector('.overhead-shield > div').style.width===shieldPct;
+            },{id,hp,shieldPct});
+            assert.equal(await page.evaluate(id => {
+                const meter=game.ui.teammateVitals.get(id), local=game.ui.overheadVitals;
+                return getComputedStyle(meter).width===getComputedStyle(local).width && !game.remotePlayers.get(id).healthBar.group.visible && meter.querySelectorAll('[id]').length===0;
+            },id),true);
+        }
+        await fs.mkdir(path.join(root,'tests/artifacts'),{recursive:true});
+        await guest.waitForFunction(()=>game.remotePlayers.get('host').mesh.position.x < -2.8);
+        await guest.evaluate(()=>game.particles.clear());
+        await guest.screenshot({path:path.join(root,'tests/artifacts/multiplayer-vitals.png')});
+        console.log('PASS: both screens show matching health/shield meters and authoritative values');
+
+        for (const page of [host,guest]) await page.evaluate(() => {
+            game.testDamage=[];game.testMarkers=0;
+            const display=game.ui.showDamageNumber.bind(game.ui),marker=game.ui.triggerHitmarker.bind(game.ui);
+            game.ui.showDamageNumber=(amount,crit,pos,camera,result)=>{game.testDamage.push({amount,crit,result});display(amount,crit,pos,camera,result);};
+            game.ui.triggerHitmarker=crit=>{game.testMarkers++;marker(crit);};
+        });
+        await host.evaluate(id => {
+            const point=game.player.position.clone();point.z-=2;
+            game.onHitEnemy(37,false,point,{healthDamage:12,armorDamage:25,isBlunt:true},id);
+            game.onHitEnemy(20,true,point,{healthDamage:20,armorDamage:0,isBlunt:false},'host');
+        },guestPlayerId);
+        await guest.waitForFunction(() => game.testDamage.length===2);
+        assert.deepEqual(await guest.evaluate(()=>game.testDamage),await host.evaluate(()=>game.testDamage));
+        assert.equal(await host.evaluate(()=>game.testMarkers),1);
+        assert.equal(await guest.evaluate(()=>game.testMarkers),1);
+        console.log('PASS: host and guest damage numbers replicate; hitmarker belongs to the shooter');
+
+        const targetId=await host.evaluate(()=>{
+            game.testDamage=[];game.testMarkers=0;
+            game.waveManager.spawnSingleEnemy(game.player,0,'walker');
+            const enemy=game.waveManager.enemies.at(-1);
+            enemy.position.set(3,0,8);enemy.mesh.position.copy(enemy.position);
+            enemy.health=enemy.maxHealth=1000;enemy.armor=0;enemy.update=()=>{};
+            return enemy.id;
+        });
+        await guest.waitForFunction(id=>game.waveManager.enemies.some(e=>e.id===id),targetId);
+        await guest.evaluate(()=>{
+            game.testDamage=[];game.testMarkers=0;
+            game.weapons.fireCooldown=0;
+            const target=game.player.position.clone().set(3,1,8);
+            game.weapons.shoot(game.player.position.clone().add({x:0,y:1.2,z:0}),target,false,true,1,game.player);
+        });
+        await host.waitForFunction(()=>game.testDamage.length>0);
+        await guest.waitForFunction(()=>game.testDamage.length>0);
+        assert.deepEqual(await guest.evaluate(()=>game.testDamage),await host.evaluate(()=>game.testDamage));
+        assert.equal(await host.evaluate(()=>game.testMarkers),0);
+        assert.ok(await guest.evaluate(()=>game.testMarkers)>0);
+        await host.evaluate(()=>game.waveManager.clear());
+        console.log('PASS: a real guest projectile damages a zombie and displays the same damage on both screens');
+
+        await guest.evaluate(()=>game.player.position.set(8,0,8));
+        await host.waitForFunction(id=>game.remotePlayers.get(id).position.x>7,guestPlayerId);
+        await host.evaluate(()=>{game.player.health=0;game.player.die(true);game.gameOver();});
+        await guest.waitForFunction(()=>game.remotePlayers.get('host').isDead);
+        assert.equal(await host.evaluate(()=>game.state),'PLAYING');
+        assert.equal(await guest.evaluate(()=>game.state==='PLAYING' && !game.player.isDead && game.player.health===68 && game.player.inputEnabled),true);
+        await guest.keyboard.down('d');
+        try { await host.waitForFunction(id=>game.remotePlayers.get(id).position.x>9,guestPlayerId); }
+        finally { await guest.keyboard.up('d'); }
+        await guest.evaluate(()=>{game.weapons.fireCooldown=0;game.weapons.shoot(game.player.position.clone().add({x:0,y:1.2,z:0}),game.player.position.clone().add({x:0,y:1,z:-10}),false,true,1,game.player);});
+        await host.waitForFunction(id=>game.remotePlayers.get(id).processedSeq>0,guestPlayerId);
+        assert.equal(await host.evaluate(()=>game.state),'PLAYING');
+        await host.evaluate(()=>{game.player.revive();game.player.position.set(0,0,8);});
+        await guest.evaluate(()=>game.player.position.set(0,0,8));
+        console.log('PASS: host death leaves the guest alive, moving and able to shoot');
         await guest.evaluate(() => game.lootingSystem.openBackpack());
         await guest.keyboard.press('Escape');
         await guest.waitForFunction(() => !game.lootingSystem.isBackpackOpen && !game.player.isBackpackOpen);

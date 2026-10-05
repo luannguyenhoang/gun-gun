@@ -26,6 +26,7 @@ function getCharacterAvatarSvg(characterId) {
 export class UIManager {
     constructor() {
         this.overheadVitals = document.getElementById('player-overhead-vitals');
+        this.teammateVitals = new Map();
         this.healthFill = document.getElementById('health-fill');
         this.healthText = document.getElementById('health-text');
         this.shieldFill = document.getElementById('shield-fill');
@@ -230,21 +231,43 @@ export class UIManager {
         this._tempPromptNdc = new THREE.Vector3();
     }
 
-    updateOverheadVitals(player, camera, canvas) {
+    updateOverheadVitals(player, camera, canvas, teammates = []) {
         if (!this.overheadVitals) return;
-        // The local player's DOM meter replaces its small world-space duplicate.
-        if (player.healthBar) player.healthBar.group.visible = false;
-        const position = _tempMateWorldPos.copy(player.model?.position || player.position);
-        position.y += player.healthBar?.offsetY || 2.35;
-        _tempNdc.copy(position).project(camera);
-        const visible = !player.isDead && _tempNdc.z >= -1 && _tempNdc.z <= 1 && Math.abs(_tempNdc.x) <= 1 && Math.abs(_tempNdc.y) <= 1;
-        this.overheadVitals.hidden = !visible;
-        if (!visible) return;
         const rect = canvas.getBoundingClientRect();
-        this.overheadVitals.style.left = `${rect.left + (_tempNdc.x + 1) * rect.width / 2}px`;
-        this.overheadVitals.style.top = `${rect.top + (1 - _tempNdc.y) * rect.height / 2}px`;
-        this.overheadVitals.classList.toggle('low-health', player.health <= player.maxHealth * 0.3);
-        this.overheadVitals.title = `Máu: ${Math.ceil(player.health)}/${player.maxHealth} · Khiên: ${Math.ceil(player.shield)}/${player.maxShield}`;
+        const ids = new Set(teammates.map(mate => mate.id));
+        for (const [id, meter] of this.teammateVitals) {
+            if (!ids.has(id)) { meter.remove(); this.teammateVitals.delete(id); }
+        }
+        for (const subject of [player, ...teammates]) {
+            let meter = this.overheadVitals;
+            if (subject !== player) {
+                meter = this.teammateVitals.get(subject.id);
+                if (!meter) {
+                    meter = this.overheadVitals.cloneNode(true);
+                    meter.removeAttribute('id');
+                    meter.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+                    meter.dataset.playerId = subject.id;
+                    this.overheadVitals.parentElement.appendChild(meter);
+                    this.teammateVitals.set(subject.id, meter);
+                }
+            }
+            // The same DOM template and scale replace both local and remote 3D meters.
+            if (subject.healthBar) subject.healthBar.group.visible = false;
+            _tempMateWorldPos.copy(subject.model?.position || subject.mesh?.position || subject.position);
+            _tempMateWorldPos.y += 2.35;
+            _tempNdc.copy(_tempMateWorldPos).project(camera);
+            meter.hidden = !(_tempNdc.z >= -1 && _tempNdc.z <= 1 && Math.abs(_tempNdc.x) <= 1 && Math.abs(_tempNdc.y) <= 1);
+            if (meter.hidden) continue;
+            meter.style.left = `${rect.left + (_tempNdc.x + 1) * rect.width / 2}px`;
+            meter.style.top = `${rect.top + (1 - _tempNdc.y) * rect.height / 2}px`;
+            const health = Math.max(0, subject.health || 0), shield = Math.max(0, subject.shield || 0);
+            meter.querySelector('.overhead-health > div').style.width = `${Math.min(100, health / (subject.maxHealth || 100) * 100)}%`;
+            meter.querySelector('.overhead-shield > div').style.width = `${Math.min(100, shield / (subject.maxShield || 100) * 100)}%`;
+            meter.querySelector('.overhead-health strong').textContent = subject.isDead ? 'ĐÃ CHẾT' : subject.isDowned ? 'GỤC' : `${Math.ceil(health)}`;
+            meter.classList.toggle('low-health', health <= subject.maxHealth * 0.3);
+            meter.title = `${subject.name || 'Bạn'} · Máu: ${Math.ceil(health)}/${subject.maxHealth} · Giáp: ${Math.ceil(shield)}/${subject.maxShield}`;
+            meter.setAttribute('aria-label', meter.title);
+        }
     }
 
     updateStats(player, waveManager, score) {
@@ -1482,6 +1505,7 @@ export class UIManager {
 
     // Ẩn tất cả chỉ báo đồng đội ngoài màn hình (dùng khi tạm dừng hoặc kết thúc màn chơi)
     clearTeammateIndicators() {
+        for (const meter of this.teammateVitals.values()) meter.hidden = true;
         for (const marker of this.teammateMarkers.values()) {
             marker.el.style.display = 'none';
         }
