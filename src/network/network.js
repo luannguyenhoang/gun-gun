@@ -202,7 +202,18 @@ export class NetworkRoom {
             const body = {
                 type: 'sync',
                 epoch: this.startedEpoch,
-                input: { position: local.position.toArray(), aim: local.aimYaw, ads: !!local.isADS, revive: !!local.reviveRequested, moving: local.velocity.lengthSq() > 0.1 },
+                input: {
+                    position: local.position.toArray(),
+                    aim: local.aimYaw,
+                    ads: !!local.isADS,
+                    revive: !!local.reviveRequested,
+                    moving: local.velocity.lengthSq() > 0.1,
+                    health: local.health,
+                    shield: local.shield,
+                    isDead: !!local.isDead,
+                    isDowned: !!local.isDowned,
+                    bleedOutTimer: local.bleedOutTimer
+                },
                 commands: this.pendingCommands.slice(0, 30)
             };
             local.reviveRequested = false;
@@ -219,6 +230,11 @@ export class NetworkRoom {
             player.aimYaw = input.aim;
             player.isADS = !!input.ads;
             player.moving = !!input.moving;
+            if (typeof input.health === 'number') player.health = input.health;
+            if (typeof input.shield === 'number') player.shield = input.shield;
+            if (typeof input.isDead === 'boolean') player.isDead = input.isDead;
+            if (typeof input.isDowned === 'boolean') player.isDowned = input.isDowned;
+            if (typeof input.bleedOutTimer === 'number') player.bleedOutTimer = input.bleedOutTimer;
             if (input.revive) { this.game.reviveNearest(player); input.revive = false; }
         }
     }
@@ -300,6 +316,12 @@ export class NetworkRoom {
                 this.game.lootingSystem?.handleRemoteLoot?.(command.containerId, command.slotIndex, command.replacedSlot);
             } else if (command.type === 'loot_all') {
                 this.game.lootingSystem?.handleRemoteLootAll?.(command.containerId);
+            } else if (command.type === 'drop_weapon') {
+                this.game.lootingSystem?.handleRemoteDropWeapon?.(command.gunData, command.position, command.id);
+            } else if (command.type === 'pickup_weapon') {
+                this.game.lootingSystem?.handleRemotePickupWeapon?.(command.weaponDropId);
+            } else if (command.type === 'drop_item') {
+                this.game.lootingSystem?.handleRemoteDropItem?.(command.item, command.position, command.id);
             }
 
             player.processedSeq = command.seq;
@@ -376,9 +398,16 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'soldier
     let disposed = false;
     let initialized = false;
     const remote = { id, name, characterId: normalizeCharacter(characterId), position: new THREE.Vector3(0, 0, 8), velocity: new THREE.Vector3(), netTarget: null, netVelocity: new THREE.Vector3(), netSampleTime: 0, aimYaw: Math.PI, isADS: false,
-        isDead: false, isDowned: false, health: 100, maxHealth: 100, shield: 100, maxShield: 100,
+        isDead: false, isDowned: false, bleedOutTimer: 30.0, health: 100, maxHealth: 100, shield: 100, maxShield: 100,
         radius: 0.55, height: 1.6, mesh: group, healthBar,
         updateVisual(delta = 1 / 60) {
+            if (this.isDowned && !this.isDead) {
+                this.bleedOutTimer = Math.max(0, (this.bleedOutTimer || 30.0) - delta);
+                if (this.bleedOutTimer <= 0) {
+                    this.isDead = true;
+                    this.isDowned = false;
+                }
+            }
             const blend = 1 - Math.exp(-12 * delta);
             let visualTarget = this.position;
             if (this.netTarget && this.netSampleTime) {
@@ -390,18 +419,45 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'soldier
             const angle = Math.atan2(Math.sin(this.aimYaw - group.rotation.y), Math.cos(this.aimYaw - group.rotation.y));
             group.rotation.y += angle * blend;
             group.visible = !this.isDead || this.isDowned;
-            const next = actions[this.moving && !this.isDead ? 'walk' : 'idle'];
+            if (this.isDowned) {
+                group.rotation.x = -Math.PI / 2.2;
+            } else {
+                group.rotation.x = 0;
+            }
+            const next = actions[this.moving && !this.isDead && !this.isDowned ? 'walk' : 'idle'];
             if (next && action !== next) { action?.fadeOut(0.15); next.reset().fadeIn(0.15).play(); action = next; }
             mixer?.update(delta);
             this.weapons?.updateEquippedMesh();
             this.weapons?.updateHeldPose(group);
-            healthBar.update(group.position, this.health, this.maxHealth, group.visible);
+            healthBar.update(group.position, this.isDowned ? (this.bleedOutTimer || 30.0) : this.health, this.isDowned ? 30.0 : this.maxHealth, group.visible);
         },
         checkHit(start, end, ray) { const hit = ray.intersectBox(new THREE.Box3(this.position.clone().add(new THREE.Vector3(-.55, 0, -.55)), this.position.clone().add(new THREE.Vector3(.55, 1.6, .55))), new THREE.Vector3()); return hit ? { hit: true, point: hit } : { hit: false }; },
-        takeDamage(amount) { this.health -= amount; if (this.health <= 0) { this.health = 0; this.isDead = true; this.isDowned = true; } },
-        heal(amount) { this.health = Math.min(this.maxHealth, this.health + amount); },
+        takeDamage(amount) {
+            this.health -= amount;
+            if (this.health <= 0) {
+                this.health = 0;
+                this.isDowned = true;
+                this.isDead = false;
+                this.bleedOutTimer = 30.0;
+            }
+        },
+        heal(amount) {
+            this.health = Math.min(this.maxHealth, this.health + amount);
+            if (this.health > 0 && this.isDowned) {
+                this.isDowned = false;
+                this.isDead = false;
+            }
+        },
         rechargeShield(amount) { this.shield = Math.min(this.maxShield, this.shield + amount); },
-        revive() { if (!this.isDowned) return false; this.health = 60; this.isDowned = false; this.isDead = false; return true; },
+        revive() {
+            if (!this.isDowned && !this.isDead) return false;
+            this.health = 60;
+            this.isDowned = false;
+            this.isDead = false;
+            this.reviveProgress = 0.0;
+            this.bleedOutTimer = 30.0;
+            return true;
+        },
         setCharacter(nextCharacter) {
             const next = normalizeCharacter(nextCharacter);
             if (next === this.characterId && (characterModel || loadingCharacter === next)) return;

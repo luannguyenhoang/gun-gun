@@ -1697,7 +1697,15 @@ export class WeaponSystem {
         targetAttachMap.grip = null;
 
         // Sinh thực thể súng rơi ngoài đất
-        lootingSystem?.spawnDroppedWeapon(player.position.clone(), droppedGunData);
+        const entity = lootingSystem?.spawnDroppedWeapon(player.position.clone(), droppedGunData);
+        if (window.game?.network?.active && !window.game?.network?.host && entity) {
+            window.game.network.sendCommand({
+                type: 'drop_weapon',
+                id: entity.id,
+                position: player.position.toArray(),
+                gunData: droppedGunData
+            });
+        }
 
         // Xử lý slot súng
         this.weaponSlots[slotIndex] = null;

@@ -588,7 +588,7 @@ class CyberArenaGame {
     }
 
     reviveTeammate(teammate, reviver = this.player) {
-        if (!teammate?.isDowned) return false;
+        if (!teammate?.isDowned && !teammate?.isDead) return false;
         const revived = teammate.revive();
         if (revived) {
             this.particles.createExplosion(teammate.position, 0x10b981, 16, 2.5);
@@ -605,7 +605,7 @@ class CyberArenaGame {
     }
 
     reviveNearest(reviver) {
-        const teammate = this.coopPlayers.find(player => player !== reviver && player.isDowned && player.position.distanceTo(reviver.position) <= 2.5);
+        const teammate = this.coopPlayers.find(player => player !== reviver && (player.isDowned || player.isDead) && player.position.distanceTo(reviver.position) <= 2.5);
         return this.reviveTeammate(teammate, reviver);
     }
 
@@ -618,7 +618,8 @@ class CyberArenaGame {
             if (!player) continue;
             const pId = player.id || 'player';
 
-            if (player.isDowned) {
+            const needsRevive = player.isDowned || (this.network.active && player.isDead);
+            if (needsRevive) {
                 activeDownedIds.add(pId);
                 let zone = this.reviveZoneMeshes.get(pId);
                 if (!zone) {
@@ -1261,7 +1262,8 @@ class CyberArenaGame {
             this.updateReviveZones(delta);
 
             // Kiểm tra kết thúc trận khi toàn bộ đội bị gục hoặc tử trận
-            const noOneCanRevive = this.coopPlayers.every(player => player.isDead || player.isDowned);
+            const hasAliveTeammate = this.coopPlayers.some(player => !player.isDead && !player.isDowned);
+            const noOneCanRevive = !hasAliveTeammate && this.coopPlayers.every(player => player.isDead || player.isDowned);
             if (noOneCanRevive && this.state !== 'GAMEOVER') {
                 this.gameOver();
             }

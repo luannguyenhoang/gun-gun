@@ -1336,10 +1336,11 @@ export class AirdropDropEntity {
 
 // Thực thể Súng rơi ngoài mặt đất khi bị vứt hoặc hoán đổi (Tồn tại 30s)
 export class DroppedWeaponEntity {
-    constructor(scene, position, gunData) {
+    constructor(scene, position, gunData, options = {}) {
         this.scene = scene;
         this.gunData = gunData;
-        this.life = 30.0; // Tồn tại đúng 30 giây trước khi tự hủy
+        this.id = options.id || ('drop_gun_' + Math.random().toString(36).substring(2, 9));
+        this.life = typeof options.life === 'number' ? options.life : 30.0; // Tồn tại đúng 30 giây trước khi tự hủy
         this.maxLife = 30.0;
         this.interactionRadius = 2.4; // Bán kính bấm [F] tương tác
         this.group = new THREE.Group();
@@ -1532,9 +1533,12 @@ export class LootingSystem {
     }
 
     // Sinh khẩu súng rơi ngoài đất (tồn tại 1 phút = 60s)
-    spawnDroppedWeapon(position, gunData) {
+    spawnDroppedWeapon(position, gunData, customId = null, life = null) {
         if (!gunData) return null;
-        const entity = new DroppedWeaponEntity(this.scene, position, gunData);
+        const options = {};
+        if (customId) options.id = customId;
+        if (typeof life === 'number') options.life = life;
+        const entity = new DroppedWeaponEntity(this.scene, position, gunData, options);
         this.droppedWeapons.push(entity);
         return entity;
     }
@@ -1585,7 +1589,15 @@ export class LootingSystem {
             targetMap.grip = null;
 
             // Đặt khẩu súng cũ rơi ra ngay vị trí của khẩu súng vừa nhặt
-            this.spawnDroppedWeapon(droppedWeapon.group.position.clone(), oldDroppedData);
+            const oldEntity = this.spawnDroppedWeapon(droppedWeapon.group.position.clone(), oldDroppedData);
+            if (window.game?.network?.active && !window.game?.network?.host && oldEntity) {
+                window.game.network.sendCommand({
+                    type: 'drop_weapon',
+                    id: oldEntity.id,
+                    position: oldEntity.group.position.toArray(),
+                    gunData: oldDroppedData
+                });
+            }
         }
 
         // Tạo instance súng mới từ gunData
@@ -1615,6 +1627,14 @@ export class LootingSystem {
 
         // Chuyển ngay sang khẩu súng vừa nhặt
         weapons.switchWeapon(targetSlot, this.player);
+
+        // Báo cho Host biết súng đã được nhặt
+        if (window.game?.network?.active && !window.game?.network?.host) {
+            window.game.network.sendCommand({
+                type: 'pickup_weapon',
+                weaponDropId: droppedWeapon.id
+            });
+        }
 
         // Xóa thực thể súng rơi khỏi danh sách và scene
         const idx = this.droppedWeapons.indexOf(droppedWeapon);
@@ -2302,6 +2322,31 @@ export class LootingSystem {
         sounds.playItemMove?.();
         this.ui?.showPickupAlert(`ĐÃ VỨT [${def?.name?.toUpperCase() || dropped.itemId}] RA MẶT ĐẤT`);
         this.ui?.refreshSmartInventory();
+
+        const spawnPos = this.player?.position ? this.player.position.clone() : new THREE.Vector3();
+        spawnPos.y = 0;
+
+        if (!window.game?.network?.active || window.game?.network?.host) {
+            this.spawnDroppedItemContainer(spawnPos, dropped);
+        } else {
+            window.game.network.sendCommand({
+                type: 'drop_item',
+                item: dropped,
+                position: spawnPos.toArray()
+            });
+        }
+    }
+
+    // Sinh thùng đồ dã chiến chứa vật phẩm vừa vứt từ ba lô
+    spawnDroppedItemContainer(position, item, customId = null) {
+        const def = th_resolveLootItem(item.itemId);
+        const itemName = def?.name || 'VẬT PHẨM';
+        const container = this.spawnContainer('wooden_crate', position, {
+            id: customId || ('drop_crate_' + Math.random().toString(36).substring(2, 9)),
+            customName: `ĐỒ RƠI: ${itemName.toUpperCase()}`,
+            slots: [item]
+        });
+        return container;
     }
 
     // Nhặt toàn bộ đồ tương thích (Loot All / Phím Space)
@@ -2625,6 +2670,31 @@ export class LootingSystem {
         this.checkAndRemoveEmptyContainer(container);
     }
 
+    // Host xử lý súng rơi do Client vứt
+    handleRemoteDropWeapon(gunData, positionArray, id = null) {
+        if (!gunData || !Array.isArray(positionArray)) return;
+        const pos = new THREE.Vector3().fromArray(positionArray);
+        this.spawnDroppedWeapon(pos, gunData, id);
+    }
+
+    // Host xử lý hành động nhặt súng rơi từ Client
+    handleRemotePickupWeapon(weaponDropId) {
+        if (!weaponDropId) return;
+        const idx = this.droppedWeapons.findIndex(dw => dw.id === weaponDropId);
+        if (idx !== -1) {
+            const dw = this.droppedWeapons[idx];
+            this.droppedWeapons.splice(idx, 1);
+            dw.dispose();
+        }
+    }
+
+    // Host xử lý vật phẩm từ ba lô do Client vứt ra đất
+    handleRemoteDropItem(item, positionArray, customId = null) {
+        if (!item || !Array.isArray(positionArray)) return;
+        const pos = new THREE.Vector3().fromArray(positionArray);
+        this.spawnDroppedItemContainer(pos, item, customId);
+    }
+
     // Đóng gói trạng thái tài nguyên hòm đồ & hòm thính của toàn map
     snapshot() {
         return {
@@ -2636,7 +2706,13 @@ export class LootingSystem {
                 landed: !!d.landed,
                 smokeTimer: d.smokeTimer
             })),
-            activeAirdropZone: this.activeAirdropZone ? { ...this.activeAirdropZone } : null
+            activeAirdropZone: this.activeAirdropZone ? { ...this.activeAirdropZone } : null,
+            droppedWeapons: this.droppedWeapons.map(dw => ({
+                id: dw.id,
+                position: dw.group.position.toArray(),
+                gunData: dw.gunData,
+                life: dw.life
+            }))
         };
     }
 
@@ -2715,6 +2791,36 @@ export class LootingSystem {
                 }
                 c.dispose();
                 this.containers.splice(i, 1);
+            }
+        }
+
+        // 4. Đồng bộ danh sách súng rơi ngoài đất (Dropped Weapons)
+        const weaponSnaps = snap.droppedWeapons || [];
+        const snapWeaponIds = new Set(weaponSnaps.map(w => w.id));
+        const byWeaponId = new Map(this.droppedWeapons.map(w => [w.id, w]));
+
+        for (const wSnap of weaponSnaps) {
+            let dw = byWeaponId.get(wSnap.id);
+            if (!dw) {
+                const pos = new THREE.Vector3().fromArray(wSnap.position);
+                dw = this.spawnDroppedWeapon(pos, wSnap.gunData, wSnap.id, wSnap.life);
+            } else {
+                dw.life = wSnap.life;
+                if (Array.isArray(wSnap.position) && dw.group) {
+                    dw.group.position.fromArray(wSnap.position);
+                }
+            }
+        }
+
+        for (let i = this.droppedWeapons.length - 1; i >= 0; i--) {
+            const dw = this.droppedWeapons[i];
+            if (!snapWeaponIds.has(dw.id)) {
+                if (this.nearestDroppedWeapon === dw) {
+                    this.nearestDroppedWeapon = null;
+                    this.ui?.hideDroppedWeaponPrompt?.();
+                }
+                dw.dispose();
+                this.droppedWeapons.splice(i, 1);
             }
         }
     }
