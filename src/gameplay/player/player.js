@@ -822,6 +822,11 @@ export class PlayerController {
             }
         }
 
+        // Khóa nhận sát thương trong 0.8 giây (i-frame) giúp tránh bị bầy zombie dồn sát thương chết tức thì
+        if (this.health > 0) {
+            this.invulnerability = Math.max(this.invulnerability || 0, 0.8);
+        }
+
         if (this.health <= 0) {
             this.health = 0;
             this.die();

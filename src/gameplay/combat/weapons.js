@@ -2054,20 +2054,7 @@ export class WeaponSystem {
                     child.material = child.material.clone();
                 }
 
-                if (w.tier) {
-                    if (Array.isArray(child.material)) {
-                        child.material.forEach(m => {
-                            m.color.setHex(w.color);
-                            if (m.emissive) { m.emissive.setHex(w.color); m.emissiveIntensity = 0.35; }
-                        });
-                    } else {
-                        child.material.color.setHex(w.color);
-                        if (child.material.emissive) {
-                            child.material.emissive.setHex(w.color);
-                            child.material.emissiveIntensity = 0.35;
-                        }
-                    }
-                }
+                // Giữ nguyên toàn bộ màu sắc, vật liệu và chi tiết texture gốc của mô hình asset
             });
             // Chuẩn hóa tỷ lệ kích thước vật lý chính xác theo từng model
             const bounds = new THREE.Box3().setFromObject(mesh);

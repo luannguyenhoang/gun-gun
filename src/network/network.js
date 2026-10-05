@@ -415,6 +415,9 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
                 this.isDowned = true;
                 this.isDead = false;
                 this.bleedOutTimer = 30.0;
+            } else {
+                // Khóa nhận sát thương 0.8 giây (i-frame) cho người chơi từ xa
+                this.invulnerability = Math.max(this.invulnerability || 0, 0.8);
             }
         },
         heal(amount) {
