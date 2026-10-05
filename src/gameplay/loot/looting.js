@@ -1158,7 +1158,8 @@ export class LootContainer {
             type: this.type,
             name: this.name,
             position: this.position.toArray(),
-            slots: this.slots.map(s => s ? { itemId: s.itemId, count: s.count, revealed: !!s.revealed } : null),
+            slots: this.slots.map(s => s ? { ...s } : null),
+            life: this.life,
             isOpen: !!this.isOpen,
             isUnlocked: !!this.isUnlocked,
             isLooted: !!this.isLooted,
@@ -1498,7 +1499,7 @@ export class LootingSystem {
         if (typeof window === 'undefined') return;
         window.addEventListener('keydown', (e) => {
             if (e.repeat || e.target?.matches?.('input, textarea, select, [contenteditable="true"]')) return;
-            if (window.game?.state !== 'PLAYING') return;
+            if (window.game?.state !== 'PLAYING' || window.game?.pauseMenuOpen || this.player.isDead || this.player.isDowned) return;
 
             // Phím [G] vứt súng đang cầm ra đất để trao đổi với đồng đội
             if (e.code === 'KeyG') {
@@ -1535,6 +1536,9 @@ export class LootingSystem {
     // Sinh khẩu súng rơi ngoài đất (tồn tại 1 phút = 60s)
     spawnDroppedWeapon(position, gunData, customId = null, life = null) {
         if (!gunData) return null;
+        gunData = { ...gunData, instanceId: gunData.instanceId || THREE.MathUtils.generateUUID() };
+        const existing = this.droppedWeapons.find(w => w.gunData.instanceId === gunData.instanceId || (customId && w.id === customId));
+        if (existing) return existing;
         const options = {};
         if (customId) options.id = customId;
         if (typeof life === 'number') options.life = life;
@@ -1545,7 +1549,9 @@ export class LootingSystem {
 
     // Nhặt hoặc hoán đổi súng rơi ngoài đất [F]
     pickupDroppedWeapon(droppedWeapon) {
-        if (!droppedWeapon || !this.player || this.player.isDead) return false;
+        if (!droppedWeapon || !this.player || this.player.isDead || this.player.isDowned || !this.droppedWeapons.includes(droppedWeapon)) return false;
+        if (this.player.position.distanceTo(droppedWeapon.group.position) > 4.5) return false;
+        if (this.requestCommand({ type: 'pickup_weapon', weaponDropId: droppedWeapon.id })) return true;
         const weapons = this.player.weapons;
         if (!weapons) return false;
 
@@ -1571,6 +1577,7 @@ export class LootingSystem {
         if (currentGun && !currentGun.isKnife) {
             const attachMap = { ...weapons.getAttachmentsForGun(targetSlot) };
             const oldDroppedData = {
+                instanceId: currentGun.instanceId,
                 id: currentGun.id,
                 name: currentGun.name,
                 tier: currentGun.tier || 1,
@@ -1590,14 +1597,6 @@ export class LootingSystem {
 
             // Đặt khẩu súng cũ rơi ra ngay vị trí của khẩu súng vừa nhặt
             const oldEntity = this.spawnDroppedWeapon(droppedWeapon.group.position.clone(), oldDroppedData);
-            if (window.game?.network?.active && !window.game?.network?.host && oldEntity) {
-                window.game.network.sendCommand({
-                    type: 'drop_weapon',
-                    id: oldEntity.id,
-                    position: oldEntity.group.position.toArray(),
-                    gunData: oldDroppedData
-                });
-            }
         }
 
         // Tạo instance súng mới từ gunData
@@ -1606,6 +1605,7 @@ export class LootingSystem {
         const newTier = gunData.tier || 1;
         const newGun = {
             ...baseConfig,
+            instanceId: gunData.instanceId,
             tier: newTier,
             color: gunData.color || baseConfig.color
         };
@@ -1861,7 +1861,18 @@ export class LootingSystem {
 
     // Đóng giao diện Hòm đồ PUBG Mini
     closeContainerUI() {
+        this.isBackpackOpen = false;
+        this.isSearching = false;
+        this.searchTimer = 0;
+        if (this.player) {
+            this.player.isBackpackOpen = false;
+            this.player.isSearching = false;
+            if (this.player.domElement) this.player.domElement.style.cursor = this.player.inputEnabled ? 'none' : 'default';
+        }
+        this.ui?.closeSmartInventory?.();
+        this.ui?.hideSearchProgress?.();
         if (this.activeContainer) {
+            this.dismissedContainerId = this.activeContainer.id;
             this.activeContainer.isOpen = false;
             if (this.activeContainer.checkEmpty()) {
                 const idx = this.containers.indexOf(this.activeContainer);
@@ -1930,6 +1941,7 @@ export class LootingSystem {
         }
 
         if (!selected) return false;
+        if (this.requestLoot(container, selected.slotIndex, 'smart')) return true;
         const def = th_resolveLootItem(selected.itemId);
         if (!def) return false;
 
@@ -2049,6 +2061,7 @@ export class LootingSystem {
             const gunConfig = [...WEAPON_CONFIGS, ...RARE_WEAPON_CONFIGS].find(w => w.id === baseGunId || w.aliases?.includes(baseGunId)) || WEAPON_CONFIGS[0];
             const newGun = {
                 ...gunConfig,
+                instanceId: THREE.MathUtils.generateUUID(),
                 tier: newTier,
                 color: def.color ? parseInt(def.color.replace('#', '0x'), 16) : gunConfig.color
             };
@@ -2071,6 +2084,7 @@ export class LootingSystem {
             if (currentGun && !currentGun.isKnife) {
                 const attachMap = { ...weapons.getAttachmentsForGun(targetSlot) };
                 const droppedGunData = {
+                    instanceId: currentGun.instanceId,
                     id: currentGun.id,
                     name: currentGun.name,
                     tier: currentGun.tier || 1,
@@ -2173,6 +2187,7 @@ export class LootingSystem {
 
     // Thao tác nhặt đồ thông minh (Smart QoL Action): Shift + Click hoặc Double Click
     smartLootItem(slotIndex) {
+        if (this.activeContainer && this.requestLoot(this.activeContainer, slotIndex, 'backpack')) return;
         if (!this.activeContainer) return;
         const slot = this.activeContainer.slots[slotIndex];
         if (!slot) return;
@@ -2218,6 +2233,7 @@ export class LootingSystem {
         if (fromSide === 'container') {
             this.smartLootItem(slotIndex);
         } else if (fromSide === 'player') {
+            if (this.requestCommand({ type: 'store_item', containerId: this.activeContainer.id, slotIndex })) return;
             const slot = this.inventory.slots[slotIndex];
             if (!slot) return;
             // Tìm ô trống trong hòm
@@ -2274,6 +2290,7 @@ export class LootingSystem {
 
     // Nhặt 1 vật phẩm từ danh sách lân cận
     lootNearbyItem(itemEntry) {
+        if (itemEntry?.container && this.requestLoot(itemEntry.container, itemEntry.slotIndex, 'backpack')) return true;
         if (!itemEntry || !itemEntry.container) return false;
         const container = itemEntry.container;
         const slotIndex = itemEntry.slotIndex;
@@ -2316,6 +2333,7 @@ export class LootingSystem {
 
     // Vứt vật phẩm từ balo ra mặt đất
     dropItemFromBackpack(slotIndex) {
+        if (this.requestCommand({ type: 'drop_item', slotIndex })) return;
         const dropped = this.inventory.dropItem(slotIndex);
         if (!dropped) return;
         const def = LOOT_ITEMS[dropped.itemId];
@@ -2373,6 +2391,7 @@ export class LootingSystem {
 
     // Sử dụng vật phẩm từ túi đồ
     useItem(slotIndex) {
+        if (this.requestCommand({ type: 'use_item', slotIndex })) return;
         const slot = this.inventory.slots[slotIndex];
         if (!slot) return;
         const itemDef = LOOT_ITEMS[slot.itemId];
@@ -2523,7 +2542,7 @@ export class LootingSystem {
         // Cập nhật thời gian sống của các hòm đồ (Tự động biến mất sau 30 giây)
         for (let i = this.containers.length - 1; i >= 0; i--) {
             const c = this.containers[i];
-            if (typeof c.life === 'number') {
+            if (!isClient && typeof c.life === 'number') {
                 c.life -= delta;
                 if (c.life <= 0) {
                     if (this.activeContainer === c) {
@@ -2542,12 +2561,29 @@ export class LootingSystem {
             }
         }
 
+        // 5. Cập nhật các khẩu súng rơi ngoài mặt đất (tồn tại 1 phút = 60s)
+        for (let i = this.droppedWeapons.length - 1; i >= 0; i--) {
+            const dw = this.droppedWeapons[i];
+            const alive = dw.update(isClient ? 0 : delta);
+            if (!alive) {
+                dw.dispose();
+                this.droppedWeapons.splice(i, 1);
+            }
+        }
+
+        if (window.game?.pauseMenuOpen || this.player.isDead || this.player.isDowned) {
+            this.closeContainerUI();
+            this.ui?.hideDroppedWeaponPrompt?.();
+            return;
+        }
+
         // 2. Kiểm tra tiến trình mở hòm theo phạm vi (Range-based Proximity Opening)
         const nearest = this.getNearestInteractableContainer();
+        if (nearest?.id !== this.dismissedContainerId) this.dismissedContainerId = null;
 
         // Tự động kích hoạt mở hòm ngay khi người chơi bước vào vùng sáng của hòm
         // Không cần nhấn phím, không chặn bắn súng hay di chuyển
-        if (nearest && !nearest.isOpen && !this.isSearching) {
+        if (nearest && nearest.id !== this.dismissedContainerId && !nearest.isOpen && !this.isSearching) {
             this.tryStartSearch(nearest);
         }
 
@@ -2614,16 +2650,6 @@ export class LootingSystem {
             this.ui?.hideContainerPrompt();
         }
 
-        // 5. Cập nhật các khẩu súng rơi ngoài mặt đất (tồn tại 1 phút = 60s)
-        for (let i = this.droppedWeapons.length - 1; i >= 0; i--) {
-            const dw = this.droppedWeapons[i];
-            const alive = dw.update(delta);
-            if (!alive) {
-                dw.dispose();
-                this.droppedWeapons.splice(i, 1);
-            }
-        }
-
         // Tìm khẩu súng rơi gần nhất trong bán kính tương tác
         let nearestDropped = null;
         let minDroppedDist = Infinity;
@@ -2646,65 +2672,74 @@ export class LootingSystem {
         }
     }
 
-    // Báo cáo hành động nhặt hòm lên Host (Client)
-    notifyLootAction(containerId, slotIndex, replacedSlot = null) {
-        if (window.game?.network?.active && !window.game?.network?.host) {
-            window.game.network.sendCommand({
-                type: 'loot_slot',
-                containerId,
-                slotIndex,
-                replacedSlot
-            });
+    requestCommand(command) {
+        if (this.player?.weapons?.onCommand) {
+            this.player.weapons.onCommand(command);
+            return true;
         }
+        return false;
     }
 
-    // Host xử lý hành động nhặt đồ từ Client
-    handleRemoteLoot(containerId, slotIndex, replacedSlot = null) {
-        const container = this.containers.find(c => c.id === containerId);
-        if (!container) return;
-        if (slotIndex >= 0 && slotIndex < container.slots.length) {
-            container.slots[slotIndex] = replacedSlot ? { ...replacedSlot } : null;
-            this.checkAndRemoveEmptyContainer(container);
+    requestLoot(container, slotIndex, mode) {
+        const slot = container.slots[slotIndex];
+        if (!slot) return false;
+        return this.requestCommand({ type: 'loot_slot', containerId: container.id, slotIndex, lootId: slot.lootId, mode });
+    }
+
+    notifyLootAction() {} // Inventory and world changes travel together in the host snapshot.
+
+    processRemoteCommand(player, command) {
+        if (!player || player.isDead || player.isDowned) return false;
+        // A per-player view shares world entities, but never the host's backpack or UI.
+        const context = Object.create(this);
+        context.player = player;
+        context.inventory = player.lootInventory ||= new PlayerInventory(5, 6);
+        context.ui = null;
+        context.activeContainer = null;
+        const container = this.containers.find(c => c.id === command.containerId);
+        if (command.type === 'sort_inventory') return context.inventory.autoSort();
+        if (command.type === 'detach_attachment') {
+            const mods = player.weapons.getAttachmentsForGun(command.gunSlot);
+            const itemId = mods?.[command.attachmentSlot];
+            if (itemId && context.inventory.addItem(itemId, 1, true)) player.weapons.detachMod(command.attachmentSlot, command.gunSlot);
+            return;
         }
-    }
-
-    // Host xử lý lệnh nhặt toàn bộ hòm từ Client
-    handleRemoteLootAll(containerId) {
-        const container = this.containers.find(c => c.id === containerId);
-        if (!container) return;
-        for (let i = 0; i < container.slots.length; i++) {
-            container.slots[i] = null;
+        if (command.type === 'equip_attachment') {
+            if (command.gunSlot !== 0 && command.gunSlot !== 1) return false;
+            if (!player.weapons.weaponSlots[command.gunSlot]) return false;
+            if (command.containerId && (!container || player.position.distanceTo(container.position) > 6.5)) return false;
+            const slots = container ? container.slots : context.inventory.slots;
+            const slot = slots[command.slotIndex];
+            if (!slot || (container && slot.lootId !== command.lootId)) return false;
+            const def = LOOT_ITEMS[slot.itemId];
+            if (def?.category !== 'attachment' || def.slot !== command.attachmentSlot) return false;
+            const previous = player.weapons.attachMod(def.slot, slot.itemId, command.gunSlot);
+            slots[command.slotIndex] = previous ? { itemId: previous, count: 1, revealed: true } : null;
+            if (container) this.checkAndRemoveEmptyContainer(container);
+            return true;
         }
-        this.checkAndRemoveEmptyContainer(container);
-    }
-
-    // Host xử lý súng rơi do Client vứt
-    handleRemoteDropWeapon(gunData, positionArray, id = null) {
-        if (!gunData || !Array.isArray(positionArray)) return;
-        const pos = new THREE.Vector3().fromArray(positionArray);
-        this.spawnDroppedWeapon(pos, gunData, id);
-    }
-
-    // Host xử lý hành động nhặt súng rơi từ Client
-    handleRemotePickupWeapon(weaponDropId) {
-        if (!weaponDropId) return;
-        const idx = this.droppedWeapons.findIndex(dw => dw.id === weaponDropId);
-        if (idx !== -1) {
-            const dw = this.droppedWeapons[idx];
-            this.droppedWeapons.splice(idx, 1);
-            dw.dispose();
+        if (command.type === 'pickup_weapon') {
+            return context.pickupDroppedWeapon(this.droppedWeapons.find(w => w.id === command.weaponDropId));
         }
-    }
-
-    // Host xử lý vật phẩm từ ba lô do Client vứt ra đất
-    handleRemoteDropItem(item, positionArray, customId = null) {
-        if (!item || !Array.isArray(positionArray)) return;
-        const pos = new THREE.Vector3().fromArray(positionArray);
-        this.spawnDroppedItemContainer(pos, item, customId);
+        if (command.type === 'drop_item') return context.dropItemFromBackpack(command.slotIndex);
+        if (command.type === 'use_item') return context.useItem(command.slotIndex);
+        if (!container || player.position.distanceTo(container.position) > 6.5) return false;
+        context.activeContainer = container;
+        if (command.type === 'store_item') return context.transferItem('player', command.slotIndex);
+        const slot = container.slots[command.slotIndex];
+        if (command.type !== 'loot_slot' || !slot || !slot.lootId || slot.lootId !== command.lootId) return false;
+        if (command.mode === 'backpack') return context.lootNearbyItem({ container, slotIndex: command.slotIndex });
+        const wasOpen = container.isOpen;
+        container.isOpen = true;
+        try { return context.th_smartLootCrate(container, command.slotIndex); }
+        finally { container.isOpen = wasOpen; }
     }
 
     // Đóng gói trạng thái tài nguyên hòm đồ & hòm thính của toàn map
     snapshot() {
+        for (const container of this.containers) {
+            for (const slot of container.slots) if (slot) slot.lootId ||= THREE.MathUtils.generateUUID();
+        }
         return {
             containers: this.containers.map(c => c.snapshot()),
             airdropDrops: this.airdropDrops.map(d => ({
@@ -2774,18 +2809,19 @@ export class LootingSystem {
                     id: cSnap.id,
                     customName: cSnap.name,
                     slots: cSnap.slots,
-                    isOpen: cSnap.isOpen,
+                    isOpen: false,
                     isUnlocked: cSnap.isUnlocked,
                     isLooted: cSnap.isLooted
                 });
                 this.containers.push(container);
             } else {
                 container.slots = cSnap.slots.map(s => s ? { ...s } : null);
-                container.isOpen = !!cSnap.isOpen;
-                container.isUnlocked = !!cSnap.isUnlocked;
+                // Opening a panel is local UI state, while its contents belong to the host.
+                container.isUnlocked ||= !!cSnap.isUnlocked;
                 container.isLooted = !!cSnap.isLooted;
                 container.checkEmpty();
             }
+            container.life = cSnap.life ?? container.life;
             if (this.activeContainer && this.activeContainer.id === container.id) {
                 this.ui?.refreshPUBGMiniCrate?.(this.activeContainer, this);
             }

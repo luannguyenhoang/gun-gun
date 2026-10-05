@@ -413,6 +413,7 @@ export class Zombie {
     }
 
     playAnimation(name, duration = 0.15) {
+        this.animationName = name;
         if (!this.mixer || !this.animations[name]) return;
         const newAction = this.animations[name];
         if (this.currentAction === newAction) return;
@@ -619,7 +620,7 @@ export class Zombie {
             return;
         }
 
-        if (player.isDead) {
+        if (player.isDead || player.isDowned) {
             this.playAnimation('idle');
             return;
         }
@@ -851,7 +852,7 @@ export class Zombie {
                     const projectiles = Math.min(8, 3 + Math.floor(this.bossPhase / 2));
                     for (let i = 0; i < projectiles; i++) {
                         setTimeout(() => {
-                            if (!this.isDead && this.weapons && !player.isDead) {
+                            if (!this.isDead && this.weapons && !player.isDead && !player.isDowned) {
                                 _tempSpitOrigin.copy(this.position);
                                 _tempSpitOrigin.y += 1.8;
                                 this.weapons.shootEnemyBolt(_tempSpitOrigin, player.position.clone(), this.damage * 0.5, 30 + this.bossPhase * 2, true);
@@ -893,7 +894,7 @@ export class Zombie {
             
             const targets = Array.isArray(player) ? player : [player];
             for (const t of targets) {
-                if (t.isDead) continue;
+                if (t.isDead || t.isDowned) continue;
                 const d = t.position.distanceTo(this.position);
                 if (d <= slamRadius) {
                     const hitDir = new THREE.Vector3().subVectors(t.position, this.position).normalize();
@@ -1132,7 +1133,7 @@ export class WaveManager {
     }
 
     update(delta, player, arena, onEnemyKilled) {
-        const targets = (Array.isArray(player) ? player : [player]).filter(p => !p.isDead);
+        const targets = (Array.isArray(player) ? player : [player]).filter(p => !p.isDead && !p.isDowned);
         this.bombs.update(delta, targets);
         const primaryPlayer = targets[0] || (Array.isArray(player) ? player[0] : player);
 
@@ -1199,6 +1200,9 @@ export class WaveManager {
 
             if (target) {
                 zombie.update(delta, target, arena, this.enemies, this.navigationBudget);
+            } else {
+                zombie.spitCharge = 0;
+                zombie.playAnimation('idle');
             }
 
             if (zombie.isDead) {

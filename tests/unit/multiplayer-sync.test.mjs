@@ -10,7 +10,7 @@ const { WeaponSystem, WEAPON_CONFIGS }=await import('../../src/gameplay/combat/w
 const { SkyBombs }=await import('../../src/gameplay/combat/skybombs.js');
 const { Zombie }=await import('../../src/gameplay/combat/enemies.js');
 const source=readFileSync(new URL('../../src/app/main.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').split('// Instantiate game on page load')[0];
-const Game=vm.runInNewContext(source+'\nCyberArenaGame;', {THREE,Zombie,performance});
+const Game=vm.runInNewContext(source+'\nCyberArenaGame;', {THREE,Zombie,performance,sounds:{play(){}}});
 function weapons(scene){const w=new WeaponSystem(scene,null,{createMuzzleFlash(){}});w.resetRun();return w;}
 function game(){
  const scene=new THREE.Scene(), w=weapons(scene);
@@ -51,7 +51,7 @@ test('multiplayer start/restart routes through the host and guests cannot reset 
 });
 test('weapon snapshot preserves secondary gun, knife slot and separate attachments',()=>{
  const a=weapons(new THREE.Scene()), b=weapons(new THREE.Scene());
- a.weaponSlots[1]={...WEAPON_CONFIGS[4],tier:5};a.currentSlotIndex=2;
+ a.weaponSlots[1]={...WEAPON_CONFIGS[4],tier:5};a.currentSlotIndex=4;
  a.primaryAttachments.barrel='barrel_t2';a.secondaryAttachments.grip='grip_t3';
  b.applyNetworkState(a.getNetworkState());
  assert.equal(b.getCurrentWeapon().id,'knife');assert.equal(b.weaponSlots[1].id,a.weaponSlots[1].id);
@@ -108,4 +108,73 @@ test('unlimited reserve is finite on the wire and restored after transfer', () =
  b.applyNetworkState(structuredClone(snapshot));
  assert.equal(b.reserve[a.weaponSlots[0].id],Infinity);
  assert.equal(b.reserve[a.weaponSlots[1].id],17);
+});
+
+test('empty gun slots and bomb counts survive snapshots without resurrecting dropped weapons', () => {
+ const a=weapons(new THREE.Scene()), b=weapons(new THREE.Scene());
+ assert.notEqual(a.weaponSlots[0].instanceId,b.weaponSlots[0].instanceId);
+ a.weaponSlots[0]=null;a.weaponSlots[1]=null;a.currentSlotIndex=4;
+ a.weaponSlots[2].count=0;a.weaponSlots[3].count=1;
+ for(let i=0;i<3;i++) b.applyNetworkState(structuredClone(a.getNetworkState()));
+ assert.equal(b.weaponSlots[0],null);assert.equal(b.weaponSlots[1],null);
+ assert.equal(b.getCurrentWeapon().id,'knife');
+ assert.equal(b.weaponSlots[2].count,0);assert.equal(b.weaponSlots[3].count,1);
+});
+
+test('stale guest input cannot undo damage, death or a successful revive', () => {
+ const p=makeRemotePlayer(new THREE.Scene(),null,'guest','Guest');
+ const room=new NetworkRoom({getCoopPlayer:()=>p});
+ p.shield=0;p.takeDamage(500);
+ const input={position:[2,0,3],health:100,shield:100,isDead:false,isDowned:false,bleedOutTimer:30};
+ room.applyInputs({guest:input});
+ assert.equal(p.health,0);assert.equal(p.isDowned,true);
+ p.bleedOutTimer=.01;p.updateSimulation(.02);p.takeDamage(20);
+ assert.equal(p.isDead,true);assert.equal(p.isDowned,false);
+ p.revive();room.applyInputs({guest:{...input,health:0,isDead:true,isDowned:true}});
+ assert.equal(p.health,60);assert.equal(p.isDead,false);assert.equal(p.isDowned,false);
+ p.takeDamage(100);assert.equal(p.health,60);
+});
+
+test('remote render updates do not advance death timers and zombie ignores downed targets', () => {
+ const scene=new THREE.Scene(), p=makeRemotePlayer(scene,null,'guest','Guest');
+ p.isDowned=true;p.bleedOutTimer=.1;p.updateVisual(1);
+ assert.equal(p.isDowned,true);assert.equal(p.bleedOutTimer,.1);
+ const z=new Zombie(scene,'walker',new THREE.Vector3(0,0,5),{'character-zombie':{scene:new THREE.Group(),animations:[]}},null);
+ const before=z.position.clone();let hits=0;
+ for(let i=0;i<60;i++) z.update(1/60,{position:new THREE.Vector3(),isDowned:true,takeDamage(){hits++;}}, {}, [z]);
+ assert.equal(hits,0);assert.deepEqual(z.position.toArray(),before.toArray());
+});
+
+test('multiplayer pause opens the menu while simulation stays PLAYING; solo still pauses', () => {
+ const g={state:'PLAYING',network:{active:true},player:{setInputEnabled(v){this.inputEnabled=v;}},ui:{clearTeammateIndicators(){}},screenPause:{style:{}}};
+ Game.prototype.pauseGame.call(g);
+ assert.equal(g.state,'PLAYING');assert.equal(g.pauseMenuOpen,true);assert.equal(g.player.inputEnabled,false);
+ Game.prototype.resumeGame.call(g);
+ assert.equal(g.pauseMenuOpen,false);assert.equal(g.player.inputEnabled,true);
+ g.network.active=false;Game.prototype.pauseGame.call(g);assert.equal(g.state,'PAUSED');
+});
+
+test('revive requires a living nearby teammate and works for both downed and dead players', () => {
+ const scene=new THREE.Scene(), a=makeRemotePlayer(scene,null,'a','A'), b=makeRemotePlayer(scene,null,'b','B');
+ const g={network:{active:true,host:true},player:a,particles:{createExplosion(){}},ui:{showPickupAlert(){}},reviveZoneMeshes:new Map()};
+ a.position.set(0,0,0);b.position.set(10,0,0);b.isDead=true;
+ assert.equal(Game.prototype.reviveTeammate.call(g,b,a),false);
+ b.position.set(1,0,0);a.isDowned=true;
+ assert.equal(Game.prototype.reviveTeammate.call(g,b,a),false);
+ a.isDowned=false;assert.equal(Game.prototype.reviveTeammate.call(g,b,a),true);
+ assert.equal(b.health,60);assert.equal(b.isDead,false);
+ b.isDowned=true;assert.equal(Game.prototype.reviveTeammate.call(g,b,a),true);
+ b.isDowned=true;g.network.host=false;
+ assert.equal(Game.prototype.reviveTeammate.call(g,b,a),false);
+});
+
+test('automatic rescue completes after 3.5 seconds and uses the nearby rescuer even when host is dead', () => {
+ const scene=new THREE.Scene(), host=makeRemotePlayer(scene,null,'host','Host'), rescuer=makeRemotePlayer(scene,null,'guest','Guest');
+ host.isDead=true;host.health=0;
+ const g={scene,network:{active:true,host:true},player:host,coopPlayers:[host,rescuer],particles:{createExplosion(){},createImpactSparks(){}},ui:{showPickupAlert(){}},reviveZoneMeshes:new Map()};
+ g.reviveTeammate=(p,r)=>Game.prototype.reviveTeammate.call(g,p,r);
+ for(let i=0;i<34;i++) Game.prototype.updateReviveZones.call(g,.1);
+ assert.equal(host.isDead,true);assert.ok(host.reviveProgress>.9);
+ Game.prototype.updateReviveZones.call(g,.2);
+ assert.equal(host.isDead,false);assert.equal(host.health,60);
 });
