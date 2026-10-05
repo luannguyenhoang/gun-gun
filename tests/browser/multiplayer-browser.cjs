@@ -27,7 +27,12 @@ const assert = require('node:assert/strict');
             '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
             '--disable-background-timer-throttling', '--disable-renderer-backgrounding'
         ] });
-        const host = await browser.newPage(), guest = await browser.newPage();
+        const context = await browser.newContext();
+        if (process.env.MULTIPLAYER_LOCAL_TRANSPORT) {
+            await context.route('https://**/*', route => route.abort());
+            await context.addInitScript(require('./local-peer.cjs'));
+        }
+        const host = await context.newPage(), guest = await context.newPage();
         for (const [i, page] of [host, guest].entries()) {
             page.on('pageerror', error => { errors.push(`${i}: ${error.message}`); });
             await page.goto(`http://127.0.0.1:${server.address().port}`);
@@ -39,7 +44,7 @@ const assert = require('node:assert/strict');
         await host.waitForFunction(() => game.waveManager.enemies.length > 0);
         const enemyId = await host.evaluate(() => game.waveManager.enemies[0].id);
         await guest.waitForFunction(id => game.waveManager.enemies.some(e => e.id === id && e.mesh?.visible && e.mesh.parent === game.scene), enemyId);
-        console.log('PASS: guest receives and renders the host zombie through real PeerJS');
+        console.log('PASS: guest receives and renders the host zombie');
         await host.evaluate(() => {
             game.waveManager.spawnSingleEnemy(game.player,0,'spitter');
             game.waveManager.spawnSingleEnemy(game.player,0,'bomber');
@@ -62,9 +67,66 @@ const assert = require('node:assert/strict');
             } finally { await sender.keyboard.up('d'); }
         }
         console.log('PASS: movement and visible teammate models synchronize in both directions');
+        // Freeze spawning so regression scenarios have deterministic health and loot.
+        await host.evaluate(() => {
+            game.waveManager.clear(); game.nextWaveTimer = 9999;
+            game.lootingSystem.clearAll();
+            game.player.developerMode = false; window.developerMode = false;
+            game.player.position.set(0, 0, 8);
+        });
+        await guest.evaluate(() => { game.player.position.set(0, 0, 8); game.player.developerMode = false; window.developerMode = false; });
+        await guest.waitForFunction(() => game.waveManager.enemies.length === 0);
+        await guest.evaluate(() => game.lootingSystem.openBackpack());
+        await guest.keyboard.press('Escape');
+        await guest.waitForFunction(() => !game.lootingSystem.isBackpackOpen && !game.player.isBackpackOpen);
+        await guest.keyboard.press('Escape');
+        await guest.waitForFunction(() => game.pauseMenuOpen && game.state === 'PLAYING');
+        const timer = await host.evaluate(() => game.nextWaveTimer);
+        await host.waitForFunction(t => game.nextWaveTimer < t - .2, timer);
+        await guest.keyboard.press('Escape');
+        await guest.waitForFunction(() => !game.pauseMenuOpen && game.player.inputEnabled);
+        await host.keyboard.press('Escape');
+        await host.waitForFunction(() => game.pauseMenuOpen && game.state === 'PLAYING');
+        await host.keyboard.press('Escape');
+        console.log('PASS: Escape opens/closes menus without pausing the shared simulation');
+
+        const gunId = await guest.evaluate(() => game.weapons.weaponSlots[0].instanceId);
+        await guest.evaluate(() => {
+            game.weapons.switchWeapon(0, game.player);
+            for (let i = 0; i < 12; i++) game.weapons.dropCurrentWeapon(game.player, game.lootingSystem);
+        });
+        await host.waitForFunction(id => game.lootingSystem.droppedWeapons.some(w => w.gunData.instanceId === id), gunId);
+        await guest.waitForFunction(() => game.weapons.weaponSlots[0] === null);
+        assert.equal(await host.evaluate(id => game.lootingSystem.droppedWeapons.filter(w => w.gunData.instanceId === id).length, gunId), 1);
+        const dropId = await host.evaluate(id => game.lootingSystem.droppedWeapons.find(w => w.gunData.instanceId === id).id, gunId);
+        await guest.evaluate(id => { for (let i = 0; i < 10; i++) game.network.sendCommand({ type: 'pickup_weapon', weaponDropId: id }); }, dropId);
+        await guest.waitForFunction(id => game.weapons.weaponSlots[0]?.instanceId === id, gunId);
+        await host.waitForFunction(id => !game.lootingSystem.droppedWeapons.some(w => w.id === id), dropId);
+        console.log('PASS: repeated drop/pickup requests conserve one gun identity');
+
+        const guestId = await guest.evaluate(() => game.network.playerId);
+        await host.evaluate(id => { const p = game.remotePlayers.get(id); p.reviveTimeRequired = .25; p.invulnerability = 0; p.shield = 0; p.takeDamage(500); game.player.position.set(15, 0, 8); }, guestId);
+        await guest.waitForFunction(() => game.player.isDowned);
+        await guest.evaluate(() => { game.player.health = 100; game.player.isDowned = false; });
+        await guest.waitForFunction(() => game.player.isDowned && game.player.health === 0);
+        await host.evaluate(() => game.player.position.set(0, 0, 8));
+        await guest.waitForFunction(() => !game.player.isDowned && !game.player.isDead && game.player.health === 60, null, { timeout: 15000 }).catch(async error => {
+            console.log('host', await host.evaluate(() => ({ state: game.state, players: game.coopPlayers.map(p => ({ id:p.id, pos:p.position.toArray(), dead:p.isDead, down:p.isDowned, health:p.health, progress:p.reviveProgress })) })));
+            console.log('guest', await guest.evaluate(() => ({ state:game.state, pos:game.player.position.toArray(), health:game.player.health, progress:game.player.reviveProgress })), errors);
+            throw error;
+        });
+        await host.evaluate(id => { const p = game.remotePlayers.get(id); p.invulnerability = 0; p.shield = 0; p.takeDamage(500); p.bleedOutTimer = .01; game.player.position.set(15, 0, 8); }, guestId);
+        await guest.waitForFunction(() => game.player.isDead);
+        await host.evaluate(() => game.player.position.set(0, 0, 8));
+        await guest.waitForFunction(() => !game.player.isDead && game.player.health === 60, null, { timeout: 15000 });
+        console.log('PASS: host health overrides stale guest input; downed and dead teammates revive on both clients');
+
+        await host.evaluate(id => { const p = game.remotePlayers.get(id); p.isDead = true; p.isDowned = false; game.player.invulnerability = 0; game.player.shield = 0; game.player.takeDamage(500); }, guestId);
+        await guest.waitForFunction(() => game.state === 'GAMEOVER');
+        console.log('PASS: team game over propagates to guest');
         assert.equal(await guest.evaluate(() => Object.values(game.weapons.reserve).every(n => n === Infinity)), true);
         assert.deepEqual(errors, []);
-        console.log('PASS: unlimited ammo preserved; no JavaScript or BinaryPack errors');
+        console.log('PASS: unlimited ammo preserved; no JavaScript errors');
     } finally {
         clearTimeout(timeout);
         await browser?.close();

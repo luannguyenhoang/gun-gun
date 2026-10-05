@@ -1389,7 +1389,7 @@ export class WeaponSystem {
 
         // 5 ô trang bị: [0] Súng chính, [1] Súng phụ (Lục), [2] Bom 1, [3] Bom 2, [4] Dao cận chiến
         const secCfg = secondaryId ? getStartingWeapon(secondaryId) : getStartingWeapon('blaster_b');
-        this.secondaryWeapon = { ...secCfg, tier: secCfg.tier || 1 };
+        this.secondaryWeapon = { ...secCfg, tier: secCfg.tier || 1, instanceId: THREE.MathUtils.generateUUID() };
 
         const b1Cfg = getBombConfig(bomb1Id || 'grenade_a');
         const b2Cfg = getBombConfig(bomb2Id || 'grenade_b');
@@ -1397,7 +1397,7 @@ export class WeaponSystem {
         this.bombSlot2 = { ...b2Cfg, count: 2 };
 
         this.weaponSlots = [
-            starter,               // 0: Súng chính
+            { ...starter, instanceId: THREE.MathUtils.generateUUID() }, // 0: Súng chính
             this.secondaryWeapon,  // 1: Súng phụ
             this.bombSlot1,        // 2: Ô Bom 1
             this.bombSlot2,        // 3: Ô Bom 2
@@ -1666,8 +1666,8 @@ export class WeaponSystem {
 
     // Vứt khẩu súng đang cầm ra đất (phím [G]), nhường chỗ cho Dao hoặc súng phụ
     dropCurrentWeapon(player, lootingSystem) {
-        if (!player || player.isDead) return false;
-        const currentGun = this.getCurrentWeapon();
+        if (!player || player.isDead || player.isDowned) return false;
+        const currentGun = this.weaponSlots[this.currentSlotIndex];
         if (!currentGun || currentGun.isKnife) {
             window.game?.ui?.showPickupAlert('KHÔNG THỂ VỨT DAO CẬN CHIẾN!');
             return false;
@@ -1676,9 +1676,15 @@ export class WeaponSystem {
         const slotIndex = this.currentSlotIndex; // 0 hoặc 1
         if (slotIndex !== 0 && slotIndex !== 1) return false;
 
+        if (this.onCommand) {
+            this.onCommand({ type: 'drop_weapon', slot: slotIndex, instanceId: currentGun.instanceId });
+            return true;
+        }
+
         // Lưu giữ nguyên vẹn Tier và toàn bộ phụ kiện kèm theo súng
         const attachMap = { ...this.getAttachmentsForGun(slotIndex) };
         const droppedGunData = {
+            instanceId: currentGun.instanceId,
             id: currentGun.id,
             name: currentGun.name,
             tier: currentGun.tier || 1,
@@ -1698,14 +1704,7 @@ export class WeaponSystem {
 
         // Sinh thực thể súng rơi ngoài đất
         const entity = lootingSystem?.spawnDroppedWeapon(player.position.clone(), droppedGunData);
-        if (window.game?.network?.active && !window.game?.network?.host && entity) {
-            window.game.network.sendCommand({
-                type: 'drop_weapon',
-                id: entity.id,
-                position: player.position.toArray(),
-                gunData: droppedGunData
-            });
-        }
+        if (!entity) return false;
 
         // Xử lý slot súng
         this.weaponSlots[slotIndex] = null;
@@ -1730,8 +1729,9 @@ export class WeaponSystem {
 
     getNetworkState() {
         return {
-            gun: this.weaponSlots[0]?.id || this.startingWeaponId,
-            guns: this.weaponSlots.slice(0, 2).map(w => ({ id: w.id, tier: w.tier })),
+            gun: this.weaponSlots[0]?.id || null,
+            guns: this.weaponSlots.slice(0, 2).map(w => w ? ({ id: w.id, tier: w.tier, instanceId: w.instanceId, color: w.color }) : null),
+            bombs: this.weaponSlots.slice(2, 4).map(w => w ? ({ id: w.id, count: w.count }) : null),
             primaryAttachments: { ...this.primaryAttachments },
             secondaryAttachments: { ...this.secondaryAttachments },
             slot: this.currentSlotIndex,
@@ -1740,6 +1740,9 @@ export class WeaponSystem {
             reserve: Object.fromEntries(Object.entries(this.reserve).map(([id, count]) => [id, count === Infinity ? -1 : count])),
             upgrades: { ...this.upgrades },
             attachments: { ...this.attachments },
+            isUsingMedkit: this.isUsingMedkit,
+            medkitTimer: this.medkitTimer,
+            medkitTotalTime: this.medkitTotalTime,
             isReloading: this.isReloading,
             reloadTimer: this.reloadTimer,
             currentSpreadDeg: this.currentSpreadDeg,
@@ -1749,18 +1752,27 @@ export class WeaponSystem {
 
     applyNetworkState(state) {
         if (!state) return;
-        const gun = [...WEAPON_CONFIGS, ...RARE_WEAPON_CONFIGS].find(w => w.id === state.gun) || WEAPON_CONFIGS[0];
-        const changed = this.weaponSlots[0]?.id !== gun.id;
-        this.weaponSlots[0] = gun;
-        if (state.guns) {
-            state.guns.forEach((entry, index) => {
-                const config = WEAPON_CONFIGS.find(w => w.id === entry.id);
-                if (index < 2 && config) this.weaponSlots[index] = { ...config, tier: entry.tier ?? config.tier };
-            });
+        const previousId = this.getCurrentWeapon()?.id;
+        const configs = [...WEAPON_CONFIGS, ...RARE_WEAPON_CONFIGS];
+        const guns = state.guns || [{ id: state.gun }, null];
+        for (let index = 0; index < 2; index++) {
+            const entry = guns[index];
+            const config = entry && configs.find(w => w.id === entry.id);
+            this.weaponSlots[index] = config ? { ...config, ...entry } : null;
         }
-        this.weaponSlots[2] = KNIFE_CONFIG;
+        if (state.bombs) {
+            for (let index = 0; index < 2; index++) {
+                const entry = state.bombs[index];
+                const config = entry && getBombConfig(entry.id);
+                this.weaponSlots[index + 2] = config ? { ...config, count: entry.count } : null;
+            }
+            this.bombSlot1 = this.weaponSlots[2];
+            this.bombSlot2 = this.weaponSlots[3];
+        }
+        this.weaponSlots[4] = KNIFE_CONFIG;
         this.secondaryWeapon = this.weaponSlots[1];
-        this.currentSlotIndex = Math.min(2, Math.max(0, state.slot || 0));
+        this.currentSlotIndex = Math.min(4, Math.max(0, state.slot || 0));
+        if (!this.weaponSlots[this.currentSlotIndex]) this.currentSlotIndex = 4;
         if (state.primaryAttachments) this.primaryAttachments = { ...state.primaryAttachments };
         if (state.secondaryAttachments) this.secondaryAttachments = { ...state.secondaryAttachments };
         this.ammo = { ...state.ammo };
@@ -1768,9 +1780,12 @@ export class WeaponSystem {
         if (state.inventory) this.inventory = { ...state.inventory };
         this.attachments = this.currentSlotIndex === 1 ? this.secondaryAttachments : this.primaryAttachments;
         this.upgrades = { ...state.upgrades };
+        this.isUsingMedkit = !!state.isUsingMedkit;
+        this.medkitTimer = state.medkitTimer || 0;
+        this.medkitTotalTime = state.medkitTotalTime || 0;
         this.isReloading = !!state.isReloading;
         this.reloadTimer = state.reloadTimer || 0;
-        if (changed && this.handNode) this.attachToArm(this.handNode);
+        if (previousId !== this.getCurrentWeapon()?.id && this.handNode) this.attachToArm(this.handNode);
         this.updateEquippedMesh();
     }
 
@@ -1787,10 +1802,10 @@ export class WeaponSystem {
         const targetSlot = 0; // Trang bị vào súng chính
         const previous = this.weaponSlots[targetSlot];
         if (!weapon || (previous && previous.tier >= weapon.tier)) return false;
-        const reserve = this.reserve[previous.id] || 0;
-        delete this.ammo[previous.id];
-        delete this.reserve[previous.id];
-        this.weaponSlots[targetSlot] = weapon;
+        const reserve = this.reserve[previous?.id] || 0;
+        delete this.ammo[previous?.id];
+        delete this.reserve[previous?.id];
+        this.weaponSlots[targetSlot] = { ...weapon, instanceId: THREE.MathUtils.generateUUID() };
         this.ammo[weapon.id] = weapon.magSize;
         // Băng đạn dự trữ dồi dào khởi đầu: tối thiểu 6 băng đạn
         this.reserve[weapon.id] = Math.max(reserve, weapon.magSize * 6);
@@ -1884,7 +1899,8 @@ export class WeaponSystem {
 
     // Cơ chế Channeling sơ cứu vết thương hoặc uống nước tăng lực
     startMedkitUse(player, itemType = null) {
-        if (!player || player.isDead) return false;
+        if (!player || player.isDead || player.isDowned) return false;
+        if (this.onCommand) { this.onCommand({ type: 'medkit', itemType }); return true; }
         if (this.isUsingMedkit) return false;
 
         // Tự động chọn loại vật phẩm phù hợp nhất nếu không chỉ định
@@ -1921,6 +1937,7 @@ export class WeaponSystem {
     }
 
     cancelMedkitUse() {
+        if (this.onCommand && this.isUsingMedkit) this.onCommand({ type: 'cancel_medkit' });
         if (this.isUsingMedkit) {
             this.isUsingMedkit = false;
             this.medkitTimer = 0;
@@ -2816,7 +2833,7 @@ export class WeaponSystem {
         // Xử lý tiến trình sơ cứu / uống nước tăng lực
         if (this.isUsingMedkit && this.medkitPlayerRef) {
             const p = this.medkitPlayerRef;
-            if (p.isDead) {
+            if (p.isDead || p.isDowned) {
                 this.cancelMedkitUse();
             } else {
                 this.medkitTimer -= delta;
@@ -3124,7 +3141,7 @@ export class WeaponSystem {
                 // 3. Đạn quái va chạm người chơi
                 const targets = this.enemyTargets || (Array.isArray(player) ? player : [player]);
                 for (const target of targets) {
-                    if (!target || target.isDead) continue;
+                    if (!target || target.isDead || target.isDowned) continue;
                     const hitInfo = target.checkHit(startPos, _tempNextPos, _tempRay);
                     if (hitInfo.hit) {
                         target.takeDamage(p.damage, p.direction);

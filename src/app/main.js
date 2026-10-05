@@ -3,7 +3,7 @@ import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js';
 import { ParticleSystem } from '../rendering/particles.js?v=22';
 import { Arena } from '../world/arena.js?v=22';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, getBulletType, th_UPGRADE_TIER_CONFIG, th_rollElementalEffect, th_getWeaponTier, th_getWeaponEnchant, th_ELEMENTAL_EFFECTS, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=46';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_UPGRADE_TIER_CONFIG, th_rollElementalEffect, th_getWeaponTier, th_getWeaponEnchant, th_ELEMENTAL_EFFECTS, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=46';
 import { PlayerController } from '../gameplay/player/player.js?v=22';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=39';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
@@ -221,7 +221,9 @@ class CyberArenaGame {
                     this.lootingSystem.closeContainerUI();
                     return;
                 }
-                if (this.state === 'PLAYING') {
+                if (this.pauseMenuOpen) {
+                    this.resumeGame();
+                } else if (this.state === 'PLAYING') {
                     this.pauseGame();
                 } else if (this.state === 'PAUSED') {
                     this.resumeGame();
@@ -305,6 +307,8 @@ class CyberArenaGame {
         sounds.startMusic();
 
         this.state = 'PLAYING';
+        this.pauseMenuOpen = false;
+        this.networkEvents = [];
         if (this.screenMenu) this.screenMenu.style.display = 'none';
         if (this.screenPause) this.screenPause.style.display = 'none';
         if (this.screenGameOver) this.screenGameOver.style.display = 'none';
@@ -316,8 +320,10 @@ class CyberArenaGame {
         const currentLoadout = this.getLoadout();
         this.weapons.resetRun(currentLoadout.primary, currentLoadout.secondary, currentLoadout.bomb1, currentLoadout.bomb2);
         for (const remote of this.remotePlayers.values()) {
-            remote.weapons.resetRun(); remote.health = remote.maxHealth; remote.shield = remote.maxShield;
+            remote.weapons.resetRun(remote.loadout?.primary, remote.loadout?.secondary, remote.loadout?.bomb1, remote.loadout?.bomb2); remote.health = remote.maxHealth; remote.shield = remote.maxShield;
             remote.isDead = false; remote.isDowned = false; remote.commandQueue = [];
+            remote.bleedOutTimer = 30; remote.reviveProgress = 0; remote.isBeingRevived = false; remote.invulnerability = 0;
+            remote.lootInventory = null;
             remote.lastCommandId = 0; remote.processedSeq = 0;
             remote.netTarget = null; remote.netVelocity.set(0, 0, 0);
             remote.position.set(0, 0, 8);
@@ -343,21 +349,24 @@ class CyberArenaGame {
 
         this.player.setInputEnabled(true);
         this.player.cooperative = this.network.active;
-        document.getElementById('hud-pause').disabled = this.network.active;
+        document.getElementById('hud-pause').disabled = false;
         if (!this.network.active || this.network.host) this.waveManager.startWave(this.currentWave);
         else this.waveManager.clear();
         this.ui.showBanner('SỐNG SÓT · NHẶT ĐẠN · NÂNG CẤP');
     }
 
     pauseGame() {
-        if (this.network.active) return;
-        this.state = 'PAUSED';
+        if (this.state !== 'PLAYING') return;
+        this.pauseMenuOpen = true;
+        this.lootingSystem?.closeContainerUI();
+        if (!this.network.active) this.state = 'PAUSED';
         this.player.setInputEnabled(false);
         this.ui.clearTeammateIndicators();
         if (this.screenPause) this.screenPause.style.display = 'flex';
     }
 
     resumeGame() {
+        this.pauseMenuOpen = false;
         this.state = 'PLAYING';
         if (this.screenPause) this.screenPause.style.display = 'none';
         this.player.setInputEnabled(true);
@@ -368,6 +377,7 @@ class CyberArenaGame {
     }
 
     returnToMenu() {
+        this.pauseMenuOpen = false;
         this.lootingSystem.closeContainerUI();
         this.player.setInputEnabled(false);
         this.state = 'MENU';
@@ -388,6 +398,8 @@ class CyberArenaGame {
     }
 
     gameOver() {
+        this.pauseMenuOpen = false;
+        if (this.screenPause) this.screenPause.style.display = 'none';
         this.state = 'GAMEOVER';
         this.player.setInputEnabled(false);
         this.lootingSystem?.closeContainerUI();
@@ -601,6 +613,8 @@ class CyberArenaGame {
     }
 
     reviveTeammate(teammate, reviver = this.player) {
+        if (this.network.active && !this.network.host) return false;
+        if (!reviver || reviver === teammate || reviver.isDead || reviver.isDowned || !teammate || teammate.position.distanceTo(reviver.position) > 2.5) return false;
         if (!teammate?.isDowned && !teammate?.isDead) return false;
         const revived = teammate.revive();
         if (revived) {
@@ -692,12 +706,13 @@ class CyberArenaGame {
                 zone.prog.visible = progRatio > 0.02;
 
                 // Kiểm tra xem có đồng đội nào đang đứng trong vòng cứu (<= 2.5m)
-                const hasReviverInside = this.coopPlayers.some(other => {
+                if (this.network.active && !this.network.host) continue;
+                const reviver = this.coopPlayers.find(other => {
                     if (!other || other === player || other.isDowned || other.isDead) return false;
                     return other.position.distanceTo(player.position) <= 2.5;
                 });
 
-                if (hasReviverInside) {
+                if (reviver) {
                     player.isBeingRevived = true;
                     player.reviveProgress = Math.min(1.0, (player.reviveProgress || 0) + delta / (player.reviveTimeRequired || 3.5));
 
@@ -712,7 +727,7 @@ class CyberArenaGame {
                     }
 
                     if (player.reviveProgress >= 1.0) {
-                        this.reviveTeammate(player);
+                        this.reviveTeammate(player, reviver);
                     }
                 } else {
                     player.isBeingRevived = false;
@@ -732,6 +747,7 @@ class CyberArenaGame {
 
     // Bật hoặc tắt đồng đội bot phục vụ thử nghiệm và chơi đơn
     togglePracticeBot() {
+        if (this.network.active) return;
         if (this.practiceBot) {
             this.removeCoopPlayer(this.practiceBot.id);
             this.practiceBot = null;
@@ -1097,12 +1113,13 @@ class CyberArenaGame {
             bombs: this.waveManager.bombs.snapshot(),
             state: this.state,
             wave: this.currentWave,
+            nextWaveTimer: this.nextWaveTimer,
             score: this.score,
             events,
             looting: this.lootingSystem?.snapshot ? this.lootingSystem.snapshot() : null,
             projectiles: this.coopPlayers.flatMap(player => (player.weapons?.projectiles || []).filter(p => p.mesh).map(p => ({ id: `${player.id || this.network.playerId}:${p.id}`, owner: player.id || this.network.playerId, position: p.mesh.position.toArray(), direction: p.direction.toArray(), speed: p.speed, color: p.color }))),
-            players: this.coopPlayers.map(player => ({ id: player.id || this.network.playerId, name: player.name || 'Bạn', character: player.characterId || this.characterId, position: player.position.toArray(), health: player.health, shield: player.shield, isDead: player.isDead, isDowned: player.isDowned, aim: player.aimYaw, ads: !!player.isADS, moving: player === this.player ? player.velocity.lengthSq() > 0.1 : player.moving, weapons: player.weapons?.getNetworkState(), processedSeq: player.processedSeq || 0 })),
-            enemies: this.waveManager.enemies.filter(enemy => !enemy.isDead).map(enemy => ({ id: enemy.id, type: enemy.type, position: enemy.position.toArray(), health: enemy.health, maxHealth: enemy.maxHealth, yaw: enemy.mesh?.rotation.y || 0 })),
+            players: this.coopPlayers.map(player => ({ id: player.id || this.network.playerId, name: player.name || 'Bạn', character: player.characterId || this.characterId, position: player.position.toArray(), health: player.health, shield: player.shield, maxHealth: player.maxHealth, maxShield: player.maxShield, isDead: player.isDead, isDowned: player.isDowned, bleedOutTimer: player.bleedOutTimer, reviveProgress: player.reviveProgress || 0, isBeingRevived: !!player.isBeingRevived, invulnerability: player.invulnerability || 0, lootInventory: (player === this.player ? this.lootingSystem?.inventory : player.lootInventory)?.slots, aim: player.aimYaw, ads: !!player.isADS, moving: player === this.player ? player.velocity.lengthSq() > 0.1 : player.moving, weapons: player.weapons?.getNetworkState(), processedSeq: player.processedSeq || 0 })),
+            enemies: this.waveManager.enemies.filter(enemy => !enemy.isDead).map(enemy => ({ id: enemy.id, type: enemy.type, position: enemy.position.toArray(), health: enemy.health, maxHealth: enemy.maxHealth, armor: enemy.armor, animation: enemy.animationName, yaw: enemy.mesh?.rotation.y || 0 })),
             pickups: this.pickups.pickups.map(pickup => ({ id: pickup.id, type: pickup.type, position: pickup.mesh.position.toArray(), weaponSlot: pickup.weaponSlot, life: pickup.life }))
         };
     }
@@ -1129,19 +1146,6 @@ class CyberArenaGame {
                     sounds.play(weapon.fireSound, { volume: 0.65, pitchVariation: 0.08 });
                 }
 
-                const tracerId = `tracer_${ev.shooterId}_${Math.random().toString(36).substring(2, 7)}`;
-                const bulletType = ev.bulletType || getBulletType(weapon);
-                const geo = this.weapons.bulletGeometries[bulletType] || this.weapons.bulletGeo;
-                const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: bulletColor }));
-                mesh.position.copy(origin);
-                mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
-                this.scene.add(mesh);
-                this.remoteProjectiles.set(tracerId, {
-                    mesh,
-                    direction: dir,
-                    speed: weapon.bulletSpeed || 60,
-                    life: 1.2
-                });
             } else if (ev.type === 'throw_bomb' && ev.throwerId !== localId) {
                 const origin = new THREE.Vector3().fromArray(ev.origin);
                 const target = new THREE.Vector3().fromArray(ev.target);
@@ -1174,8 +1178,18 @@ class CyberArenaGame {
         }
         this.currentWave = snapshot.wave ?? this.currentWave;
         this.score = snapshot.score ?? this.score;
+        this.nextWaveTimer = snapshot.nextWaveTimer ?? this.nextWaveTimer;
         for (const state of snapshot.players || []) {
             if (state.id === localId) {
+                if ((this.player.isDead || this.player.isDowned) && !state.isDead && !state.isDowned) this.player.revive?.();
+                this.player.bleedOutTimer = state.bleedOutTimer ?? 30;
+                this.player.reviveProgress = state.reviveProgress || 0;
+                this.player.isBeingRevived = !!state.isBeingRevived;
+                this.player.invulnerability = state.invulnerability || 0;
+                if (state.lootInventory && this.lootingSystem) this.lootingSystem.inventory.slots = state.lootInventory.map(s => s ? { ...s } : null);
+                if ((state.isDowned || state.isDead) && this.player.model) this.player.model.rotation.x = -Math.PI / 2.2;
+                this.player.maxHealth = state.maxHealth ?? this.player.maxHealth;
+                this.player.maxShield = state.maxShield ?? this.player.maxShield;
                 this.player.health = state.health; this.player.shield = state.shield;
                 this.player.isDead = state.isDead; this.player.isDowned = state.isDowned;
                 if (state.processedSeq >= this.network.seq) this.weapons.applyNetworkState(state.weapons);
@@ -1192,6 +1206,8 @@ class CyberArenaGame {
             remote.netSampleTime = sampleTime;
             remote.position.copy(nextPosition); remote.health = state.health; remote.shield = state.shield;
             remote.isDead = state.isDead; remote.isDowned = state.isDowned;
+            remote.bleedOutTimer = state.bleedOutTimer ?? 30; remote.reviveProgress = state.reviveProgress || 0;
+            remote.isBeingRevived = !!state.isBeingRevived;
             remote.aimYaw = state.aim; remote.isADS = !!state.ads; remote.moving = !!state.moving;
             remote.weapons.applyNetworkState(state.weapons);
         }
@@ -1215,6 +1231,8 @@ class CyberArenaGame {
             enemy.netSampleTime = sampleTime;
             enemy.position.copy(nextPosition); enemy.health = state.health;
             enemy.maxHealth = state.maxHealth;
+            enemy.armor = state.armor ?? enemy.armor;
+            if (state.animation) enemy.playAnimation(state.animation);
             if (!enemy.mesh) enemy.setupVisuals(this.waveManager.models);
             if (enemy.mesh && Number.isFinite(state.yaw)) enemy.mesh.rotation.y = state.yaw;
         }
@@ -1224,6 +1242,7 @@ class CyberArenaGame {
                 this.waveManager.enemies.splice(i, 1);
             }
         }
+        if (snapshot.state === 'GAMEOVER' && this.state !== 'GAMEOVER') this.gameOver();
         const pickupIds = new Set((snapshot.pickups || []).map(pickup => pickup.id));
         for (const state of snapshot.pickups || []) {
             let pickup = this.pickups.pickups.find(candidate => candidate.id === state.id);
@@ -1246,7 +1265,7 @@ class CyberArenaGame {
         const delta = Math.min(frameDelta, 0.05);
         // Room polling continues while a teammate waits in the lobby.
         this.network.update(delta);
-        if (document.hidden) { this.renderQuality.reset(); return; }
+        if (document.hidden && !this.network.active) { this.renderQuality.reset(); return; }
 
         if (this.state === 'PLAYING') {
             if (this.renderQuality.sample(frameDelta)) this.renderer.setPixelRatio(this.renderQuality.ratio);
@@ -1258,7 +1277,7 @@ class CyberArenaGame {
 
             // Update arena portals and grass ambience.
             this.arena.update(delta);
-            if (this.nextWaveTimer > 0) {
+            if ((!this.network.active || this.network.host) && this.nextWaveTimer > 0) {
                 this.nextWaveTimer -= delta;
                 if (this.nextWaveTimer <= 0) {
                     this.waveManager.startWave(this.currentWave);
@@ -1273,8 +1292,8 @@ class CyberArenaGame {
             // Update Player
             this.player.update(delta, this.arena, this.waveManager.enemies);
             if (this.player.reviveRequested) {
-                const downed = this.coopPlayers.find(player => player !== this.player && player.isDowned);
-                if (downed) this.reviveTeammate(downed, this.player);
+                if (this.network.active && !this.network.host) this.network.sendCommand({ type: 'revive' });
+                else this.reviveNearest(this.player);
                 this.player.reviveRequested = false;
             }
             if (this.player.toggleBotRequested) {
@@ -1284,7 +1303,10 @@ class CyberArenaGame {
             if (this.practiceBot) {
                 this.updatePracticeBot(delta);
             }
-            for (const player of this.remotePlayers.values()) player.updateVisual(delta);
+            for (const player of this.remotePlayers.values()) {
+                if (!this.network.active || this.network.host) player.updateSimulation?.(delta);
+                player.updateVisual(delta);
+            }
 
             // Cập nhật các vòng cứu người 3D và tự động cứu khi đứng trong vòng 2.5m
             this.updateReviveZones(delta);
@@ -1292,7 +1314,7 @@ class CyberArenaGame {
             // Kiểm tra kết thúc trận khi toàn bộ đội bị gục hoặc tử trận
             const hasAliveTeammate = this.coopPlayers.some(player => !player.isDead && !player.isDowned);
             const noOneCanRevive = !hasAliveTeammate && this.coopPlayers.every(player => player.isDead || player.isDowned);
-            if (noOneCanRevive && this.state !== 'GAMEOVER') {
+            if ((!this.network.active || this.network.host) && noOneCanRevive && this.state !== 'GAMEOVER') {
                 this.gameOver();
             }
 
@@ -1308,22 +1330,9 @@ class CyberArenaGame {
                 }
             } else {
                 this.waveManager.bombs.update(delta, [], false);
-                // Client prediction: xử lý va chạm trúng đích tức thời và báo cáo sát thương lên Host
-                this.weapons.update(delta, this.arena, this.waveManager.enemies, this.player,
-                    (dmg, crit, pt, hitResult, enemy) => {
-                        this.onHitEnemy(dmg, crit, pt, hitResult);
-                        if (enemy && enemy.id) {
-                            enemy.health = Math.max(0, enemy.health - dmg);
-                            if (enemy.health <= 0) enemy.isDead = true;
-                            this.network.sendCommand({
-                                type: 'hit_enemy',
-                                enemyId: enemy.id,
-                                damage: dmg,
-                                crit: !!crit,
-                                hitPoint: pt ? pt.toArray() : null
-                            });
-                        }
-                    });
+                // Predicted shots are cosmetic. Only the host resolves hits and world damage.
+                this.weapons.enemyTargets = [];
+                this.weapons.update(delta, this.arena, [], this.player, () => {});
                 for (const [id, projectile] of this.remoteProjectiles) {
                     projectile.mesh.position.addScaledVector(projectile.direction, projectile.speed * delta);
                     if (projectile.life !== undefined) {

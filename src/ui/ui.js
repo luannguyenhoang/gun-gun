@@ -2094,7 +2094,7 @@ export class UIManager {
         // Nút Auto-sort dồn balo ngăn nắp
         this.btnSmartAutoSort?.addEventListener('click', () => {
             if (this._lootingSystem?.inventory) {
-                this._lootingSystem.inventory.autoSort();
+                if (!this._lootingSystem.requestCommand({ type: 'sort_inventory' })) this._lootingSystem.inventory.autoSort();
                 this.refreshSmartInventory();
             }
         });
@@ -2165,6 +2165,7 @@ export class UIManager {
                 const attachMap = weapons.getAttachmentsForGun(gunIdx);
                 if (!attachMap || !attachMap[slotType]) return;
 
+                if (this._lootingSystem.requestCommand({ type: 'detach_attachment', attachmentSlot: slotType, gunSlot: gunIdx })) return;
                 const removedId = weapons.detachMod(slotType, gunIdx);
                 if (removedId) {
                     const added = this._lootingSystem.inventory.addItem(removedId, 1, true);
@@ -2239,6 +2240,8 @@ export class UIManager {
         const weapons = this._lootingSystem?.player?.weapons;
         if (!weapons) return false;
 
+        if (this._lootingSystem.requestCommand({ type: 'equip_attachment', attachmentSlot: targetSlot, gunSlot: gunIdx,
+            slotIndex: side === 'player' ? index : nearbyEntry.slotIndex, containerId: nearbyEntry?.container?.id, lootId: nearbyEntry?.lootId })) return true;
         const prevId = weapons.attachMod(targetSlot, itemId, gunIdx);
 
         // Xử lý nguồn vật phẩm sau khi lắp
@@ -2281,6 +2284,7 @@ export class UIManager {
             targetGunIdx = (weapons.currentSlotIndex === 1) ? 1 : 0;
         }
 
+        if (this._lootingSystem.requestCommand({ type: 'equip_attachment', attachmentSlot: def.slot, gunSlot: targetGunIdx, slotIndex })) return true;
         const prevId = weapons.attachMod(def.slot, slot.itemId, targetGunIdx);
         if (prevId) {
             this._lootingSystem.inventory.slots[slotIndex] = { itemId: prevId, count: 1, revealed: true };

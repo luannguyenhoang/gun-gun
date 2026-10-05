@@ -11,8 +11,10 @@ registerHooks({
 });
 
 const THREE = await import('three');
+const { GLTFLoader } = await import('../../vendor/loaders/GLTFLoader.js');
 const { LootingSystem, LootContainer, AirdropDropEntity } = await import('../../src/gameplay/loot/looting.js');
-const { NetworkRoom } = await import('../../src/network/network.js');
+const { WeaponSystem } = await import('../../src/gameplay/combat/weapons.js');
+const { NetworkRoom, makeRemotePlayer } = await import('../../src/network/network.js');
 const { Zombie } = await import('../../src/gameplay/combat/enemies.js');
 
 test('LootContainer snapshot and restore preserve id, position and slots', () => {
@@ -73,106 +75,77 @@ test('LootingSystem snapshot and applySnapshot synchronize containers and airdro
     assert.equal(guestLooting.containers.length, 0);
 });
 
-test('NetworkRoom processCommands handles shot events and hit_enemy damage without blocking the queue', () => {
-    const scene = new THREE.Scene();
-    let killed = false;
-    const enemy = {
-        id: 'zombie_99',
-        isDead: false,
-        health: 100,
-        position: new THREE.Vector3(5, 0, 5),
-        takeDamage(dmg) {
-            this.health -= dmg;
-            if (this.health <= 0) this.isDead = true;
-        }
-    };
-    const mockGame = {
-        networkEvents: [],
-        waveManager: { enemies: [enemy] },
-        lootingSystem: { handleRemoteLoot() {}, handleRemoteLootAll() {} },
-        onEnemyKilled(e) { killed = true; }
-    };
-
-    const network = new NetworkRoom(mockGame);
-    const mockRemotePlayer = {
-        id: 'p_remote_1',
-        isDead: false,
-        commandQueue: [
-            { seq: 1, type: 'shoot', origin: [0, 1.2, 0], target: [5, 1, 5], ads: true, weaponId: 'blaster_a' },
-            { seq: 2, type: 'hit_enemy', enemyId: 'zombie_99', damage: 120, crit: true, hitPoint: [5, 1, 5] }
-        ],
-        weapons: {
-            ammo: { blaster_a: 0 }, // Đang giả lập hết đạn
-            isReloading: true,       // Đang giả lập reloading
-            fireCooldown: 0.5,
-            getCurrentWeapon() { return { id: 'blaster_a' }; },
-            weaponSlots: [{ id: 'blaster_a' }],
-            shoot() {}
-        }
-    };
-
-    network.processCommands(mockRemotePlayer);
-
-    // Hàng đợi không bị kẹt bởi isReloading
-    assert.equal(mockRemotePlayer.commandQueue.length, 0);
-    // Quái nhận sát thương và bị tiêu diệt
-    assert.equal(enemy.isDead, true);
-    assert.equal(killed, true);
-    // Sự kiện bắn được ghi nhận để broadcast
-    assert.equal(mockGame.networkEvents.length, 1);
-    assert.equal(mockGame.networkEvents[0].type, 'shot');
-    assert.equal(mockGame.networkEvents[0].shooterId, 'p_remote_1');
+test('guest shots respect cooldown and client hit reports cannot apply damage', () => {
+    const enemy = { id: 'enemy', health: 100, takeDamage() { throw Error('client damage accepted'); } };
+    const game = { networkEvents: [], waveManager: { enemies: [enemy] } };
+    const network = new NetworkRoom(game);
+    const player = { id: 'guest', position: new THREE.Vector3(), commandQueue: [
+        { seq: 1, type: 'shoot', target: [5, 1, 5] },
+        { seq: 2, type: 'hit_enemy', enemyId: 'enemy', damage: 9999 }
+    ], weapons: { fireCooldown: .5, getCurrentWeapon: () => ({ id: 'blaster' }), shoot: () => true } };
+    network.processCommands(player);
+    assert.equal(player.commandQueue.length, 2);
+    player.weapons.fireCooldown = 0;
+    network.processCommands(player);
+    assert.equal(player.commandQueue.length, 0);
+    assert.equal(enemy.health, 100);
+    assert.equal(game.networkEvents.length, 1);
+    assert.equal(player.processedSeq, 2);
 });
 
-test('Dropped weapons and ground items synchronize seamlessly across host and guest', () => {
-    const sceneHost = new THREE.Scene();
-    const sceneGuest = new THREE.Scene();
+test('duplicate and concurrent requests conserve weapon ownership and attachments', () => {
+    const saved = globalThis.window;
+    const load = GLTFLoader.prototype.load; GLTFLoader.prototype.load = () => {};
+    globalThis.window = { addEventListener() {} };
+    try {
+        const scene = new THREE.Scene();
+        const a = makeRemotePlayer(scene, null, 'a', 'A'), b = makeRemotePlayer(scene, null, 'b', 'B');
+        for (const p of [a, b]) { p.weapons = new WeaponSystem(scene, null, {}); p.weapons.resetRun(); p.position.set(0, 0, 0); }
+        const loot = new LootingSystem(scene, null, a, {}, null);
+        const room = new NetworkRoom({ lootingSystem: loot });
+        const id = a.weapons.weaponSlots[0].instanceId;
+        a.weapons.primaryAttachments.barrel = 'barrel_t2';
+        a.commandQueue = Array.from({ length: 10 }, (_, i) => ({ seq: i + 1, type: 'drop_weapon', slot: 0, instanceId: id }));
+        room.processCommands(a);
+        assert.equal(a.weapons.weaponSlots[0], null);
+        assert.equal(loot.droppedWeapons.length, 1);
+        assert.equal(loot.droppedWeapons[0].gunData.instanceId, id);
+        const command = { type: 'pickup_weapon', weaponDropId: loot.droppedWeapons[0].id };
+        b.weapons.weaponSlots[0] = null;
+        assert.equal(loot.processRemoteCommand(b, command), true);
+        assert.equal(loot.processRemoteCommand(a, command), false);
+        assert.equal(b.weapons.weaponSlots[0].instanceId, id);
+        assert.equal(b.weapons.primaryAttachments.barrel, 'barrel_t2');
+        assert.equal(loot.droppedWeapons.length, 0);
+        // Forged weapon payloads have no authority to create a new gun.
+        a.commandQueue = [{ seq: 11, type: 'drop_weapon', slot: 0, instanceId: id, gunData: { id: 'blaster' } }];
+        room.processCommands(a);
+        assert.equal(loot.droppedWeapons.length, 0);
+    } finally { globalThis.window = saved; GLTFLoader.prototype.load = load; }
+});
 
-    const hostLooting = new LootingSystem(sceneHost, null, { position: new THREE.Vector3() }, {}, null);
-    const guestLooting = new LootingSystem(sceneGuest, null, { position: new THREE.Vector3() }, {}, null);
-
-    // Host spawn súng rơi ngoài đất
-    const gun = hostLooting.spawnDroppedWeapon(new THREE.Vector3(3, 0, 4), { id: 'gun_scatter_t2', tier: 2, name: 'Scatter Gun' }, 'drop_gun_host');
-    assert.equal(hostLooting.droppedWeapons.length, 1);
-    assert.equal(gun.id, 'drop_gun_host');
-
-    // Host đóng gói snapshot gửi guest
-    const snap = hostLooting.snapshot();
-    assert.ok(Array.isArray(snap.droppedWeapons));
-    assert.equal(snap.droppedWeapons.length, 1);
-    assert.equal(snap.droppedWeapons[0].id, 'drop_gun_host');
-
-    // Guest nhận snapshot -> nhìn thấy súng của Host
-    guestLooting.applySnapshot(snap);
-    assert.equal(guestLooting.droppedWeapons.length, 1);
-    assert.equal(guestLooting.droppedWeapons[0].id, 'drop_gun_host');
-    assert.equal(guestLooting.droppedWeapons[0].gunData.name, 'Scatter Gun');
-
-    // Guest vứt súng: gửi lệnh drop_weapon lên Host
-    hostLooting.handleRemoteDropWeapon({ id: 'gun_nova_t5', tier: 5, name: 'Nova Gun' }, [6, 0, 8], 'drop_gun_guest');
-    assert.equal(hostLooting.droppedWeapons.length, 2);
-
-    // Snapshot mới từ Host được đồng bộ ngược lại cho Guest
-    const snap2 = hostLooting.snapshot();
-    guestLooting.applySnapshot(snap2);
-    assert.equal(guestLooting.droppedWeapons.length, 2);
-    assert.ok(guestLooting.droppedWeapons.some(d => d.id === 'drop_gun_guest'));
-
-    // Guest nhặt súng drop_gun_host: Host xử lý pickup_weapon
-    hostLooting.handleRemotePickupWeapon('drop_gun_host');
-    assert.equal(hostLooting.droppedWeapons.length, 1);
-
-    // Snapshot sau khi nhặt: súng biến mất trên máy Guest
-    const snap3 = hostLooting.snapshot();
-    guestLooting.applySnapshot(snap3);
-    assert.equal(guestLooting.droppedWeapons.length, 1);
-    assert.equal(guestLooting.droppedWeapons[0].id, 'drop_gun_guest');
-
-    // Guest vứt vật phẩm từ ba lô: Host xử lý drop_item và tạo hòm rơi
-    hostLooting.handleRemoteDropItem({ itemId: 'medkit', count: 1 }, [1, 0, 2], 'crate_medkit_drop');
-    assert.equal(hostLooting.containers.length, 1);
-    assert.equal(hostLooting.containers[0].id, 'crate_medkit_drop');
-    assert.equal(hostLooting.containers[0].slots[0].itemId, 'medkit');
+test('contested crate loot is awarded once and distant requests leave the world unchanged', () => {
+    const saved = globalThis.window;
+    const load = GLTFLoader.prototype.load; GLTFLoader.prototype.load = () => {};
+    globalThis.window = { addEventListener() {} };
+    try {
+        const scene = new THREE.Scene();
+        const a = makeRemotePlayer(scene, null, 'a', 'A'), b = makeRemotePlayer(scene, null, 'b', 'B');
+        for (const p of [a,b]) { p.weapons = new WeaponSystem(scene, null, {}); p.weapons.resetRun(); p.position.set(0,0,0); }
+        const loot = new LootingSystem(scene, null, a, {}, null);
+        const box = loot.spawnContainer('wooden_crate', new THREE.Vector3(), { slots: [{ itemId: 'medkit', count: 1, revealed: true }] });
+        const snap = loot.snapshot();
+        const cmd = { type: 'loot_slot', containerId: box.id, slotIndex: 0, lootId: snap.containers[0].slots[0].lootId, mode: 'smart' };
+        b.position.set(100,0,100);
+        assert.equal(loot.processRemoteCommand(b, cmd), false);
+        const before = a.weapons.inventory.medkits;
+        assert.equal(loot.processRemoteCommand(a, cmd), true);
+        b.position.set(0,0,0);
+        assert.equal(loot.processRemoteCommand(b, cmd), false);
+        assert.equal(a.weapons.inventory.medkits, before + 1);
+        assert.equal(b.weapons.inventory.medkits, before);
+        assert.equal(loot.containers.length, 0);
+    } finally { globalThis.window = saved; GLTFLoader.prototype.load = load; }
 });
 
 test('Coop match does not trigger game over when host dies but teammates are alive', () => {

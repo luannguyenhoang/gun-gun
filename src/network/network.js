@@ -60,7 +60,7 @@ export class NetworkRoom {
                     if (data.type === 'join') {
                         pName = data.name;
                         pChar = data.character;
-                        this.players.push({ id: pId, name: pName, character: pChar, weapon: getStartingWeapon(data.weapon).id });
+                        this.players.push({ id: pId, name: pName, character: pChar, weapon: getStartingWeapon(data.weapon).id, loadout: data.loadout });
                         conn.send({ type: 'accept', you: pId, epoch: this.epoch, players: this.players, host: 'host' });
                         this.broadcastRoster();
                     } else if (data.type === 'character') {
@@ -71,7 +71,7 @@ export class NetworkRoom {
                         }
                     } else if (data.type === 'weapon' && this.game.state === 'MENU') {
                         const p = this.players.find(pl => pl.id === pId);
-                        if (p) { p.weapon = getStartingWeapon(data.weapon).id; this.broadcastRoster(); }
+                        if (p) { p.weapon = getStartingWeapon(data.weapon).id; p.loadout = data.loadout; this.broadcastRoster(); }
                     } else if (data.type === 'sync') {
                         if (data.epoch !== this.startedEpoch) return;
                         clientState.input = data.input;
@@ -106,7 +106,7 @@ export class NetworkRoom {
                 this.conn = this.peer.connect('gungun-room-' + code);
                 
                 this.conn.on('open', () => {
-                    this.conn.send({ type: 'join', name, character, weapon: this.game.weapons.startingWeaponId });
+                    this.conn.send({ type: 'join', name, character, weapon: this.game.weapons.startingWeaponId, loadout: this.game.getLoadout?.() });
                 });
                 
                 this.conn.on('data', (data) => {
@@ -190,7 +190,7 @@ export class NetworkRoom {
             }
             this.applyInputs(inputs);
             
-            const started = this.game.state === 'PLAYING';
+            const started = this.game.state === 'PLAYING' || this.game.state === 'GAMEOVER';
             if (!started) return;
             const snapshot = this.game.makeCoopSnapshot();
             for (const c of this.connections) {
@@ -208,11 +208,7 @@ export class NetworkRoom {
                     ads: !!local.isADS,
                     revive: !!local.reviveRequested,
                     moving: local.velocity.lengthSq() > 0.1,
-                    health: local.health,
-                    shield: local.shield,
-                    isDead: !!local.isDead,
-                    isDowned: !!local.isDowned,
-                    bleedOutTimer: local.bleedOutTimer
+                    isDodging: !!local.isDodging
                 },
                 commands: this.pendingCommands.slice(0, 30)
             };
@@ -226,15 +222,11 @@ export class NetworkRoom {
             if (id === this.playerId) continue;
             const player = this.game.getCoopPlayer(id);
             if (!player || !Array.isArray(input?.position)) continue;
-            player.position.fromArray(input.position);
+            if (!player.isDead && input.position.length === 3 && input.position.every(Number.isFinite)) player.position.fromArray(input.position);
             player.aimYaw = input.aim;
             player.isADS = !!input.ads;
+            player.isDodging = !!input.isDodging;
             player.moving = !!input.moving;
-            if (typeof input.health === 'number') player.health = input.health;
-            if (typeof input.shield === 'number') player.shield = input.shield;
-            if (typeof input.isDead === 'boolean') player.isDead = input.isDead;
-            if (typeof input.isDowned === 'boolean') player.isDowned = input.isDowned;
-            if (typeof input.bleedOutTimer === 'number') player.bleedOutTimer = input.bleedOutTimer;
             if (input.revive) { this.game.reviveNearest(player); input.revive = false; }
         }
     }
@@ -246,7 +238,7 @@ export class NetworkRoom {
             const connState = this.connections.find(c => c.id === item.player);
             const commands = Array.isArray(item.commands) ? item.commands : (item.command ? [item.command] : []);
             for (const command of commands) {
-                if (player.isDead || !player.weapons || command.seq <= (player.lastCommandId || 0)) continue;
+                if (!player.weapons || !Number.isSafeInteger(command.seq) || command.seq <= (player.lastCommandId || 0)) continue;
                 player.lastCommandId = command.seq;
                 if (connState) connState.ack = command.seq;
                 (player.commandQueue ||= []).push(command);
@@ -256,99 +248,48 @@ export class NetworkRoom {
 
     processCommands(player) {
         const queue = player.commandQueue || [];
-        if (player.isDead) { queue.length = 0; return; }
         while (queue.length) {
-            const command = queue.shift();
-            if (!command) continue;
-
-            if (command.type === 'reload') {
-                player.weapons.reload();
-            } else if (command.type === 'switch') {
-                player.weapons.switchWeapon(command.slot);
-            } else if (command.type === 'shoot' && Array.isArray(command.target) && command.target.length === 3 && command.target.every(Number.isFinite)) {
-                player.isADS = !!command.ads;
-
-                // Xác định chính xác tọa độ nòng súng từ lệnh client hoặc fallback
-                const origin = (Array.isArray(command.origin) && command.origin.length === 3 && command.origin.every(Number.isFinite))
-                    ? new THREE.Vector3().fromArray(command.origin)
-                    : (player.weapons.getMuzzlePosition?.() || player.position.clone().add(new THREE.Vector3(0, 1.2, 0)));
-                const target = new THREE.Vector3().fromArray(command.target);
-
-                // Đồng bộ súng nếu Client đang cầm súng khác
-                if (command.weaponId && player.weapons.getCurrentWeapon()?.id !== command.weaponId) {
-                    const foundSlot = player.weapons.weaponSlots.findIndex(w => w?.id === command.weaponId);
-                    if (foundSlot >= 0) player.weapons.switchWeapon(foundSlot, player);
-                }
-
-                // Bảo đảm vũ khí của remote player không bị nghẽn cooldown hay hết đạn trên Host
-                const currentW = player.weapons.getCurrentWeapon();
-                if (currentW) {
-                    player.weapons.ammo[currentW.id] = Math.max(player.weapons.ammo[currentW.id] || 0, 10);
-                    player.weapons.isReloading = false;
-                    player.weapons.fireCooldown = 0;
-                }
-
-                player.weapons.shoot(origin, target, !!command.ads, true, 1.0, player);
-
-                // Đưa sự kiện bắn vào danh sách để broadcast trong snapshot cho mọi người chơi thấy
-                (this.game.networkEvents ||= []).push({
-                    type: 'shot',
-                    shooterId: player.id,
-                    origin: origin.toArray(),
-                    target: target.toArray(),
-                    weaponId: command.weaponId || currentW?.id,
-                    ads: !!command.ads
-                });
-            } else if (command.type === 'hit_enemy' && command.enemyId) {
-                // Xử lý sát thương quái trực tiếp từ Client đã xác nhận trúng đích
-                const enemy = this.game.waveManager?.enemies?.find(e => e.id === command.enemyId && !e.isDead);
-                if (enemy) {
-                    const hitPt = (Array.isArray(command.hitPoint) && command.hitPoint.length === 3)
-                        ? new THREE.Vector3().fromArray(command.hitPoint)
-                        : enemy.position;
-                    // Tính vector hướng từ vị trí người chơi tới quái vật trên mặt phẳng ngang
-                    let hitDir = null;
-                    if (enemy.position && player.position) {
-                        hitDir = new THREE.Vector3().subVectors(enemy.position, player.position).setY(0);
-                        if (hitDir.lengthSq() > 0.0001) hitDir.normalize();
-                        else hitDir.set(0, 0, 1);
-                    } else {
-                        hitDir = new THREE.Vector3(0, 0, 1);
-                    }
-
-                    enemy.takeDamage(command.damage, 2, command.crit, hitDir);
-                    if (enemy.isDead) {
-                        this.game.onEnemyKilled(enemy);
-                    }
-                }
-            } else if (command.type === 'throw_bomb' && Array.isArray(command.origin) && Array.isArray(command.target)) {
-                // Xử lý ném bom từ Client gửi lên Host
-                const origin = new THREE.Vector3().fromArray(command.origin);
-                const target = new THREE.Vector3().fromArray(command.target);
-                if (player.weapons) {
-                    player.weapons.throwBomb(origin, target, player, this.game.waveManager?.enemies || []);
-                }
-                // Broadcast sự kiện ném bom cho các người chơi khác
-                (this.game.networkEvents ||= []).push({
-                    type: 'throw_bomb',
-                    throwerId: player.id,
-                    origin: command.origin,
-                    target: command.target,
-                    weaponId: command.weaponId
-                });
-            } else if (command.type === 'loot_slot') {
-                this.game.lootingSystem?.handleRemoteLoot?.(command.containerId, command.slotIndex, command.replacedSlot);
-            } else if (command.type === 'loot_all') {
-                this.game.lootingSystem?.handleRemoteLootAll?.(command.containerId);
-            } else if (command.type === 'drop_weapon') {
-                this.game.lootingSystem?.handleRemoteDropWeapon?.(command.gunData, command.position, command.id);
-            } else if (command.type === 'pickup_weapon') {
-                this.game.lootingSystem?.handleRemotePickupWeapon?.(command.weaponDropId);
-            } else if (command.type === 'drop_item') {
-                this.game.lootingSystem?.handleRemoteDropItem?.(command.item, command.position, command.id);
-            }
-
+            const command = queue[0];
+            if (!player.isDead && !player.isDowned && command.type === 'shoot' &&
+                (player.weapons.fireCooldown > 0 || player.weapons.isReloading)) break;
+            queue.shift();
             player.processedSeq = command.seq;
+            if (player.isDead || player.isDowned) continue;
+            const weapons = player.weapons;
+            const validVector = v => Array.isArray(v) && v.length === 3 && v.every(Number.isFinite);
+            if (command.type === 'reload') weapons.reload();
+            else if (command.type === 'switch') weapons.switchWeapon(command.slot, player);
+            else if (command.type === 'medkit') weapons.startMedkitUse(player, command.itemType);
+            else if (command.type === 'cancel_medkit') weapons.cancelMedkitUse();
+            else if (command.type === 'revive') this.game.reviveNearest(player);
+            else if (command.type === 'shoot' && validVector(command.target)) {
+                const current = weapons.getCurrentWeapon();
+                if (command.weaponId && current?.id !== command.weaponId) continue;
+                const origin = weapons.getMuzzlePosition?.() || player.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+                const target = new THREE.Vector3().fromArray(command.target);
+                player.isADS = !!command.ads;
+                if (weapons.shoot(origin, target, player.isADS, true, 1, player)) {
+                    (this.game.networkEvents ||= []).push({ type: 'shot', shooterId: player.id,
+                        origin: origin.toArray(), target: target.toArray(), weaponId: current.id, ads: player.isADS });
+                }
+            } else if (command.type === 'throw_bomb' && validVector(command.target)) {
+                const current = weapons.getCurrentWeapon();
+                if (command.weaponId !== current?.id) continue;
+                const origin = player.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+                if (weapons.throwBomb(origin, new THREE.Vector3().fromArray(command.target), player, this.game.waveManager.enemies)) {
+                    (this.game.networkEvents ||= []).push({ type: 'throw_bomb', throwerId: player.id,
+                        origin: origin.toArray(), target: command.target, weaponId: current.id });
+                }
+            } else if (command.type === 'drop_weapon') {
+                const gun = weapons.weaponSlots[command.slot];
+                if ((command.slot === 0 || command.slot === 1) && gun?.instanceId && gun.instanceId === command.instanceId) {
+                    weapons.switchWeapon(command.slot, player);
+                    weapons.dropCurrentWeapon(player, this.game.lootingSystem);
+                }
+            } else {
+                // Loot requests identify existing host items; clients never supply item contents or damage.
+                this.game.lootingSystem?.processRemoteCommand?.(player, command);
+            }
         }
     }
 
@@ -356,10 +297,12 @@ export class NetworkRoom {
         const ids = new Set(players.map(p => p.id));
         for (const player of players) {
             if (player.id !== this.playerId) {
+                const isNew = !this.game.remotePlayers.has(player.id);
                 const remote = this.game.ensureCoopPlayer(player.id, player.name, player.character);
-                if (this.game.state === 'MENU' && remote?.weapons) {
+                if (remote) remote.loadout = player.loadout || { primary: player.weapon };
+                if ((this.game.state === 'MENU' || isNew) && remote?.weapons) {
                     const weapon = getStartingWeapon(player.weapon);
-                    if (remote.weapons.startingWeaponId !== weapon.id) remote.weapons.resetRun(weapon.id);
+                    remote.weapons.resetRun(weapon.id, remote.loadout.secondary, remote.loadout.bomb1, remote.loadout.bomb2);
                 }
             }
         }
@@ -387,7 +330,7 @@ export class NetworkRoom {
         if (this.host) {
             const player = this.players.find(p => p.id === this.playerId);
             if (player) { player.weapon = weapon; this.broadcastRoster(); }
-        } else if (this.conn?.open) this.conn.send({ type: 'weapon', weapon });
+        } else if (this.conn?.open) this.conn.send({ type: 'weapon', weapon, loadout: this.game.getLoadout?.() });
     }
 
     leave() {
@@ -424,14 +367,19 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
     const remote = { id, name, characterId: normalizeCharacter(characterId), position: new THREE.Vector3(0, 0, 8), velocity: new THREE.Vector3(), netTarget: null, netVelocity: new THREE.Vector3(), netSampleTime: 0, aimYaw: Math.PI, isADS: false,
         isDead: false, isDowned: false, bleedOutTimer: 30.0, health: 100, maxHealth: 100, shield: 100, maxShield: 100,
         radius: 0.55, height: 1.6, mesh: group, healthBar,
-        updateVisual(delta = 1 / 60) {
+        updateSimulation(delta) {
+            this.invulnerability = Math.max(0, (this.invulnerability || 0) - delta);
+            this.shieldRegenTimer = Math.max(0, (this.shieldRegenTimer || 0) - delta);
+            if (!this.isDead && !this.isDowned && !this.shieldRegenTimer) this.shield = Math.min(this.maxShield, this.shield + 25 * delta);
             if (this.isDowned && !this.isDead) {
-                this.bleedOutTimer = Math.max(0, (this.bleedOutTimer || 30.0) - delta);
+                this.bleedOutTimer = Math.max(0, (this.bleedOutTimer ?? 30.0) - delta);
                 if (this.bleedOutTimer <= 0) {
                     this.isDead = true;
                     this.isDowned = false;
                 }
             }
+        },
+        updateVisual(delta = 1 / 60) {
             const blend = 1 - Math.exp(-12 * delta);
             let visualTarget = this.position;
             if (this.netTarget && this.netSampleTime) {
@@ -442,8 +390,8 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
             else group.position.lerp(visualTarget, blend);
             const angle = Math.atan2(Math.sin(this.aimYaw - group.rotation.y), Math.cos(this.aimYaw - group.rotation.y));
             group.rotation.y += angle * blend;
-            group.visible = !this.isDead || this.isDowned;
-            if (this.isDowned) {
+            group.visible = true;
+            if (this.isDowned || this.isDead) {
                 group.rotation.x = -Math.PI / 2.2;
             } else {
                 group.rotation.x = 0;
@@ -457,7 +405,11 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
         },
         checkHit(start, end, ray) { const hit = ray.intersectBox(new THREE.Box3(this.position.clone().add(new THREE.Vector3(-.55, 0, -.55)), this.position.clone().add(new THREE.Vector3(.55, 1.6, .55))), new THREE.Vector3()); return hit ? { hit: true, point: hit } : { hit: false }; },
         takeDamage(amount) {
-            this.health -= amount;
+            if (this.isDead || this.isDowned || this.isDodging || this.invulnerability > 0) return;
+            this.shieldRegenTimer = 4;
+            const absorbed = Math.min(this.shield, amount);
+            this.shield -= absorbed;
+            this.health -= amount - absorbed;
             if (this.health <= 0) {
                 this.health = 0;
                 this.isDowned = true;
@@ -476,6 +428,9 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
         revive() {
             if (!this.isDowned && !this.isDead) return false;
             this.health = 60;
+            this.shield = 0;
+            this.invulnerability = 2.5;
+            this.isBeingRevived = false;
             this.isDowned = false;
             this.isDead = false;
             this.reviveProgress = 0.0;

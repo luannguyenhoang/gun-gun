@@ -779,13 +779,12 @@ export class PlayerController {
     }
 
     takeDamage(amount, hitDir) {
-        if (this.isDead || this.isDodging || this.invulnerability > 0) return;
+        if (this.isDead || this.isDowned || this.isDodging || this.invulnerability > 0 || (window.game?.network?.active && !window.game.network.host)) return;
         // Kiem tra khien bat tu Nanite
         if (this.activeSkillEffect === 'nanite_barrier') return;
         // Kiem tra hang rao thep giam 50% sat thuong
         if (this.activeSkillEffect === 'iron_wall') amount = Math.round(amount * 0.5);
         if (this.damageTakenMult) amount = Math.max(1, Math.round(amount * this.damageTakenMult));
-
         // Che do Developer: Nhan vat bat tu, khong bi tru mau hoac khien
         if (this.developerMode || window.developerMode) {
             this.health = this.maxHealth;
@@ -932,8 +931,8 @@ export class PlayerController {
 
         // Xử lý trạng thái gục (Downed / Bleed-out)
         if (this.isDowned) {
-            this.bleedOutTimer -= delta;
-            if (this.bleedOutTimer <= 0) {
+            if (!window.game?.network?.active || window.game.network.host) this.bleedOutTimer -= delta;
+            if (this.bleedOutTimer <= 0 && (!window.game?.network?.active || window.game.network.host)) {
                 this.bleedOutTimer = 0;
                 this.die(true); // Hết 30 giây chảy máu, chết hẳn
                 return;

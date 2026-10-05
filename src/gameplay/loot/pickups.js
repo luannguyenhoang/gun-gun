@@ -314,7 +314,7 @@ export class PickupManager {
             }
             pickup.body.rotation.y += (pickup.type === 'airdrop' ? 0.4 : 2.2) * delta;
             pickup.mesh.position.y = pickup.baseY + Math.sin(performance.now() * 0.005 + i) * 0.15;
-            const collector = authoritative && players.find(p => !p.isDead && Math.hypot(pickup.mesh.position.x - p.position.x, pickup.mesh.position.z - p.position.z) < 1.6);
+            const collector = authoritative && players.find(p => !p.isDead && !p.isDowned && Math.hypot(pickup.mesh.position.x - p.position.x, pickup.mesh.position.z - p.position.z) < 1.6);
             if (collector) {
                 const text = this.collect(pickup, collector);
                 sounds.playPickup(pickup.type);
