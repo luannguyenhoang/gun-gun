@@ -2,31 +2,25 @@ import * as THREE from 'three';
 import { LOOT_ITEMS, LOOT_TIERS } from '../gameplay/loot/looting.js?v=22';
 import { sounds } from '../audio/audio.js';
 import { ATTACHMENT_DEFS } from '../gameplay/combat/weapons.js?v=22';
+import { CHARACTER_CONFIGS } from '../gameplay/player/characters.js';
 
 const _tempMateWorldPos = new THREE.Vector3();
 const _tempNdc = new THREE.Vector3();
 
-// Cấu hình màu sắc đặc trưng theo từng nhân vật
-const CHARACTER_COLORS = {
-    soldier: '#22e6a5',
-    skeleton: '#ffe06a',
-    vampire: '#ff5577'
-};
-
-// Hàm trả về chuỗi SVG đại diện cho avatar nhân vật
-function getCharacterAvatarSvg(characterId) {
-    switch (characterId) {
-        case 'skeleton':
-            // Biểu tượng khung xương
-            return `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a8 8 0 0 0-8 8c0 3.2 1.9 6 4.7 7.2l.3 2.8h6l.3-2.8A8 8 0 0 0 20 10a8 8 0 0 0-8-8zm-3 7.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm6 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm-4.5 7h3v2h-3v-2z"/></svg>`;
-        case 'vampire':
-            // Biểu tượng ma cà rồng
-            return `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l-3 4-5-1 2 5-4 2 4 4-2 6 6-3 2 3 2-3 6 3-2-6 4-4-4-2 2-5-5 1-3-4zm0 6a3 3 0 0 1 3 3c0 1.2-.7 2.2-1.7 2.7l.7 2.3-2-.7-2 .7.7-2.3C9.7 13.2 9 12.2 9 11a3 3 0 0 1 3-3z"/></svg>`;
-        case 'soldier':
-        default:
-            // Biểu tượng chiến binh / lính
-            return `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C8 2 4.5 4.5 4 8.5v3c0 4.5 3.5 8 8 8.5 4.5-.5 8-4 8-8.5v-3C19.5 4.5 16 2 12 2zm0 3c2.5 0 5 1.5 5.5 3.5H6.5C7 6.5 9.5 5 12 5zm-6 6.5c0-.8.2-1.5.5-2h11c.3.5.5 1.2.5 2 0 3-2.5 5.5-6 6-3.5-.5-6-3-6-6z"/></svg>`;
+// Cau hinh mau sac dac trung tu dong theo CHARACTER_CONFIGS
+const CHARACTER_COLORS = new Proxy({}, {
+    get(target, prop) {
+        return CHARACTER_CONFIGS[prop]?.color || '#22e6a5';
     }
+});
+
+// Ham tra ve anh avatar hoac SVG dai dien cho tung nhan vat
+function getCharacterAvatarSvg(characterId) {
+    const cfg = CHARACTER_CONFIGS[characterId];
+    if (cfg?.preview) {
+        return `<img src="${cfg.preview}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="${cfg.label}" onerror="this.outerHTML='<span style=\\'font-size:10px;font-weight:bold;\\'>${cfg.label.slice(0, 2)}</span>'">`;
+    }
+    return `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C8 2 4.5 4.5 4 8.5v3c0 4.5 3.5 8 8 8.5 4.5-.5 8-4 8-8.5v-3C19.5 4.5 16 2 12 2zm0 3c2.5 0 5 1.5 5.5 3.5H6.5C7 6.5 9.5 5 12 5zm-6 6.5c0-.8.2-1.5.5-2h11c.3.5.5 1.2.5 2 0 3-2.5 5.5-6 6-3.5-.5-6-3-6-6z"/></svg>`;
 }
 
 export class UIManager {
@@ -38,6 +32,14 @@ export class UIManager {
         this.shieldText = document.getElementById('shield-text');
         this.staminaFill = document.getElementById('stamina-fill');
         this.staminaText = document.getElementById('stamina-text');
+
+        // Widget Ky Nang Nhan Vat
+        this.skillWidget = document.getElementById('character-skill-widget');
+        this.skillCdBar = document.getElementById('skill-cd-bar');
+        this.skillKeyBadge = document.getElementById('skill-key-badge');
+        this.skillCdText = document.getElementById('skill-cd-text');
+        this.skillNameLabel = document.getElementById('skill-name-label');
+        this._skillCircumference = 2 * Math.PI * 18; // ~113.1
 
         this.buffDamage = document.getElementById('buff-damage');
         this.buffDamageVal = document.getElementById('buff-damage-val');
@@ -635,6 +637,37 @@ export class UIManager {
             }
             if (this.thCircleEnergy) {
                 this.thCircleEnergy.style.opacity = player.isDodging ? '0.5' : '1';
+            }
+
+            // Cập nhật Widget Kỹ năng chủ động Nhân vật (Q / E)
+            if (this.skillWidget && player) {
+                const cfg = CHARACTER_CONFIGS[player.characterId] || CHARACTER_CONFIGS.soldier;
+                const skill = cfg?.activeSkill;
+                if (skill) {
+                    if (this.skillNameLabel && this._lastSkillName !== skill.name) {
+                        this._lastSkillName = skill.name;
+                        this.skillNameLabel.textContent = skill.name.toUpperCase();
+                    }
+                    const cdTimer = player.activeSkillCooldownTimer || 0;
+                    const maxCd = player.activeSkillMaxCooldown || skill.cooldown || 20;
+                    const isReady = (cdTimer <= 0);
+
+                    this.skillWidget.classList.toggle('ready', isReady);
+                    this.skillWidget.classList.toggle('cooling', !isReady);
+
+                    if (this.skillCdBar) {
+                        const progress = isReady ? 1.0 : Math.max(0, Math.min(1.0, 1.0 - cdTimer / maxCd));
+                        const offset = this._skillCircumference * (1.0 - progress);
+                        this.skillCdBar.style.strokeDashoffset = String(offset);
+                    }
+
+                    if (this.skillCdText) {
+                        this.skillCdText.textContent = isReady ? '' : Math.ceil(cdTimer).toString();
+                    }
+                    if (this.skillKeyBadge) {
+                        this.skillKeyBadge.style.display = isReady ? '' : 'none';
+                    }
+                }
             }
 
             // CỤM 2: Thông tin đạn và Silhouette cho cả Súng 1 và Súng 2 (Phong cách PUBG Mobile)

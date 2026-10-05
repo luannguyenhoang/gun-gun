@@ -1,20 +1,13 @@
 import * as THREE from 'three';
 import * as SkeletonUtils from '../../vendor/SkeletonUtils.js';
-import { CHARACTER_CONFIGS } from '../gameplay/player/characters.js';
+import { CHARACTER_CONFIGS, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { WEAPON_CONFIGS, getStartingWeapon, updateHeldWeaponPose, BOMB_CONFIGS, getBombConfig, MEDICAL_CONFIGS, th_UPGRADE_TIER_CONFIG, th_getWeaponTier, th_getWeaponEnchant, th_ELEMENTAL_EFFECTS, th_getWeaponParts, th_getPartTier, TH_PART_META, ATTACHMENT_DEFS } from '../gameplay/combat/weapons.js?v=46';
-
-const DETAILS = {
-    soldier: { title: 'LÍNH', subtitle: 'CHIẾN BINH TIỀN TUYẾN', color: '#75bca1', description: 'Giữ vững vị trí. Sẵn sàng đối đầu với bất kỳ đợt zombie nào.' },
-    skeleton: { title: 'KHUNG XƯƠNG', subtitle: 'KẺ SỐNG SÓT BẤT DIỆT', color: '#bea2ed', description: 'Chỉ còn xương, nhưng tinh thần chiến đấu thì chưa bao giờ tắt.' },
-    vampire: { title: 'MA CÀ RỒNG', subtitle: 'CHIẾN BINH BÓNG ĐÊM', color: '#e78188', description: 'Bước ra từ bóng tối. Biến đấu trường thành sân chơi của bạn.' }
-};
 
 export class CharacterShowroom {
     constructor(game) {
         this.game = game;
         this.dialog = document.getElementById('character-screen');
         this.stage = document.getElementById('character-stage');
-        this.cards = [...this.dialog.querySelectorAll('[data-preview-character]')];
         this.entries = new Map();
         this.selected = this.game.characterId || 'soldier';
         this.mode = 'characters';
@@ -22,6 +15,35 @@ export class CharacterShowroom {
         this.weaponId = this.loadout.primary;
         this.allItems = [...WEAPON_CONFIGS, ...BOMB_CONFIGS, ...MEDICAL_CONFIGS];
         this.weaponCards = document.getElementById('weapon-cards');
+
+        // Sinh the dong cho toan bo 21 nhan vat
+        this.characterCardsContainer = document.getElementById('character-cards');
+        if (this.characterCardsContainer) {
+            this.characterCardsContainer.innerHTML = '';
+            for (const [id, charCfg] of Object.entries(CHARACTER_CONFIGS)) {
+                const card = document.createElement('button');
+                card.className = 'character-card';
+                card.dataset.previewCharacter = id;
+                card.style.setProperty('--card-color', charCfg.color || '#38bdf8');
+                const isFree = (charCfg.price === 0);
+                const priceBadge = isFree ? 'MIỄN PHÍ' : `${charCfg.price.toLocaleString()} VÀNG`;
+                const tierClass = `tier-${charCfg.tier || 1}`;
+                card.innerHTML = `
+                    <div class="weapon-card-header">
+                        <span class="weapon-tier-badge ${tierClass}">${charCfg.tierName || 'CƠ BẢN'}</span>
+                        <span class="weapon-category-tag">${priceBadge}</span>
+                    </div>
+                    <span class="character-card-portrait">
+                        <img src="${charCfg.preview}" alt="${charCfg.label}" onerror="this.hidden=true">
+                    </span>
+                    <strong>${charCfg.label}</strong>
+                    <span class="character-card-status"></span>
+                `;
+                card.onclick = () => this.preview(id);
+                this.characterCardsContainer.appendChild(card);
+            }
+        }
+        this.cards = [...(this.characterCardsContainer?.querySelectorAll('[data-preview-character]') || [])];
 
         // Tạo toàn bộ thẻ cho Súng, Bom và Vật phẩm Y tế
         for (const item of this.allItems) {
@@ -174,9 +196,14 @@ export class CharacterShowroom {
                 }
                 return;
             }
+            if (!isCharacterUnlocked(this.selected)) {
+                this.buyCharacter(this.selected);
+                return;
+            }
             if (!this.entries.get(this.selected)) return;
             this.game.selectCharacter(this.selected);
             this.syncSelection();
+            this.renderDetails();
         };
 
         this.stage.addEventListener('pointerdown', event => {
@@ -728,18 +755,25 @@ export class CharacterShowroom {
 
     preview(id) {
         this.selected = id;
-        const info = DETAILS[id];
-        if (!info) return;
-        this.dialog.style.setProperty('--character-accent', info.color);
-        document.getElementById('character-name').textContent = info.title;
-        document.getElementById('character-subtitle').textContent = info.subtitle;
-        document.getElementById('character-description').textContent = info.description;
-        document.getElementById('character-watermark').textContent = info.title;
+        const charCfg = CHARACTER_CONFIGS[id];
+        if (!charCfg) return;
+        this.dialog.style.setProperty('--character-accent', charCfg.color || '#38bdf8');
+        document.getElementById('character-name').textContent = charCfg.label;
+        document.getElementById('character-subtitle').textContent = `${charCfg.tierName || 'CƠ BẢN'} · ${charCfg.subtitle}`;
+        
+        const passiveText = charCfg.passives?.passiveDesc ? `[NỘI TẠI]: ${charCfg.passives.passiveDesc}` : '';
+        const skillText = charCfg.activeSkill ? `[KỸ NĂNG Q/E - ${charCfg.activeSkill.name.toUpperCase()}]: ${charCfg.activeSkill.description} (${charCfg.activeSkill.cooldown}s)` : '';
+        document.getElementById('character-description').textContent = `${charCfg.description} | ${passiveText} | ${skillText}`;
+        document.getElementById('character-watermark').textContent = charCfg.label;
+
         const weapon = this.getItem(this.weaponId);
-        document.getElementById('character-health').textContent = this.game.player.maxHealth;
-        document.getElementById('character-shield').textContent = this.game.player.maxShield;
+        const baseHp = 100 + (charCfg.passives?.healthBonus || 0);
+        const baseShield = 100 + (charCfg.passives?.armorBonus || 0);
+        const speedVal = (7.5 * (charCfg.passives?.speedMult || 1.0)).toFixed(1);
+        document.getElementById('character-health').textContent = baseHp;
+        document.getElementById('character-shield').textContent = baseShield;
         document.getElementById('character-damage').textContent = weapon.damage || 30;
-        document.getElementById('character-speed').textContent = this.game.player.speed;
+        document.getElementById('character-speed').textContent = speedVal;
         document.getElementById('character-weapon-detail').textContent = weapon.isBomb 
             ? `${weapon.damage} sát thương nổ · Bán kính ${weapon.radius}m` 
             : `${weapon.damage} sát thương · ${weapon.magSize} viên / băng`;
@@ -751,16 +785,26 @@ export class CharacterShowroom {
         this.status.textContent = 'ĐANG TẢI NHÂN VẬT…';
         this.stage.setAttribute('aria-busy', String(!loaded));
         this.syncSelection();
+        this.renderDetails();
         this.load(id);
     }
 
     syncSelection() {
         for (const card of this.cards) {
             const id = card.dataset.previewCharacter;
+            const isUnlocked = isCharacterUnlocked(id);
+            const isEquipped = (id === this.game.characterId);
+            const charCfg = CHARACTER_CONFIGS[id];
             card.classList.toggle('previewing', id === this.selected);
+            card.classList.toggle('locked', !isUnlocked);
             card.setAttribute('aria-pressed', String(id === this.selected));
-            card.querySelector('.character-card-status').textContent = id === this.game.characterId ? '✓ ĐANG DÙNG' : 'ĐÃ SỞ HỮU';
-            card.classList.toggle('equipped', id === this.game.characterId);
+            const statusEl = card.querySelector('.character-card-status');
+            if (statusEl) {
+                if (isEquipped) statusEl.textContent = '✓ ĐANG DÙNG';
+                else if (isUnlocked) statusEl.textContent = 'ĐÃ SỞ HỮU';
+                else statusEl.textContent = `${(charCfg?.price || 0).toLocaleString()} VÀNG`;
+            }
+            card.classList.toggle('equipped', isEquipped);
         }
 
         for (const card of this.weaponCards.children) {
@@ -928,14 +972,46 @@ export class CharacterShowroom {
             // Chế độ Nhân vật
             if (this.armoryActionGroup) this.armoryActionGroup.style.display = 'none';
             this.confirm.style.display = '';
-            const equipped = this.selected === this.game.characterId;
-            this.confirm.textContent = this.locked() ? 'TRẬN ĐẤU ĐÃ BẮT ĐẦU' : equipped ? '✓ ĐANG SỬ DỤNG' : 'CHỌN NHÂN VẬT';
-            this.confirm.classList.toggle('equipped', equipped);
-            this.confirm.disabled = this.locked() || !this.entries.get(this.selected) || equipped;
+            const charCfg = CHARACTER_CONFIGS[this.selected] || CHARACTER_CONFIGS.soldier;
+            const isUnlocked = isCharacterUnlocked(this.selected);
+            const equipped = (this.selected === this.game.characterId);
+
+            if (!isUnlocked) {
+                const canBuy = (this.game.coins >= charCfg.price);
+                this.confirm.textContent = `MUA NHÂN VẬT [${charCfg.price.toLocaleString()} VÀNG]`;
+                this.confirm.classList.remove('equipped');
+                this.confirm.classList.add('buy-mode');
+                this.confirm.disabled = this.locked() || !canBuy;
+            } else {
+                this.confirm.classList.remove('buy-mode');
+                this.confirm.textContent = this.locked() ? 'TRẬN ĐẤU ĐÃ BẮT ĐẦU' : equipped ? '✓ ĐANG SỬ DỤNG' : 'CHỌN NHÂN VẬT';
+                this.confirm.classList.toggle('equipped', equipped);
+                this.confirm.disabled = this.locked() || !this.entries.get(this.selected) || equipped;
+            }
         }
 
         this.syncLoadoutUI();
         this.game.updateCoinsUI?.();
+    }
+
+    buyCharacter(id) {
+        const charCfg = CHARACTER_CONFIGS[id];
+        if (!charCfg || isCharacterUnlocked(id)) return;
+        if (this.game.coins < charCfg.price) {
+            this.game.ui?.showPickupAlert?.('BẠN KHÔNG ĐỦ VÀNG!');
+            return;
+        }
+
+        this.game.coins -= charCfg.price;
+        localStorage.setItem('arena_player_coins', this.game.coins.toString());
+        unlockCharacter(id);
+
+        this.selected = id;
+        this.game.selectCharacter(id);
+        this.syncSelection();
+        this.renderDetails();
+        this.game.updateCoinsUI?.();
+        this.game.ui?.showPickupAlert?.(`ĐÃ MỞ KHÓA: ${charCfg.label}!`);
     }
 
     // Lọc danh sách vũ khí theo 3 Tab Lớn (VŨ KHÍ CHÍNH | VŨ KHÍ PHỤ | TRANG BỊ KHÁC)

@@ -14,7 +14,11 @@ const ZOMBIE_RADII = {
     spitter: 0.7,
     bomber: 0.8,
     crawler: 0.4,
-    boomer: 1.05
+    boomer: 1.05,
+    orc_brawler: 0.95,
+    cyber_enforcer: 0.75,
+    shadow_stalker: 0.55,
+    toxic_spitter: 0.7
 };
 
 // Vector va bien tam dung chung de toi uu bo nho, Zero GC trong vong lap 60 FPS
@@ -97,7 +101,51 @@ export class Zombie {
         // Tinh toan toc do toi da khong vuot qua 95% toc do Player de van tha dieu duoc nhung ap sat rat sat
         const maxAllowedSpeed = (playerSpeed || 7.5) * 0.95;
 
-        if (type === 'tank') {
+        if (type === 'orc_brawler') {
+            this.baseHealth = 650;
+            this.baseArmor = 280;
+            this.armorClass = 2;
+            this.speed = Math.min(4.0 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.scale = 2.4;
+            this.damage = Math.round(48 * dmgMult);
+            this.attackRange = 1.6;
+            this.attackCooldown = 1.0;
+            this.knockbackResistance = 0.85;
+            this.scoreValue = 350;
+        } else if (type === 'cyber_enforcer') {
+            this.baseHealth = 380;
+            this.baseArmor = 160;
+            this.armorClass = 2;
+            this.speed = Math.min(5.5 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.scale = 1.85;
+            this.damage = Math.round(35 * dmgMult);
+            this.attackRange = 1.35;
+            this.attackCooldown = 0.8;
+            this.knockbackResistance = 0.45;
+            this.scoreValue = 280;
+        } else if (type === 'shadow_stalker') {
+            this.baseHealth = 160;
+            this.baseArmor = 30;
+            this.armorClass = 1;
+            this.speed = Math.min(7.6 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.scale = 1.5;
+            this.damage = Math.round(28 * dmgMult);
+            this.attackRange = 1.2;
+            this.attackCooldown = 0.6;
+            this.knockbackResistance = 0.15;
+            this.scoreValue = 220;
+        } else if (type === 'toxic_spitter') {
+            this.baseHealth = 290;
+            this.baseArmor = 70;
+            this.armorClass = 1;
+            this.speed = Math.min(4.2 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.scale = 1.7;
+            this.damage = Math.round(26 * dmgMult);
+            this.attackRange = 12.0;
+            this.attackCooldown = 2.0;
+            this.knockbackResistance = 0.25;
+            this.scoreValue = 260;
+        } else if (type === 'tank') {
             // Tanker Zombie: Mau cuc trau, giap day, khang day lui knockback 90%
             this.baseHealth = 550;
             this.baseArmor = 280;
@@ -206,9 +254,17 @@ export class Zombie {
 
         let baseModelKey = 'character-zombie';
         if (this.type === 'sprinter') {
-            baseModelKey = models['character-skeleton'] ? 'character-skeleton' : 'character-zombie';
+            baseModelKey = models['character-n'] ? 'character-n' : (models['character-skeleton'] ? 'character-skeleton' : 'character-zombie');
         } else if (this.type === 'boss') {
-            baseModelKey = models['character-vampire'] ? 'character-vampire' : 'character-zombie';
+            baseModelKey = models['character-d'] ? 'character-d' : (models['character-vampire'] ? 'character-vampire' : 'character-zombie');
+        } else if (this.type === 'orc_brawler') {
+            baseModelKey = models['character-d'] ? 'character-d' : 'character-zombie';
+        } else if (this.type === 'cyber_enforcer') {
+            baseModelKey = models['character-k'] ? 'character-k' : 'character-zombie';
+        } else if (this.type === 'shadow_stalker') {
+            baseModelKey = models['character-n'] ? 'character-n' : 'character-zombie';
+        } else if (this.type === 'toxic_spitter') {
+            baseModelKey = models['character-p'] ? 'character-p' : 'character-zombie';
         }
 
         const base = models[baseModelKey] || models['character-zombie'];
@@ -229,20 +285,23 @@ export class Zombie {
                 child.material = child.material.clone();
                 this.meshMaterials.push(child.material);
 
-                if (this.type === 'giant') {
-                    child.material.color.setHex(0x996044);
-                } else if (this.type === 'bomber') {
-                    child.material.color.setHex(0x9d4aab);
-                } else if (this.type === 'spitter') {
-                    child.material.color.setHex(0x709d28);
-                } else if (this.type === 'tank') {
-                    child.material.color.setHex(0x554433);
-                } else if (this.type === 'boss') {
-                    child.material.color.setHex(0x770022);
-                } else if (this.type === 'sprinter' || this.type === 'crawler') {
-                    child.material.color.setHex(0xffd34e);
-                } else if (this.type === 'boomer') {
-                    child.material.color.setHex(0x55aa33);
+                // Chi doi mau voi model khong co texture map san
+                if (!child.material.map) {
+                    if (this.type === 'giant') {
+                        child.material.color.setHex(0x996044);
+                    } else if (this.type === 'bomber') {
+                        child.material.color.setHex(0x9d4aab);
+                    } else if (this.type === 'spitter') {
+                        child.material.color.setHex(0x709d28);
+                    } else if (this.type === 'tank') {
+                        child.material.color.setHex(0x554433);
+                    } else if (this.type === 'boss') {
+                        child.material.color.setHex(0x770022);
+                    } else if (this.type === 'sprinter' || this.type === 'crawler') {
+                        child.material.color.setHex(0xffd34e);
+                    } else if (this.type === 'boomer') {
+                        child.material.color.setHex(0x55aa33);
+                    }
                 }
             }
         });
@@ -918,7 +977,11 @@ export class WaveManager {
         await Promise.all([
             load('character-zombie', 'character-zombie.glb'),
             load('character-skeleton', 'character-skeleton.glb'),
-            load('character-vampire', 'character-vampire.glb')
+            load('character-vampire', 'character-vampire.glb'),
+            load('character-d', 'character-d.glb'),
+            load('character-k', 'character-k.glb'),
+            load('character-n', 'character-n.glb'),
+            load('character-p', 'character-p.glb')
         ]);
     }
 
@@ -941,23 +1004,27 @@ export class WaveManager {
         if ((this.currentPhase >= 3 || survivalMinutes >= 1.5) && roll < .10) return 'bomber';
         if ((this.currentPhase >= 2 || survivalMinutes >= .75) && roll >= .10 && roll < .28) return 'spitter';
         if (survivalMinutes < 2.0) {
-            return roll < 0.3 ? 'crawler' : 'walker';
+            if (roll < 0.15) return 'shadow_stalker';
+            return roll < 0.4 ? 'crawler' : 'walker';
         } else if (survivalMinutes < 4.0) {
-            if (roll < 0.25) return 'sprinter';
+            if (roll < 0.15) return 'cyber_enforcer';
+            if (roll < 0.30) return 'sprinter';
             if (roll < 0.50) return 'crawler';
             return 'walker';
         } else if (survivalMinutes < 6.0) {
-            if (roll < 0.15) return 'spitter';
-            if (roll < 0.35) return 'sprinter';
-            if (roll < 0.55) return 'crawler';
+            if (roll < 0.12) return 'orc_brawler';
+            if (roll < 0.24) return 'cyber_enforcer';
+            if (roll < 0.36) return 'shadow_stalker';
+            if (roll < 0.48) return 'toxic_spitter';
             if (roll < 0.65) return 'boomer';
             return 'walker';
         } else {
-            if (roll < 0.15) return 'tank';
-            if (roll < 0.25) return 'giant';
-            if (roll < 0.45) return 'spitter';
-            if (roll < 0.60) return 'boomer';
-            if (roll < 0.75) return 'sprinter';
+            if (roll < 0.12) return 'orc_brawler';
+            if (roll < 0.22) return 'tank';
+            if (roll < 0.32) return 'giant';
+            if (roll < 0.45) return 'cyber_enforcer';
+            if (roll < 0.60) return 'shadow_stalker';
+            if (roll < 0.75) return 'toxic_spitter';
             return 'walker';
         }
     }

@@ -43,6 +43,23 @@ export class PlayerController {
         this.shieldRegenRate = 25;
         this.developerMode = false;
 
+        // Chi so ky nang nhan vat (Active Skill & Passives)
+        this.activeSkillCooldownTimer = 0;
+        this.activeSkillMaxCooldown = 15;
+        this.activeSkillDurationTimer = 0;
+        this.activeSkillEffect = null;
+        this.recoilMult = 1.0;
+        this.dodgeDistMult = 1.0;
+        this.dodgeCdMult = 1.0;
+        this.critChanceBonus = 0;
+        this.damageMult = 1.0;
+        this.damageTakenMult = 1.0;
+        this.penetrationBonus = 0;
+        this.goldBonus = 0;
+        this.explosiveBonus = 0;
+        this.passiveRegenRate = 0;
+        this.latestEnemies = null;
+
         // Dodge / Dash
         this.dodgeCooldown = 0;
         this.isDodging = false;
@@ -221,6 +238,7 @@ export class PlayerController {
             if (e.code === 'Space') {
                 e.preventDefault();
                 this.weapons.cancelReload();
+                this.tryDodge();
             }
             this.keys[e.code] = true;
 
@@ -236,8 +254,16 @@ export class PlayerController {
             if (e.code === 'Digit5') this.weapons.startMedkitUse(this);
             if (e.code === 'KeyV') this.weapons.switchWeapon(4, this);
 
-            if (e.code === 'KeyQ') this.tryDodge();
-            if (e.code === 'KeyE') this.reviveRequested = true;
+            // Kích hoạt Kỹ năng chủ động (Q hoặc E) và Cứu đồng đội khi đứng gần
+            if (e.code === 'KeyQ') this.tryActiveSkill();
+            if (e.code === 'KeyE') {
+                const hasDownedNearby = window.game?.coopPlayers?.some(p => p !== this && p.isDowned && p.position.distanceTo(this.position) < 3.5);
+                if (hasDownedNearby) {
+                    this.reviveRequested = true;
+                } else {
+                    this.tryActiveSkill();
+                }
+            }
             if (e.code === 'KeyP') this.toggleBotRequested = true;
         });
 
@@ -432,10 +458,263 @@ export class PlayerController {
 
     setCharacter(characterId) {
         const next = normalizeCharacter(characterId);
-        if (next === this.characterId && this.model) return Promise.resolve();
         this.characterId = next;
+        this.applyCharacterStats();
         if (this.loader && this.scene) return this.loadModel(this.loader, this.scene, next);
         return Promise.resolve();
+    }
+
+    applyCharacterStats() {
+        const cfg = CHARACTER_CONFIGS[this.characterId] || CHARACTER_CONFIGS.soldier;
+        const passives = cfg?.passives || {};
+        this.maxHealth = 100 + (passives.healthBonus || 0);
+        this.health = Math.min(this.health || this.maxHealth, this.maxHealth);
+        this.maxShield = 100 + (passives.armorBonus || 0);
+        this.shield = Math.min(this.shield || this.maxShield, this.maxShield);
+        this.speed = 7.5 * (passives.speedMult || 1.0);
+        this.recoilMult = passives.recoilMult || 1.0;
+        this.dodgeDistMult = passives.dodgeDistMult || 1.0;
+        this.dodgeCdMult = passives.dodgeCdMult || 1.0;
+        this.critChanceBonus = passives.critChance || 0;
+        this.damageMult = passives.damageMult || 1.0;
+        this.damageTakenMult = passives.damageTakenMult || 1.0;
+        this.penetrationBonus = passives.penetrationBonus || 0;
+        this.goldBonus = passives.goldBonus || 0;
+        this.explosiveBonus = passives.explosiveBonus || 0;
+        this.passiveRegenRate = passives.regenRate || 0;
+        this.shieldRegenRate = 25 * (passives.shieldRegenRate || 1.0);
+    }
+
+    tryActiveSkill() {
+        if (this.isDead || this.isDowned) return false;
+        if (this.activeSkillCooldownTimer > 0) return false;
+
+        const cfg = CHARACTER_CONFIGS[this.characterId] || CHARACTER_CONFIGS.soldier;
+        const skill = cfg.activeSkill;
+        if (!skill) return false;
+
+        this.activeSkillCooldownTimer = skill.cooldown;
+        this.activeSkillMaxCooldown = skill.cooldown;
+        this.activeSkillDurationTimer = skill.duration || 0;
+        this.activeSkillEffect = skill.effectType;
+
+        sounds.play('jump', { volume: 0.6, rate: 1.8 });
+
+        // Kich hoat hieu ung cu the cua tung ky nang
+        switch (skill.effectType) {
+            case 'rapid_fire':
+                break;
+            case 'speed_boost':
+                this.speedBoostTimer = Math.max(this.speedBoostTimer || 0, skill.duration);
+                this.speedBoostFactor = 1.45;
+                break;
+            case 'instant_reload':
+                if (this.weapons?.currentWeapon) {
+                    this.weapons.currentWeapon.ammo = this.weapons.currentWeapon.maxAmmo;
+                    this.weapons.cancelReload();
+                }
+                sounds.play('reload', { volume: 0.8 });
+                break;
+            case 'heal_armor':
+                this.shield = Math.min(this.maxShield, this.shield + 35);
+                sounds.play('pickupMedkit', { volume: 0.8 });
+                break;
+            case 'shockwave_push':
+                this.triggerShockwave(7.0, 35, 25);
+                break;
+            case 'cluster_grenades':
+                this.triggerClusterMines();
+                break;
+            case 'iron_wall':
+                break;
+            case 'scanner':
+                this.radarScanTimer = skill.duration;
+                break;
+            case 'stun_grenade':
+                this.triggerStunPulse(8.0, 3.0);
+                break;
+            case 'piercing_beam':
+                this.triggerPiercingBeam();
+                break;
+            case 'smoke_camo':
+                this.isInSmoke = true;
+                break;
+            case 'emp_blast':
+                this.triggerEmpBlast(8.5, 120);
+                break;
+            case 'nanite_shield':
+                break;
+            case 'sandstorm':
+                this.triggerSandstorm(8.5, skill.duration);
+                break;
+            case 'shadow_decoy':
+                this.isInSmoke = true;
+                this.triggerShockwave(5.0, 20, 10);
+                break;
+            case 'guaranteed_crit':
+                break;
+            case 'toxic_cloud':
+                this.triggerToxicCloud(6.5, skill.duration);
+                break;
+            case 'supply_drop':
+                if (this.weapons) {
+                    for (const wp of this.weapons.weapons) {
+                        if (wp) wp.ammo = wp.maxAmmo;
+                    }
+                }
+                sounds.play('pickupAmmo', { volume: 0.9 });
+                break;
+            case 'overdrive':
+                this.speedBoostTimer = Math.max(this.speedBoostTimer || 0, skill.duration);
+                this.speedBoostFactor = 1.35;
+                break;
+            case 'bone_toss':
+                this.triggerPiercingBeam(85);
+                break;
+            case 'vampire_drain':
+                this.triggerVampireDrain(7.0, 35);
+                break;
+        }
+
+        this.createSkillVisualEffect(skill.effectType);
+        return true;
+    }
+
+    createSkillVisualEffect(effectType) {
+        if (!this.scene) return;
+        const geometry = new THREE.RingGeometry(0.5, 1.2, 32);
+        geometry.rotateX(-Math.PI / 2);
+        let color = 0x00f0ff;
+        if (effectType === 'emp_blast') color = 0xa855f7;
+        else if (effectType === 'shockwave_push') color = 0x22c55e;
+        else if (effectType === 'vampire_drain') color = 0xff2255;
+        else if (effectType === 'toxic_cloud') color = 0x10b981;
+        else if (effectType === 'nanite_shield' || effectType === 'iron_wall') color = 0xf59e0b;
+        else if (effectType === 'guaranteed_crit') color = 0xb45309;
+
+        const material = new THREE.MeshBasicMaterial({
+            color: color,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.85
+        });
+        const ring = new THREE.Mesh(geometry, material);
+        ring.position.copy(this.position);
+        ring.position.y += 0.1;
+        this.scene.add(ring);
+
+        let scale = 1.0;
+        const startTime = performance.now();
+        const anim = () => {
+            const elapsed = (performance.now() - startTime) / 1000;
+            if (elapsed > 0.45) {
+                this.scene.remove(ring);
+                geometry.dispose();
+                material.dispose();
+                return;
+            }
+            scale = 1.0 + elapsed * 14.0;
+            ring.scale.set(scale, scale, scale);
+            material.opacity = Math.max(0, 0.85 * (1.0 - elapsed / 0.45));
+            requestAnimationFrame(anim);
+        };
+        requestAnimationFrame(anim);
+    }
+
+    triggerShockwave(radius = 7.0, pushForce = 30, damage = 25) {
+        const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
+        for (const enemy of enemies) {
+            if (!enemy || enemy.isDead) continue;
+            const dist = this.position.distanceTo(enemy.position);
+            if (dist <= radius) {
+                const pushDir = new THREE.Vector3().subVectors(enemy.position, this.position).normalize();
+                pushDir.y = 0.2;
+                enemy.takeDamage(damage, 2, false, pushDir);
+                if (enemy.knockbackVelocity) {
+                    enemy.knockbackVelocity.addScaledVector(pushDir, pushForce * Math.max(0.3, 1.0 - dist / radius));
+                }
+            }
+        }
+    }
+
+    triggerEmpBlast(radius = 8.5, damage = 120) {
+        const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
+        for (const enemy of enemies) {
+            if (!enemy || enemy.isDead) continue;
+            const dist = this.position.distanceTo(enemy.position);
+            if (dist <= radius) {
+                const pushDir = new THREE.Vector3().subVectors(enemy.position, this.position).normalize();
+                enemy.takeDamage(damage, 3, true, pushDir);
+                enemy.combatState = 'STUNNED';
+                enemy.combatTimer = 2.5;
+            }
+        }
+    }
+
+    triggerStunPulse(radius = 8.0, duration = 3.0) {
+        const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
+        for (const enemy of enemies) {
+            if (!enemy || enemy.isDead) continue;
+            if (this.position.distanceTo(enemy.position) <= radius) {
+                enemy.combatState = 'STUNNED';
+                enemy.combatTimer = duration;
+            }
+        }
+    }
+
+    triggerVampireDrain(radius = 7.0, amount = 35) {
+        const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
+        let hitCount = 0;
+        for (const enemy of enemies) {
+            if (!enemy || enemy.isDead) continue;
+            if (this.position.distanceTo(enemy.position) <= radius) {
+                const pushDir = new THREE.Vector3().subVectors(enemy.position, this.position).normalize();
+                enemy.takeDamage(30, 2, false, pushDir);
+                hitCount++;
+            }
+        }
+        if (hitCount > 0) {
+            this.health = Math.min(this.maxHealth, this.health + amount);
+        }
+    }
+
+    triggerSandstorm(radius = 8.5, duration = 5.0) {
+        const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
+        for (const enemy of enemies) {
+            if (!enemy || enemy.isDead) continue;
+            if (this.position.distanceTo(enemy.position) <= radius) {
+                enemy.speed = Math.max(1.2, (enemy.speed || 3.5) * 0.4);
+            }
+        }
+    }
+
+    triggerToxicCloud(radius = 6.5, duration = 5.0) {
+        this.triggerShockwave(radius, 15, 40);
+    }
+
+    triggerClusterMines() {
+        for (let i = 0; i < 3; i++) {
+            const angle = (i / 3) * Math.PI * 2;
+            const offset = new THREE.Vector3(Math.cos(angle) * 3.5, 0, Math.sin(angle) * 3.5);
+            setTimeout(() => {
+                this.triggerShockwave(4.0, 25, 45);
+            }, 300 * (i + 1));
+        }
+    }
+
+    triggerPiercingBeam(damage = 110) {
+        const forward = new THREE.Vector3(Math.sin(this.aimYaw), 0, Math.cos(this.aimYaw)).normalize();
+        const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
+        for (const enemy of enemies) {
+            if (!enemy || enemy.isDead) continue;
+            const toEnemy = new THREE.Vector3().subVectors(enemy.position, this.position);
+            const dist = toEnemy.length();
+            if (dist > 25) continue;
+            toEnemy.normalize();
+            if (forward.dot(toEnemy) > 0.85) {
+                enemy.takeDamage(damage, 3, true, forward);
+            }
+        }
     }
 
     playAnimation(name, duration = 0.15) {
@@ -470,15 +749,17 @@ export class PlayerController {
             this.dodgeDir.set(Math.sin(this.aimYaw), 0, Math.cos(this.aimYaw));
         }
 
+        const cdMult = this.dodgeCdMult || 1.0;
         this.isDodging = true;
         this.dodgeTimer = 0.28;
-        this.dodgeCooldown = 1.0;
+        this.dodgeCooldown = 1.0 * cdMult;
         sounds.play('jump', { volume: 0.8, rate: 1.4 });
     }
 
     applyKickbackAndShake(kickStrength = 3.5, shakeStrength = 0.16) {
         if (!this.cursorKick) this.cursorKick = new THREE.Vector2(0, 0);
-        const kick = typeof kickStrength === 'number' ? kickStrength : (kickStrength?.x || 3.5);
+        const recoilM = this.recoilMult || 1.0;
+        const kick = (typeof kickStrength === 'number' ? kickStrength : (kickStrength?.x || 3.5)) * recoilM;
         this.cursorKick.x += (Math.random() - 0.5) * kick * 5.0;
         this.cursorKick.y -= (Math.random() * 0.7 + 0.3) * kick * 6.5; // Nảy hất nhẹ lên trên
 
@@ -495,13 +776,18 @@ export class PlayerController {
 
         if (input.lengthSq() > 0) {
             input.normalize();
-            // Screen-up always means arena north, independently of aim.
         }
         return input;
     }
 
     takeDamage(amount, hitDir) {
         if (this.isDead || this.isDodging || this.invulnerability > 0) return;
+        // Kiem tra khien bat tu Nanite
+        if (this.activeSkillEffect === 'nanite_barrier') return;
+        // Kiem tra hang rao thep giam 50% sat thuong
+        if (this.activeSkillEffect === 'iron_wall') amount = Math.round(amount * 0.5);
+        if (this.damageTakenMult) amount = Math.max(1, Math.round(amount * this.damageTakenMult));
+
         // Che do Developer: Nhan vat bat tu, khong bi tru mau hoac khien
         if (this.developerMode || window.developerMode) {
             this.health = this.maxHealth;
@@ -713,14 +999,30 @@ export class PlayerController {
             this.shield = Math.min(this.maxShield, this.shield + this.shieldRegenRate * delta);
         }
 
+        // Cap nhat bo dem thoi gian hoi chieu va hieu luc Ky nang chu dong
+        if (this.activeSkillCooldownTimer > 0) {
+            this.activeSkillCooldownTimer = Math.max(0, this.activeSkillCooldownTimer - delta);
+        }
+        if (this.activeSkillDurationTimer > 0) {
+            this.activeSkillDurationTimer = Math.max(0, this.activeSkillDurationTimer - delta);
+            if (this.activeSkillDurationTimer === 0) {
+                this.activeSkillEffect = null;
+            }
+        }
+        // Noi tai tu phuc hoi mau (Xac uop / Mummy)
+        if (this.passiveRegenRate > 0 && this.health < this.maxHealth * 0.5 && !this.isDead && !this.isDowned) {
+            this.health = Math.min(this.maxHealth * 0.5, this.health + this.passiveRegenRate * delta);
+        }
+
         // Dodge handling
         if (this.dodgeCooldown > 0) {
             this.dodgeCooldown -= delta;
         }
         if (this.isDodging) {
             this.dodgeTimer -= delta;
-            this.velocity.x = this.dodgeDir.x * 16.0;
-            this.velocity.z = this.dodgeDir.z * 16.0;
+            const dodgeSpeed = 16.0 * (this.dodgeDistMult || 1.0);
+            this.velocity.x = this.dodgeDir.x * dodgeSpeed;
+            this.velocity.z = this.dodgeDir.z * dodgeSpeed;
             if (this.dodgeTimer <= 0) {
                 this.isDodging = false;
             }
@@ -769,15 +1071,8 @@ export class PlayerController {
             }
         }
 
-        // Jumping
-        if (this.keys['Space'] && this.isGrounded && !this.isDodging) {
-            this.velocity.y = this.jumpForce;
-            this.isGrounded = false;
-            sounds.play('jump', { volume: 0.65 });
-            this.playAnimation('jump', 0.1);
-        }
-
-        // Gravity
+        // Chuc nang Nhay da duoc thay the bang Luot ne don (Space = Dodge)
+        // Trong luc khong co nhay, trong luc van giu nhan vat tiep dat on dinh
         this.velocity.y -= this.gravity * delta;
 
         // Sweep and slide the circular body, including recovery from overlap.
@@ -954,7 +1249,8 @@ export class PlayerController {
                 muzzlePos.copy(this.position).add(new THREE.Vector3(0, 1.2, 0));
             }
 
-            this.weapons.shoot(muzzlePos, this.aimPoint, this.isADS, true, 1.0, this);
+            const dmgMult = (this.damageMult || 1.0) * (this.activeSkillEffect === 'overdrive' ? 1.25 : 1.0);
+            this.weapons.shoot(muzzlePos, this.aimPoint, this.isADS, true, dmgMult, this);
         }
     }
 
@@ -1046,8 +1342,12 @@ export class PlayerController {
     reset(startPos = new THREE.Vector3(0, 0, 8)) {
         this.position.copy(startPos);
         this.velocity.set(0, 0, 0);
+        this.applyCharacterStats();
         this.health = this.maxHealth;
         this.shield = this.maxShield;
+        this.activeSkillCooldownTimer = 0;
+        this.activeSkillDurationTimer = 0;
+        this.activeSkillEffect = null;
         this.isDead = false;
         this.isDowned = false;
         this.isInSmoke = false;

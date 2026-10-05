@@ -9,7 +9,7 @@ import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=39';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
 import { UIManager } from '../ui/ui.js?v=40';
 import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=33';
-import { normalizeCharacter } from '../gameplay/player/characters.js?v=22';
+import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=35';
 import { HomeMenu } from '../ui/home.js?v=32';
 import { LootingSystem } from '../gameplay/loot/looting.js?v=40';
@@ -885,9 +885,17 @@ class CyberArenaGame {
         return this.unlockedWeapons.includes(id) || (w?.aliases && w.aliases.some(a => this.unlockedWeapons.includes(a)));
     }
 
-    // Cộng tiền vàng người chơi
+    // Kiem tra trang thai nhan vat da mo khoa
+    isCharacterUnlocked(id) {
+        if (this.developerMode) return true;
+        return isCharacterUnlocked(id);
+    }
+
+    // Cộng tiền vàng người chơi kèm theo thưởng nội tại nhân vật (nếu có)
     addCoins(amount) {
-        this.coins = Math.max(0, (this.coins || 0) + amount);
+        const bonus = (this.player?.goldBonus || 0);
+        const finalAmount = Math.round(amount * (1.0 + bonus));
+        this.coins = Math.max(0, (this.coins || 0) + finalAmount);
         this.saveProgress();
         this.updateCoinsUI();
     }

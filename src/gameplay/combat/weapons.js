@@ -2277,8 +2277,12 @@ export class WeaponSystem {
             entry.mesh.position.copy(origin);
             entry.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), _tempAimDir);
 
-            // Đạn huyền thoại (Tier 5): Xuyên 3 mục tiêu + Bắn nổ lan
-            const pierceCount = effective.hasLegendary ? 3 : (w.penPower || 1);
+            // Tinh toan he so xuyen thau va bao kich tu trang bi kem chi so noi tai nhan vat
+            const charExtraPen = playerRef?.penetrationBonus || 0;
+            const pierceCount = (effective.hasLegendary ? 3 : (w.penPower || 1)) + charExtraPen;
+            const charCritBonus = playerRef?.critChanceBonus || 0;
+            const isGuaranteedCrit = playerRef?.activeSkillEffect === 'guaranteed_crit';
+            const finalCritChance = isGuaranteedCrit ? 1.0 : Math.min(1.0, 0.12 + (effective.extraCritChance || 0) + charCritBonus);
 
             this.projectiles.push({
                 meshEntry: entry,
@@ -2292,9 +2296,9 @@ export class WeaponSystem {
                 baseDamage: effective.damage * damageMultiplier * (isPlayer ? this.damageBoost : 1),
                 maxRange: effective.maxRange,
                 distanceTraveled: 0,
-                penPower: effective.hasLegendary ? Math.max(3, w.penPower) : w.penPower,
+                penPower: (effective.hasLegendary ? Math.max(3, w.penPower) : w.penPower) + charExtraPen,
                 critMultiplier: (w.critMultiplier || 2.0) + (effective.extraCritDmgMod || 0),
-                critChance: 0.12 + (effective.extraCritChance || 0),
+                critChance: finalCritChance,
                 hasLegendary: !!effective.hasLegendary,
                 pierceCount: pierceCount,
                 hitEnemies: new Set(),

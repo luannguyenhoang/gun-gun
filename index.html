@@ -201,6 +201,22 @@
               </div>
             </div>
           </div>
+          <!-- Widget Kỹ năng chủ động Nhân vật (Q / E) -->
+          <div id="character-skill-widget" class="character-skill-widget" title="Kỹ năng nhân vật [Q / E]">
+            <div class="skill-circle-container">
+              <svg class="skill-cooldown-svg" viewBox="0 0 44 44">
+                <circle class="skill-cd-bg" cx="22" cy="22" r="18"></circle>
+                <circle id="skill-cd-bar" class="skill-cd-bar" cx="22" cy="22" r="18"></circle>
+              </svg>
+              <div class="skill-inner-icon" id="skill-icon-container">
+                <span id="skill-key-badge" class="skill-key-badge">Q/E</span>
+                <span id="skill-cd-text" class="skill-cd-text"></span>
+              </div>
+            </div>
+            <div class="skill-info-label">
+              <span id="skill-name-label" class="skill-name-label">KỸ NĂNG</span>
+            </div>
+          </div>
         </div>
 
         <!-- Cụm trung tâm: 2 Khung Súng + 2 Khung Bom & Thanh Máu Dưới Đáy -->
@@ -1135,11 +1151,7 @@
         </div>
 
       </section>
-      <nav id="character-cards" class="character-cards" aria-label="Chọn nhân vật để xem">
-        <button class="character-card" data-preview-character="soldier" aria-pressed="true" style="--card-color:#72b598"><span class="character-card-portrait"><img alt="Lính" hidden></span><strong>LÍNH</strong><span class="character-card-status">ĐANG DÙNG</span></button>
-        <button class="character-card" data-preview-character="skeleton" aria-pressed="false" style="--card-color:#a182d2"><span class="character-card-portrait"><img alt="Khung xương" hidden></span><strong>KHUNG XƯƠNG</strong><span class="character-card-status">ĐÃ SỞ HỮU</span></button>
-        <button class="character-card" data-preview-character="vampire" aria-pressed="false" style="--card-color:#df7489"><span class="character-card-portrait"><img alt="Ma cà rồng" hidden></span><strong>MA CÀ RỒNG</strong><span class="character-card-status">ĐÃ SỞ HỮU</span></button>
-      </nav>
+      <nav id="character-cards" class="character-cards" aria-label="Chọn nhân vật để xem"></nav>
       <div class="character-action">
         <button id="character-confirm" class="toy-button">✓ ĐANG SỬ DỤNG</button>
         <div id="armory-action-group" class="armory-action-group" style="display:none;">
