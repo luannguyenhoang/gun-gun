@@ -656,8 +656,9 @@ export class Zombie {
             return;
         }
 
-        // Màn khói mù mịt (Smoke Grenade): người chơi tàng hình trong khói, zombie mất dấu mục tiêu
-        if (player.isInSmoke) {
+        // Màn khói mù mịt (Smoke Grenade): người chơi tàng hình trong khói hoặc zombie đứng trong khói, zombie mất dấu mục tiêu
+        const isZombieInSmoke = this.weapons?.isPositionInSmoke?.(this.position) || window.game?.weapons?.isPositionInSmoke?.(this.position);
+        if (player.isInSmoke || isZombieInSmoke) {
             this.combatState = ZombieCombatState.CHASE;
             this.spitCharge = 0;
             this.playAnimation('walk');
@@ -916,6 +917,14 @@ export class Zombie {
 
     // Pha 2: Kiem tra va gay sat thuong (Impact)
     executeImpact(player, currentDist) {
+        // Nếu người chơi ở trong màn khói, zombie mất dấu và đánh trượt hoàn toàn
+        const isZombieInSmoke = this.weapons?.isPositionInSmoke?.(this.position) || window.game?.weapons?.isPositionInSmoke?.(this.position);
+        if (player.isInSmoke || isZombieInSmoke) {
+            this.combatState = ZombieCombatState.RECOVERY;
+            this.combatTimer = this.recoveryDuration;
+            return;
+        }
+
         if (this.isGroundSlamming) {
             this.isGroundSlamming = false;
             // Ground Slam AoE
@@ -946,6 +955,7 @@ export class Zombie {
     }
 
     applyMeleeDamage(player) {
+        if (player.isInSmoke || this.weapons?.isPositionInSmoke?.(this.position) || window.game?.weapons?.isPositionInSmoke?.(this.position)) return;
         sounds.play('enemyAttack', { volume: 0.7, pitchVariation: 0.15 });
         const hitDir = new THREE.Vector3().subVectors(player.position, this.position).normalize();
         
@@ -1243,7 +1253,10 @@ export class WaveManager {
                 continue;
             }
 
-            const target = targets.reduce((nearest, p) =>
+            // Ưu tiên săn lùng mục tiêu nhìn thấy được (không đứng trong màn khói)
+            const visibleTargets = targets.filter(p => !p.isInSmoke);
+            const candidateTargets = visibleTargets.length > 0 ? visibleTargets : targets;
+            const target = candidateTargets.reduce((nearest, p) =>
                 !nearest || p.position.distanceToSquared(zombie.position) < nearest.position.distanceToSquared(zombie.position) ? p : nearest, null);
 
             if (target) {

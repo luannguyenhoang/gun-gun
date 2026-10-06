@@ -2705,6 +2705,18 @@ export class WeaponSystem {
         }
     }
 
+    // Kiểm tra xem một toạ độ bất kỳ có đang nằm trong màn khói hay không
+    isPositionInSmoke(pos) {
+        if (!pos || !this.activeZones || !this.activeZones.length) return false;
+        for (const zone of this.activeZones) {
+            if (zone.type === 'smoke' && zone.life > 0) {
+                const dist = Math.hypot(pos.x - zone.pos.x, pos.z - zone.pos.z);
+                if (dist <= zone.radius) return true;
+            }
+        }
+        return false;
+    }
+
     // Cập nhật các vùng hiệu ứng chiến trường (Khói, Lửa)
     updateActiveZones(delta, player, enemies = []) {
         const allTargets = this.enemyTargets || (Array.isArray(player) ? player : (player ? [player] : []));
@@ -2720,8 +2732,12 @@ export class WeaponSystem {
 
                 if (zone.type === 'smoke') {
                     for (const p of allTargets) {
-                        if (p && !p.isDead && p.position.distanceTo(zone.pos) <= zone.radius) {
-                            p._tempInSmoke = true;
+                        if (p && !p.isDead) {
+                            // Dùng bán kính 2D mặt đất (Math.hypot) để chính xác tuyệt đối không phụ thuộc độ cao trục Y
+                            const dist = Math.hypot(p.position.x - zone.pos.x, p.position.z - zone.pos.z);
+                            if (dist <= zone.radius) {
+                                p._tempInSmoke = true;
+                            }
                         }
                     }
 
@@ -2750,7 +2766,8 @@ export class WeaponSystem {
                         zone.tickTimer = 0;
                         for (const e of enemies) {
                             if (!e || e.isDead) continue;
-                            if (e.position.distanceTo(zone.pos) <= zone.radius) {
+                            const dist = Math.hypot(e.position.x - zone.pos.x, e.position.z - zone.pos.z);
+                            if (dist <= zone.radius) {
                                 e.burnTimer = 3.5;
                                 e.burnDamage = zone.burnDps || 25;
                                 e.takeDamage(Math.round((zone.burnDps || 25) * 0.5), 2, false, null);
@@ -2807,8 +2824,11 @@ export class WeaponSystem {
     }
 
     update(delta, arena, enemies, player, onHitCallback) {
-        this.updateThrownBombs(delta, arena, enemies);
-        this.updateActiveZones(delta, player, enemies);
+        // Chỉ cập nhật bom và vùng hiệu ứng từ hệ thống chính của Host/Local để tránh trừ timer nhiều lần
+        if (!this.isRemoteClone) {
+            this.updateThrownBombs(delta, arena, enemies);
+            this.updateActiveZones(delta, player, enemies);
+        }
         if (this.fireCooldown > 0) {
             this.fireCooldown -= delta;
         }

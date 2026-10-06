@@ -2463,6 +2463,16 @@ export class LootingSystem {
                 }
             }
             sounds.play('land', { volume: 0.8, rate: 0.8 });
+
+            // Đồng bộ sự kiện vùng khói cho các người chơi khác trong phòng multiplayer
+            if (window.game?.network?.active && window.game?.network?.host) {
+                (window.game.networkEvents ||= []).push({
+                    type: 'smoke_zone',
+                    position: targetPos.toArray(),
+                    radius: 6.0,
+                    duration: 10.0
+                });
+            }
             used = true;
         }
 
