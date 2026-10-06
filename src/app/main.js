@@ -11,7 +11,7 @@ import { UIManager } from '../ui/ui.js?v=40';
 import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=33';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=35';
-import { HomeMenu } from '../ui/home.js?v=32';
+import { HomeMenu } from '../ui/home.js?v=33';
 import { LootingSystem } from '../gameplay/loot/looting.js?v=40';
 import { RenderQuality } from '../rendering/performance.js';
 
@@ -560,7 +560,7 @@ class CyberArenaGame {
         if (!this.roomStatus) return;
         const isHost = data.host === data.you || data.isHost;
         const names = (data.players || []).map(player => player.name).join(', ');
-        this.roomStatus.textContent = `PHÒNG ${data.code}: ${names}${isHost ? ' • Bấm BẮT ĐẦU PHÒNG' : ' • Chờ chủ phòng'}`;
+        this.roomStatus.textContent = `PHÒNG ${data.code}: ${names}${isHost ? ' • Đóng cửa sổ này và bấm BẮT ĐẦU khi cả đội đã sẵn sàng.' : ' • Đang chờ chủ phòng bắt đầu.'}`;
         if (this.roomCode) this.roomCode.value = data.code;
         if (this.roomCopy) this.roomCopy.style.display = 'inline-block';
         if (this.roomStart) this.roomStart.style.display = isHost ? 'inline-block' : 'none';
@@ -580,7 +580,7 @@ class CyberArenaGame {
     resetRoomUI() {
         this.screenMenu?.classList.remove('party-menu');
         if (this.roomLobby?.container) this.roomLobby.container.hidden = true;
-        if (this.roomStatus) this.roomStatus.textContent = 'Tạo phòng rồi gửi link này cho đồng đội. Bản public chạy online; bản local cần cùng Wi‑Fi.';
+        if (this.roomStatus) this.roomStatus.textContent = 'Tạo phòng và gửi liên kết để rủ bạn cùng chiến đấu. Tối đa 4 người.';
         if (this.roomCode) this.roomCode.value = '';
         if (this.roomCopy) this.roomCopy.style.display = 'none';
         if (this.roomStart) this.roomStart.style.display = 'none';

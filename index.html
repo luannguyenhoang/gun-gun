@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="styles/style.css">
     <link rel="stylesheet" href="styles/zappets.css"><link rel="stylesheet" href="styles/combat.css?v=44"><link rel="stylesheet" href="styles/showroom.css?v=45">
     <link rel="stylesheet" href="styles/ux.css">
+    <link rel="stylesheet" href="styles/home-polish.css?v=1">
     <style>
       #armory-grid-section { display: none; }
       .weapon-mode #character-cards { display: none !important; }
@@ -774,16 +775,17 @@
       <main class="home-shell">
         <div class="home-intro"><span>CYBER ARENA</span><h1>SẴN SÀNG<br>SINH TỒN?</h1><p>Chọn chiến binh. Trang bị súng.<br>Cùng nhau vượt qua bầy zombie.</p></div>
         <header class="home-header">
-          <button class="toy-button purple profile-button" data-open="profile"><span class="profile-avatar">★</span><span><strong id="profile-name">NGƯỜI CHƠI</strong><small>SỬA HỒ SƠ</small></span></button>
-          <button class="toy-button orange friends-button" data-open="friends"><span class="friends-icon">▣</span> BẠN BÈ <span class="button-badge">+</span></button>
+          <button class="toy-button purple profile-button" data-open="profile" aria-label="Chỉnh sửa hồ sơ"><span class="profile-avatar">★</span><span><strong id="profile-name">NGƯỜI CHƠI</strong><small>SỬA HỒ SƠ</small></span></button>
+          <button class="toy-button orange friends-button" data-open="friends"><span class="friends-icon">▣</span> <span id="friends-label">BẠN BÈ</span> <span class="button-badge" aria-hidden="true">+</span></button>
           <div class="score-pill" title="Điểm cao nhất"><span class="coin">★</span><span id="menu-highscore">0</span></div>
           <div class="score-pill coins-pill" title="Vàng tích lũy"><span class="coin-gold">VÀNG:</span> <b id="menu-coins">1,000</b></div>
         </header>
         <nav class="home-nav" aria-label="Menu chính">
-          <button class="toy-button blue nav-tile" data-open="characters"><span class="tile-icon character-icon">♟</span><strong>NHÂN VẬT</strong><small>3 / 3</small></button>
+          <button class="toy-button blue nav-tile" data-open="characters"><span class="tile-icon character-icon">♟</span><strong>NHÂN VẬT</strong><small id="home-character-count">CHỌN NHÂN VẬT</small></button>
           <button class="toy-button blue nav-tile" data-open="weapons"><span class="tile-icon weapon-nav-icon">⌁</span><strong>KHO SÚNG</strong><small>TRANG BỊ</small></button>
           <button class="toy-button blue nav-tile" data-open="help"><span class="tile-icon help-icon">?</span><strong>HƯỚNG DẪN</strong></button>
           <button class="toy-button blue nav-tile" data-open="settings"><span class="tile-icon gear-icon">⚙</span><strong>CÀI ĐẶT</strong></button>
+        <button class="toy-button blue nav-tile mobile-record" data-open="records"><span class="tile-icon" aria-hidden="true">♜</span><strong>KỶ LỤC</strong></button>
         </nav>
         <div id="room-lobby" aria-label="Xem trước nhân vật 3D"></div>
         <button class="home-equipped" data-open="weapons" title="Thay đổi súng khởi đầu"><img id="home-equipped-icon" alt="Súng đã trang bị"><span><small>TRANG BỊ CỦA BẠN</small><strong id="home-equipped-character">LÍNH</strong><b id="home-equipped-weapon">BLASTER-X</b></span><span aria-hidden="true">↗</span></button>
@@ -792,10 +794,10 @@
           <button class="toy-button blue record-button" data-open="records"><span>♜</span><span>KỶ LỤC<small>THÀNH TÍCH CỦA BẠN</small></span></button>
           <div class="play-area">
             <button id="room-leave" class="toy-button purple leave-button" style="display:none">RỜI PHÒNG</button>
-            <div class="mode-card purple"><div class="mode-ribbon" id="mode-status">SẴN SÀNG CHIẾN ĐẤU</div><div class="mode-content"><span>⏩</span><div><strong>VÔ TẬN</strong><small>ĐẤU TRƯỜNG ZOMBIE</small></div></div></div>
+            <div class="mode-card purple"><div class="mode-ribbon" id="mode-status" role="status">CHƠI ĐƠN · SẴN SÀNG</div><div class="mode-content"><span>⏩</span><div><strong>VÔ TẬN</strong><small>ĐẤU TRƯỜNG ZOMBIE</small></div></div></div>
             <button id="btn-start" class="toy-button yellow play-button">CHƠI</button>
-            <button id="room-start" class="toy-button yellow play-button" style="display:none">CHƠI</button>
-            <div id="guest-wait" hidden>ĐANG CHỜ CHỦ PHÒNG…</div>
+            <button id="room-start" class="toy-button yellow play-button" style="display:none">BẮT ĐẦU</button>
+            <div id="guest-wait" role="status" hidden>ĐANG CHỜ CHỦ PHÒNG…</div>
           </div>
         </footer>
         <dialog id="home-dialog" aria-labelledby="dialog-title">
@@ -811,7 +813,7 @@
               <p id="room-status" role="status">Tạo phòng và gửi liên kết để rủ bạn cùng chiến đấu. Tối đa 4 người.</p>
             </section>
             <section data-panel="profile" hidden><label class="eyebrow" for="room-name">TÊN CỦA BẠN</label><input id="room-name" maxlength="24" placeholder="Tên của bạn" value="Người chơi"><p>Tên sẽ hiển thị khi bạn tham gia phòng mới.</p><button id="save-profile" class="toy-button yellow wide-button">LƯU HỒ SƠ</button></section>
-            <section data-panel="help" hidden><div class="help-row"><kbd>W A S D</kbd><span>Di chuyển</span></div><div class="help-row"><kbd>CHUỘT</kbd><span>Trái: bắn · Phải: ngắm kỹ</span></div><div class="help-row"><kbd>SPACE / Q</kbd><span>Nhảy / Lướt né</span></div><div class="help-row"><kbd>1 / 2 / R</kbd><span>Súng / Dao / Nạp đạn</span></div><div class="help-row"><kbd>3 / B / F</kbd><span>Sơ cứu / Balô / Lục hòm</span></div><div class="help-row"><kbd>E / P</kbd><span>Cứu đồng đội / Bật tắt bot</span></div><div class="help-row"><kbd>ESC</kbd><span>Tạm dừng trận đấu</span></div><p>Nhặt đạn và nâng cấp từ zombie. Hết đạn? Chuyển sang dao để tiếp tục sống sót!</p></section>
+            <section data-panel="help" hidden><div class="help-row"><kbd>W A S D</kbd><span>Di chuyển</span></div><div class="help-row"><kbd>CHUỘT</kbd><span>Trái: bắn · Phải: ngắm kỹ</span></div><div class="help-row"><kbd>SPACE / Q / R</kbd><span>Lướt né / Kỹ năng / Nạp đạn</span></div><div class="help-row"><kbd>1 / 2 / V</kbd><span>Súng chính / Súng phụ / Dao</span></div><div class="help-row"><kbd>5 / B / F</kbd><span>Sơ cứu / Balô / Nhặt đồ</span></div><div class="help-row"><kbd>E / P</kbd><span>Cứu đồng đội / Bật tắt bot</span></div><div class="help-row"><kbd>ESC</kbd><span>Mở menu · Chơi cùng bạn vẫn tiếp tục</span></div><p>Nhặt đạn và nâng cấp từ zombie. Hết đạn? Chuyển sang dao để tiếp tục sống sót!</p></section>
             <section data-panel="settings" hidden><button id="home-sound" class="toy-button blue wide-button">ÂM THANH: BẬT</button><button id="home-music" class="toy-button purple wide-button">NHẠC: BẬT</button><button id="home-devmode" class="toy-button orange wide-button">CHẾ ĐỘ DEVELOPER: TẮT</button><p>Cài đặt được áp dụng ngay trong trận đấu.</p></section>
             <section data-panel="records" hidden><p class="eyebrow">ĐIỂM CAO NHẤT TRÊN THIẾT BỊ NÀY</p><div class="record-value">★ <span id="record-score">0</span></div><p>Chiến đấu, sống sót và phá kỷ lục của chính bạn.</p></section>
           </div>
@@ -1198,6 +1200,6 @@
     </div>
 
     <!-- Main Game Script -->
-    <script src="vendor/qrcode.min.js"></script><script type="module" src="src/app/main.js?v=46"></script>
+    <script src="vendor/qrcode.min.js"></script><script type="module" src="src/app/main.js?v=47"></script>
 </body>
 </html>
