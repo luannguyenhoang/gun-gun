@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import * as SkeletonUtils from '../../vendor/SkeletonUtils.js';
 import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { CHARACTER_CONFIGS, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
-import { WEAPON_CONFIGS, getStartingWeapon, updateHeldWeaponPose, BOMB_CONFIGS, getBombConfig, MEDICAL_CONFIGS, th_UPGRADE_TIER_CONFIG, th_getWeaponTier, th_getWeaponEnchant, th_ELEMENTAL_EFFECTS, th_getWeaponParts, th_getPartTier, TH_PART_META, ATTACHMENT_DEFS } from '../gameplay/combat/weapons.js?v=46';
+import { WEAPON_CONFIGS, getStartingWeapon, updateHeldWeaponPose, BOMB_CONFIGS, getBombConfig, MEDICAL_CONFIGS, th_getWeaponParts, th_getPartTier, TH_PART_META, ATTACHMENT_DEFS } from '../gameplay/combat/weapons.js?v=46';
 
 export class CharacterShowroom {
     constructor(game) {
@@ -98,15 +98,10 @@ export class CharacterShowroom {
         this.btnSecondary = document.getElementById('armory-btn-secondary');
         this.btnBomb1 = document.getElementById('armory-btn-bomb1');
         this.btnBomb2 = document.getElementById('armory-btn-bomb2');
-        this.btnEnhance = document.getElementById('armory-btn-enhance');
-        this.btnGacha = document.getElementById('armory-btn-gacha');
-
         if (this.btnPrimary) this.btnPrimary.onclick = () => this.equipToSlot('primary', this.weaponId);
         if (this.btnSecondary) this.btnSecondary.onclick = () => this.equipToSlot('secondary', this.weaponId);
         if (this.btnBomb1) this.btnBomb1.onclick = () => this.equipToSlot('bomb1', this.weaponId);
         if (this.btnBomb2) this.btnBomb2.onclick = () => this.equipToSlot('bomb2', this.weaponId);
-        if (this.btnEnhance) this.btnEnhance.onclick = () => this.handleEnhanceWeapon();
-        if (this.btnGacha) this.btnGacha.onclick = () => this.handleGachaWeapon();
 
         this.dialog.querySelectorAll('[data-showroom-tab]').forEach(button => {
             button.onclick = () => this.setMode(button.dataset.showroomTab);
@@ -117,7 +112,6 @@ export class CharacterShowroom {
         this.th_upgradeCategory = 'primary';
         this.th_upgradePanel = document.getElementById('th_upgrade-panel');
         this.th_upgradeWeaponList = document.getElementById('th_upgrade-weapon-list');
-        this.th_upBtnForge = document.getElementById('th_up_btn_forge');
         this.th_activePopupSlot = null; // Bộ phận đang mở popup
         this.th_isUpgradingPart = false; // Cờ chặn spam bấm nâng cấp
 
@@ -138,8 +132,6 @@ export class CharacterShowroom {
                 this.th_renderUpgradeWeaponList();
             };
         });
-
-        if (this.th_upBtnForge) this.th_upBtnForge.onclick = () => this.th_handleForge();
 
         // Khởi tạo các biến quản lý Model 3D súng tại bàn nâng cấp
         this.th_weaponCanvas = null;
@@ -251,29 +243,9 @@ export class CharacterShowroom {
         });
     }
 
-    handleEnhanceWeapon() {
-        if (!this.game || !this.weaponId) return;
-        this.game.th_enhanceWeapon(this.weaponId);
-        this.previewWeapon(this.weaponId);
-        this.syncSelection();
-    }
-
-    handleGachaWeapon() {
-        if (!this.game || !this.weaponId) return;
-        this.game.th_gachaEnchantWeapon(this.weaponId);
-        this.previewWeapon(this.weaponId);
-        this.syncSelection();
-    }
-
-    // ============================================================
-    // TAB NÂNG CẤP: Forge & Gacha Enchant
-    // ============================================================
-
     // ============================================================
     // TAB NÂNG CẤP: MILITARY TACTICAL WORKBENCH
     // ============================================================
-
-    th_renderGachaEffects() {}
 
     th_renderUpgradeWeaponList() {
         if (!this.th_upgradeWeaponList) return;
@@ -287,7 +259,8 @@ export class CharacterShowroom {
         this.th_upgradeWeaponList.innerHTML = '';
         for (const w of weapons) {
             const isUnlocked = this.game.isWeaponUnlocked(w.id);
-            const tier = th_getWeaponTier(w.id);
+            const parts = th_getWeaponParts(w.id);
+            const tier = Math.floor((parts.optic + parts.barrel + parts.grip + parts.magazine) / 4);
             const isActive = (w.id === this.th_upgradeWeaponId);
 
             const row = document.createElement('button');
@@ -335,7 +308,6 @@ export class CharacterShowroom {
         }
 
         const isUnlocked = this.game.isWeaponUnlocked(id);
-        const enchant = th_getWeaponEnchant(id);
         const parts = th_getWeaponParts(id);
 
         // 1. CỘT GIỮA: Preview Súng Model 3D + Watermark
@@ -394,17 +366,6 @@ export class CharacterShowroom {
         setWidth('th_stat_range_bonus', `${Math.min(20, (bDef.rangeBonusPct || 0) * 30)}%`);
         setWidth('th_stat_recoil_fill', `${Math.min(90, (gDef.recoilReduction || 0) * 100)}%`);
         setWidth('th_stat_recoil_bonus','0%');
-
-        // Ẩn phần chi phí upgrade cũ (giờ dùng popup bộ phận)
-        setEl('th_up_forge_rate', '');
-        setEl('th_cost_gold_val', '');
-        setEl('th_cost_parts_val', '');
-
-        // Ẩn nút Forge cũ (thay bằng click slot)
-        if (this.th_upBtnForge) {
-            this.th_upBtnForge.disabled = true;
-            setEl('th_btn_upgrade_text', isUnlocked ? 'CLICK VÀO BỘ PHẬN ĐỂ NÂNG CẤP' : 'CHƯA SỞ HỮU VŨ KHÍ');
-        }
     }
 
     // ============================================================
@@ -495,7 +456,6 @@ export class CharacterShowroom {
         }
 
         if (this.th_weaponIdLoaded === weaponId && this.th_weaponModel) {
-            this.th_applyWeaponEnchantVisuals(weaponId);
             return;
         }
 
@@ -544,19 +504,6 @@ export class CharacterShowroom {
         this.th_weaponModel = pivot;
         this.th_weaponIdLoaded = weaponId;
         this.th_weaponRoot.add(pivot);
-
-        this.th_applyWeaponEnchantVisuals(weaponId);
-    }
-
-    th_applyWeaponEnchantVisuals(weaponId) {
-        if (!this.th_weaponModel) return;
-        // Bỏ hiệu ứng nguyên tố, giữ màu sắc kim loại sắc nét tự nhiên của model
-        this.th_weaponModel.traverse(c => {
-            if (c.isMesh && c.material) {
-                c.material.emissive = new THREE.Color(0x000000);
-                c.material.emissiveIntensity = 0;
-            }
-        });
     }
 
     th_renderUpgradeWeapon3D(delta) {
@@ -859,38 +806,6 @@ export class CharacterShowroom {
         this.th_isUpgradingPart = false;
     }
 
-    th_handleForge() {
-        const id = this.th_upgradeWeaponId;
-        if (!id || !this.game) return;
-        this.game.th_enhanceWeapon(id);
-        
-        // Hiệu ứng ánh sáng kích hoạt trên bệ kim loại
-        const bay = document.querySelector('.th_tactical-workbench-bay');
-        if (bay) {
-            bay.classList.add('th_animating');
-            setTimeout(() => bay.classList.remove('th_animating'), 900);
-        }
-        this.th_renderUpgradeWeaponList();
-        this.th_syncUpgradeUI();
-        this.game.updateCoinsUI?.();
-    }
-
-    th_handleGachaUpgrade() {
-        const id = this.th_upgradeWeaponId;
-        if (!id || !this.game) return;
-        this.game.th_gachaEnchantWeapon(id);
-        
-        const bay = document.querySelector('.th_tactical-workbench-bay');
-        if (bay) {
-            bay.classList.add('th_animating');
-            setTimeout(() => bay.classList.remove('th_animating'), 900);
-        }
-        this.th_closePartPopup();
-        this.th_renderUpgradeWeaponList();
-        this.th_syncUpgradeUI();
-        this.game.updateCoinsUI?.();
-    }
-
 
     getItem(id) {
         return BOMB_CONFIGS.find(b => b.id === id) || 
@@ -1111,29 +1026,13 @@ export class CharacterShowroom {
             card.classList.toggle('locked', !isUnlocked);
             card.setAttribute('aria-pressed', String(id === this.weaponId));
 
-            // Cập nhật Cấp độ động trên thẻ vũ khí
-            const cardTier = th_getWeaponTier(id);
-            const cardEnchant = th_getWeaponEnchant(id);
+            // Cập nhật Cấp độ hiển thị theo trung bình các bộ phận
+            const cardParts = th_getWeaponParts(id);
+            const cardTier = Math.floor((cardParts.optic + cardParts.barrel + cardParts.grip + cardParts.magazine) / 4);
             const tierBadge = card.querySelector('.weapon-tier-badge');
             if (tierBadge) {
                 tierBadge.className = `weapon-tier-badge tier-${cardTier}`;
                 tierBadge.textContent = `CẤP ${cardTier}`;
-            }
-
-            // Cập nhật tag hiệu ứng nguyên tố trên thẻ nếu đã khảm
-            let enchantTag = card.querySelector('.weapon-card-enchant');
-            if (cardEnchant) {
-                if (!enchantTag) {
-                    enchantTag = document.createElement('span');
-                    enchantTag.className = 'weapon-card-enchant';
-                    card.querySelector('.weapon-card-header')?.append(enchantTag);
-                }
-                enchantTag.textContent = cardEnchant.tag;
-                enchantTag.style.borderColor = cardEnchant.color;
-                enchantTag.style.color = cardEnchant.color;
-                enchantTag.style.display = '';
-            } else if (enchantTag) {
-                enchantTag.style.display = 'none';
             }
 
             const statusEl = card.querySelector('.weapon-card-status') || card.querySelector('.character-card-status');
@@ -1164,36 +1063,7 @@ export class CharacterShowroom {
         const curItem = this.getItem(this.weaponId);
         const isMedical = curItem.slotType === 'medical';
         const isWeaponUnlocked = isMedical ? true : this.game.isWeaponUnlocked(this.weaponId);
-        const selectedTier = th_getWeaponTier(this.weaponId);
-        const selectedEnchant = th_getWeaponEnchant(this.weaponId);
-        const isBomb = curItem.isBomb;
 
-        // Cập nhật nút Cường Hóa & Gacha
-        if (this.btnEnhance) {
-            if (!isWeaponUnlocked || isBomb || isMedical) {
-                this.btnEnhance.style.display = 'none';
-            } else if (selectedTier >= 5) {
-                this.btnEnhance.style.display = '';
-                this.btnEnhance.textContent = '✓ ĐÃ ĐẠT CẤP TỐI ĐA (MAX)';
-                this.btnEnhance.disabled = true;
-            } else {
-                this.btnEnhance.style.display = '';
-                this.btnEnhance.disabled = false;
-                const upCfg = th_UPGRADE_TIER_CONFIG[selectedTier];
-                const ratePct = Math.round(upCfg.successRate * 100);
-                this.btnEnhance.textContent = `CƯỜNG HÓA LÊN CẤP ${selectedTier + 1} (${ratePct}%) [${upCfg.cost.toLocaleString()} VÀNG]`;
-            }
-        }
-
-        if (this.btnGacha) {
-            if (!isWeaponUnlocked || isBomb || isMedical) {
-                this.btnGacha.style.display = 'none';
-            } else {
-                this.btnGacha.style.display = '';
-                this.btnGacha.disabled = false;
-                this.btnGacha.textContent = selectedEnchant ? `ĐỔI HIỆU ỨNG [300 VÀNG]` : `ÉP NGUYÊN TỐ [300 VÀNG]`;
-            }
-        }
 
         // Cập nhật badge trạng thái ở bảng mini panel dưới chân nhân vật
         const statusBadge = document.getElementById('armory-status-badge');
@@ -1463,11 +1333,8 @@ export class CharacterShowroom {
         const ammoEl = document.getElementById('armory-ammo');
         const reloadEl = document.getElementById('armory-reload');
         const rangeEl = document.getElementById('armory-range');
-        const enchantBadge = document.getElementById('armory-enchant-badge');
-        const enchantDesc = document.getElementById('armory-enchant-desc');
-
-        const currentTier = th_getWeaponTier(item.id);
-        const curEnchant = th_getWeaponEnchant(item.id);
+        const parts = th_getWeaponParts(item.id);
+        const currentTier = Math.floor((parts.optic + parts.barrel + parts.grip + parts.magazine) / 4);
 
         if (nameEl) nameEl.textContent = item.name;
         if (catEl) catEl.textContent = `${item.category} · CẤP ${currentTier}`;
@@ -1497,24 +1364,6 @@ export class CharacterShowroom {
             if (ammoEl) ammoEl.textContent = finalMag;
             if (reloadEl) reloadEl.textContent = `${finalReload.toFixed(1)}s`;
             if (rangeEl) rangeEl.textContent = `${finalRange}m`;
-        }
-
-        // Cập nhật nhãn và mô tả hiệu ứng nguyên tố
-        if (curEnchant) {
-            if (enchantBadge) {
-                enchantBadge.style.display = '';
-                enchantBadge.textContent = curEnchant.name;
-                enchantBadge.style.borderColor = curEnchant.color;
-                enchantBadge.style.color = curEnchant.color;
-            }
-            if (enchantDesc) {
-                enchantDesc.style.display = '';
-                enchantDesc.textContent = `HIỆU ỨNG [${curEnchant.name}]: ${curEnchant.desc}`;
-                enchantDesc.style.borderColor = curEnchant.color;
-            }
-        } else {
-            if (enchantBadge) enchantBadge.style.display = 'none';
-            if (enchantDesc) enchantDesc.style.display = 'none';
         }
 
         this.syncSelection();
