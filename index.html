@@ -103,6 +103,7 @@
         .weapon-mode #armory-grid-section { top: 70px !important; bottom: 16px !important; }
       }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script type="importmap">
     {
@@ -783,7 +784,7 @@
       <main class="home-shell">
         <div class="home-intro"><span>CYBER ARENA</span><h1>SẴN SÀNG<br>SINH TỒN?</h1><p>Chọn chiến binh. Trang bị súng.<br>Cùng nhau vượt qua bầy zombie.</p></div>
         <header class="home-header">
-          <button class="toy-button purple profile-button" data-open="profile" aria-label="Chỉnh sửa hồ sơ"><span class="profile-avatar">★</span><span><strong id="profile-name">NGƯỜI CHƠI</strong><small>SỬA HỒ SƠ</small></span></button>
+          <button class="toy-button purple profile-button" data-open="profile" aria-label="Hồ sơ & Tài khoản"><span class="profile-avatar" id="header-avatar">★</span><span><strong id="profile-name">NGƯỜI CHƠI</strong><small id="profile-auth-status">ĐĂNG NHẬP / HỒ SƠ</small></span></button>
           <button class="toy-button orange friends-button" data-open="friends"><span class="friends-icon">▣</span> <span id="friends-label">BẠN BÈ</span> <span class="button-badge" aria-hidden="true">+</span></button>
           <div class="score-pill" title="Điểm cao nhất"><span class="coin">★</span><span id="menu-highscore">0</span></div>
           <div class="score-pill coins-pill" title="Vàng tích lũy"><span class="coin-gold">VÀNG:</span> <b id="menu-coins">1,000</b></div>
@@ -820,7 +821,65 @@
               <div class="join-row"><input id="room-code" maxlength="6" placeholder="MÃ PHÒNG" autocomplete="off"><button id="room-join" class="toy-button orange">VÀO</button></div>
               <p id="room-status" role="status">Tạo phòng và gửi liên kết để rủ bạn cùng chiến đấu. Tối đa 4 người.</p>
             </section>
-            <section data-panel="profile" hidden><label class="eyebrow" for="room-name">TÊN CỦA BẠN</label><input id="room-name" maxlength="24" placeholder="Tên của bạn" value="Người chơi"><p>Tên sẽ hiển thị khi bạn tham gia phòng mới.</p><button id="save-profile" class="toy-button yellow wide-button">LƯU HỒ SƠ</button></section>
+            <section data-panel="profile" hidden>
+              <!-- Khi đã đăng nhập -->
+              <div id="auth-logged-in-view" style="display:none;">
+                <div class="auth-card">
+                  <div class="auth-avatar-box" id="auth-user-avatar">★</div>
+                  <div class="auth-meta">
+                    <strong id="auth-user-name">NGƯỜI CHƠI</strong>
+                    <span id="auth-user-email">email@example.com</span>
+                    <span class="auth-badge" id="auth-user-badge">ĐÃ ĐĂNG NHẬP SUPABASE</span>
+                  </div>
+                </div>
+
+                <div class="auth-divider"><span>TÊN TRONG TRẬN ĐẤU</span></div>
+                <label class="eyebrow" for="room-name">TÊN CỦA BẠN</label>
+                <input id="room-name" maxlength="24" placeholder="Tên hiển thị trong game" value="Người chơi">
+                <button type="button" id="save-profile" class="toy-button yellow wide-button">LƯU TÊN NHÂN VẬT</button>
+                <button type="button" id="btn-auth-logout" class="toy-button coral wide-button">ĐĂNG XUẤT TÀI KHOẢN</button>
+              </div>
+
+              <!-- Khi chưa đăng nhập -->
+              <div id="auth-guest-view">
+                <div class="auth-tabs">
+                  <button type="button" class="auth-tab-btn active" id="tab-btn-login">ĐĂNG NHẬP</button>
+                  <button type="button" class="auth-tab-btn" id="tab-btn-signup">TẠO TÀI KHOẢN</button>
+                </div>
+
+                <!-- Form Đăng nhập -->
+                <div id="auth-panel-login">
+                  <label class="eyebrow" for="auth-login-email">ĐỊA CHỈ EMAIL</label>
+                  <input id="auth-login-email" type="email" placeholder="example@gmail.com" autocomplete="username">
+                  <label class="eyebrow" for="auth-login-pass">MẬT KHẨU</label>
+                  <input id="auth-login-pass" type="password" placeholder="Nhập mật khẩu" autocomplete="current-password">
+                  <button type="button" id="btn-do-login" class="toy-button yellow wide-button">ĐĂNG NHẬP</button>
+                  <button type="button" id="btn-do-google" class="toy-button blue wide-button">ĐĂNG NHẬP NHANH VỚI GOOGLE</button>
+                </div>
+
+                <!-- Form Đăng ký -->
+                <div id="auth-panel-signup" style="display:none;">
+                  <label class="eyebrow" for="auth-signup-name">HỌ VÀ TÊN / BIỆT DANH</label>
+                  <input id="auth-signup-name" type="text" placeholder="Họ và tên hoặc biệt danh" autocomplete="name">
+                  <label class="eyebrow" for="auth-signup-email">ĐỊA CHỈ EMAIL</label>
+                  <input id="auth-signup-email" type="email" placeholder="example@gmail.com" autocomplete="email">
+                  <label class="eyebrow" for="auth-signup-pass">MẬT KHẨU</label>
+                  <input id="auth-signup-pass" type="password" placeholder="Tối thiểu 6 ký tự" autocomplete="new-password">
+                  <label class="eyebrow" for="auth-signup-confirm">XÁC NHẬN MẬT KHẨU</label>
+                  <input id="auth-signup-confirm" type="password" placeholder="Nhập lại mật khẩu" autocomplete="new-password">
+                  <button type="button" id="btn-do-signup" class="toy-button orange wide-button">TẠO TÀI KHOẢN MỚI</button>
+                </div>
+
+                <div id="auth-status-msg" class="auth-message-box" style="display:none;"></div>
+
+                <div class="auth-divider"><span>HOẶC CHƠI DẠNG KHÁCH</span></div>
+                <label class="eyebrow" for="room-name-guest">TÊN KHÁCH TẠM THỜI</label>
+                <div class="join-row">
+                  <input id="room-name-guest" maxlength="24" placeholder="Tên khách tạm thời" value="Người chơi">
+                  <button type="button" id="save-guest-name" class="toy-button yellow">LƯU</button>
+                </div>
+              </div>
+            </section>
             <section data-panel="help" hidden><div class="help-row"><kbd>W A S D</kbd><span>Di chuyển</span></div><div class="help-row"><kbd>CHUỘT</kbd><span>Trái: bắn · Phải: ngắm kỹ</span></div><div class="help-row"><kbd>SPACE / Q / R</kbd><span>Lướt né / Kỹ năng / Nạp đạn</span></div><div class="help-row"><kbd>1 / 2 / V</kbd><span>Súng chính / Súng phụ / Dao</span></div><div class="help-row"><kbd>5 / B / F</kbd><span>Sơ cứu / Balô / Nhặt đồ</span></div><div class="help-row"><kbd>E / P</kbd><span>Cứu đồng đội / Bật tắt bot</span></div><div class="help-row"><kbd>ESC</kbd><span>Mở menu · Chơi cùng bạn vẫn tiếp tục</span></div><p>Nhặt đạn và nâng cấp từ zombie. Hết đạn? Chuyển sang dao để tiếp tục sống sót!</p></section>
             <section data-panel="settings" hidden><button id="home-sound" class="toy-button blue wide-button">ÂM THANH: BẬT</button><button id="home-music" class="toy-button purple wide-button">NHẠC: BẬT</button><button id="home-devmode" class="toy-button orange wide-button">CHẾ ĐỘ DEVELOPER: TẮT</button><p>Cài đặt được áp dụng ngay trong trận đấu.</p></section>
             <section data-panel="records" hidden><p class="eyebrow">ĐIỂM CAO NHẤT TRÊN THIẾT BỊ NÀY</p><div class="record-value">★ <span id="record-score">0</span></div><p>Chiến đấu, sống sót và phá kỷ lục của chính bạn.</p></section>
