@@ -2118,75 +2118,7 @@
     box-shadow: 0 0 8px #ffd079;
 }
 
-/* Khay 4 Lõi Đạn Đặc Biệt */
-.th_ammo-core-section {
-    padding: 10px 18px 14px;
-    background: rgba(26, 18, 36, 0.96);
-    border-top: 2px solid #3f2c54;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    z-index: 2;
-}
 
-.th_ammo-core-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.th_ammo-active-status {
-    font-size: 10px;
-    font-weight: 1000;
-    color: #ffd079;
-}
-
-.th_ammo-core-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-}
-
-.th_tactical-chip-card {
-    background: #2b1d38;
-    border: 2px solid #433256;
-    border-radius: 10px;
-    padding: 8px 6px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    cursor: pointer;
-    position: relative;
-    transition: all 0.16s ease;
-}
-
-.th_tactical-chip-card:hover {
-    background: #3c2850;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-}
-
-.th_tactical-chip-card.th_current {
-    background: linear-gradient(180deg, #44275d 0%, #29183b 100%);
-    box-shadow: 0 0 14px currentColor;
-    border-width: 2px;
-}
-
-.th_chip-title {
-    font-size: 10px;
-    font-weight: 1000;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-}
-
-.th_chip-desc {
-    font-size: 8px;
-    font-weight: 800;
-    color: #d1c4e9;
-    text-align: center;
-    line-height: 1.25;
-}
 
 /* ==========================================================================
    CỘT 3: THÔNG SỐ VŨ KHÍ & NÂNG CẤP (25%)

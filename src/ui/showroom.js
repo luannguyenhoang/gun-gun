@@ -118,7 +118,6 @@ export class CharacterShowroom {
         this.th_upgradePanel = document.getElementById('th_upgrade-panel');
         this.th_upgradeWeaponList = document.getElementById('th_upgrade-weapon-list');
         this.th_upBtnForge = document.getElementById('th_up_btn_forge');
-        this.th_upBtnGacha = document.getElementById('th_up_btn_gacha');
 
         // Lọc loại súng trong tab nâng cấp
         document.querySelectorAll('[data-upgrade-cat]').forEach(btn => {
@@ -131,10 +130,6 @@ export class CharacterShowroom {
         });
 
         if (this.th_upBtnForge) this.th_upBtnForge.onclick = () => this.th_handleForge();
-        if (this.th_upBtnGacha) this.th_upBtnGacha.onclick = () => this.th_handleGachaUpgrade();
-
-        // Render lưới hiệu ứng nguyên tố
-        this.th_renderGachaEffects();
 
         // Khởi tạo các biến quản lý Model 3D súng tại bàn nâng cấp
         this.th_weaponCanvas = null;
@@ -268,32 +263,7 @@ export class CharacterShowroom {
     // TAB NÂNG CẤP: MILITARY TACTICAL WORKBENCH
     // ============================================================
 
-    th_renderGachaEffects() {
-        const container = document.getElementById('th_up_gacha_effects');
-        if (!container) return;
-        container.innerHTML = '';
-        
-        // 4 Lõi đạn chiến thuật chính theo bản phác thảo: Băng Giá, Hỏa Diệm, Lôi Điện, Ăn Mòn
-        const tacticalChips = ['frost', 'fire', 'lightning', 'corrosive'];
-        for (const key of tacticalChips) {
-            const ef = th_ELEMENTAL_EFFECTS[key];
-            if (!ef) continue;
-            const chip = document.createElement('div');
-            chip.className = 'th_tactical-chip-card';
-            chip.dataset.effectId = key;
-            chip.style.borderColor = ef.color;
-            chip.innerHTML = `
-                <span class="th_chip-title" style="color:${ef.color}">${ef.name}</span>
-                <span class="th_chip-desc">${ef.desc}</span>
-            `;
-            chip.onclick = () => {
-                if (this.th_upgradeWeaponId) {
-                    this.th_handleGachaUpgrade();
-                }
-            };
-            container.append(chip);
-        }
-    }
+    th_renderGachaEffects() {}
 
     th_renderUpgradeWeaponList() {
         if (!this.th_upgradeWeaponList) return;
@@ -308,7 +278,6 @@ export class CharacterShowroom {
         for (const w of weapons) {
             const isUnlocked = this.game.isWeaponUnlocked(w.id);
             const tier = th_getWeaponTier(w.id);
-            const enchant = th_getWeaponEnchant(w.id);
             const isActive = (w.id === this.th_upgradeWeaponId);
 
             const row = document.createElement('button');
@@ -316,17 +285,12 @@ export class CharacterShowroom {
             if (isActive) row.classList.add('th_active');
             row.dataset.weaponId = w.id;
 
-            const enchantHTML = enchant
-                ? `<span class="th_tactical-enchant-tag" style="border-color:${enchant.color};color:${enchant.color}">${enchant.tag}</span>`
-                : '';
-
             row.innerHTML = `
                 <img class="th_tactical-weapon-row-img" src="${w.icon}" alt="${w.name}">
                 <div class="th_tactical-weapon-row-info">
                     <div class="th_tactical-weapon-row-name">${w.name}</div>
                     <div class="th_tactical-weapon-row-meta">
                         <span class="th_badge-tier tier-${tier}">T${tier}</span>
-                        ${enchantHTML}
                         ${!isUnlocked ? `<span style="font-size:8px;color:#FFB300">${w.price.toLocaleString()} V</span>` : ''}
                     </div>
                 </div>
@@ -376,20 +340,7 @@ export class CharacterShowroom {
         // 2. Cập nhật 4 Slot Bộ phận với tier thực từ dữ liệu người dùng
         this.th_renderPartSlots(id, parts, isUnlocked);
 
-        // 3. Trạng thái lõi đạn đặc biệt (Ammo Chip)
-        const ammoStatusEl = document.getElementById('th_ammo_status_text');
-        if (ammoStatusEl) {
-            ammoStatusEl.textContent = enchant ? `TRẠNG THÁI: ĐÃ KÍCH HOẠT [${enchant.name}]` : 'TRẠNG THÁI: KHÔNG CÓ LÕI';
-            ammoStatusEl.style.color = enchant ? enchant.color : '#FFB300';
-        }
-
-        // Highlight chip lõi đạn
-        document.querySelectorAll('.th_tactical-chip-card').forEach(chip => {
-            const isActive = enchant && chip.dataset.effectId === enchant.id;
-            chip.classList.toggle('th_current', isActive);
-        });
-
-        // 4. CỘT PHẢI: Summary panel
+        // 3. CỘT PHẢI: Summary panel
         setEl('th_up_name', item.name);
         setEl('th_up_cat_tag', item.category);
 
@@ -402,7 +353,7 @@ export class CharacterShowroom {
         }
         setEl('th_up_grade_tag', `Ngắm: T${parts.optic} | Nòng: T${parts.barrel} | Tay: T${parts.grip} | Băng: T${parts.magazine}`);
 
-        // 5. Stats bars: hiển thị stats THỰC sau khi cộng bộ phận
+        // 4. Stats bars: hiển thị stats THỰC sau khi cộng bộ phận
         const bDef = ATTACHMENT_DEFS[`barrel_t${parts.barrel}`] || {};
         const oDef = ATTACHMENT_DEFS[`optic_t${parts.optic}`] || {};
         const mDef = ATTACHMENT_DEFS[`magazine_t${parts.magazine}`] || {};
@@ -440,18 +391,6 @@ export class CharacterShowroom {
         if (this.th_upBtnForge) {
             this.th_upBtnForge.disabled = true;
             setEl('th_btn_upgrade_text', isUnlocked ? 'CLICK VÀO BỘ PHẬN ĐỂ NÂNG CẤP' : 'CHƯA SỞ HỮU VŨ KHÍ');
-        }
-
-        // 6. Nút Ép Lõi Đạn Đặc Biệt (giữ nguyên)
-        if (this.th_upBtnGacha) {
-            if (!isUnlocked) {
-                this.th_upBtnGacha.disabled = true;
-                this.th_upBtnGacha.textContent = 'CHƯA SỞ HỮU VŨ KHÍ';
-            } else {
-                const gachaCost = 300;
-                this.th_upBtnGacha.disabled = (this.game.coins < gachaCost);
-                this.th_upBtnGacha.innerHTML = `<span class="th_btn-label">${enchant ? 'ĐỔI LÕI ĐẠN ĐẶC BIỆT' : 'KHẢM LÕI ĐẠN ĐẶC BIỆT'} [${gachaCost} VÀNG]</span>`;
-            }
         }
     }
 
@@ -585,7 +524,7 @@ export class CharacterShowroom {
         pivot.add(gun);
 
         const maxDim = Math.max(size.x, size.y, size.z) || 1.0;
-        const targetSize = 2.45;
+        const targetSize = 1.62; // Thu nhỏ kích thước để súng vừa vặn bệ kính, không che khuất 4 ô phụ kiện
         const scale = targetSize / maxDim;
         pivot.scale.setScalar(scale);
 
@@ -598,15 +537,11 @@ export class CharacterShowroom {
 
     th_applyWeaponEnchantVisuals(weaponId) {
         if (!this.th_weaponModel) return;
-        const enchant = th_getWeaponEnchant(weaponId);
-        const hexColor = enchant ? (enchant.color || '#38bdf8') : null;
-        const emissiveCol = hexColor ? new THREE.Color(hexColor) : new THREE.Color(0x000000);
-        const intensity = hexColor ? 0.38 : 0;
-
+        // Bỏ hiệu ứng nguyên tố, giữ màu sắc kim loại sắc nét tự nhiên của model
         this.th_weaponModel.traverse(c => {
             if (c.isMesh && c.material) {
-                c.material.emissive = emissiveCol;
-                c.material.emissiveIntensity = intensity;
+                c.material.emissive = new THREE.Color(0x000000);
+                c.material.emissiveIntensity = 0;
             }
         });
     }
