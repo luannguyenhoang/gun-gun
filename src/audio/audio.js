@@ -1,103 +1,4 @@
-// Audio Manager using Web Audio API and Kenney Sound Assets
-
-class SoundManager {
-    constructor() {
-        if (typeof window !== 'undefined' && window.__gameSoundManager) {
-            return window.__gameSoundManager;
-        }
-        this.ctx = null;
-        this.buffers = {};
-        this.enabled = true;
-        this.musicEnabled = true;
-        this.masterVolume = 0.8;
-        this.musicVolume = 0.35;
-        this.sounds = {
-            blaster: 'assets/sounds/blaster.ogg',
-            repeater: 'assets/sounds/blaster_repeater.ogg',
-            enemyAttack: 'assets/sounds/enemy_attack.ogg',
-            enemyDestroy: 'assets/sounds/enemy_destroy.ogg',
-            enemyHurt: 'assets/sounds/enemy_hurt.ogg',
-            jump: 'assets/sounds/jump_a.ogg',
-            land: 'assets/sounds/land.ogg',
-            step: 'assets/sounds/walking.ogg',
-            switchWeapon: 'assets/sounds/weapon_change.ogg'
-        };
-        this.isMusicPlaying = false;
-        this.musicInterval = null;
-        if (typeof window !== 'undefined') {
-            window.__gameSoundManager = this;
-        }
-    }
-
-    init() {
-        if (this.ctx) {
-            if (this.ctx.state === 'suspended') {
-                this.ctx.resume();
-            }
-            return;
-        }
-        if (typeof window === 'undefined') return;
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
-        this.ctx = new AudioContext();
-        this.masterGain = this.ctx.createGain();
-        this.masterGain.gain.value = this.masterVolume;
-        this.masterGain.connect(this.ctx.destination);
-
-        this.musicGain = this.ctx.createGain();
-        this.musicGain.gain.value = this.musicVolume;
-        this.musicGain.connect(this.masterGain);
-
-        // Mở khóa tự động Web Audio khi có tương tác đầu tiên của người dùng
-        const unlock = () => {
-            if (this.ctx && this.ctx.state === 'suspended') {
-                this.ctx.resume();
-            }
-            window.removeEventListener('pointerdown', unlock);
-            window.removeEventListener('keydown', unlock);
-            window.removeEventListener('click', unlock);
-        };
-        window.addEventListener('pointerdown', unlock, { once: true });
-        window.addEventListener('keydown', unlock, { once: true });
-        window.addEventListener('click', unlock, { once: true });
-
-        this.loadAllSounds();
-    }
-
-    resume() {
-        if (!this.ctx) {
-            this.init();
-        }
-        if (this.ctx && this.ctx.state === 'suspended') {
-            this.ctx.resume();
-        }
-    }
-
-    async loadAllSounds() {
-        for (const [key, path] of Object.entries(this.sounds)) {
-            try {
-                const response = await fetch(path);
-                const arrayBuffer = await response.arrayBuffer();
-                const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
-                this.buffers[key] = audioBuffer;
-            } catch (err) {
-                console.warn(`Could not load audio [${key}] from ${path}:`, err);
-            }
-        }
-    }
-
-    play(name, options = {}) {
-        if (!this.enabled) return null;
-        if (!this.ctx) this.init();
-        this.resume();
-        if (!this.ctx) return null;
-
-        const buffer = this.buffers[name];
-        if (!buffer) return null;
-
-        const source = this.ctx.createBufferSource();
-        source.buffer = buffer;
-
+ 
         const gainNode = this.ctx.createGain();
         const vol = (options.volume !== undefined ? options.volume : 1.0);
         gainNode.gain.value = vol;
@@ -117,63 +18,140 @@ class SoundManager {
         if (!this.enabled) return;
         if (!this.ctx) this.init();
         this.resume();
+        if (!this.ctx) return;
 
-        let played = false;
-        if (weaponType === 'repeater' || weaponType === 'storm') {
-            played = !!this.play('repeater', { volume: 0.75, pitchVariation: 0.12 });
-        } else if (weaponType === 'scatter' || weaponType === 'nova') {
-            const p1 = this.play('blaster', { volume: 0.95, rate: 0.75, pitchVariation: 0.15 });
-            const p2 = this.play('repeater', { volume: 0.6, rate: 0.7, pitchVariation: 0.1 });
-            played = !!(p1 || p2);
-        } else if (weaponType === 'plasma') {
-            played = !!this.play('blaster', { volume: 0.9, rate: 1.35, pitchVariation: 0.1 });
-        } else {
-            played = !!this.play('blaster', { volume: 0.85, pitchVariation: 0.08 });
-        }
-
-        // Dự phòng âm thanh bắn tổng hợp (Procedural Synth Shot) nếu file âm thanh chưa nạp xong
-        if (!played && this.ctx) {
-            this.playSynthShot(weaponType);
-        }
-    }
-
-    playSynthShot(weaponType = 'blaster') {
-        if (!this.enabled || !this.ctx) return;
-        this.resume();
         const t = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
+        const type = (weaponType || 'blaster').toLowerCase();
 
-        if (weaponType === 'repeater' || weaponType === 'storm') {
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(640, t);
-            osc.frequency.exponentialRampToValueAtTime(95, t + 0.08);
-            gain.gain.setValueAtTime(0.35, t);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
-            osc.connect(gain);
-            gain.connect(this.masterGain);
+        // Cấu hình âm thanh chuyên biệt theo từng dòng súng: trầm ấm, uy lực, triệt tiêu dải treble chói tai
+        let config = {
+            bassStart: 130,
+            bassEnd: 38,
+            bassDuration: 0.12,
+            bassVolume: 0.46,
+            noiseFreq: 920,
+            noiseBandwidth: 1.8,
+            noiseDuration: 0.08,
+            noiseVolume: 0.26,
+            sampleRate: 0.68,
+            sampleVolume: 0.32,
+            lowpassCutoff: 1800
+        };
+
+        if (type.includes('repeater') || type.includes('storm') || type.includes('ak47') || type.includes('rifle')) {
+            // Súng trường / súng liên thanh: tiếng đầm, nhịp nổ dứt khoát, bass chắc, bắn liên thanh không bị mỏi tai
+            config = {
+                bassStart: 115,
+                bassEnd: 40,
+                bassDuration: 0.09,
+                bassVolume: 0.42,
+                noiseFreq: 820,
+                noiseBandwidth: 2.0,
+                noiseDuration: 0.065,
+                noiseVolume: 0.22,
+                sampleRate: 0.70,
+                sampleVolume: 0.28,
+                lowpassCutoff: 1550
+            };
+        } else if (type.includes('scatter') || type.includes('nova') || type.includes('shotgun')) {
+            // Shotgun: tiếng nổ bùng cực kỳ uy lực, sub-bass dày sâu rung chuyển
+            config = {
+                bassStart: 105,
+                bassEnd: 28,
+                bassDuration: 0.22,
+                bassVolume: 0.62,
+                noiseFreq: 700,
+                noiseBandwidth: 2.2,
+                noiseDuration: 0.13,
+                noiseVolume: 0.38,
+                sampleRate: 0.56,
+                sampleVolume: 0.36,
+                lowpassCutoff: 1350
+            };
+        } else if (type.includes('sniper') || type.includes('railgun')) {
+            // Súng ngắm: tiếng nổ vang trầm dội, lực đập mạnh mẽ
+            config = {
+                bassStart: 145,
+                bassEnd: 26,
+                bassDuration: 0.28,
+                bassVolume: 0.68,
+                noiseFreq: 880,
+                noiseBandwidth: 1.6,
+                noiseDuration: 0.15,
+                noiseVolume: 0.42,
+                sampleRate: 0.52,
+                sampleVolume: 0.42,
+                lowpassCutoff: 1450
+            };
+        }
+
+        // TẦNG 1: SUB-BASS THUMP (Cú đấm trầm ấm - loại bỏ hoàn toàn cảm giác chói tai, tạo độ nặng vật lý)
+        try {
+            const osc = this.ctx.createOscillator();
+            const oscGain = this.ctx.createGain();
+            osc.type = 'sine';
+            const pitchShift = (Math.random() - 0.5) * 6;
+            osc.frequency.setValueAtTime(config.bassStart + pitchShift, t);
+            osc.frequency.exponentialRampToValueAtTime(config.bassEnd, t + config.bassDuration);
+
+            oscGain.gain.setValueAtTime(config.bassVolume, t);
+            oscGain.gain.exponentialRampToValueAtTime(0.001, t + config.bassDuration);
+
+            osc.connect(oscGain);
+            oscGain.connect(this.masterGain);
             osc.start(t);
-            osc.stop(t + 0.08);
-        } else if (weaponType === 'scatter' || weaponType === 'nova') {
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(340, t);
-            osc.frequency.exponentialRampToValueAtTime(50, t + 0.16);
-            gain.gain.setValueAtTime(0.55, t);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
-            osc.connect(gain);
-            gain.connect(this.masterGain);
-            osc.start(t);
-            osc.stop(t + 0.16);
-        } else {
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(880, t);
-            osc.frequency.exponentialRampToValueAtTime(110, t + 0.11);
-            gain.gain.setValueAtTime(0.45, t);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
-            osc.connect(gain);
-            gain.connect(this.masterGain);
-            osc.start(t);
-            osc.stop(t + 0.11);
+            osc.stop(t + config.bassDuration);
+        } catch {}
+
+        // TẦNG 2: MECHANICAL NOISE CRACK (Tiếng nổ đanh cơ học qua bộ lọc Bandpass cắt sạch dải treble the thé)
+        try {
+            const bufferSize = Math.floor(this.ctx.sampleRate * config.noiseDuration);
+            const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const noiseData = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                noiseData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+            }
+            const noiseSource = this.ctx.createBufferSource();
+            noiseSource.buffer = noiseBuffer;
+
+            const noiseFilter = this.ctx.createBiquadFilter();
+            noiseFilter.type = 'bandpass';
+            noiseFilter.frequency.setValueAtTime(config.noiseFreq, t);
+            noiseFilter.Q.setValueAtTime(config.noiseBandwidth, t);
+
+            const noiseGain = this.ctx.createGain();
+            noiseGain.gain.setValueAtTime(config.noiseVolume, t);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, t + config.noiseDuration);
+
+            noiseSource.connect(noiseFilter);
+            noiseFilter.connect(noiseGain);
+            noiseGain.connect(this.masterGain);
+            noiseSource.start(t);
+        } catch {}
+
+        // TẦNG 3: SAMPLE LAYER QUA BỘ LỌC LOWPASS (Hạ pitch sâu và cắt hoàn toàn tần số cao >1.8kHz)
+        const bufferName = (type.includes('repeater') || type.includes('storm')) ? 'repeater' : 'blaster';
+        const sampleBuffer = this.buffers[bufferName];
+        if (sampleBuffer) {
+            try {
+                const sampleSource = this.ctx.createBufferSource();
+                sampleSource.buffer = sampleBuffer;
+                sampleSource.playbackRate.value = config.sampleRate + (Math.random() - 0.5) * 0.04;
+
+                const lpFilter = this.ctx.createBiquadFilter();
+                lpFilter.type = 'lowpass';
+                lpFilter.frequency.setValueAtTime(config.lowpassCutoff, t);
+
+                const sampleGain = this.ctx.createGain();
+                sampleGain.gain.setValueAtTime(config.sampleVolume, t);
+                sampleGain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+
+                sampleSource.connect(lpFilter);
+                lpFilter.connect(sampleGain);
+                sampleGain.connect(this.masterGain);
+                sampleSource.start(t);
+                sampleSource.stop(t + 0.14);
+            } catch {}
         }
     }
 
