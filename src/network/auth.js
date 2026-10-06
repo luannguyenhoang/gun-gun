@@ -27,7 +27,7 @@ export async function fetchProfile(userId) {
     try {
         const { data, error } = await client
             .from('profiles')
-            .select('id, email, full_name, avatar_url, role, created_at')
+            .select('*')
             .eq('id', userId)
             .maybeSingle();
         if (error) {
@@ -148,6 +148,7 @@ export async function signInWithGoogle() {
 }
 
 export async function signOut() {
+    await flushGameProgress();
     const client = getSupabaseClient();
     if (client) {
         try {
@@ -230,3 +231,233 @@ export async function initAuth() {
 
     return _currentUser;
 }
+
+// ============================================================
+// HỆ THỐNG ĐỒNG BỘ TIẾN TRÌNH GAME THEO TÀI KHOẢN (CLOUD PROGRESS)
+// ============================================================
+
+let _syncDebounceTimer = null;
+let _pendingProgress = null;
+
+/**
+ * Lưu tiến trình game (tiền, súng mở khóa, cấp cường hóa, part, enchant, loadout) lên Supabase theo tài khoản
+ * @param {Object} progress - Dữ liệu tiến trình cần cập nhật
+ * @param {boolean} [immediate=false] - Lưu ngay lập tức không qua debounce
+ */
+export async function saveGameProgressToCloud(progress, immediate = false) {
+    const client = getSupabaseClient();
+    if (!client || !_currentUser) return;
+
+    _pendingProgress = { ...(_pendingProgress || {}), ...progress };
+
+    if (immediate) {
+        if (_syncDebounceTimer) {
+            clearTimeout(_syncDebounceTimer);
+            _syncDebounceTimer = null;
+        }
+        return await flushGameProgress();
+    }
+
+    if (_syncDebounceTimer) {
+        clearTimeout(_syncDebounceTimer);
+    }
+
+    _syncDebounceTimer = setTimeout(async () => {
+        _syncDebounceTimer = null;
+        await flushGameProgress();
+    }, 800);
+}
+
+/**
+ * Đẩy ngay lập tức các dữ liệu tiến trình còn chờ lên Supabase
+ */
+export async function flushGameProgress() {
+    if (!_pendingProgress || !_currentUser) return;
+    const toSave = { ..._pendingProgress };
+    _pendingProgress = null;
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    try {
+        const updates = {};
+        if (typeof toSave.coins === 'number') updates.coins = toSave.coins;
+        if (Array.isArray(toSave.unlockedWeapons)) updates.unlocked_weapons = toSave.unlockedWeapons;
+        else if (Array.isArray(toSave.unlocked_weapons)) updates.unlocked_weapons = toSave.unlocked_weapons;
+
+        if (toSave.weaponTiers && typeof toSave.weaponTiers === 'object') updates.weapon_tiers = toSave.weaponTiers;
+        else if (toSave.weapon_tiers && typeof toSave.weapon_tiers === 'object') updates.weapon_tiers = toSave.weapon_tiers;
+
+        if (toSave.weaponEnchants && typeof toSave.weaponEnchants === 'object') updates.weapon_enchants = toSave.weaponEnchants;
+        else if (toSave.weapon_enchants && typeof toSave.weapon_enchants === 'object') updates.weapon_enchants = toSave.weapon_enchants;
+
+        if (toSave.weaponParts && typeof toSave.weaponParts === 'object') updates.weapon_parts = toSave.weaponParts;
+        else if (toSave.weapon_parts && typeof toSave.weapon_parts === 'object') updates.weapon_parts = toSave.weapon_parts;
+
+        if (toSave.loadout && typeof toSave.loadout === 'object') updates.loadout = toSave.loadout;
+        if (typeof toSave.characterId === 'string') updates.character_id = toSave.characterId;
+        else if (typeof toSave.character_id === 'string') updates.character_id = toSave.character_id;
+
+        if (Array.isArray(toSave.unlockedCharacters)) updates.unlocked_characters = toSave.unlockedCharacters;
+        else if (Array.isArray(toSave.unlocked_characters)) updates.unlocked_characters = toSave.unlocked_characters;
+
+        if (typeof toSave.highScore === 'number') updates.high_score = toSave.highScore;
+        else if (typeof toSave.high_score === 'number') updates.high_score = toSave.high_score;
+
+        if (Object.keys(updates).length === 0) return;
+
+        updates.updated_at = new Date().toISOString();
+
+        const { error } = await client
+            .from('profiles')
+            .update(updates)
+            .eq('id', _currentUser.id);
+
+        if (error) {
+            console.warn('[CloudSync] Lỗi cập nhật tiến trình tài khoản:', error.message);
+        } else if (_currentProfile) {
+            _currentProfile = { ..._currentProfile, ...updates };
+        }
+    } catch (err) {
+        console.warn('[CloudSync] Ngoại lệ khi lưu tiến trình:', err);
+    }
+}
+
+/**
+ * Áp dụng tiến trình từ profile tài khoản vào game instance và cập nhật giao diện
+ * @param {Object} profile - Dữ liệu profile từ Supabase
+ * @param {Object} game - Instance game chính
+ */
+export function applyProfileProgressToGame(profile, game) {
+    if (!profile || !game) return;
+
+    // Kiểm tra xem profile trên cloud có phải là tài khoản hoàn toàn mới hay không
+    const isCloudDefault = (profile.coins === 1000 || profile.coins === null) &&
+        (!profile.weapon_tiers || Object.keys(profile.weapon_tiers).length === 0) &&
+        (!profile.weapon_parts || Object.keys(profile.weapon_parts).length === 0) &&
+        (!profile.unlocked_weapons || profile.unlocked_weapons.length <= 3);
+
+    // Kiểm tra xem máy cục bộ hiện tại có dữ liệu cao hơn mặc định không
+    let localHasProgress = false;
+    try {
+        const localCoins = parseInt(localStorage.getItem('arena_player_coins') || '1000', 10);
+        const localWeapons = JSON.parse(localStorage.getItem('arena_unlocked_weapons') || '[]');
+        const localTiers = JSON.parse(localStorage.getItem('th_arena_weapon_tiers') || '{}');
+        const localParts = JSON.parse(localStorage.getItem('th_weapon_parts') || '{}');
+        if (localCoins > 1000 || localWeapons.length > 3 || Object.keys(localTiers).length > 0 || Object.keys(localParts).length > 0) {
+            localHasProgress = true;
+        }
+    } catch {}
+
+    // Nếu tài khoản mới tinh mà máy cục bộ đã cày game, đồng bộ tiến trình cục bộ lên tài khoản này
+    if (isCloudDefault && localHasProgress) {
+        saveGameProgressToCloud({
+            coins: game.coins,
+            unlockedWeapons: game.unlockedWeapons,
+            weaponTiers: game.th_weaponTiers,
+            weaponEnchants: game.th_weaponEnchants,
+            weaponParts: game.th_weaponParts,
+            characterId: game.characterId,
+            highScore: game.highScore,
+            loadout: game.getLoadout?.()
+        }, true);
+        return;
+    }
+
+    // Áp dụng dữ liệu tiến trình từ cloud vào game
+    if (typeof profile.coins === 'number') {
+        game.coins = profile.coins;
+        try { localStorage.setItem('arena_player_coins', game.coins.toString()); } catch {}
+    }
+
+    if (Array.isArray(profile.unlocked_weapons) && profile.unlocked_weapons.length > 0) {
+        game.unlockedWeapons = [...profile.unlocked_weapons];
+        try { localStorage.setItem('arena_unlocked_weapons', JSON.stringify(game.unlockedWeapons)); } catch {}
+    }
+
+    if (profile.weapon_tiers && typeof profile.weapon_tiers === 'object') {
+        game.th_weaponTiers = { ...profile.weapon_tiers };
+        try { localStorage.setItem('th_arena_weapon_tiers', JSON.stringify(game.th_weaponTiers)); } catch {}
+    }
+
+    if (profile.weapon_enchants && typeof profile.weapon_enchants === 'object') {
+        game.th_weaponEnchants = { ...profile.weapon_enchants };
+        try { localStorage.setItem('th_arena_weapon_enchants', JSON.stringify(game.th_weaponEnchants)); } catch {}
+    }
+
+    if (profile.weapon_parts && typeof profile.weapon_parts === 'object') {
+        game.th_weaponParts = { ...profile.weapon_parts };
+        try { localStorage.setItem('th_weapon_parts', JSON.stringify(game.th_weaponParts)); } catch {}
+    }
+
+    if (profile.character_id) {
+        game.characterId = profile.character_id;
+        try { localStorage.setItem('cyber_arena_character', game.characterId); } catch {}
+    }
+
+    if (Array.isArray(profile.unlocked_characters) && profile.unlocked_characters.length > 0) {
+        try { localStorage.setItem('cyber_arena_unlocked_characters', JSON.stringify(profile.unlocked_characters)); } catch {}
+    }
+
+    if (profile.loadout && typeof profile.loadout === 'object') {
+        try {
+            localStorage.setItem('cyber_arena_loadout', JSON.stringify(profile.loadout));
+            if (profile.loadout.primary) {
+                localStorage.setItem('cyber_arena_weapon', profile.loadout.primary);
+                if (game.weapons) game.weapons.startingWeaponId = profile.loadout.primary;
+            }
+        } catch {}
+    }
+
+    if (typeof profile.high_score === 'number' && profile.high_score > 0) {
+        game.highScore = Math.max(game.highScore || 0, profile.high_score);
+        try { localStorage.setItem('cyber_arena_highscore', game.highScore.toString()); } catch {}
+    }
+
+    // Làm mới UI đồng bộ
+    game.updateCoinsUI?.();
+    game.updateCharacterSelection?.();
+    if (game.homeMenu?.showroom) {
+        game.homeMenu.showroom.syncSelection();
+        game.homeMenu.showroom.renderDetails();
+        game.homeMenu.showroom.renderArmoryWeapons?.();
+    }
+    game.homeMenu?.preview();
+}
+
+/**
+ * Đặt lại dữ liệu game về trạng thái Khách mặc định khi đăng xuất
+ * @param {Object} game - Instance game chính
+ */
+export function resetGameProgressToGuest(game) {
+    if (!game) return;
+    game.coins = 1000;
+    game.unlockedWeapons = ['blaster', 'repeater', 'scatter'];
+    game.th_weaponTiers = {};
+    game.th_weaponEnchants = {};
+    game.th_weaponParts = {};
+    game.characterId = 'police';
+    game.highScore = 0;
+
+    try {
+        localStorage.setItem('arena_player_coins', '1000');
+        localStorage.setItem('arena_unlocked_weapons', JSON.stringify(['blaster', 'repeater', 'scatter']));
+        localStorage.setItem('th_arena_weapon_tiers', '{}');
+        localStorage.setItem('th_arena_weapon_enchants', '{}');
+        localStorage.setItem('th_weapon_parts', '{}');
+        localStorage.setItem('cyber_arena_character', 'police');
+        localStorage.setItem('cyber_arena_unlocked_characters', JSON.stringify(['police']));
+        localStorage.setItem('cyber_arena_loadout', JSON.stringify({ primary: 'blaster_c', knife: 'tactical_knife' }));
+        localStorage.setItem('cyber_arena_weapon', 'blaster_c');
+        localStorage.setItem('cyber_arena_highscore', '0');
+    } catch {}
+
+    game.updateCoinsUI?.();
+    game.updateCharacterSelection?.();
+    if (game.homeMenu?.showroom) {
+        game.homeMenu.showroom.syncSelection();
+        game.homeMenu.showroom.renderDetails();
+        game.homeMenu.showroom.renderArmoryWeapons?.();
+    }
+    game.homeMenu?.preview();
+}
+

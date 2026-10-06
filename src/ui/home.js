@@ -2,7 +2,7 @@ import { sounds } from '../audio/audio.js';
 import { CharacterShowroom } from './showroom.js?v=46';
 import { CHARACTER_CONFIGS, isCharacterUnlocked } from '../gameplay/player/characters.js';
 import { getStartingWeapon } from '../gameplay/combat/weapons.js?v=32';
-import { initAuth, signIn, signUp, signInWithGoogle, signOut, onAuthStateChange } from '../network/auth.js';
+import { initAuth, signIn, signUp, signInWithGoogle, signOut, onAuthStateChange, applyProfileProgressToGame, resetGameProgressToGuest } from '../network/auth.js';
 import {
     initFriendsSystem,
     cleanupFriendsSystem,
@@ -612,6 +612,9 @@ export class HomeMenu {
 
                 // Khởi tạo hệ thống Bạn bè & Presence cho user này
                 initFriendsSystem();
+
+                // Đồng bộ súng, tiền và cấp độ nâng cấp theo tài khoản
+                applyProfileProgressToGame(profile, game);
             } else {
                 // Chưa đăng nhập / Khách
                 if (this.loggedInView) this.loggedInView.style.display = 'none';
@@ -632,6 +635,9 @@ export class HomeMenu {
 
                 // Dọn dẹp trạng thái bạn bè
                 cleanupFriendsSystem();
+
+                // Đặt lại súng, tiền và cấp độ nâng cấp về mặc định chế độ khách
+                resetGameProgressToGuest(game);
             }
         });
 

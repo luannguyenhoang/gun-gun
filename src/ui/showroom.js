@@ -1163,6 +1163,7 @@ export class CharacterShowroom {
         this.game.coins -= charCfg.price;
         localStorage.setItem('arena_player_coins', this.game.coins.toString());
         unlockCharacter(id);
+        this.game.saveProgress?.(true);
 
         this.selected = id;
         this.game.selectCharacter(id);

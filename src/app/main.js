@@ -14,6 +14,7 @@ import { RoomLobby } from '../ui/lobby.js?v=35';
 import { HomeMenu } from '../ui/home.js?v=33';
 import { LootingSystem } from '../gameplay/loot/looting.js?v=40';
 import { RenderQuality } from '../rendering/performance.js';
+import { saveGameProgressToCloud } from '../network/auth.js';
 
 class CyberArenaGame {
     constructor() {
@@ -414,6 +415,7 @@ class CyberArenaGame {
         if (this.score > this.highScore) {
             this.highScore = this.score;
             localStorage.setItem('cyber_arena_highscore', this.highScore.toString());
+            this.saveProgress(true);
         }
 
         if (this.finalScoreEl) this.finalScoreEl.textContent = this.score.toLocaleString();
@@ -490,6 +492,7 @@ class CyberArenaGame {
         if (this.network?.active) {
             this.network.changeCharacter?.(this.characterId);
         }
+        this.saveProgress();
     }
 
     updateCharacterSelection() {
@@ -533,6 +536,7 @@ class CyberArenaGame {
         localStorage.setItem('cyber_arena_weapon', weapon.id);
         this.weapons.resetRun(currentLoadout.primary, currentLoadout.secondary, currentLoadout.bomb1, currentLoadout.bomb2);
         this.network.changeWeapon(weapon.id);
+        this.saveProgress();
         return true;
     }
 
@@ -955,7 +959,7 @@ class CyberArenaGame {
     }
 
     // Lưu tiến trình tiền vàng và súng
-    saveProgress() {
+    saveProgress(immediate = false) {
         try {
             localStorage.setItem('arena_player_coins', this.coins.toString());
             localStorage.setItem('arena_unlocked_weapons', JSON.stringify(this.unlockedWeapons));
@@ -964,6 +968,28 @@ class CyberArenaGame {
             localStorage.setItem('th_weapon_parts', JSON.stringify(this.th_weaponParts || {}));
         } catch (e) {
             console.warn('Lỗi lưu tiến trình:', e);
+        }
+
+        // Tự động đồng bộ lên tài khoản Supabase Cloud
+        try {
+            let unlockedChars = ['police'];
+            try {
+                unlockedChars = JSON.parse(localStorage.getItem('cyber_arena_unlocked_characters') || '["police"]');
+            } catch {}
+
+            saveGameProgressToCloud({
+                coins: this.coins,
+                unlockedWeapons: this.unlockedWeapons,
+                weaponTiers: this.th_weaponTiers,
+                weaponEnchants: this.th_weaponEnchants,
+                weaponParts: this.th_weaponParts,
+                characterId: this.characterId,
+                unlockedCharacters: unlockedChars,
+                highScore: this.highScore,
+                loadout: this.getLoadout()
+            }, immediate);
+        } catch (e) {
+            console.warn('Lỗi gọi đồng bộ cloud:', e);
         }
     }
 
@@ -1436,4 +1462,9 @@ window.addEventListener('DOMContentLoaded', () => {
     if (roomCode && game.roomCode) {
         game.roomCode.value = roomCode.toUpperCase();
     }
+
+    // Đảm bảo dữ liệu chưa lưu được đẩy lên cloud khi thoát hoặc reload trang
+    window.addEventListener('beforeunload', () => {
+        game.saveProgress(true);
+    });
 });
