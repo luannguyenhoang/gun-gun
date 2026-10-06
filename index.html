@@ -813,13 +813,62 @@
           <div class="dialog-header"><h2 id="dialog-title"></h2><button class="toy-button coral close-dialog" aria-label="Đóng">×</button></div>
           <div class="dialog-body">
             <section data-panel="friends" hidden>
-              <p class="eyebrow">PHÒNG CỦA BẠN · QUÉT MÃ HOẶC GỬI LINK</p>
-              <div class="share-room" id="share-room" hidden><div id="room-qr" aria-label="Mã QR mời bạn"></div><div><small>MÃ PHÒNG</small><strong id="share-code"></strong><button id="room-copy" class="text-button" style="display:none">COPY MÃ</button></div></div>
-              <button id="room-create" class="toy-button orange wide-button">+ TẠO PHÒNG CÙNG BẠN</button>
-              <div class="share-link-row" id="share-link-row" hidden><input id="share-link" readonly aria-label="Liên kết mời bạn"><button id="copy-link" class="toy-button blue">COPY</button></div>
-              <label class="eyebrow" for="room-code">HOẶC VÀO PHÒNG CỦA BẠN BÈ</label>
-              <div class="join-row"><input id="room-code" maxlength="6" placeholder="MÃ PHÒNG" autocomplete="off"><button id="room-join" class="toy-button orange">VÀO</button></div>
-              <p id="room-status" role="status">Tạo phòng và gửi liên kết để rủ bạn cùng chiến đấu. Tối đa 4 người.</p>
+              <!-- 2 Tab chính: BẠN BÈ & PHÒNG CHƠI -->
+              <div class="auth-tabs" id="friends-nav-tabs">
+                <button type="button" class="auth-tab-btn active" id="tab-btn-friends-list">BẠN BÈ &amp; ONLINE</button>
+                <button type="button" class="auth-tab-btn" id="tab-btn-room-p2p">TẠO / VÀO PHÒNG</button>
+              </div>
+
+              <!-- TAB 1: BẠN BÈ & TRẠNG THÁI ONLINE & MỜI CHƠI -->
+              <div id="friends-panel-social">
+                <!-- Thông báo nếu chưa đăng nhập -->
+                <div id="friends-guest-alert" class="auth-message-box error" style="display:none;">
+                  <span>Hãy đăng nhập tài khoản để kết bạn, xem ai đang online và mời nhau chơi thời gian thực!</span>
+                  <button type="button" id="btn-friends-goto-login" class="toy-button yellow" style="margin-top:8px; width:100%;">ĐĂNG NHẬP NGAY</button>
+                </div>
+
+                <div id="friends-logged-in-content">
+                  <!-- Tìm kiếm kết bạn -->
+                  <div class="friends-search-box">
+                    <label class="eyebrow" for="input-search-player">TÌM KIẾM NGƯỜI CHƠI (EMAIL HOẶC TÊN)</label>
+                    <div class="join-row">
+                      <input id="input-search-player" placeholder="Nhập email hoặc tên..." autocomplete="off">
+                      <button type="button" id="btn-search-player" class="toy-button blue">TÌM</button>
+                    </div>
+                  </div>
+
+                  <!-- Kết quả tìm kiếm -->
+                  <div id="friends-search-results" class="friends-list-container" style="display:none;"></div>
+
+                  <!-- Danh sách lời mời kết bạn đến -->
+                  <div id="friends-pending-container" style="display:none;">
+                    <div class="friends-sub-title">LỜI MỜI KẾT BẠN (<span id="pending-count">0</span>)</div>
+                    <div id="friends-pending-list" class="friends-list-container"></div>
+                  </div>
+
+                  <!-- Danh sách bạn bè chính thức -->
+                  <div class="friends-section-main">
+                    <div class="friends-sub-title">
+                      <span>BẠN BÈ CỦA BẠN</span>
+                      <span class="friends-online-badge"><span class="online-indicator-dot"></span> <b id="friends-online-count">0</b>/<span id="friends-total-count">0</span> ONLINE</span>
+                    </div>
+                    <div id="friends-list" class="friends-list-container">
+                      <div class="friends-empty-hint">Chưa có bạn bè nào. Hãy nhập email hoặc tên ở trên để kết bạn!</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- TAB 2: TẠO VÀ VÀO PHÒNG P2P -->
+              <div id="friends-panel-room" style="display:none;">
+                <p class="eyebrow">PHÒNG CỦA BẠN · QUÉT MÃ HOẶC GỬI LINK</p>
+                <div class="share-room" id="share-room" hidden><div id="room-qr" aria-label="Mã QR mời bạn"></div><div><small>MÃ PHÒNG</small><strong id="share-code"></strong><button id="room-copy" class="text-button" style="display:none">COPY MÃ</button></div></div>
+                <button id="room-create" class="toy-button orange wide-button">+ TẠO PHÒNG CÙNG BẠN</button>
+                <div class="share-link-row" id="share-link-row" hidden><input id="share-link" readonly aria-label="Liên kết mời bạn"><button id="copy-link" class="toy-button blue">COPY</button></div>
+                <label class="eyebrow" for="room-code">HOẶC VÀO PHÒNG CỦA BẠN BÈ</label>
+                <div class="join-row"><input id="room-code" maxlength="6" placeholder="MÃ PHÒNG" autocomplete="off"><button id="room-join" class="toy-button orange">VÀO</button></div>
+                <p id="room-status" role="status">Tạo phòng và gửi liên kết để rủ bạn cùng chiến đấu. Tối đa 4 người.</p>
+              </div>
             </section>
             <section data-panel="profile" hidden>
               <!-- Khi đã đăng nhập -->
@@ -1264,6 +1313,27 @@
             <button id="btn-restart-gameover" class="btn-action pulse">CHƠI LẠI</button>
             <button class="btn-action secondary" data-return-home>VỀ SẢNH · ĐỔI TRANG BỊ</button>
         </div>
+    </div>
+
+    <!-- Pop-up Lời Mời Chơi Thời Gian Thực (Real-time Game Invite Toast) -->
+    <div id="realtime-invite-modal" class="realtime-invite-toast" style="display:none;" role="dialog" aria-modal="true" aria-label="Lời mời vào phòng chiến đấu">
+      <div class="invite-toast-inner">
+        <div class="invite-toast-header">
+          <span class="invite-toast-badge">LỜI MỜI CHIẾN ĐẤU</span>
+          <button type="button" id="btn-invite-close" class="invite-close-btn" aria-label="Đóng">✕</button>
+        </div>
+        <div class="invite-toast-body">
+          <div class="invite-toast-avatar" id="invite-sender-avatar">★</div>
+          <div class="invite-toast-details">
+            <strong id="invite-sender-name">ĐỒNG ĐỘI</strong>
+            <p>Mời bạn tham gia phòng: <b id="invite-target-room">MÃ PHÒNG</b></p>
+          </div>
+        </div>
+        <div class="invite-toast-actions">
+          <button type="button" id="btn-invite-accept" class="toy-button yellow">THAM GIA NGAY</button>
+          <button type="button" id="btn-invite-decline" class="toy-button coral">TỪ CHỐI</button>
+        </div>
+      </div>
     </div>
 
     <!-- Main Game Script -->

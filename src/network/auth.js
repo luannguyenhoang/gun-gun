@@ -212,17 +212,18 @@ export async function initAuth() {
                     email: session.user.email,
                     full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0]
                 };
+                // Dọn sạch hash chứa token sau khi đã lưu phiên an toàn
+                if (typeof window !== 'undefined' && (window.location.hash?.includes('access_token') || window.location.search?.includes('code='))) {
+                    setTimeout(() => {
+                        window.history.replaceState(null, '', window.location.pathname);
+                    }, 500);
+                }
             } else {
                 _currentUser = null;
                 _currentProfile = null;
             }
             notifyListeners();
         });
-
-        // Xóa hash chứa token nếu đăng nhập từ OAuth chuyển về
-        if (typeof window !== 'undefined' && window.location.hash?.includes('access_token')) {
-            window.history.replaceState(null, '', window.location.pathname + window.location.search);
-        }
     } catch (err) {
         console.warn('[SupabaseAuth] Lỗi khởi tạo phiên:', err);
     }

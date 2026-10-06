@@ -258,3 +258,270 @@
   color: #34d399 !important;
   font-weight: 900;
 }
+
+/* Giao diện Quản lý Bạn bè & Online */
+.friends-sub-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font: 900 12px var(--toy-font);
+  color: #d1c4e9;
+  letter-spacing: 0.5px;
+  margin: 14px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.friends-online-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #a7f3d0;
+  background: rgba(16, 185, 129, 0.15);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.online-indicator-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  display: inline-block;
+  animation: pulse-dot 1.8s infinite;
+}
+.online-indicator-dot.offline {
+  background: #6b7280;
+  box-shadow: none;
+  animation: none;
+}
+@keyframes pulse-dot {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; box-shadow: 0 0 12px #34d399; }
+  100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+.friends-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.friend-item-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(26, 18, 38, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 8px 12px;
+  gap: 10px;
+  transition: background 0.15s ease;
+}
+.friend-item-card:hover {
+  background: rgba(45, 32, 65, 0.85);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.friend-info-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.friend-avatar-thumb {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7c3aed, #2563eb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font: 900 16px var(--toy-font);
+  flex-shrink: 0;
+  overflow: visible;
+}
+.friend-avatar-thumb img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.friend-status-pip {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid #20172e;
+  background: #10b981;
+}
+.friend-status-pip.offline {
+  background: #6b7280;
+}
+
+.friend-text-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.friend-text-meta strong {
+  font-size: 14px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.friend-text-meta span {
+  font-size: 11px;
+  color: #a89dbb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.friend-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.btn-friend-invite {
+  padding: 6px 12px;
+  font: 900 11px var(--toy-font);
+  border-radius: 8px;
+  min-height: 32px;
+}
+.btn-friend-remove {
+  padding: 6px 8px;
+  font-size: 13px;
+  min-height: 32px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  cursor: pointer;
+}
+.btn-friend-remove:hover {
+  background: rgba(239, 68, 68, 0.35);
+  color: #fff;
+}
+
+.friends-empty-hint {
+  text-align: center;
+  padding: 16px 8px;
+  font-size: 12px;
+  color: #b7a9ce;
+  font-style: italic;
+}
+
+/* Modal Toast Mời Chơi Thời Gian Thực */
+.realtime-invite-toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 99999;
+  width: min(380px, calc(100vw - 32px));
+  animation: slide-in-invite 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes slide-in-invite {
+  from { transform: translateY(-50px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.invite-toast-inner {
+  background: rgba(26, 18, 42, 0.95);
+  border: 2px solid #f59e0b;
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 20px rgba(245, 158, 11, 0.3);
+  backdrop-filter: blur(12px);
+  color: #fff;
+}
+
+.invite-toast-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.invite-toast-badge {
+  font: 900 11px var(--toy-font);
+  background: #f59e0b;
+  color: #1e1330;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+.invite-close-btn {
+  background: transparent;
+  border: none;
+  color: #c9bede;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.invite-close-btn:hover {
+  color: #fff;
+}
+
+.invite-toast-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.invite-toast-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ec4899, #f59e0b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 900 18px var(--toy-font);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.invite-toast-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.invite-toast-details strong {
+  font-size: 15px;
+  color: #fff;
+  display: block;
+}
+.invite-toast-details p {
+  font-size: 13px;
+  color: #e2d9f3;
+  margin: 3px 0 0;
+}
+.invite-toast-details b {
+  color: #fbbf24;
+  letter-spacing: 1px;
+}
+
+.invite-toast-actions {
+  display: flex;
+  gap: 10px;
+}
+.invite-toast-actions button {
+  flex: 1;
+  min-height: 38px;
+  font-size: 13px;
+  border-radius: 10px;
+}
+
