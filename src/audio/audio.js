@@ -1,4 +1,103 @@
- 
+// Audio Manager using Web Audio API and Kenney Sound Assets
+
+class SoundManager {
+    constructor() {
+        if (typeof window !== 'undefined' && window.__gameSoundManager) {
+            return window.__gameSoundManager;
+        }
+        this.ctx = null;
+        this.buffers = {};
+        this.enabled = true;
+        this.musicEnabled = true;
+        this.masterVolume = 0.8;
+        this.musicVolume = 0.35;
+        this.sounds = {
+            blaster: 'assets/sounds/blaster.ogg',
+            repeater: 'assets/sounds/blaster_repeater.ogg',
+            enemyAttack: 'assets/sounds/enemy_attack.ogg',
+            enemyDestroy: 'assets/sounds/enemy_destroy.ogg',
+            enemyHurt: 'assets/sounds/enemy_hurt.ogg',
+            jump: 'assets/sounds/jump_a.ogg',
+            land: 'assets/sounds/land.ogg',
+            step: 'assets/sounds/walking.ogg',
+            switchWeapon: 'assets/sounds/weapon_change.ogg'
+        };
+        this.isMusicPlaying = false;
+        this.musicInterval = null;
+        if (typeof window !== 'undefined') {
+            window.__gameSoundManager = this;
+        }
+    }
+
+    init() {
+        if (this.ctx) {
+            if (this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+            return;
+        }
+        if (typeof window === 'undefined') return;
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        this.ctx = new AudioContext();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.value = this.masterVolume;
+        this.masterGain.connect(this.ctx.destination);
+
+        this.musicGain = this.ctx.createGain();
+        this.musicGain.gain.value = this.musicVolume;
+        this.musicGain.connect(this.masterGain);
+
+        // Mở khóa tự động Web Audio khi có tương tác đầu tiên của người dùng
+        const unlock = () => {
+            if (this.ctx && this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+            window.removeEventListener('pointerdown', unlock);
+            window.removeEventListener('keydown', unlock);
+            window.removeEventListener('click', unlock);
+        };
+        window.addEventListener('pointerdown', unlock, { once: true });
+        window.addEventListener('keydown', unlock, { once: true });
+        window.addEventListener('click', unlock, { once: true });
+
+        this.loadAllSounds();
+    }
+
+    resume() {
+        if (!this.ctx) {
+            this.init();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+    }
+
+    async loadAllSounds() {
+        for (const [key, path] of Object.entries(this.sounds)) {
+            try {
+                const response = await fetch(path);
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+                this.buffers[key] = audioBuffer;
+            } catch (err) {
+                console.warn(`Could not load audio [${key}] from ${path}:`, err);
+            }
+        }
+    }
+
+    play(name, options = {}) {
+        if (!this.enabled) return null;
+        if (!this.ctx) this.init();
+        this.resume();
+        if (!this.ctx) return null;
+
+        const buffer = this.buffers[name];
+        if (!buffer) return null;
+
+        const source = this.ctx.createBufferSource();
+        source.buffer = buffer;
+
         const gainNode = this.ctx.createGain();
         const vol = (options.volume !== undefined ? options.volume : 1.0);
         gainNode.gain.value = vol;
