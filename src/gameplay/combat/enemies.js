@@ -88,24 +88,41 @@ export class Zombie {
         this.setupVisuals(gltfModels);
     }
 
-    // Tinh toan chi so quai dua tren he so thoi gian va loai quai - Tang suc manh manh me
+    // Tinh toan chi so quai dua tren he so thoi gian va loai quai - Can bang mượt mà tu Round 1 den Round 10+
     applyStats(type, phaseNum = 1, survivalMinutes = 0, playerSpeed = 7.5) {
         this.type = type;
         this.radius = ZOMBIE_RADII[type] ?? ZOMBIE_RADII.walker;
 
-        // He so tang tien theo thoi gian song (hoac phase) - Tang manh tay hon
-        const timeScale = 1.0 + (survivalMinutes * 0.35);
-        const phaseMult = Math.max(timeScale, 1.0 + (phaseNum - 1) * 0.45);
-        const dmgMult = 1.0 + survivalMinutes * 0.20 + (phaseNum - 1) * 0.30;
+        // Tinh toan he so tang tien muot ma qua cac giai doan:
+        // Round 1-3: De tho de nguoi choi lam quen, tich luy tien va sung
+        // Round 4-7: Do kho tang dan vua phai
+        // Round 8-10+: Thu thach don dap
+        let phaseMult = 1.0;
+        let dmgMult = 1.0;
+        let speedOffset = 0;
 
-        // Tinh toan toc do toi da khong vuot qua 95% toc do Player de van tha dieu duoc nhung ap sat rat sat
+        if (phaseNum <= 3) {
+            phaseMult = 0.65 + (phaseNum - 1) * 0.12;
+            dmgMult = 0.48 + (phaseNum - 1) * 0.12;
+            speedOffset = (phaseNum - 1) * 0.25;
+        } else if (phaseNum <= 7) {
+            phaseMult = 0.95 + (phaseNum - 4) * 0.16;
+            dmgMult = 0.78 + (phaseNum - 4) * 0.14;
+            speedOffset = 0.75 + (phaseNum - 4) * 0.25;
+        } else {
+            phaseMult = 1.55 + (phaseNum - 7) * 0.24;
+            dmgMult = 1.30 + (phaseNum - 7) * 0.18;
+            speedOffset = 1.60 + (phaseNum - 7) * 0.20;
+        }
+
+        // Tinh toan toc do toi da khong vuot qua 95% toc do Player
         const maxAllowedSpeed = (playerSpeed || 7.5) * 0.95;
 
         if (type === 'orc_brawler') {
             this.baseHealth = 650;
             this.baseArmor = 280;
             this.armorClass = 2;
-            this.speed = Math.min(4.0 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.speed = Math.min((3.2 + speedOffset * 0.4) * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
             this.scale = 2.4;
             this.damage = Math.round(48 * dmgMult);
             this.attackRange = 1.6;
@@ -116,7 +133,7 @@ export class Zombie {
             this.baseHealth = 380;
             this.baseArmor = 160;
             this.armorClass = 2;
-            this.speed = Math.min(5.5 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.speed = Math.min((4.2 + speedOffset * 0.5) * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
             this.scale = 1.85;
             this.damage = Math.round(35 * dmgMult);
             this.attackRange = 1.35;
@@ -127,7 +144,7 @@ export class Zombie {
             this.baseHealth = 160;
             this.baseArmor = 30;
             this.armorClass = 1;
-            this.speed = Math.min(7.6 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.speed = Math.min((5.5 + speedOffset * 0.6) * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
             this.scale = 1.5;
             this.damage = Math.round(28 * dmgMult);
             this.attackRange = 1.2;
@@ -138,7 +155,7 @@ export class Zombie {
             this.baseHealth = 290;
             this.baseArmor = 70;
             this.armorClass = 1;
-            this.speed = Math.min(4.2 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.speed = Math.min((3.4 + speedOffset * 0.4) * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
             this.scale = 1.7;
             this.damage = Math.round(26 * dmgMult);
             this.attackRange = 12.0;
@@ -146,11 +163,10 @@ export class Zombie {
             this.knockbackResistance = 0.25;
             this.scoreValue = 260;
         } else if (type === 'tank') {
-            // Tanker Zombie: Mau cuc trau, giap day, khang day lui knockback 90%
             this.baseHealth = 550;
             this.baseArmor = 280;
-            this.armorClass = 2; // Giap kim loai cap 2
-            this.speed = Math.min(3.8 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.armorClass = 2;
+            this.speed = Math.min((3.0 + speedOffset * 0.3) * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
             this.scale = 2.2;
             this.damage = Math.round(45 * dmgMult);
             this.attackRange = 1.5;
@@ -158,11 +174,10 @@ export class Zombie {
             this.knockbackResistance = 0.90;
             this.scoreValue = 300;
         } else if (type === 'sprinter') {
-            // Fast Zombie: Toc do rat cao, mau duoc nang cap, ap sat nhanh
             this.baseHealth = 120;
             this.baseArmor = 20;
             this.armorClass = 1;
-            this.speed = Math.min(7.2 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.speed = Math.min((5.2 + speedOffset * 0.6) * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
             this.scale = 1.55;
             this.damage = Math.round(24 * dmgMult);
             this.attackRange = 1.2;
@@ -173,7 +188,7 @@ export class Zombie {
             this.baseHealth = 1100;
             this.baseArmor = 500;
             this.armorClass = 3;
-            this.speed = Math.min(3.0 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.speed = Math.min((2.6 + speedOffset * 0.25) * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
             this.scale = 3.6;
             this.damage = Math.round(65 * dmgMult);
             this.attackRange = 2.8;
@@ -182,14 +197,14 @@ export class Zombie {
             this.scoreValue = 500;
         } else if (type === 'bomber') {
             this.baseHealth = 300; this.baseArmor = 70; this.armorClass = 1;
-            this.speed = Math.min(3.2, maxAllowedSpeed); this.scale = 1.95;
+            this.speed = Math.min(2.8 + speedOffset * 0.3, maxAllowedSpeed); this.scale = 1.95;
             this.damage = Math.round(35 * dmgMult); this.attackRange = 1.4;
             this.attackCooldown = 1.5; this.knockbackResistance = 0.3; this.scoreValue = 260;
         } else if (type === 'spitter') {
             this.baseHealth = 220;
             this.baseArmor = 60;
             this.armorClass = 1;
-            this.speed = Math.min(4.2 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.speed = Math.min((3.2 + speedOffset * 0.35) * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
             this.scale = 1.8;
             this.damage = Math.round(32 * dmgMult);
             this.attackRange = 1.35;
@@ -200,7 +215,7 @@ export class Zombie {
             this.baseHealth = 7500;
             this.baseArmor = 3500;
             this.armorClass = 4;
-            this.speed = Math.min(5.4 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.speed = Math.min((4.5 + speedOffset * 0.3) * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
             this.scale = 5.2;
             this.damage = Math.round(110 * dmgMult);
             this.attackRange = 4.5;
@@ -208,21 +223,22 @@ export class Zombie {
             this.knockbackResistance = 1.0;
             this.scoreValue = 3500;
         } else if (type === 'crawler') {
-            this.baseHealth = 95;
+            this.baseHealth = 85;
             this.baseArmor = 0;
             this.armorClass = 0;
-            this.speed = Math.min(6.2 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            // O cac round dau toc do chi khoang 3.8 m/s thay vi 6.2 m/s
+            this.speed = Math.min((3.8 + speedOffset * 0.5) * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
             this.scale = 0.85;
-            this.damage = Math.round(30 * dmgMult);
+            this.damage = Math.round(25 * dmgMult);
             this.attackRange = 0.95;
-            this.attackCooldown = 0.55;
+            this.attackCooldown = 0.65;
             this.knockbackResistance = 0.05;
             this.scoreValue = 120;
         } else if (type === 'boomer') {
             this.baseHealth = 280;
             this.baseArmor = 30;
             this.armorClass = 1;
-            this.speed = Math.min(3.2 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.speed = Math.min((2.8 + speedOffset * 0.3) * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
             this.scale = 1.7;
             this.damage = Math.round(80 * dmgMult);
             this.attackRange = 1.4;
@@ -230,11 +246,11 @@ export class Zombie {
             this.knockbackResistance = 0.5;
             this.scoreValue = 200;
         } else {
-            // Zombie thuong (walker): Mau trau hon nhieu, sat thuong cao
+            // Zombie thuong (walker): O Round 1-3 di chuyen cham rai (3.0 m/s), sat thuong ~13 HP
             this.baseHealth = 180;
             this.baseArmor = 30;
             this.armorClass = 1;
-            this.speed = Math.min(5.0 * (1.0 + survivalMinutes * 0.025), maxAllowedSpeed);
+            this.speed = Math.min((3.0 + speedOffset * 0.55) * (1.0 + survivalMinutes * 0.02), maxAllowedSpeed);
             this.scale = 1.65;
             this.damage = Math.round(28 * dmgMult);
             this.attackRange = 1.25;
@@ -1003,44 +1019,63 @@ export class WaveManager {
         this.currentPhase = phaseNum;
         this.isWaveInProgress = true;
         this.hasSpawnedBoss = false;
-        // Tổng số lượng quái cho đợt tăng vọt để đông đảo, dồn dập
-        this.totalWaveEnemies = Math.floor(45 + phaseNum * 16);
+        // Tổng số lượng quái: Round 1 là 14 con, mỗi round tăng ~5.6 con, Round 10 đạt ~65 con
+        // Đảm bảo người chơi dễ thở và chắc chắn chơi tới Round 10+
+        this.totalWaveEnemies = Math.floor(9 + phaseNum * 5.6);
         this.remainingToSpawn = this.totalWaveEnemies;
-        // Giới hạn số quái tối đa cùng xuất hiện trên sân (Tăng lên 30 - 50 con cùng lúc)
-        this.maxOnField = Math.min(50, 22 + Math.floor(phaseNum * 4));
-        this.batchInterval = Math.max(0.65, 1.3 - phaseNum * 0.1);
+        // Giới hạn quái tối đa cùng xuất hiện trên sân: Round 1 chỉ 6 con, tăng dần lên 32 con ở Round 10
+        this.maxOnField = Math.min(35, 5 + Math.floor(phaseNum * 2.7));
+        // Giãn cách đợt spawn: Round 1 là 2.2 giây (rất thong thả), giảm dần xuống 0.8 giây ở Round 10
+        this.batchInterval = Math.max(0.75, 2.35 - phaseNum * 0.16);
         this.batchSpawnTimer = 0;
     }
 
-    // Chon loai quai xuat hien dua tren moc thoi gian song sot (phut)
+    // Chọn loại quái xuất hiện theo Phase của trận đấu để cân bằng độ khó
     determineArchetype(survivalMinutes) {
         const roll = Math.random();
-        if ((this.currentPhase >= 3 || survivalMinutes >= 1.5) && roll < .10) return 'bomber';
-        if ((this.currentPhase >= 2 || survivalMinutes >= .75) && roll >= .10 && roll < .28) return 'spitter';
-        if (survivalMinutes < 2.0) {
-            if (roll < 0.15) return 'shadow_stalker';
-            return roll < 0.4 ? 'crawler' : 'walker';
-        } else if (survivalMinutes < 4.0) {
-            if (roll < 0.15) return 'cyber_enforcer';
-            if (roll < 0.30) return 'sprinter';
-            if (roll < 0.50) return 'crawler';
-            return 'walker';
-        } else if (survivalMinutes < 6.0) {
-            if (roll < 0.12) return 'orc_brawler';
-            if (roll < 0.24) return 'cyber_enforcer';
-            if (roll < 0.36) return 'shadow_stalker';
-            if (roll < 0.48) return 'toxic_spitter';
-            if (roll < 0.65) return 'boomer';
-            return 'walker';
-        } else {
-            if (roll < 0.12) return 'orc_brawler';
-            if (roll < 0.22) return 'tank';
-            if (roll < 0.32) return 'giant';
-            if (roll < 0.45) return 'cyber_enforcer';
-            if (roll < 0.60) return 'shadow_stalker';
-            if (roll < 0.75) return 'toxic_spitter';
+        const phase = this.currentPhase || 1;
+
+        // Giai đoạn 1 (Round 1 - 2): Chỉ có zombie thường (85%) và zombie bò chậm (15%)
+        if (phase <= 2) {
+            return roll < 0.15 ? 'crawler' : 'walker';
+        }
+
+        // Giai đoạn 2 (Round 3 - 4): Thêm quái phun axit Spitter tầm xa (10%)
+        if (phase <= 4) {
+            if (roll < 0.10) return 'spitter';
+            if (roll < 0.30) return 'crawler';
             return 'walker';
         }
+
+        // Giai đoạn 3 (Round 5 - 6): Bắt đầu xuất hiện quái chạy nhanh Sprinter và Cyber Enforcer
+        if (phase <= 6) {
+            if (roll < 0.12) return 'sprinter';
+            if (roll < 0.22) return 'cyber_enforcer';
+            if (roll < 0.35) return 'spitter';
+            if (roll < 0.50) return 'crawler';
+            return 'walker';
+        }
+
+        // Giai đoạn 4 (Round 7 - 8): Xuất hiện quái nổ Bomber, Boomer, Đấu sĩ Orc Brawler và Bóng ma
+        if (phase <= 8) {
+            if (roll < 0.10) return 'bomber';
+            if (roll < 0.20) return 'sprinter';
+            if (roll < 0.30) return 'boomer';
+            if (roll < 0.42) return 'toxic_spitter';
+            if (roll < 0.54) return 'orc_brawler';
+            if (roll < 0.66) return 'shadow_stalker';
+            return 'walker';
+        }
+
+        // Giai đoạn 5 (Round 9 - 10+): Thử thách đỉnh cao với Tank bọc thép, Người khổng lồ Giant
+        if (roll < 0.10) return 'tank';
+        if (roll < 0.20) return 'giant';
+        if (roll < 0.30) return 'orc_brawler';
+        if (roll < 0.40) return 'bomber';
+        if (roll < 0.52) return 'shadow_stalker';
+        if (roll < 0.65) return 'cyber_enforcer';
+        if (roll < 0.78) return 'toxic_spitter';
+        return 'walker';
     }
 
     // Tinh toan toa do spawn: Uu tien 60% spawn truc tiep tu 8 cong khong gian

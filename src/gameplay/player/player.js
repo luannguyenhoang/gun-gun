@@ -551,16 +551,17 @@ export class PlayerController {
                 break;
         }
 
-        this.createSkillVisualEffect(skill.effectType);
+        this.createSkillVisualEffect(skill.effectType, skill.name);
         return true;
     }
 
-    createSkillVisualEffect(effectType) {
+    // Hiệu ứng kích hoạt kỹ năng mới - trực quan, sắc nét và dễ nhận biết
+    createSkillVisualEffect(effectType, skillName = '') {
         if (!this.scene) return;
 
-        // Xác định màu sắc theo loại kỹ năng
+        // Xác định mã màu đặc trưng cho từng loại kỹ năng
         let color = 0x0284c7;
-        if (effectType === 'riot_charge')        color = 0x0284c7;
+        if (effectType === 'riot_charge')             color = 0x0284c7;
         else if (effectType === 'cluster_grenades')   color = 0x38bdf8;
         else if (effectType === 'healing_beacon')     color = 0x10b981;
         else if (effectType === 'vulnerability_scan') color = 0x84cc16;
@@ -573,63 +574,79 @@ export class PlayerController {
         else if (effectType === 'chain_lightning')    color = 0xa855f7;
         else if (effectType === 'shadow_veil')        color = 0x8b5cf6;
 
-        // Ring ngoài lớn - giãn ra nhanh
-        const outerGeom = new THREE.RingGeometry(1.0, 3.2, 48);
-        outerGeom.rotateX(-Math.PI / 2);
-        const outerMat = new THREE.MeshBasicMaterial({
+        // 1. Cột năng lượng hào quang thẳng đứng bao quanh nhân vật (Energy Aura Pillar)
+        // Chiều cao 2.4m bao trọn từ chân lên đầu nhân vật, cực kỳ dễ nhìn từ mọi góc camera
+        const auraGeom = new THREE.CylinderGeometry(0.75, 1.05, 2.4, 24, 1, true);
+        const auraMat = new THREE.MeshBasicMaterial({
             color,
             side: THREE.DoubleSide,
             transparent: true,
-            opacity: 0.75
+            opacity: 0.85,
+            blending: THREE.AdditiveBlending
         });
-        const outerRing = new THREE.Mesh(outerGeom, outerMat);
-        outerRing.position.copy(this.position);
-        outerRing.position.y += 0.08;
-        this.scene.add(outerRing);
+        const auraMesh = new THREE.Mesh(auraGeom, auraMat);
+        const startPos = this.position.clone();
+        auraMesh.position.copy(startPos);
+        auraMesh.position.y += 1.2;
+        this.scene.add(auraMesh);
 
-        // Ring trong nhỏ - phát sáng mạnh hơn
-        const innerGeom = new THREE.RingGeometry(0.3, 1.0, 32);
-        innerGeom.rotateX(-Math.PI / 2);
-        const innerMat = new THREE.MeshBasicMaterial({
+        // 2. Đĩa sóng năng lượng phát quang dưới chân nhân vật (Ground Shockwave Disk)
+        // Nở từ 0.8m ra 3.2m sắc nét, không bành trướng loãng toẹt ra ngoài sàn đấu
+        const shockGeom = new THREE.RingGeometry(0.3, 0.95, 32);
+        shockGeom.rotateX(-Math.PI / 2);
+        const shockMat = new THREE.MeshBasicMaterial({
             color,
             side: THREE.DoubleSide,
             transparent: true,
-            opacity: 0.95
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending
         });
-        const innerRing = new THREE.Mesh(innerGeom, innerMat);
-        innerRing.position.copy(this.position);
-        innerRing.position.y += 0.12;
-        this.scene.add(innerRing);
+        const shockMesh = new THREE.Mesh(shockGeom, shockMat);
+        shockMesh.position.copy(startPos);
+        shockMesh.position.y += 0.06;
+        this.scene.add(shockMesh);
 
-        // Flash ánh sáng tại vị trí người chơi - hiệu ứng kích hoạt rõ ràng hơn
-        const light = new THREE.PointLight(color, 6.0, 14);
-        light.position.copy(this.position);
-        light.position.y += 1.0;
-        this.scene.add(light);
+        // 3. Chùm hạt năng lượng bốc thẳng lên trời từ thân người chơi
+        this.particles?.createImpactSparks?.(
+            startPos.clone().add(new THREE.Vector3(0, 0.5, 0)),
+            new THREE.Vector3(0, 1, 0),
+            color,
+            28
+        );
 
+        // 4. Kích hoạt phản hồi giao diện người dùng: Banner thông báo tên chiêu và viền sáng màn hình
+        const colorHex = '#' + color.toString(16).padStart(6, '0');
+        const uiManager = window.game?.ui;
+        if (uiManager?.triggerSkillActivationFeedback) {
+            uiManager.triggerSkillActivationFeedback(skillName, colorHex);
+        }
+
+        // Vòng lặp animation mượt mà trong 0.55 giây
         const startTime = performance.now();
-        const animDuration = 0.7; // Kéo dài hơn (từ 0.45s lên 0.7s)
+        const animDuration = 0.55;
         const anim = () => {
             const elapsed = (performance.now() - startTime) / 1000;
             if (elapsed > animDuration) {
-                this.scene.remove(outerRing);
-                this.scene.remove(innerRing);
-                this.scene.remove(light);
-                outerGeom.dispose(); outerMat.dispose();
-                innerGeom.dispose(); innerMat.dispose();
+                this.scene.remove(auraMesh);
+                this.scene.remove(shockMesh);
+                auraGeom.dispose();
+                auraMat.dispose();
+                shockGeom.dispose();
+                shockMat.dispose();
                 return;
             }
+
             const t = elapsed / animDuration;
-            // Ring ngoài giãn to nhanh
-            const outerScale = 1.0 + t * 16.0;
-            outerRing.scale.set(outerScale, outerScale, outerScale);
-            outerMat.opacity = Math.max(0, 0.75 * (1.0 - t));
-            // Ring trong giãn chậm hơn
-            const innerScale = 1.0 + t * 6.0;
-            innerRing.scale.set(innerScale, innerScale, innerScale);
-            innerMat.opacity = Math.max(0, 0.95 * (1.0 - t * 1.3));
-            // Ánh sáng tắt dần
-            light.intensity = 6.0 * Math.max(0, 1.0 - t * 2.5);
+            // Cột ánh sáng bốc thẳng lên và giãn nhẹ bán kính
+            auraMesh.scale.set(1.0 + t * 0.4, 1.0 + t * 0.3, 1.0 + t * 0.4);
+            auraMesh.position.y = startPos.y + 1.2 + t * 0.5;
+            auraMat.opacity = Math.max(0, 0.85 * (1.0 - t));
+
+            // Đĩa sóng năng lượng dưới chân nở ra tầm 3.2m rồi tan biến
+            const diskScale = 1.0 + t * 3.4;
+            shockMesh.scale.set(diskScale, diskScale, diskScale);
+            shockMat.opacity = Math.max(0, 0.9 * (1.0 - t * 1.1));
+
             requestAnimationFrame(anim);
         };
         requestAnimationFrame(anim);
@@ -1239,11 +1256,12 @@ export class PlayerController {
         if (!this.cursorKick) this.cursorKick = new THREE.Vector2(0, 0);
         const recoilM = this.recoilMult || 1.0;
         const kick = (typeof kickStrength === 'number' ? kickStrength : (kickStrength?.x || 3.5)) * recoilM;
-        this.cursorKick.x += (Math.random() - 0.5) * kick * 5.0;
-        this.cursorKick.y -= (Math.random() * 0.7 + 0.3) * kick * 6.5; // Nảy hất nhẹ lên trên
+        // Tăng độ nảy ngang và giật hất lên trên khi xả đạn (~20%) để cảm giác súng đầm tay
+        this.cursorKick.x += (Math.random() - 0.5) * kick * 6.0;
+        this.cursorKick.y -= (Math.random() * 0.7 + 0.3) * kick * 7.8; // Nảy hất lên trên đầm hơn
 
         // Rung màn hình dựa trên cỡ đạn (Screen Shake Trauma)
-        this.screenShakeTrauma = Math.min(1.0, (this.screenShakeTrauma || 0) + (typeof shakeStrength === 'number' ? shakeStrength : 0.15));
+        this.screenShakeTrauma = Math.min(1.0, (this.screenShakeTrauma || 0) + (typeof shakeStrength === 'number' ? shakeStrength * 1.2 : 0.18));
     }
 
     getMovementInput() {

@@ -86,10 +86,10 @@ export class UIManager {
         this.skillKeyBadge = document.getElementById('skill-key-badge');
         this.skillCdText = document.getElementById('skill-cd-text');
         this.skillNameLabel = document.getElementById('skill-name-label');
-        // Chu vi vòng tròn CD (r=24): 2*PI*24 ≈ 150.8
-        this._skillCircumference = 2 * Math.PI * 24;
-        // Chu vi vòng tròn duration ngoài (r=33): 2*PI*33 ≈ 207.3
-        this._skillDurationCircumference = 2 * Math.PI * 33;
+        // Chu vi vòng tròn CD (r=14): 2*PI*14 ≈ 87.96
+        this._skillCircumference = 2 * Math.PI * 14;
+        // Chu vi vòng tròn duration ngoài (r=17): 2*PI*17 ≈ 106.81
+        this._skillDurationCircumference = 2 * Math.PI * 17;
         // Theo dõi loại kỹ năng hiện tại để tránh inject icon thừa
         this._lastSkillEffectType = null;
 
@@ -1004,6 +1004,32 @@ export class UIManager {
         this.bannerTimeout = setTimeout(() => {
             this.bannerText.classList.remove('show');
         }, duration);
+    }
+
+    triggerSkillActivationFeedback(skillName, colorHex) {
+        if (skillName) {
+            this.showBanner(`KÍCH HOẠT: ${skillName.toUpperCase()}`, 1500);
+        }
+        if (this.skillWidget) {
+            this.skillWidget.classList.remove('skill-flash');
+            void this.skillWidget.offsetWidth;
+            this.skillWidget.classList.add('skill-flash');
+            setTimeout(() => {
+                this.skillWidget?.classList.remove('skill-flash');
+            }, 360);
+        }
+        let pulse = document.getElementById('skill-screen-pulse-el');
+        if (!pulse) {
+            pulse = document.createElement('div');
+            pulse.id = 'skill-screen-pulse-el';
+            pulse.className = 'skill-screen-pulse';
+            document.body.appendChild(pulse);
+        }
+        pulse.style.setProperty('--skill-pulse-color', colorHex || 'rgba(56, 189, 248, 0.45)');
+        pulse.style.opacity = '1';
+        setTimeout(() => {
+            if (pulse) pulse.style.opacity = '0';
+        }, 320);
     }
 
     showPickupAlert(text) {

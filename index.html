@@ -202,23 +202,23 @@
               </div>
             </div>
           </div>
-          <!-- Widget Kỹ năng chủ động Nhân vật (Q) - đã nâng cấp đồ họa -->
+          <!-- Widget Kỹ năng chủ động Nhân vật (Q) - Gọt gọn phẳng theo layout -->
           <div id="character-skill-widget" class="character-skill-widget" title="Kỹ năng nhân vật [Q]">
+            <span id="skill-key-badge" class="skill-key-badge">Q</span>
             <div class="skill-circle-container">
-              <!-- Vòng tròn ngoài: hiển thị thời gian duration còn lại khi skill đang active -->
-              <svg class="skill-duration-svg" viewBox="0 0 72 72">
-                <circle class="skill-dur-bg" cx="36" cy="36" r="33"></circle>
-                <circle id="skill-duration-bar" class="skill-duration-bar" cx="36" cy="36" r="33"></circle>
+              <!-- Vòng tròn ngoài: thời gian hiệu lực duration -->
+              <svg class="skill-duration-svg" viewBox="0 0 38 38">
+                <circle class="skill-dur-bg" cx="19" cy="19" r="17"></circle>
+                <circle id="skill-duration-bar" class="skill-duration-bar" cx="19" cy="19" r="17"></circle>
               </svg>
-              <!-- Vòng tròn trong: hiển thị cooldown -->
-              <svg class="skill-cooldown-svg" viewBox="0 0 60 60">
-                <circle class="skill-cd-bg" cx="30" cy="30" r="24"></circle>
-                <circle id="skill-cd-bar" class="skill-cd-bar" cx="30" cy="30" r="24"></circle>
+              <!-- Vòng tròn trong: đếm cooldown -->
+              <svg class="skill-cooldown-svg" viewBox="0 0 38 38">
+                <circle class="skill-cd-bg" cx="19" cy="19" r="14"></circle>
+                <circle id="skill-cd-bar" class="skill-cd-bar" cx="19" cy="19" r="14"></circle>
               </svg>
               <div class="skill-inner-icon" id="skill-icon-container">
-                <!-- Icon SVG đặc trưng của từng kỹ năng - được inject bởi ui.js -->
+                <!-- Icon SVG đặc trưng kỹ năng -->
                 <div id="skill-icon-svg" class="skill-svg-icon"></div>
-                <span id="skill-key-badge" class="skill-key-badge">Q</span>
                 <span id="skill-cd-text" class="skill-cd-text"></span>
               </div>
             </div>
