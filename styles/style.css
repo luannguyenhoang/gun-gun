@@ -1926,89 +1926,192 @@ body, html {
 }
 
 /* Widget Ky Nang Nhan Vat tren HUD */
+/* === SKILL WIDGET - Phiên bản nâng cấp đồ họa === */
 .character-skill-widget {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 4px;
     margin-left: 8px;
-    padding: 4px 6px;
-    background: rgba(15, 23, 42, 0.75);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 8px;
-    backdrop-filter: blur(8px);
+    padding: 5px 7px;
+    /* Nền tối hơn, viền sáng theo màu kỹ năng */
+    background: rgba(5, 12, 28, 0.88);
+    border: 2px solid var(--skill-color, #38bdf8);
+    border-radius: 10px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 0 10px var(--skill-color-glow, rgba(56, 189, 248, 0.3)),
+                inset 0 0 6px rgba(0,0,0,0.4);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
+/* Container vòng tròn - đủ chỗ cho cả ring ngoài (duration) */
 .skill-circle-container {
     position: relative;
-    width: 44px;
-    height: 44px;
+    width: 72px;
+    height: 72px;
 }
 
+/* === Vòng tròn NGOÀI: Duration còn lại (hiển thị khi skill đang active) === */
+.skill-duration-svg {
+    position: absolute;
+    inset: 0;
+    width: 72px;
+    height: 72px;
+    transform: rotate(-90deg);
+    pointer-events: none;
+}
+
+.skill-dur-bg {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.06);
+    stroke-width: 3;
+}
+
+.skill-duration-bar {
+    fill: none;
+    stroke: var(--skill-color, #38bdf8);
+    stroke-width: 3;
+    stroke-linecap: round;
+    /* circumference = 2*PI*33 ≈ 207.3 */
+    stroke-dasharray: 207.3;
+    stroke-dashoffset: 207.3;
+    opacity: 0;
+    transition: stroke-dashoffset 0.25s linear, opacity 0.3s ease;
+    filter: drop-shadow(0 0 4px var(--skill-color, #38bdf8));
+}
+
+/* Khi kỹ năng đang active → hiện vòng tròn duration */
+.character-skill-widget.skill-active .skill-duration-bar {
+    opacity: 1;
+}
+
+/* === Vòng tròn TRONG: Cooldown === */
 .skill-cooldown-svg {
-    width: 44px;
-    height: 44px;
+    position: absolute;
+    /* Căn giữa vòng CD trong container 72px */
+    top: 6px;
+    left: 6px;
+    width: 60px;
+    height: 60px;
     transform: rotate(-90deg);
 }
 
 .skill-cd-bg {
-    fill: rgba(0, 0, 0, 0.4);
-    stroke: rgba(255, 255, 255, 0.12);
-    stroke-width: 3.5;
+    fill: rgba(0, 0, 0, 0.55);
+    stroke: rgba(255, 255, 255, 0.1);
+    stroke-width: 3;
 }
 
 .skill-cd-bar {
     fill: none;
-    stroke: #38bdf8;
+    stroke: var(--skill-color, #38bdf8);
     stroke-width: 3.5;
     stroke-linecap: round;
-    stroke-dasharray: 113.1;
+    /* circumference = 2*PI*24 ≈ 150.8 */
+    stroke-dasharray: 150.8;
     stroke-dashoffset: 0;
-    transition: stroke-dashoffset 0.1s linear, stroke 0.2s ease;
+    transition: stroke-dashoffset 0.12s linear, stroke 0.25s ease;
 }
 
+/* Kỹ năng READY: phat sáng mạnh + animation nhịp đập */
 .character-skill-widget.ready .skill-cd-bar {
-    stroke: #22c55e;
-    filter: drop-shadow(0 0 6px rgba(34, 197, 94, 0.8));
+    stroke: var(--skill-color, #22c55e);
+    filter: drop-shadow(0 0 8px var(--skill-color-glow, rgba(34, 197, 94, 0.9)));
+    animation: skill-ready-pulse 1.4s ease-in-out infinite;
 }
 
+@keyframes skill-ready-pulse {
+    0%, 100% { opacity: 1; filter: drop-shadow(0 0 8px var(--skill-color-glow, rgba(34,197,94,0.9))); }
+    50%       { opacity: 0.65; filter: drop-shadow(0 0 3px var(--skill-color-glow, rgba(34,197,94,0.5))); }
+}
+
+/* Kỹ năng đang hồi chiêu: màu cam mờ */
 .character-skill-widget.cooling .skill-cd-bar {
     stroke: #f59e0b;
+    filter: none;
+    animation: none;
 }
 
+/* === Phần nội dung bên trong vòng tròn === */
 .skill-inner-icon {
     position: absolute;
-    inset: 0;
+    /* Nằm chồng lên cả hai vòng tròn, căn giữa trong container 72px */
+    top: 6px;
+    left: 6px;
+    width: 60px;
+    height: 60px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 1px;
+}
+
+/* Icon SVG đặc trưng từng kỹ năng */
+.skill-svg-icon {
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--skill-color, #38bdf8);
+    opacity: 0.95;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.skill-svg-icon svg {
+    width: 100%;
+    height: 100%;
+    fill: var(--skill-color, #38bdf8);
+    filter: drop-shadow(0 0 3px var(--skill-color-glow, rgba(56,189,248,0.6)));
+}
+
+/* Icon to hơn khi ready */
+.character-skill-widget.ready .skill-svg-icon {
+    opacity: 1;
+    transform: scale(1.08);
+}
+
+/* Icon mờ khi đang hồi chiêu */
+.character-skill-widget.cooling .skill-svg-icon {
+    opacity: 0.45;
+}
+
+/* Ẩn icon SVG khi hiển thị đếm ngược CD */
+.character-skill-widget.cooling .skill-svg-icon {
+    display: none;
 }
 
 .skill-key-badge {
     font-family: 'Rajdhani', sans-serif;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 800;
     color: #fff;
-    background: rgba(255, 255, 255, 0.2);
-    padding: 1px 4px;
+    background: rgba(255, 255, 255, 0.18);
+    padding: 1px 5px;
     border-radius: 4px;
     line-height: 1;
 }
 
 .character-skill-widget.ready .skill-key-badge {
-    background: #22c55e;
+    background: var(--skill-color, #22c55e);
     color: #0f172a;
-    box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+    box-shadow: 0 0 10px var(--skill-color-glow, rgba(34, 197, 94, 0.7));
+    animation: badge-bounce 1.4s ease-in-out infinite;
+}
+
+@keyframes badge-bounce {
+    0%, 100% { transform: scale(1); }
+    50%       { transform: scale(1.12); }
 }
 
 .skill-cd-text {
     font-family: 'Rajdhani', sans-serif;
-    font-size: 13px;
-    font-weight: 800;
+    font-size: 16px;
+    font-weight: 900;
     color: #facc15;
     line-height: 1;
-    margin-top: 2px;
+    text-shadow: 0 0 6px rgba(250, 204, 21, 0.7);
 }
 
 .skill-info-label {
@@ -2017,14 +2120,25 @@ body, html {
 
 .skill-name-label {
     font-family: 'Rajdhani', sans-serif;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
-    color: #cbd5e1;
+    color: var(--skill-color, #cbd5e1);
     white-space: nowrap;
-    max-width: 60px;
+    max-width: 76px;
     overflow: hidden;
     text-overflow: ellipsis;
     display: block;
+    text-shadow: 0 0 4px var(--skill-color-glow, transparent);
 }
 
+/* === Animation widget toàn cục khi kỹ năng vừa được kích hoạt === */
+@keyframes skill-activate-flash {
+    0%   { box-shadow: 0 0 24px var(--skill-color, #38bdf8), inset 0 0 10px rgba(0,0,0,0.3); }
+    50%  { box-shadow: 0 0 48px var(--skill-color, #38bdf8), inset 0 0 6px rgba(0,0,0,0.2); }
+    100% { box-shadow: 0 0 10px var(--skill-color-glow, rgba(56,189,248,0.3)), inset 0 0 6px rgba(0,0,0,0.4); }
+}
+
+.character-skill-widget.skill-flash {
+    animation: skill-activate-flash 0.5s ease-out forwards;
+}
 

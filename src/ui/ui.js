@@ -7,12 +7,56 @@ import { CHARACTER_CONFIGS } from '../gameplay/player/characters.js';
 const _tempMateWorldPos = new THREE.Vector3();
 const _tempNdc = new THREE.Vector3();
 
-// Cau hinh mau sac dac trung tu dong theo CHARACTER_CONFIGS
+// Cấu hình màu sắc đặc trưng tự động theo CHARACTER_CONFIGS
 const CHARACTER_COLORS = new Proxy({}, {
     get(target, prop) {
         return CHARACTER_CONFIGS[prop]?.color || '#22e6a5';
     }
 });
+
+// === Bản đồ màu sắc riêng cho từng loại kỹ năng ===
+const SKILL_COLORS = {
+    riot_charge:         { color: '#0284c7', glow: 'rgba(2,132,199,0.55)' },
+    cluster_grenades:    { color: '#38bdf8', glow: 'rgba(56,189,248,0.55)' },
+    healing_beacon:      { color: '#10b981', glow: 'rgba(16,185,129,0.55)' },
+    vulnerability_scan:  { color: '#84cc16', glow: 'rgba(132,204,22,0.55)' },
+    auto_turret:         { color: '#fb923c', glow: 'rgba(251,146,60,0.55)' },
+    orbital_strike:      { color: '#ef4444', glow: 'rgba(239,68,68,0.55)' },
+    ground_smash:        { color: '#ea580c', glow: 'rgba(234,88,12,0.55)' },
+    bullet_frenzy:       { color: '#eab308', glow: 'rgba(234,179,8,0.55)' },
+    supply_drop:         { color: '#10b981', glow: 'rgba(16,185,129,0.55)' },
+    sand_vortex:         { color: '#d97706', glow: 'rgba(217,119,6,0.55)' },
+    chain_lightning:     { color: '#a855f7', glow: 'rgba(168,85,247,0.55)' },
+    shadow_veil:         { color: '#8b5cf6', glow: 'rgba(139,92,246,0.55)' },
+};
+
+// === Bản đồ icon SVG đặc trưng cho từng loại kỹ năng ===
+const SKILL_ICON_SVGS = {
+    // Khiên bạo động - hình khiên
+    riot_charge: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L4 6v6c0 5.25 3.45 10.15 8 11.35C16.55 22.15 20 17.25 20 12V6L12 2zm0 2.18l6 2.82v5c0 4.18-2.7 8.08-6 9.28C8.7 20.08 6 16.18 6 12V7l6-2.82z"/></svg>`,
+    // Lựu đạn - hình bom
+    cluster_grenades: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17 8C8 10 5.9 16.17 3.82 19.82L5.5 21.5C7.5 17.5 11 14 17 12V8zm2-2l-1-1-1 1 1 1 1-1zM5 8l1-1-1-1-1 1 1 1zm7-6C6.48 2 2 6.48 2 12c0 2.83 1.24 5.37 3.2 7.12L12 21l6.8-1.88C20.76 17.37 22 14.83 22 12c0-5.52-4.48-10-10-10zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/></svg>`,
+    // Trạm cứu thương - hình thập y tế
+    healing_beacon: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>`,
+    // Radar quét - hình mục tiêu radar
+    vulnerability_scan: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>`,
+    // Tháp súng - hình tháp canh
+    auto_turret: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5L12 1zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/><rect x="10" y="9" width="4" height="8" rx="1"/><rect x="7" y="6" width="10" height="4" rx="1"/><rect x="11" y="3" width="2" height="4" rx="1"/></svg>`,
+    // Không kích - hình tên lửa
+    orbital_strike: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.19 6.35c-2.04 2.29-3.44 5.58-3.57 5.89L2 10l4.5-4.5c.97-.97 2.38-1.29 3.69-.85l-1 1.7zm5.76 5.76l-1.7 1c.44 1.31.12 2.72-.85 3.69L7.9 22l-2.24-4.62c.31-.13 3.58-1.53 5.87-3.57l3.42 1.6zm1.4-1.4c1.68-2.37 2.52-5.64 2.68-6.3-.66.16-3.93 1-6.3 2.68l3.62 3.62zM17.5 5.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5S19.83 7 19 7s-1.5-.67-1.5-1.5zM4.77 16.77l-1.77 1 1 1.77L5.41 19l.6.59 1.77-1-1-1.77-1.41 1.41-.6-.46zm5.51 5.51L11 20.82l.61.36.72-1.23-.61-.36.83-1.41-.61-.36-1.67 2.83zm-7-7l2.83-1.67-.36-.61-1.41.83-.36-.61-1.23.72.36.61-.82.61z"/></svg>`,
+    // Địa chấn - hình núi lửa/sóng xung kích
+    ground_smash: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 2.05v2.02c3.95.49 7 3.85 7 7.93s-3.05 7.44-7 7.93v2.02c5.05-.5 9-4.76 9-9.95S18.05 2.55 13 2.05zm-2 0C5.95 2.55 2 6.8 2 12s3.95 9.45 9 9.95v-2.02C7.05 19.43 4 16.07 4 12s3.05-7.43 7-7.93V2.05zM12 6l-4 8h3v4l5-8h-3V6z"/></svg>`,
+    // Xả đạn - hình tia sét/đạn bay
+    bullet_frenzy: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>`,
+    // Hòm tiếp tế - hình thùng hàng
+    supply_drop: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 6h-2.18c.07-.31.18-.62.18-1 0-1.66-1.34-3-3-3-1 0-1.96.54-2.5 1.35l-.5.67-.5-.68C10.96 2.54 10 2 9 2 7.34 2 6 3.34 6 5c0 .38.11.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM9 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36L15.38 12 17 10.83 14.92 8H20v6z"/></svg>`,
+    // Lốc xoáy - hình xoáy gió
+    sand_vortex: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 6.5C14.5 4.57 12.93 3 11 3S7.5 4.57 7.5 6.5c0 1.7 1.14 3.12 2.69 3.41C8.04 10.61 7 12.19 7 14c0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.62-.77-3.07-2-4v-.09A3.5 3.5 0 0 0 14.5 6.5zM11 5c.83 0 1.5.67 1.5 1.5S11.83 8 11 8s-1.5-.67-1.5-1.5S10.17 5 11 5zm1 12c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/></svg>`,
+    // Tia sét - hình tia sét zigzag
+    chain_lightning: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66.19-.34.05-.08.07-.12C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-.07.15C12.96 17.55 11 21 11 21z"/></svg>`,
+    // Tàng hình - hình con mắt gạch chéo
+    shadow_veil: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></svg>`,
+};
 
 // Ham tra ve anh avatar hoac SVG dai dien cho tung nhan vat
 function getCharacterAvatarSvg(characterId) {
@@ -34,13 +78,20 @@ export class UIManager {
         this.staminaFill = document.getElementById('stamina-fill');
         this.staminaText = document.getElementById('stamina-text');
 
-        // Widget Ky Nang Nhan Vat
+        // Widget Kỹ Năng Nhân Vật - phiên bản nâng cấp đồ họa
         this.skillWidget = document.getElementById('character-skill-widget');
         this.skillCdBar = document.getElementById('skill-cd-bar');
+        this.skillDurationBar = document.getElementById('skill-duration-bar');
+        this.skillIconSvg = document.getElementById('skill-icon-svg');
         this.skillKeyBadge = document.getElementById('skill-key-badge');
         this.skillCdText = document.getElementById('skill-cd-text');
         this.skillNameLabel = document.getElementById('skill-name-label');
-        this._skillCircumference = 2 * Math.PI * 18; // ~113.1
+        // Chu vi vòng tròn CD (r=24): 2*PI*24 ≈ 150.8
+        this._skillCircumference = 2 * Math.PI * 24;
+        // Chu vi vòng tròn duration ngoài (r=33): 2*PI*33 ≈ 207.3
+        this._skillDurationCircumference = 2 * Math.PI * 33;
+        // Theo dõi loại kỹ năng hiện tại để tránh inject icon thừa
+        this._lastSkillEffectType = null;
 
         this.buffDamage = document.getElementById('buff-damage');
         this.buffDamageVal = document.getElementById('buff-damage-val');
@@ -667,21 +718,58 @@ export class UIManager {
                 const cfg = CHARACTER_CONFIGS[player.characterId] || CHARACTER_CONFIGS.police;
                 const skill = cfg?.activeSkill;
                 if (skill) {
+                    const effectType = skill.effectType || '';
+
+                    // === Cập nhật màu sắc widget theo loại kỹ năng ===
+                    if (this._lastSkillEffectType !== effectType) {
+                        this._lastSkillEffectType = effectType;
+                        const colors = SKILL_COLORS[effectType] || { color: '#38bdf8', glow: 'rgba(56,189,248,0.5)' };
+                        this.skillWidget.style.setProperty('--skill-color', colors.color);
+                        this.skillWidget.style.setProperty('--skill-color-glow', colors.glow);
+
+                        // Inject icon SVG đặc trưng vào widget
+                        if (this.skillIconSvg) {
+                            const iconHtml = SKILL_ICON_SVGS[effectType] || '';
+                            this.skillIconSvg.innerHTML = iconHtml;
+                        }
+                    }
+
+                    // Cập nhật tên kỹ năng
                     if (this.skillNameLabel && this._lastSkillName !== skill.name) {
                         this._lastSkillName = skill.name;
                         this.skillNameLabel.textContent = skill.name.toUpperCase();
                     }
+
                     const cdTimer = player.activeSkillCooldownTimer || 0;
                     const maxCd = player.activeSkillMaxCooldown || skill.cooldown || 20;
                     const isReady = (cdTimer <= 0);
 
+                    // Thời gian duration còn lại (skill đang active)
+                    const durTimer = player.activeSkillDurationTimer || 0;
+                    const maxDur = skill.duration || 1;
+                    const isActive = durTimer > 0;
+
                     this.skillWidget.classList.toggle('ready', isReady);
                     this.skillWidget.classList.toggle('cooling', !isReady);
+                    this.skillWidget.classList.toggle('skill-active', isActive);
 
+                    // Cập nhật vòng tròn CD (ring trong)
                     if (this.skillCdBar) {
                         const progress = isReady ? 1.0 : Math.max(0, Math.min(1.0, 1.0 - cdTimer / maxCd));
                         const offset = this._skillCircumference * (1.0 - progress);
                         this.skillCdBar.style.strokeDashoffset = String(offset);
+                    }
+
+                    // Cập nhật vòng tròn duration (ring ngoài) - đếm ngược thời gian hiệu ứng còn lại
+                    if (this.skillDurationBar) {
+                        if (isActive && maxDur > 0) {
+                            const durProgress = Math.max(0, Math.min(1.0, durTimer / maxDur));
+                            const durOffset = this._skillDurationCircumference * (1.0 - durProgress);
+                            this.skillDurationBar.style.strokeDashoffset = String(durOffset);
+                        } else {
+                            // Ẩn vòng duration khi không active
+                            this.skillDurationBar.style.strokeDashoffset = String(this._skillDurationCircumference);
+                        }
                     }
 
                     if (this.skillCdText) {

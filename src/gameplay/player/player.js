@@ -557,46 +557,79 @@ export class PlayerController {
 
     createSkillVisualEffect(effectType) {
         if (!this.scene) return;
-        const geometry = new THREE.RingGeometry(0.5, 1.2, 32);
-        geometry.rotateX(-Math.PI / 2);
-        let color = 0x0284c7;
-        if (effectType === 'riot_charge') color = 0x0284c7;
-        else if (effectType === 'cluster_grenades') color = 0x38bdf8;
-        else if (effectType === 'healing_beacon') color = 0x10b981;
-        else if (effectType === 'vulnerability_scan') color = 0x84cc16;
-        else if (effectType === 'auto_turret') color = 0xfb923c;
-        else if (effectType === 'orbital_strike') color = 0xef4444;
-        else if (effectType === 'ground_smash') color = 0xea580c;
-        else if (effectType === 'bullet_frenzy') color = 0xeab308;
-        else if (effectType === 'supply_drop') color = 0x64748b;
-        else if (effectType === 'sand_vortex') color = 0xd97706;
-        else if (effectType === 'chain_lightning') color = 0xa855f7;
-        else if (effectType === 'shadow_veil') color = 0x8b5cf6;
 
-        const material = new THREE.MeshBasicMaterial({
-            color: color,
+        // Xác định màu sắc theo loại kỹ năng
+        let color = 0x0284c7;
+        if (effectType === 'riot_charge')        color = 0x0284c7;
+        else if (effectType === 'cluster_grenades')   color = 0x38bdf8;
+        else if (effectType === 'healing_beacon')     color = 0x10b981;
+        else if (effectType === 'vulnerability_scan') color = 0x84cc16;
+        else if (effectType === 'auto_turret')        color = 0xfb923c;
+        else if (effectType === 'orbital_strike')     color = 0xef4444;
+        else if (effectType === 'ground_smash')       color = 0xea580c;
+        else if (effectType === 'bullet_frenzy')      color = 0xeab308;
+        else if (effectType === 'supply_drop')        color = 0x10b981;
+        else if (effectType === 'sand_vortex')        color = 0xd97706;
+        else if (effectType === 'chain_lightning')    color = 0xa855f7;
+        else if (effectType === 'shadow_veil')        color = 0x8b5cf6;
+
+        // Ring ngoài lớn - giãn ra nhanh
+        const outerGeom = new THREE.RingGeometry(1.0, 3.2, 48);
+        outerGeom.rotateX(-Math.PI / 2);
+        const outerMat = new THREE.MeshBasicMaterial({
+            color,
             side: THREE.DoubleSide,
             transparent: true,
-            opacity: 0.85
+            opacity: 0.75
         });
-        const ring = new THREE.Mesh(geometry, material);
-        ring.position.copy(this.position);
-        ring.position.y += 0.1;
-        this.scene.add(ring);
+        const outerRing = new THREE.Mesh(outerGeom, outerMat);
+        outerRing.position.copy(this.position);
+        outerRing.position.y += 0.08;
+        this.scene.add(outerRing);
 
-        let scale = 1.0;
+        // Ring trong nhỏ - phát sáng mạnh hơn
+        const innerGeom = new THREE.RingGeometry(0.3, 1.0, 32);
+        innerGeom.rotateX(-Math.PI / 2);
+        const innerMat = new THREE.MeshBasicMaterial({
+            color,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.95
+        });
+        const innerRing = new THREE.Mesh(innerGeom, innerMat);
+        innerRing.position.copy(this.position);
+        innerRing.position.y += 0.12;
+        this.scene.add(innerRing);
+
+        // Flash ánh sáng tại vị trí người chơi - hiệu ứng kích hoạt rõ ràng hơn
+        const light = new THREE.PointLight(color, 6.0, 14);
+        light.position.copy(this.position);
+        light.position.y += 1.0;
+        this.scene.add(light);
+
         const startTime = performance.now();
+        const animDuration = 0.7; // Kéo dài hơn (từ 0.45s lên 0.7s)
         const anim = () => {
             const elapsed = (performance.now() - startTime) / 1000;
-            if (elapsed > 0.45) {
-                this.scene.remove(ring);
-                geometry.dispose();
-                material.dispose();
+            if (elapsed > animDuration) {
+                this.scene.remove(outerRing);
+                this.scene.remove(innerRing);
+                this.scene.remove(light);
+                outerGeom.dispose(); outerMat.dispose();
+                innerGeom.dispose(); innerMat.dispose();
                 return;
             }
-            scale = 1.0 + elapsed * 14.0;
-            ring.scale.set(scale, scale, scale);
-            material.opacity = Math.max(0, 0.85 * (1.0 - elapsed / 0.45));
+            const t = elapsed / animDuration;
+            // Ring ngoài giãn to nhanh
+            const outerScale = 1.0 + t * 16.0;
+            outerRing.scale.set(outerScale, outerScale, outerScale);
+            outerMat.opacity = Math.max(0, 0.75 * (1.0 - t));
+            // Ring trong giãn chậm hơn
+            const innerScale = 1.0 + t * 6.0;
+            innerRing.scale.set(innerScale, innerScale, innerScale);
+            innerMat.opacity = Math.max(0, 0.95 * (1.0 - t * 1.3));
+            // Ánh sáng tắt dần
+            light.intensity = 6.0 * Math.max(0, 1.0 - t * 2.5);
             requestAnimationFrame(anim);
         };
         requestAnimationFrame(anim);
@@ -610,9 +643,9 @@ export class PlayerController {
         this.speedBoostFactor = 1.40;
     }
 
-    // 2. Nữ đặc nhiệm: Cụm lựu đạn ném theo hình quạt
+    // 2. Nữ đặc nhiệm: Cụm lựu đạn ném theo hình quạt (4 quả, dame 180)
     triggerClusterGrenades() {
-        const angles = [-0.28, 0, 0.28];
+        const angles = [-0.35, -0.12, 0.12, 0.35];
         for (let i = 0; i < angles.length; i++) {
             const yaw = this.aimYaw + angles[i];
             const dir = new THREE.Vector3(Math.sin(yaw), 0.3, Math.cos(yaw)).normalize();
@@ -625,8 +658,8 @@ export class PlayerController {
             this.activeGrenades.push({
                 mesh,
                 velocity: dir.multiplyScalar(16.0),
-                timer: 0.5 + i * 0.18,
-                damage: 130,
+                timer: 0.5 + i * 0.15,
+                damage: 180,
                 radius: 4.8
             });
         }
@@ -663,8 +696,8 @@ export class PlayerController {
         sounds.playMedkit();
     }
 
-    // 4. Chuyên viên phân tích: Quét radar và khiến quái chịu thêm 35% sát thương
-    triggerVulnerabilityScan(duration = 6.0) {
+    // 4. Chuyên viên phân tích: Quét radar và khiến quái chịu thêm 50% sát thương
+    triggerVulnerabilityScan(duration = 8.0) {
         this.radarScanTimer = duration;
         const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
         for (const enemy of enemies) {
@@ -672,7 +705,7 @@ export class PlayerController {
             const dist = this.position.distanceTo(enemy.position);
             if (dist <= 35) {
                 enemy.vulnerableTimer = duration;
-                enemy.vulnerableMultiplier = 1.35;
+                enemy.vulnerableMultiplier = 1.50;
                 enemy.setEmissiveColor?.(0x84cc16, 0.9);
             }
         }
@@ -716,8 +749,8 @@ export class PlayerController {
             position: pos,
             timer: duration,
             fireCooldown: 0,
-            fireRate: 0.22,
-            damage: 28,
+            fireRate: 0.18,
+            damage: 45,
             range: 18
         });
         sounds.play('reload', { volume: 0.7 });
@@ -748,10 +781,10 @@ export class PlayerController {
             for (const enemy of enemies) {
                 if (!enemy || enemy.isDead) continue;
                 const d = targetPos.distanceTo(enemy.position);
-                if (d <= 5.5) {
+                if (d <= 7.0) {
                     const pushDir = new THREE.Vector3().subVectors(enemy.position, targetPos).normalize();
                     pushDir.y = 0.3;
-                    enemy.takeDamage(260, 4, true, pushDir);
+                    enemy.takeDamage(350, 4, true, pushDir);
                     if (enemy.knockbackVelocity) enemy.knockbackVelocity.addScaledVector(pushDir, 40);
                     enemy.burnTimer = 3.5;
                     enemy.burnDamage = 16;
@@ -773,16 +806,16 @@ export class PlayerController {
         }, 800);
     }
 
-    // 7. Đấu sĩ dũng mãnh: Dộng đất hất tung quái và làm choáng 3s
+    // 7. Đấu sĩ dũng mãnh: Dộng đất hất tung quái và làm choáng 3s (dame 130, radius 11)
     triggerGroundSmash() {
         const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
         for (const enemy of enemies) {
             if (!enemy || enemy.isDead) continue;
             const dist = this.position.distanceTo(enemy.position);
-            if (dist <= 8.5) {
+            if (dist <= 11.0) {
                 const pushDir = new THREE.Vector3().subVectors(enemy.position, this.position).normalize();
                 pushDir.y = 0.9;
-                enemy.takeDamage(90, 3, true, pushDir);
+                enemy.takeDamage(130, 3, true, pushDir);
                 if (enemy.knockbackVelocity) {
                     enemy.knockbackVelocity.set(pushDir.x * 24, 12, pushDir.z * 24);
                 }
@@ -790,7 +823,7 @@ export class PlayerController {
                 enemy.combatTimer = 3.0;
             }
         }
-        this.particles?.createExplosion?.(this.position, 0xea580c, 35);
+        this.particles?.createExplosion?.(this.position, 0xea580c, 45);
         this.applyKickbackAndShake?.(new THREE.Vector2(0, 0), 0.8);
         sounds.play('enemyDestroy', { volume: 1.0 });
     }
@@ -801,7 +834,7 @@ export class PlayerController {
         sounds.play('pickupAmmo', { volume: 0.9 });
     }
 
-    // 9. Quản lý chiến trường: Hòm tiếp tế đạn và medkit
+    // 9. Quản lý chiến trường: Hòm tiếp tế đạn, medkit và hồi 30 Máu tức thời
     triggerSupplyDrop() {
         if (this.weapons) {
             for (const wp of this.weapons.weapons) {
@@ -815,9 +848,11 @@ export class PlayerController {
                 this.weapons.inventory.medkits = (this.weapons.inventory.medkits || 0) + 1;
             }
         }
+        // Hồi phục 30 Máu ngay lập tức khi dùng kỹ năng
+        this.heal(30);
         sounds.play('pickupAmmo', { volume: 0.95 });
         sounds.playMedkit();
-        this.particles?.createImpactSparks?.(this.position, new THREE.Vector3(0, 1, 0), 0x10b981, 20);
+        this.particles?.createImpactSparks?.(this.position, new THREE.Vector3(0, 1, 0), 0x10b981, 28);
     }
 
     // 10. Vận động viên cơ động: Lốc xoáy bão cát hút quái
@@ -846,7 +881,7 @@ export class PlayerController {
         });
     }
 
-    // 11. Chiến binh Cyber: Tia sét giật lan truyền qua 8 zombie
+    // 11. Chiến binh Cyber: Tia sét giật lan truyền qua 12 zombie (dame 150)
     triggerChainLightning() {
         const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
         const living = enemies.filter(e => e && !e.isDead && e.active);
@@ -871,7 +906,7 @@ export class PlayerController {
 
         const chain = [first];
         const visited = new Set([first]);
-        while (chain.length < 8) {
+        while (chain.length < 12) {
             const current = chain[chain.length - 1];
             let next = null;
             let closestDist = Infinity;
@@ -890,7 +925,7 @@ export class PlayerController {
 
         const points = [this.position.clone().add(new THREE.Vector3(0, 1.0, 0))];
         for (const target of chain) {
-            target.takeDamage(110, 3, true, null);
+            target.takeDamage(150, 3, true, null);
             target.combatState = 'STUNNED';
             target.combatTimer = 2.0;
             target.setEmissiveColor?.(0x00f0ff, 1.0);
@@ -910,13 +945,15 @@ export class PlayerController {
         }
     }
 
-    // 12. Sát thủ bóng đêm: Tàng hình và đòn đánh kế tiếp chí mạng x3
-    triggerShadowVeil(duration = 4.0) {
+    // 12. Sát thủ bóng đêm: Tàng hình và đòn đánh kế tiếp chí mạng x4
+    triggerShadowVeil(duration = 6.0) {
         this.isInSmoke = true;
         this.shadowVeilTimer = duration;
         this.speedBoostTimer = Math.max(this.speedBoostTimer || 0, duration);
         this.speedBoostFactor = 1.50;
         this.assassinCritReady = true;
+        // Multiplier chí mạng x4 được xử lý trong hệ thống weapons khi bắt đầu
+        this.shadowVeilCritMult = 4;
     }
 
     // Cập nhật vòng lặp các thực thể kỹ năng độc đáo

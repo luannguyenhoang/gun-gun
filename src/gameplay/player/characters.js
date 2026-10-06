@@ -48,9 +48,9 @@ export const CHARACTER_CONFIGS = {
             id: 'cluster_grenades',
             name: 'Cụm Lựu Đạn Ném',
             key: 'Q',
-            cooldown: 16,
+            cooldown: 11,
             duration: 0,
-            description: 'Ném 3 quả lựu đạn nổ liên hoàn hình quạt phía trước, hất tung bầy quái diện rộng',
+            description: 'Ném 4 quả lựu đạn nổ liên hoàn hình quạt phía trước, hất tung bầy quái diện rộng',
             effectType: 'cluster_grenades'
         }
     },
@@ -99,9 +99,9 @@ export const CHARACTER_CONFIGS = {
             id: 'vulnerability_scan',
             name: 'Radar Suy Yếu Mục Tiêu',
             key: 'Q',
-            cooldown: 20,
-            duration: 6,
-            description: 'Quét lộ diện toàn bộ quái vật xuyên tường trong 6 giây và khiến chúng phải nhận thêm 35% sát thương',
+            cooldown: 14,
+            duration: 8,
+            description: 'Quét lộ diện toàn bộ quái vật xuyên tường trong 8 giây và khiến chúng phải nhận thêm 50% sát thương',
             effectType: 'vulnerability_scan'
         }
     },
@@ -125,9 +125,9 @@ export const CHARACTER_CONFIGS = {
             id: 'auto_turret',
             name: 'Tháp Súng Tự Động',
             key: 'Q',
-            cooldown: 24,
-            duration: 8,
-            description: 'Triệu hồi một tháp súng máy mini tự động xoay và xả đạn liên tục vào các zombie xung quanh trong 8 giây',
+            cooldown: 16,
+            duration: 10,
+            description: 'Triệu hồi một tháp súng máy mini tự động xoay và xả đạn liên tục vào các zombie xung quanh trong 10 giây',
             effectType: 'auto_turret'
         }
     },
@@ -151,9 +151,9 @@ export const CHARACTER_CONFIGS = {
             id: 'orbital_strike',
             name: 'Không Kích Vệ Tinh',
             key: 'Q',
-            cooldown: 25,
+            cooldown: 18,
             duration: 0.8,
-            description: 'Đánh dấu tọa độ trước mặt, sau 0.8 giây gọi pháo kích năng lượng quỹ đạo gây 260 sát thương thiêu rụi bầy quái',
+            description: 'Đánh dấu tọa độ trước mặt, sau 0.8 giây gọi pháo kích năng lượng quỹ đạo gây 350 sát thương thiêu rụi bầy quái',
             effectType: 'orbital_strike'
         }
     },
@@ -177,9 +177,9 @@ export const CHARACTER_CONFIGS = {
             id: 'ground_smash',
             name: 'Địa Chấn Chấn Động',
             key: 'Q',
-            cooldown: 18,
+            cooldown: 12,
             duration: 3,
-            description: 'Dộng mạnh vũ khí xuống đất tạo sóng chấn động hất tung bầy quái, gây 90 sát thương và làm choáng 3 giây',
+            description: 'Dộng mạnh vũ khí xuống đất tạo sóng chấn động hất tung bầy quái, gây 130 sát thương và làm choáng 3 giây',
             effectType: 'ground_smash'
         }
     },
@@ -205,7 +205,7 @@ export const CHARACTER_CONFIGS = {
             key: 'Q',
             cooldown: 22,
             duration: 5,
-            description: 'Bắn không tốn đạn, tăng 60% tốc độ xả đạn và giảm 80% độ giật súng trong 5 giây',
+            description: 'Bắn không tốn đạn, tăng 80% tốc độ xả đạn và giảm 80% độ giật súng trong 5 giây',
             effectType: 'bullet_frenzy'
         }
     },
@@ -229,9 +229,9 @@ export const CHARACTER_CONFIGS = {
             id: 'supply_drop',
             name: 'Hòm Tiếp Tế Chiến Thuật',
             key: 'Q',
-            cooldown: 26,
+            cooldown: 18,
             duration: 0,
-            description: 'Thả ngay tại chỗ hòm quân nhu: nạp đầy 100% đạn dự trữ cho toàn bộ súng và cấp 1 túi Medkit cấp cứu',
+            description: 'Thả ngay tại chỗ hòm quân nhu: nạp đầy 100% đạn dự trữ cho toàn bộ súng, cấp 1 túi Medkit cấp cứu và hồi phục 30 Máu ngay lập tức',
             effectType: 'supply_drop'
         }
     },
@@ -255,8 +255,8 @@ export const CHARACTER_CONFIGS = {
             id: 'sand_vortex',
             name: 'Lốc Xoáy Hút Quái',
             key: 'Q',
-            cooldown: 22,
-            duration: 5,
+            cooldown: 15,
+            duration: 7,
             description: 'Tạo cơn lốc xoáy bão cát hút toàn bộ zombie xung quanh vào tâm bão, làm chậm 70% và gây sát thương kéo dài',
             effectType: 'sand_vortex'
         }
@@ -281,9 +281,9 @@ export const CHARACTER_CONFIGS = {
             id: 'chain_lightning',
             name: 'Tia Sét Lan Truyền EMP',
             key: 'Q',
-            cooldown: 20,
+            cooldown: 14,
             duration: 2,
-            description: 'Phóng luồng điện cao thế giật nhảy liên hoàn qua tối đa 8 con zombie gần nhau, gây tê liệt và 110 sát thương',
+            description: 'Phóng luồng điện cao thế giật nhảy liên hoàn qua tối đa 12 con zombie gần nhau, gây tê liệt và 150 sát thương',
             effectType: 'chain_lightning'
         }
     },
@@ -307,9 +307,9 @@ export const CHARACTER_CONFIGS = {
             id: 'shadow_veil',
             name: 'Bóng Ma Ám Sát',
             key: 'Q',
-            cooldown: 20,
-            duration: 4,
-            description: 'Tàng hình hoàn toàn trong 4 giây (quái mất dấu), tăng 50% tốc độ chạy và đòn đánh đầu tiên phá tàng hình chí mạng x3',
+            cooldown: 14,
+            duration: 6,
+            description: 'Tàng hình hoàn toàn trong 6 giây (quái mất dấu), tăng 50% tốc độ chạy và đòn đánh đầu tiên phá tàng hình chí mạng x4',
             effectType: 'shadow_veil'
         }
     }

@@ -201,14 +201,22 @@
               </div>
             </div>
           </div>
-          <!-- Widget Kỹ năng chủ động Nhân vật (Q) -->
+          <!-- Widget Kỹ năng chủ động Nhân vật (Q) - đã nâng cấp đồ họa -->
           <div id="character-skill-widget" class="character-skill-widget" title="Kỹ năng nhân vật [Q]">
             <div class="skill-circle-container">
-              <svg class="skill-cooldown-svg" viewBox="0 0 44 44">
-                <circle class="skill-cd-bg" cx="22" cy="22" r="18"></circle>
-                <circle id="skill-cd-bar" class="skill-cd-bar" cx="22" cy="22" r="18"></circle>
+              <!-- Vòng tròn ngoài: hiển thị thời gian duration còn lại khi skill đang active -->
+              <svg class="skill-duration-svg" viewBox="0 0 72 72">
+                <circle class="skill-dur-bg" cx="36" cy="36" r="33"></circle>
+                <circle id="skill-duration-bar" class="skill-duration-bar" cx="36" cy="36" r="33"></circle>
+              </svg>
+              <!-- Vòng tròn trong: hiển thị cooldown -->
+              <svg class="skill-cooldown-svg" viewBox="0 0 60 60">
+                <circle class="skill-cd-bg" cx="30" cy="30" r="24"></circle>
+                <circle id="skill-cd-bar" class="skill-cd-bar" cx="30" cy="30" r="24"></circle>
               </svg>
               <div class="skill-inner-icon" id="skill-icon-container">
+                <!-- Icon SVG đặc trưng của từng kỹ năng - được inject bởi ui.js -->
+                <div id="skill-icon-svg" class="skill-svg-icon"></div>
                 <span id="skill-key-badge" class="skill-key-badge">Q</span>
                 <span id="skill-cd-text" class="skill-cd-text"></span>
               </div>
