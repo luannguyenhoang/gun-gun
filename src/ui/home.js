@@ -1,6 +1,6 @@
 import { sounds } from '../audio/audio.js';
 import { CharacterShowroom } from './showroom.js?v=46';
-import { CHARACTER_CONFIGS } from '../gameplay/player/characters.js';
+import { CHARACTER_CONFIGS, isCharacterUnlocked } from '../gameplay/player/characters.js';
 import { getStartingWeapon } from '../gameplay/combat/weapons.js?v=32';
 
 export class HomeMenu {
@@ -20,6 +20,12 @@ export class HomeMenu {
             localStorage.setItem('arena_player_name', name);
             document.getElementById('profile-name').textContent = name.toUpperCase();
             this.dialog.close();
+        });
+        game.roomName.addEventListener('keydown', event => {
+            if (event.key === 'Enter' && !event.isComposing) {
+                event.preventDefault();
+                document.getElementById('save-profile').click();
+            }
         });
         document.getElementById('home-sound').addEventListener('click', () => { sounds.toggleAudio(); this.syncAudio(); });
         document.getElementById('home-music').addEventListener('click', () => { sounds.toggleMusic(); this.syncAudio(); });
@@ -62,6 +68,8 @@ export class HomeMenu {
         document.getElementById('home-equipped-character').textContent = cfg?.label || 'CẢNH SÁT TRƯỞNG';
         document.getElementById('home-equipped-weapon').textContent = gun.name;
         document.getElementById('home-equipped-icon').src = gun.icon;
+        const characters = Object.keys(CHARACTER_CONFIGS);
+        document.getElementById('home-character-count').textContent = `${characters.filter(isCharacterUnlocked).length} / ${characters.length} ĐÃ MỞ`;
     }
     room(data) {
         const code = data?.code || '';
@@ -70,7 +78,12 @@ export class HomeMenu {
         document.getElementById('share-link-row').hidden = !active;
         this.game.roomCreate.hidden = active;
         document.getElementById('share-code').textContent = code;
-        document.getElementById('mode-status').textContent = active ? `TỔ ĐỘI · ${data.players.length} / 4` : 'SẴN SÀNG CHIẾN ĐẤU';
+        const isHost = active && (data.host === data.you || !!data.isHost);
+        document.getElementById('mode-status').textContent = active ? `TỔ ĐỘI ${data.players.length}/4 · ${isHost ? 'CHỦ PHÒNG' : 'ĐỒNG ĐỘI'}` : 'CHƠI ĐƠN · SẴN SÀNG';
+        document.getElementById('friends-label').textContent = active ? `PHÒNG ${code}` : 'BẠN BÈ';
+        document.querySelector('.button-badge').textContent = active ? data.players.length : '+';
+        this.game.roomJoin.closest('.join-row').hidden = active;
+        this.dialog.querySelector('label[for="room-code"]').hidden = active;
         document.getElementById('guest-wait').hidden = !active || data.host === data.you || !!data.isHost;
         if (active) {
             const url = new URL(location.pathname, location.origin);
