@@ -4,6 +4,19 @@ import { HealthBar3D } from '../rendering/healthbar.js';
 import { CHARACTER_CONFIGS, normalizeCharacter } from '../gameplay/player/characters.js';
 import { getStartingWeapon } from '../gameplay/combat/weapons.js';
 
+// Cấu hình STUN Server của Google giúp đục lỗ NAT khi chơi qua mạng Internet (4G, Wifi khác nhà)
+const PEER_CONFIG = {
+    config: {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' }
+        ]
+    }
+};
+
+const MAX_ROOM_PLAYERS = 4;
+
 export class NetworkRoom {
     constructor(game) {
         this.game = game;
@@ -26,7 +39,7 @@ export class NetworkRoom {
     async create(name, character = 'police') {
         return new Promise((resolve, reject) => {
             const code = Math.random().toString(36).substring(2, 6).toUpperCase();
-            this.peer = new window.Peer('gungun-room-' + code);
+            this.peer = new window.Peer('gungun-room-' + code, PEER_CONFIG);
             
             this.peer.on('open', (id) => {
                 this.active = true;
@@ -58,6 +71,11 @@ export class NetworkRoom {
                 
                 conn.on('data', (data) => {
                     if (data.type === 'join') {
+                        if (this.players.length >= MAX_ROOM_PLAYERS) {
+                            conn.send({ type: 'reject', reason: `Phòng đã đầy (tối đa ${MAX_ROOM_PLAYERS} người)!` });
+                            setTimeout(() => { try { conn.close(); } catch {} }, 500);
+                            return;
+                        }
                         pName = data.name;
                         pChar = data.character;
                         this.players.push({ id: pId, name: pName, character: pChar, weapon: getStartingWeapon(data.weapon).id, loadout: data.loadout });
@@ -100,7 +118,7 @@ export class NetworkRoom {
     async join(code, name, character = 'police') {
         return new Promise((resolve, reject) => {
             code = code.toUpperCase();
-            this.peer = new window.Peer();
+            this.peer = new window.Peer(PEER_CONFIG);
             
             this.peer.on('open', (id) => {
                 this.conn = this.peer.connect('gungun-room-' + code);
@@ -110,6 +128,11 @@ export class NetworkRoom {
                 });
                 
                 this.conn.on('data', (data) => {
+                    if (data.type === 'reject') {
+                        this.game.showRoomError(data.reason || 'Không thể vào phòng!');
+                        reject(new Error(data.reason || 'Phòng đã đầy!'));
+                        return;
+                    }
                     if (data.type === 'accept') {
                         this.active = true;
                         this.host = false;
