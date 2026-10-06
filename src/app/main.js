@@ -609,6 +609,10 @@ class CyberArenaGame {
         const remote = makeRemotePlayer(this.scene, this.gltfLoader, id, name, character);
         remote.weapons = new WeaponSystem(this.scene, this.gltfLoader, this.particles);
         remote.weapons.models = this.weapons.models;
+        // Dùng chung mảng activeZones và thrownBombs để đồng bộ toàn bộ vùng khói/lửa giữa tất cả người chơi
+        remote.weapons.activeZones = this.weapons.activeZones;
+        remote.weapons.thrownBombs = this.weapons.thrownBombs;
+        remote.weapons.isRemoteClone = true;
         remote.weapons.resetRun();
         // The character GLTF can finish loading before the WeaponSystem is
         // attached to the remote object. Re-attach here so remote players do
@@ -1157,7 +1161,7 @@ class CyberArenaGame {
             events,
             looting: this.lootingSystem?.snapshot ? this.lootingSystem.snapshot() : null,
             projectiles: this.coopPlayers.flatMap(player => (player.weapons?.projectiles || []).filter(p => p.mesh).map(p => ({ id: `${player.id || this.network.playerId}:${p.id}`, owner: player.id || this.network.playerId, position: p.mesh.position.toArray(), direction: p.direction.toArray(), speed: p.speed, color: p.color }))),
-            players: this.coopPlayers.map(player => ({ id: player.id || this.network.playerId, name: player.name || 'Bạn', character: player.characterId || this.characterId, position: player.position.toArray(), health: player.health, shield: player.shield, maxHealth: player.maxHealth, maxShield: player.maxShield, isDead: player.isDead, isDowned: player.isDowned, bleedOutTimer: player.bleedOutTimer, reviveProgress: player.reviveProgress || 0, isBeingRevived: !!player.isBeingRevived, invulnerability: player.invulnerability || 0, lootInventory: (player === this.player ? this.lootingSystem?.inventory : player.lootInventory)?.slots, aim: player.aimYaw, ads: !!player.isADS, moving: player === this.player ? player.velocity.lengthSq() > 0.1 : player.moving, weapons: player.weapons?.getNetworkState(), processedSeq: player.processedSeq || 0 })),
+            players: this.coopPlayers.map(player => ({ id: player.id || this.network.playerId, name: player.name || 'Bạn', character: player.characterId || this.characterId, position: player.position.toArray(), health: player.health, shield: player.shield, maxHealth: player.maxHealth, maxShield: player.maxShield, isDead: player.isDead, isDowned: player.isDowned, isInSmoke: !!player.isInSmoke, bleedOutTimer: player.bleedOutTimer, reviveProgress: player.reviveProgress || 0, isBeingRevived: !!player.isBeingRevived, invulnerability: player.invulnerability || 0, lootInventory: (player === this.player ? this.lootingSystem?.inventory : player.lootInventory)?.slots, aim: player.aimYaw, ads: !!player.isADS, moving: player === this.player ? player.velocity.lengthSq() > 0.1 : player.moving, weapons: player.weapons?.getNetworkState(), processedSeq: player.processedSeq || 0 })),
             enemies: this.waveManager.enemies.filter(enemy => !enemy.isDead).map(enemy => ({ id: enemy.id, type: enemy.type, position: enemy.position.toArray(), health: enemy.health, maxHealth: enemy.maxHealth, armor: enemy.armor, animation: enemy.animationName, yaw: enemy.mesh?.rotation.y || 0 })),
             pickups: this.pickups.pickups.map(pickup => ({ id: pickup.id, type: pickup.type, position: pickup.mesh.position.toArray(), weaponSlot: pickup.weaponSlot, life: pickup.life }))
         };
@@ -1196,6 +1200,12 @@ class CyberArenaGame {
                 if (bombCfg) {
                     this.weapons.spawnVisualBomb(origin, target, bombCfg);
                 }
+            } else if (ev.type === 'smoke_zone') {
+                const pos = new THREE.Vector3().fromArray(ev.position);
+                this.weapons.createSmokeZone(pos, ev.radius || 6.0, ev.duration || 10.0);
+                this.particles?.createExplosion?.(pos, 0x94a3b8, 25, ev.radius || 6.0);
+                this.particles?.createImpactSparks?.(pos, new THREE.Vector3(0, 1, 0), 0xb0bec5, 20);
+                sounds.play('land', { volume: 0.8, rate: 0.8 });
             }
         }
 
@@ -1235,6 +1245,7 @@ class CyberArenaGame {
                 this.player.maxShield = state.maxShield ?? this.player.maxShield;
                 this.player.health = state.health; this.player.shield = state.shield;
                 this.player.isDead = state.isDead; this.player.isDowned = state.isDowned;
+                this.player.isInSmoke = !!state.isInSmoke;
                 if (state.processedSeq >= this.network.seq) this.weapons.applyNetworkState(state.weapons);
                 continue;
             }
@@ -1251,6 +1262,7 @@ class CyberArenaGame {
             remote.maxHealth = state.maxHealth ?? remote.maxHealth;
             remote.maxShield = state.maxShield ?? remote.maxShield;
             remote.isDead = state.isDead; remote.isDowned = state.isDowned;
+            remote.isInSmoke = !!state.isInSmoke;
             remote.bleedOutTimer = state.bleedOutTimer ?? 30; remote.reviveProgress = state.reviveProgress || 0;
             remote.isBeingRevived = !!state.isBeingRevived;
             remote.aimYaw = state.aim; remote.isADS = !!state.ads; remote.moving = !!state.moving;

@@ -118,6 +118,16 @@ export class CharacterShowroom {
         this.th_upgradePanel = document.getElementById('th_upgrade-panel');
         this.th_upgradeWeaponList = document.getElementById('th_upgrade-weapon-list');
         this.th_upBtnForge = document.getElementById('th_up_btn_forge');
+        this.th_activePopupSlot = null; // Bộ phận đang mở popup
+        this.th_isUpgradingPart = false; // Cờ chặn spam bấm nâng cấp
+
+        // Lắng nghe phím Escape để đóng popup nâng cấp thuận tiện
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.getElementById('th_part_popup')) {
+                this.th_closePartPopup();
+                e.stopPropagation();
+            }
+        });
 
         // Lọc loại súng trong tab nâng cấp
         document.querySelectorAll('[data-upgrade-cat]').forEach(btn => {
@@ -302,6 +312,9 @@ export class CharacterShowroom {
     }
 
     th_selectUpgradeWeapon(weaponId) {
+        if (this.th_upgradeWeaponId !== weaponId) {
+            this.th_closePartPopup();
+        }
         this.th_upgradeWeaponId = weaponId;
         this.th_renderUpgradeWeaponList();
         this.th_syncUpgradeUI();
@@ -603,7 +616,7 @@ export class CharacterShowroom {
         };
 
         for (const [slot, info] of Object.entries(SLOT_ELEMENTS)) {
-            const tier = parts[slot];
+            const tier = parts[slot] || 1;
             const meta = TH_PART_META[slot];
             const valEl = document.getElementById(info.valId);
             if (valEl) {
@@ -613,44 +626,90 @@ export class CharacterShowroom {
             // Gắn click event vào slot card
             if (info.slotEl) {
                 info.slotEl.onclick = isUnlocked
-                    ? () => this.th_showPartPopup(weaponId, slot, tier)
+                    ? (e) => {
+                        e.stopPropagation();
+                        this.th_showPartPopup(weaponId, slot);
+                    }
                     : null;
                 info.slotEl.style.cursor = isUnlocked ? 'pointer' : 'default';
                 info.slotEl.classList.toggle('th_slot-unlocked', isUnlocked);
                 info.slotEl.classList.toggle('th_slot-maxed', tier >= 5);
+                info.slotEl.classList.toggle('th_slot-selected', this.th_activePopupSlot === slot);
             }
         }
     }
 
-    // Hiển thị popup nâng cấp bộ phận
-    th_showPartPopup(weaponId, slot, currentTier) {
+    // Hiển thị popup nâng cấp bộ phận (vẫn duy trì mở sau khi bấm nâng cấp thành công hoặc thất bại)
+    th_showPartPopup(weaponId, slot, lastResult = null) {
         const meta = TH_PART_META[slot];
         if (!meta) return;
 
-        // Xoá popup cũ nếu có
-        this.th_closePartPopup();
+        // Luôn đọc tier thực tế mới nhất từ hệ thống
+        const currentTier = th_getPartTier(weaponId, slot);
+        this.th_activePopupSlot = slot;
+
+        // Đánh dấu highlight slot đang được chọn
+        document.querySelectorAll('.th_mod-slot').forEach(el => el.classList.remove('th_slot-selected'));
+        const activeSlotEl = document.querySelector(`.th_mod-slot-${slot}, [data-mod-slot="${slot}"]`);
+        if (activeSlotEl) activeSlotEl.classList.add('th_slot-selected');
 
         const isMax = currentTier >= 5;
         const cost = isMax ? 0 : meta.costs[currentTier];
         const rate = isMax ? 0 : meta.rates[currentTier];
         const nextTier = isMax ? 5 : currentTier + 1;
-        const canAfford = !isMax && this.game.coins >= cost;
+        const playerCoins = this.game.coins || 0;
+        const canAfford = !isMax && playerCoins >= cost;
 
         const bDef_cur = ATTACHMENT_DEFS[`${slot}_t${currentTier}`] || {};
         const bDef_nxt = ATTACHMENT_DEFS[`${slot}_t${nextTier}`] || {};
 
-        // Tạo stat comparison rows
-        const statRows = this.th_buildPartStatComparison(slot, bDef_cur, bDef_nxt, isMax);
+        // Tạo stat comparison rows có hiệu ứng nhấp nháy chỉ số
+        const statRows = this.th_buildPartStatComparison(slot, bDef_cur, bDef_nxt, isMax, lastResult);
 
-        const popup = document.createElement('div');
-        popup.className = 'th_part-upgrade-popup';
-        popup.id = 'th_part_popup';
+        // Khung backdrop mờ để đóng khi click ra ngoài
+        const bay = document.querySelector('.th_tactical-workbench-bay');
+        let backdrop = document.getElementById('th_part_popup_backdrop');
+        if (!backdrop && bay) {
+            backdrop = document.createElement('div');
+            backdrop.className = 'th_part-popup-backdrop';
+            backdrop.id = 'th_part_popup_backdrop';
+            backdrop.onclick = (e) => {
+                e.stopPropagation();
+                this.th_closePartPopup();
+            };
+            bay.appendChild(backdrop);
+        }
+        if (backdrop) {
+            requestAnimationFrame(() => backdrop.classList.add('th_visible'));
+        }
+
+        // Tạo banner thông báo kết quả nâng cấp nếu có
+        let bannerHtml = '';
+        if (lastResult) {
+            if (lastResult.success) {
+                bannerHtml = `<div class="th_popup-result-banner th_result-success">NÂNG CẤP THÀNH CÔNG · ĐÃ ĐẠT CẤP T${currentTier}</div>`;
+            } else {
+                const lostCost = lastResult.cost ? lastResult.cost.toLocaleString() : cost.toLocaleString();
+                bannerHtml = `<div class="th_popup-result-banner th_result-fail">NÂNG CẤP THẤT BẠI · CẤP ĐỘ GIỮ NGUYÊN (-${lostCost} VÀNG)</div>`;
+            }
+        }
+
+        let popup = document.getElementById('th_part_popup');
+        const isNewPopup = !popup;
+        if (!popup) {
+            popup = document.createElement('div');
+            popup.className = 'th_part-upgrade-popup';
+            popup.id = 'th_part_popup';
+            if (bay) bay.appendChild(popup);
+        }
+
         popup.innerHTML = `
             <div class="th_popup-header">
                 <span class="th_popup-title">${meta.label}</span>
                 <span class="th_popup-tier tier-${currentTier}">T${currentTier}${!isMax ? ` → T${nextTier}` : ' MAX'}</span>
-                <button class="th_popup-close" id="th_popup_close_btn">✕</button>
+                <button class="th_popup-close" id="th_popup_close_btn" title="Đóng cửa sổ">✕</button>
             </div>
+            ${bannerHtml}
             <div class="th_popup-stats">
                 ${statRows}
             </div>
@@ -661,45 +720,105 @@ export class CharacterShowroom {
                 <span class="th_popup-rate-label">TỶ LỆ</span>
                 <span class="th_popup-rate-value" style="color:${rate >= 0.8 ? '#00F0FF' : rate >= 0.6 ? '#ffd700' : '#ff6b35'}">${Math.round(rate * 100)}%</span>
             </div>
+            <div class="th_popup-wallet">
+                <span class="th_popup-wallet-label">VÀNG HIỆN CÓ</span>
+                <span class="th_popup-wallet-value" style="color:${canAfford ? '#ffd700' : '#ff6b6b'}">${playerCoins.toLocaleString()} VÀNG</span>
+            </div>
             <button class="th_popup-upgrade-btn${canAfford ? '' : ' th_disabled'}" id="th_part_upgrade_btn" ${!canAfford ? 'disabled' : ''}>
                 ${canAfford ? `NÂNG CẤP T${currentTier} → T${nextTier}` : 'KHÔNG ĐỦ VÀNG'}
             </button>
             ` : `
-            <div class="th_popup-maxed">ĐÃ ĐẠT CẤP TỐI ĐA</div>
+            <div class="th_popup-maxed">ĐÃ ĐẠT CẤP TỐI ĐA (MAX)</div>
             `}
         `;
 
-        // Chèn popup vào workbench bay
-        const bay = document.querySelector('.th_tactical-workbench-bay');
-        if (bay) bay.appendChild(popup);
-
-        // Gắn events
+        // Gắn sự kiện đóng popup
         document.getElementById('th_popup_close_btn')?.addEventListener('click', (e) => {
             e.stopPropagation();
             this.th_closePartPopup();
         });
+
+        // Gắn sự kiện nâng cấp
         const upgradeBtn = document.getElementById('th_part_upgrade_btn');
         if (upgradeBtn && !isMax && canAfford) {
             upgradeBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
+                if (this.th_isUpgradingPart) return;
+                this.th_isUpgradingPart = true;
+
+                // Thực hiện nâng cấp trong logic game
                 const result = this.game.th_upgradePart(weaponId, slot);
-                this.th_closePartPopup();
+
+                // Cập nhật dữ liệu danh sách và giao diện súng
                 this.th_renderUpgradeWeaponList();
                 this.th_syncUpgradeUI();
+                this.game.updateCoinsUI?.();
 
-                // Hiệu ứng forge
+                // Hiệu ứng phản hồi ánh sáng trên bệ nâng cấp
                 if (bay) {
-                    bay.classList.add('th_animating');
-                    setTimeout(() => bay.classList.remove('th_animating'), 900);
+                    bay.classList.remove('th_bay-success-flash', 'th_bay-fail-flash');
+                    void bay.offsetWidth;
+                    bay.classList.add(result.success ? 'th_bay-success-flash' : 'th_bay-fail-flash');
+                    setTimeout(() => bay.classList.remove('th_bay-success-flash', 'th_bay-fail-flash'), 700);
                 }
+
+                // Hiệu ứng hạt ánh sáng bung nở nếu thành công
+                if (result.success) {
+                    this.th_createSparksEffect(popup);
+                }
+
+                // DUY TRÌ POPUP VÀ CẬP NHẬT DỮ LIỆU ĐỂ NGƯỜI CHƠI CÓ THỂ TIẾP TỤC NÂNG CẤP
+                this.th_showPartPopup(weaponId, slot, result);
+
+                setTimeout(() => {
+                    this.th_isUpgradingPart = false;
+                }, 220);
             });
         }
 
-        // Animate in
-        requestAnimationFrame(() => popup.classList.add('th_popup-visible'));
+        // Kích hoạt animation rung lắc hoặc hào quang
+        popup.classList.remove('th_popup-success-anim', 'th_popup-fail-shake');
+        if (lastResult) {
+            void popup.offsetWidth; // ép reflow để kích hoạt lại animation
+            if (lastResult.success) {
+                popup.classList.add('th_popup-success-anim');
+            } else {
+                popup.classList.add('th_popup-fail-shake');
+            }
+            setTimeout(() => {
+                popup.classList.remove('th_popup-success-anim', 'th_popup-fail-shake');
+            }, 550);
+        }
+
+        if (isNewPopup) {
+            requestAnimationFrame(() => popup.classList.add('th_popup-visible'));
+        }
     }
 
-    th_buildPartStatComparison(slot, cur, nxt, isMax) {
+    // Hiệu ứng hạt ánh sáng bung nở khi nâng cấp thành công
+    th_createSparksEffect(popup) {
+        if (!popup) return;
+        const count = 12;
+        const colors = ['#ffd079', '#10b981', '#34d399', '#fef08a', '#6ee7b7'];
+        for (let i = 0; i < count; i++) {
+            const spark = document.createElement('div');
+            spark.className = 'th_spark-particle';
+            const angle = (i / count) * Math.PI * 2 + (Math.random() * 0.4 - 0.2);
+            const dist = 55 + Math.random() * 65;
+            const tx = Math.cos(angle) * dist;
+            const ty = Math.sin(angle) * dist;
+            spark.style.setProperty('--tx', `${tx}px`);
+            spark.style.setProperty('--ty', `${ty}px`);
+            spark.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            spark.style.left = '50%';
+            spark.style.top = '45%';
+            spark.style.boxShadow = `0 0 8px ${spark.style.backgroundColor}`;
+            popup.appendChild(spark);
+            setTimeout(() => spark.remove(), 680);
+        }
+    }
+
+    th_buildPartStatComparison(slot, cur, nxt, isMax, lastResult = null) {
         const rows = [];
         if (slot === 'barrel') {
             rows.push({ label: 'Sát thương', cur: `+${cur.flatDmg || 0}`, nxt: isMax ? 'MAX' : `+${nxt.flatDmg || 0}`, positive: true });
@@ -714,8 +833,14 @@ export class CharacterShowroom {
             rows.push({ label: 'Băng đạn', cur: `+${Math.round((cur.magBonusPct || 0) * 100)}%`, nxt: isMax ? 'MAX' : `+${Math.round((nxt.magBonusPct || 0) * 100)}%`, positive: true });
             rows.push({ label: 'Nạp nhanh', cur: `-${Math.round((cur.reloadSpeedBonus || 0) * 100)}%`, nxt: isMax ? 'MAX' : `-${Math.round((nxt.reloadSpeedBonus || 0) * 100)}%`, positive: true });
         }
+
+        let flashClass = '';
+        if (lastResult) {
+            flashClass = lastResult.success ? ' th_stat-boost-flash' : ' th_stat-fail-flash';
+        }
+
         return rows.map(r => `
-            <div class="th_popup-stat-row">
+            <div class="th_popup-stat-row${flashClass}">
                 <span class="th_stat-label">${r.label}</span>
                 <span class="th_stat-cur">${r.cur}</span>
                 <span class="th_stat-arrow">→</span>
@@ -725,8 +850,13 @@ export class CharacterShowroom {
     }
 
     th_closePartPopup() {
-        const existing = document.getElementById('th_part_popup');
-        if (existing) existing.remove();
+        const popup = document.getElementById('th_part_popup');
+        if (popup) popup.remove();
+        const backdrop = document.getElementById('th_part_popup_backdrop');
+        if (backdrop) backdrop.remove();
+        document.querySelectorAll('.th_mod-slot').forEach(el => el.classList.remove('th_slot-selected'));
+        this.th_activePopupSlot = null;
+        this.th_isUpgradingPart = false;
     }
 
     th_handleForge() {
@@ -865,6 +995,7 @@ export class CharacterShowroom {
     }
 
     close() {
+        this.th_closePartPopup();
         if (this.dialog.open) return;
         this.dragX = null;
         if (!this.renderer) return;
@@ -1218,6 +1349,9 @@ export class CharacterShowroom {
     }
 
     setMode(mode) {
+        if (mode !== 'upgrade') {
+            this.th_closePartPopup();
+        }
         this.mode = mode;
         this.dialog.classList.toggle('weapon-mode', mode === 'weapons');
         this.dialog.classList.toggle('upgrade-mode', mode === 'upgrade');
