@@ -24,6 +24,9 @@ class SoundManager {
         };
         this.isMusicPlaying = false;
         this.musicInterval = null;
+        this.lastHitMarkerTime = 0;
+        this.lastEnemyHurtTime = 0;
+        this.lastEnemyDeathTime = 0;
         if (typeof window !== 'undefined') {
             window.__gameSoundManager = this;
         }
@@ -91,6 +94,16 @@ class SoundManager {
         if (!this.ctx) this.init();
         this.resume();
         if (!this.ctx) return null;
+
+        // Tự động điều hướng âm thanh zombie nhận sát thương và zombie chết sang hệ thống âm học chuyên biệt
+        if (name === 'enemyHurt') {
+            this.playEnemyHurt(options);
+            return null;
+        }
+        if (name === 'enemyDestroy') {
+            this.playEnemyDeath(options);
+            return null;
+        }
 
         const buffer = this.buffers[name];
         if (!buffer) return null;
@@ -258,20 +271,214 @@ class SoundManager {
         if (!this.enabled || !this.ctx) return;
         this.resume();
 
-        // Synth crisp hit beep
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = isCrit ? 'sawtooth' : 'triangle';
-        osc.frequency.setValueAtTime(isCrit ? 1400 : 950, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(isCrit ? 600 : 400, this.ctx.currentTime + 0.08);
+        const t = this.ctx.currentTime;
+        // Chống clipping và dội âm khi đạn shotgun hoặc súng liên thanh chạm nhiều mục tiêu cùng lúc
+        if (!isCrit && t - (this.lastHitMarkerTime || 0) < 0.028) {
+            return;
+        }
+        this.lastHitMarkerTime = t;
 
-        gain.gain.setValueAtTime(isCrit ? 0.35 : 0.2, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+        if (isCrit) {
+            // CRIT / HEADSHOT: Hài âm chuông thanh nhã (Pure Metallic Bell Ding - 2 nốt hòa âm ngọt ngào) + Heavy Impact
+            try {
+                // Tầng 1: Sub Thump uy lực
+                const subOsc = this.ctx.createOscillator();
+                const subGain = this.ctx.createGain();
+                subOsc.type = 'sine';
+                subOsc.frequency.setValueAtTime(160, t);
+                subOsc.frequency.exponentialRampToValueAtTime(45, t + 0.07);
 
-        osc.connect(gain);
-        gain.connect(this.masterGain);
-        osc.start();
-        osc.stop(this.ctx.currentTime + 0.08);
+                subGain.gain.setValueAtTime(0.32, t);
+                subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+
+                subOsc.connect(subGain);
+                subGain.connect(this.masterGain);
+                subOsc.start(t);
+                subOsc.stop(t + 0.07);
+
+                // Tầng 2: Chuông kim loại trong trẻo (Pure Sine - hoàn toàn không chói rát như sawtooth cũ)
+                const pitches = [1280, 1920];
+                pitches.forEach((freq, idx) => {
+                    const bellOsc = this.ctx.createOscillator();
+                    const bellGain = this.ctx.createGain();
+                    bellOsc.type = 'sine';
+                    bellOsc.frequency.setValueAtTime(freq + (Math.random() - 0.5) * 20, t);
+
+                    const vol = idx === 0 ? 0.22 : 0.14;
+                    bellGain.gain.setValueAtTime(vol, t);
+                    bellGain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+
+                    bellOsc.connect(bellGain);
+                    bellGain.connect(this.masterGain);
+                    bellOsc.start(t);
+                    bellOsc.stop(t + 0.08);
+                });
+            } catch {}
+        } else {
+            // BODY HIT: Tiếng "thwack" găm vào da thịt chắc nịch + Click cơ học giòn tan, êm dịu không gắt
+            try {
+                // Tầng 1: Flesh Thud (Tiếng đạn cắm ngập vào da thịt)
+                const thudOsc = this.ctx.createOscillator();
+                const thudGain = this.ctx.createGain();
+                thudOsc.type = 'sine';
+                const startFreq = 220 + (Math.random() - 0.5) * 25;
+                thudOsc.frequency.setValueAtTime(startFreq, t);
+                thudOsc.frequency.exponentialRampToValueAtTime(60, t + 0.045);
+
+                thudGain.gain.setValueAtTime(0.24, t);
+                thudGain.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
+
+                thudOsc.connect(thudGain);
+                thudGain.connect(this.masterGain);
+                thudOsc.start(t);
+                thudOsc.stop(t + 0.045);
+
+                // Tầng 2: Crisp Impact Transient (Lách cách tinh tế lọc qua Bandpass 1.5kHz)
+                const bSize = Math.floor(this.ctx.sampleRate * 0.022);
+                const noiseBuf = this.ctx.createBuffer(1, bSize, this.ctx.sampleRate);
+                const data = noiseBuf.getChannelData(0);
+                for (let i = 0; i < bSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * (1 - i / bSize);
+                }
+                const noiseSrc = this.ctx.createBufferSource();
+                noiseSrc.buffer = noiseBuf;
+
+                const bpFilter = this.ctx.createBiquadFilter();
+                bpFilter.type = 'bandpass';
+                bpFilter.frequency.setValueAtTime(1500, t);
+                bpFilter.Q.setValueAtTime(2.2, t);
+
+                const noiseGain = this.ctx.createGain();
+                noiseGain.gain.setValueAtTime(0.16, t);
+                noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.022);
+
+                noiseSrc.connect(bpFilter);
+                bpFilter.connect(noiseGain);
+                noiseGain.connect(this.masterGain);
+                noiseSrc.start(t);
+            } catch {}
+        }
+    }
+
+    // Tiếng zombie bị thương trầm đục, loại bỏ hoàn toàn dải âm chói tai
+    playEnemyHurt(options = {}) {
+        if (!this.enabled || !this.ctx) return;
+        this.resume();
+
+        const t = this.ctx.currentTime;
+        // Giới hạn tần suất phát âm hurt để tránh ồn ào khi quét đạn diện rộng
+        if (t - (this.lastEnemyHurtTime || 0) < 0.075) {
+            return;
+        }
+        this.lastEnemyHurtTime = t;
+
+        const volume = (options.volume !== undefined ? options.volume : 0.45) * 0.7;
+
+        // Âm thanh rên gầm thâm trầm nghẹn họng của xác sống (Visceral Zombie Grunt)
+        try {
+            const osc = this.ctx.createOscillator();
+            const filter = this.ctx.createBiquadFilter();
+            const gain = this.ctx.createGain();
+
+            // Sóng triangle kết hợp Lowpass lọc hoàn toàn treble >500Hz
+            osc.type = 'triangle';
+            const baseFreq = 105 + (Math.random() - 0.5) * 30;
+            osc.frequency.setValueAtTime(baseFreq, t);
+            osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.55, t + 0.12);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(480, t);
+            filter.frequency.exponentialRampToValueAtTime(220, t + 0.12);
+
+            gain.gain.setValueAtTime(volume, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.masterGain);
+
+            osc.start(t);
+            osc.stop(t + 0.13);
+        } catch {}
+    }
+
+    // Tiếng tiêu diệt zombie uy lực, đã tai (3 tầng: Sub-bass + Visceral Gore Crunch + Pop chốt hạ)
+    playEnemyDeath(options = {}) {
+        if (!this.enabled || !this.ctx) return;
+        this.resume();
+
+        const t = this.ctx.currentTime;
+        // Điều tiết khoảng cách nếu nhiều quái chết đồng thời (ví dụ do nổ lựu đạn)
+        if (t - (this.lastEnemyDeathTime || 0) < 0.04) {
+            return;
+        }
+        this.lastEnemyDeathTime = t;
+
+        const isBoss = !!options.isBoss || (options.volume && options.volume >= 1.0);
+        const duration = isBoss ? 0.32 : 0.18;
+        const targetVol = options.volume !== undefined ? options.volume : 0.75;
+
+        // TẦNG 1: SUB-BASS COLLAPSE (Độ nặng thân xác quái vật đổ ập xuống mặt đất)
+        try {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            const startFreq = isBoss ? 70 : 85;
+            const endFreq = isBoss ? 20 : 28;
+            osc.frequency.setValueAtTime(startFreq, t);
+            osc.frequency.exponentialRampToValueAtTime(endFreq, t + duration);
+
+            gain.gain.setValueAtTime(Math.min(0.55, targetVol * 0.58), t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            osc.start(t);
+            osc.stop(t + duration);
+        } catch {}
+
+        // TẦNG 2: VISCERAL GORE CRUNCH (Tiếng xương thịt đứt gãy đầm ấm qua Lowpass 700Hz)
+        try {
+            const bufSize = Math.floor(this.ctx.sampleRate * (duration * 0.85));
+            const noiseBuf = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+            const data = noiseBuf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufSize * 0.4));
+            }
+            const noiseSrc = this.ctx.createBufferSource();
+            noiseSrc.buffer = noiseBuf;
+
+            const lpFilter = this.ctx.createBiquadFilter();
+            lpFilter.type = 'lowpass';
+            lpFilter.frequency.setValueAtTime(isBoss ? 550 : 720, t);
+            lpFilter.Q.setValueAtTime(1.8, t);
+
+            const noiseGain = this.ctx.createGain();
+            noiseGain.gain.setValueAtTime(Math.min(0.38, targetVol * 0.42), t);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, t + duration * 0.85);
+
+            noiseSrc.connect(lpFilter);
+            lpFilter.connect(noiseGain);
+            noiseGain.connect(this.masterGain);
+            noiseSrc.start(t);
+        } catch {}
+
+        // TẦNG 3: SATISFYING KILL CONFIRM POP (Tiếng chốt hạ mục tiêu ngọt ngào, tạo cảm giác thỏa mãn cực cao)
+        try {
+            const popOsc = this.ctx.createOscillator();
+            const popGain = this.ctx.createGain();
+            popOsc.type = 'triangle';
+            popOsc.frequency.setValueAtTime(320, t);
+            popOsc.frequency.exponentialRampToValueAtTime(140, t + 0.055);
+
+            popGain.gain.setValueAtTime(0.24, t);
+            popGain.gain.exponentialRampToValueAtTime(0.001, t + 0.055);
+
+            popOsc.connect(popGain);
+            popGain.connect(this.masterGain);
+            popOsc.start(t);
+            popOsc.stop(t + 0.055);
+        } catch {}
     }
 
     playShieldDamage() {
@@ -357,25 +564,44 @@ class SoundManager {
         });
     }
 
-    // Tiếng đạn va đập vào tấm giáp cứng (Armor Deflection / Ricochet)
+    // Tiếng đạn va đập vào tấm giáp cứng (Armor Deflection / Ricochet - Đanh thép, chắc nịch, không chói tai)
     playArmorDeflect() {
         if (!this.enabled || !this.ctx) return;
         this.resume();
 
         const t = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(1200 + Math.random() * 300, t);
-        osc.frequency.exponentialRampToValueAtTime(300, t + 0.09);
+        try {
+            // Sóng triangle tần số kim loại đanh chắc + dứt khoát
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            const baseFreq = 780 + Math.random() * 180;
+            osc.frequency.setValueAtTime(baseFreq, t);
+            osc.frequency.exponentialRampToValueAtTime(260, t + 0.07);
 
-        gain.gain.setValueAtTime(0.35, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+            gain.gain.setValueAtTime(0.28, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
 
-        osc.connect(gain);
-        gain.connect(this.masterGain);
-        osc.start(t);
-        osc.stop(t + 0.09);
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            osc.start(t);
+            osc.stop(t + 0.07);
+
+            // Tiếng clink kim loại đanh gọn
+            const clinkOsc = this.ctx.createOscillator();
+            const clinkGain = this.ctx.createGain();
+            clinkOsc.type = 'sine';
+            clinkOsc.frequency.setValueAtTime(1400 + Math.random() * 200, t);
+            clinkOsc.frequency.exponentialRampToValueAtTime(700, t + 0.035);
+
+            clinkGain.gain.setValueAtTime(0.18, t);
+            clinkGain.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
+
+            clinkOsc.connect(clinkGain);
+            clinkGain.connect(this.masterGain);
+            clinkOsc.start(t);
+            clinkOsc.stop(t + 0.035);
+        } catch {}
     }
 
     // Tiếng tiêm thuốc hồi sinh lực (Medkit)
