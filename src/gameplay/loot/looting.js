@@ -963,8 +963,9 @@ export class LootContainer {
         this.isLooted = false;
         this.isOpen = false;
         this.id = options.id || ('container_' + Math.random().toString(36).substring(2, 9));
-        this.life = 30.0; // Hòm đồ tự biến mất sau 30 giây
-        this.maxLife = 30.0;
+        // Hòm tồn tại trên sân cho đến khi người chơi nhặt sạch đồ thì tự động giải phóng vị trí
+        this.life = typeof options.life === 'number' ? options.life : Infinity;
+        this.maxLife = this.life;
 
         this.mesh = null;
         this.smokeParticles = null;
@@ -1694,31 +1695,34 @@ export class LootingSystem {
     handleEnemyKilled(enemy) {
         if (!enemy || !enemy.position) return;
 
-        // Giới hạn số lượng hòm đồ tối đa đồng thời trên sân để giữ map gọn gàng
-        const MAX_ACTIVE_CONTAINERS = 6;
+        // Giới hạn cứng số lượng hòm đồ tối đa đồng thời trên sân đấu: Đúng 2 hòm
+        const MAX_ACTIVE_CONTAINERS = 2;
         if (this.containers.length >= MAX_ACTIVE_CONTAINERS) return;
 
         const rand = Math.random();
         let dropType = null;
 
-        // Phân loại tỷ lệ rơi đồ theo từng loại quái vật
+        // Phân loại tỷ lệ rơi đồ cực hiếm theo từng loại quái vật
         switch (enemy.type) {
             case 'boss':
-                // Boss chắc chắn rơi Két sắt quân sự chống đạn chứa đồ giá trị cao
-                dropType = 'military_safe';
+                // Boss: 50% tỷ lệ rơi Két sắt quân sự chống đạn (nếu sân chưa quá 2 hòm)
+                if (rand < 0.50) {
+                    dropType = 'military_safe';
+                }
                 break;
 
             case 'giant':
             case 'tank':
-                // Quái đột biến khổng lồ: 16% tỷ lệ rơi
-                if (rand < 0.16) {
+                // Quái đột biến khổng lồ: 5% tỷ lệ rơi
+                if (rand < 0.05) {
                     dropType = Math.random() < 0.35 ? 'military_safe' : 'wooden_crate';
                 }
                 break;
 
             case 'spitter':
-                // Quái phun độc: 7% tỷ lệ rơi
-                if (rand < 0.07) {
+            case 'boomer':
+                // Quái trung cấp (phun độc, phát nổ): 2% tỷ lệ rơi
+                if (rand < 0.02) {
                     dropType = Math.random() < 0.6 ? 'wooden_crate' : 'dead_body';
                 }
                 break;
@@ -1726,8 +1730,8 @@ export class LootingSystem {
             case 'sprinter':
             case 'walker':
             default:
-                // Quái thường: Tỷ lệ rơi nhỏ 3.5%
-                if (rand < 0.035) {
+                // Quái thường: Tỷ lệ rơi cực hiếm 0.5%
+                if (rand < 0.005) {
                     dropType = Math.random() < 0.75 ? 'wooden_crate' : 'dead_body';
                 }
                 break;
@@ -1739,7 +1743,7 @@ export class LootingSystem {
             const dropZ = Math.max(-20, Math.min(20, enemy.position.z));
             const dropPos = new THREE.Vector3(dropX, 0, dropZ);
 
-            this.spawnContainer(dropType, dropPos);
+            this.spawnContainer(dropType, dropPos, { life: Infinity });
             sounds.play('land', { volume: 0.45, rate: 1.3 });
 
             const cfg = CONTAINER_CONFIGS[dropType];
