@@ -71,11 +71,9 @@ function setupPresenceChannel(client, user) {
         })
         .subscribe(async (status) => {
             if (status === 'SUBSCRIBED') {
+                // Tối ưu kích thước gói tin Presence cho 200 người chơi đồng thời
                 await _presenceChannel.track({
-                    user_id: user.id,
-                    name: displayName,
-                    avatar_url: profile?.avatar_url || '',
-                    online_at: new Date().toISOString()
+                    name: displayName.slice(0, 24)
                 });
             }
         });
@@ -106,8 +104,12 @@ function setupRealtimeFriendships(client, user) {
             event: '*',
             schema: 'public',
             table: 'friendships'
-        }, () => {
-            refreshFriendsData();
+        }, (payload) => {
+            const row = payload?.new || payload?.old;
+            // Chỉ truy vấn lại database nếu sự kiện liên quan trực tiếp đến tài khoản này
+            if (row && (row.user_id === user.id || row.friend_id === user.id)) {
+                refreshFriendsData();
+            }
         })
         .subscribe();
 }
@@ -389,14 +391,19 @@ export function onGameInvite(listener) {
     return () => _inviteListeners.delete(listener);
 }
 
+let _presenceNotifyTimer = null;
 function notifyPresenceListeners() {
-    for (const listener of _presenceListeners) {
-        try {
-            listener(_onlineUserIds);
-        } catch (err) {
-            console.error('[Friends] Presence listener error:', err);
+    if (_presenceNotifyTimer) clearTimeout(_presenceNotifyTimer);
+    _presenceNotifyTimer = setTimeout(() => {
+        _presenceNotifyTimer = null;
+        for (const listener of _presenceListeners) {
+            try {
+                listener(_onlineUserIds);
+            } catch (err) {
+                console.error('[Friends] Presence listener error:', err);
+            }
         }
-    }
+    }, 250);
 }
 
 function notifyFriendsListeners() {
