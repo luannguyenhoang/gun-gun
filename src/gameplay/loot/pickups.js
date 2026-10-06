@@ -26,10 +26,11 @@ function getOrLoadPickupModel(path, onLoad) {
     }, undefined, () => {});
 }
 
-// Nạp trước 2 mô hình thiết bị y tế
+// Nạp trước các mô hình vật phẩm nhặt
 if (typeof window !== 'undefined' && _gltfLoader) {
     getOrLoadPickupModel('assets/models/aid-defibrillator-green.glb', () => {});
     getOrLoadPickupModel('assets/models/aid-defibrillator-red.glb', () => {});
+    getOrLoadPickupModel('assets/models/kenney-blaster/clip-large.glb', () => {});
 }
 
 // Danh mục phần thưởng rơi từ Zombie: Chủ yếu rơi Hồi Máu, Giáp và Cứu thương; Phụ kiện rơi hiếm hơn
@@ -111,8 +112,31 @@ export class PickupManager {
             prism.scale.set(0.65, 0.65, 0.65);
             body.add(prism);
         } else if (type === 'magazine') {
-            const mag = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.55, 0.35), material);
-            body.add(mag);
+            const modelPath = 'assets/models/kenney-blaster/clip-large.glb';
+            const attachMagazine = (model) => {
+                const box = new THREE.Box3().setFromObject(model);
+                const center = new THREE.Vector3();
+                box.getCenter(center);
+                model.position.x = -center.x;
+                model.position.y = -center.y;
+                model.position.z = -center.z;
+
+                const wrapper = new THREE.Group();
+                wrapper.add(model);
+                wrapper.scale.setScalar(2.2);
+                body.add(wrapper);
+            };
+
+            if (_pickupModelCache.has(modelPath)) {
+                attachMagazine(_pickupModelCache.get(modelPath).clone());
+            } else {
+                const fallback = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.55, 0.35), material);
+                body.add(fallback);
+                getOrLoadPickupModel(modelPath, (loaded) => {
+                    body.remove(fallback);
+                    attachMagazine(loaded);
+                });
+            }
         } else if (type === 'grip') {
             const gripMesh = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.45, 0.25), material);
             gripMesh.rotation.x = 0.25;
