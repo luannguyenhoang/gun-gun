@@ -3,13 +3,31 @@ import { CharacterShowroom } from './showroom.js?v=46';
 import { CHARACTER_CONFIGS, isCharacterUnlocked } from '../gameplay/player/characters.js';
 import { getStartingWeapon } from '../gameplay/combat/weapons.js?v=32';
 import { initAuth, signIn, signUp, signInWithGoogle, signOut, onAuthStateChange } from '../network/auth.js';
+import {
+    initFriendsSystem,
+    cleanupFriendsSystem,
+    searchPlayers,
+    sendFriendRequest,
+    acceptFriendRequest,
+    removeFriendship,
+    sendGameInvite,
+    isUserOnline,
+    onPresenceUpdate,
+    onFriendsUpdate,
+    onGameInvite,
+    getFriendsList,
+    getPendingRequests
+} from '../network/friends.js';
 
 export class HomeMenu {
     constructor(game) {
         this.game = game;
         this.dialog = document.getElementById('home-dialog');
         this.showroom = new CharacterShowroom(game);
-        this.titles = { friends: 'CHƠI CÙNG BẠN BÈ', profile: 'HỒ SƠ & TÀI KHOẢN', characters: 'CHỌN NHÂN VẬT', help: 'CÁCH CHƠI', settings: 'CÀI ĐẶT', records: 'KỶ LỤC CỦA BẠN' };
+        this.currentRoomCode = '';
+        this.pendingInviteFriendId = null;
+        this.incomingRoomCode = '';
+        this.titles = { friends: 'BẠN BÈ & PHÒNG CHƠI', profile: 'HỒ SƠ & TÀI KHOẢN', characters: 'CHỌN NHÂN VẬT', help: 'CÁCH CHƠI', settings: 'CÀI ĐẶT', records: 'KỶ LỤC CỦA BẠN' };
         document.querySelectorAll('[data-open]').forEach(button => button.addEventListener('click', () => this.open(button.dataset.open)));
         this.dialog.querySelector('.close-dialog').addEventListener('click', () => this.dialog.close());
         this.dialog.addEventListener('click', event => { if (event.target === this.dialog) { const r = this.dialog.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) this.dialog.close(); } });
@@ -208,6 +226,344 @@ export class HomeMenu {
             this.dialog.close();
         });
 
+        // 3. Thiết lập hệ thống Bạn bè & Mời chơi Thời Gian Thực
+        this.tabFriendsList = document.getElementById('tab-btn-friends-list');
+        this.tabRoomP2p = document.getElementById('tab-btn-room-p2p');
+        this.panelFriendsSocial = document.getElementById('friends-panel-social');
+        this.panelFriendsRoom = document.getElementById('friends-panel-room');
+        this.friendsGuestAlert = document.getElementById('friends-guest-alert');
+        this.friendsLoggedInContent = document.getElementById('friends-logged-in-content');
+
+        this.inputSearchPlayer = document.getElementById('input-search-player');
+        this.btnSearchPlayer = document.getElementById('btn-search-player');
+        this.searchResultsContainer = document.getElementById('friends-search-results');
+        this.friendsPendingContainer = document.getElementById('friends-pending-container');
+        this.friendsPendingList = document.getElementById('friends-pending-list');
+        this.pendingCount = document.getElementById('pending-count');
+        this.friendsListEl = document.getElementById('friends-list');
+        this.onlineCountEl = document.getElementById('friends-online-count');
+        this.totalCountEl = document.getElementById('friends-total-count');
+
+        // Modal Lời mời thời gian thực
+        this.inviteModal = document.getElementById('realtime-invite-modal');
+        this.inviteSenderAvatar = document.getElementById('invite-sender-avatar');
+        this.inviteSenderName = document.getElementById('invite-sender-name');
+        this.inviteTargetRoom = document.getElementById('invite-target-room');
+        this.btnInviteAccept = document.getElementById('btn-invite-accept');
+        this.btnInviteDecline = document.getElementById('btn-invite-decline');
+        this.btnInviteClose = document.getElementById('btn-invite-close');
+
+        // Chuyển tab trong panel Friends
+        this.tabFriendsList?.addEventListener('click', () => {
+            this.tabFriendsList.classList.add('active');
+            this.tabRoomP2p?.classList.remove('active');
+            if (this.panelFriendsSocial) this.panelFriendsSocial.style.display = 'block';
+            if (this.panelFriendsRoom) this.panelFriendsRoom.style.display = 'none';
+        });
+        this.tabRoomP2p?.addEventListener('click', () => {
+            this.tabRoomP2p.classList.add('active');
+            this.tabFriendsList?.classList.remove('active');
+            if (this.panelFriendsRoom) this.panelFriendsRoom.style.display = 'block';
+            if (this.panelFriendsSocial) this.panelFriendsSocial.style.display = 'none';
+        });
+
+        // Nút chuyển sang Đăng nhập từ cảnh báo khách
+        document.getElementById('btn-friends-goto-login')?.addEventListener('click', () => {
+            this.open('profile');
+        });
+
+        // Tìm kiếm người chơi để kết bạn
+        const handleSearch = async () => {
+            const query = this.inputSearchPlayer?.value.trim();
+            if (!query) {
+                if (this.searchResultsContainer) this.searchResultsContainer.style.display = 'none';
+                return;
+            }
+
+            if (this.btnSearchPlayer) {
+                this.btnSearchPlayer.disabled = true;
+                this.btnSearchPlayer.textContent = '...';
+            }
+
+            const results = await searchPlayers(query);
+            if (this.btnSearchPlayer) {
+                this.btnSearchPlayer.disabled = false;
+                this.btnSearchPlayer.textContent = 'TÌM';
+            }
+
+            if (!this.searchResultsContainer) return;
+            this.searchResultsContainer.replaceChildren();
+
+            if (results.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'friends-empty-hint';
+                empty.textContent = 'Không tìm thấy người chơi nào phù hợp.';
+                this.searchResultsContainer.appendChild(empty);
+            } else {
+                for (const player of results) {
+                    const card = document.createElement('div');
+                    card.className = 'friend-item-card';
+
+                    const left = document.createElement('div');
+                    left.className = 'friend-info-left';
+
+                    const avatar = document.createElement('div');
+                    avatar.className = 'friend-avatar-thumb';
+                    if (player.avatar_url) avatar.innerHTML = `<img src="${player.avatar_url}" alt="Avatar">`;
+                    else avatar.textContent = (player.full_name || player.email || '?').charAt(0).toUpperCase();
+
+                    const meta = document.createElement('div');
+                    meta.className = 'friend-text-meta';
+                    const name = document.createElement('strong');
+                    name.textContent = player.full_name || 'Người chơi';
+                    const email = document.createElement('span');
+                    email.textContent = player.email || '';
+                    meta.append(name, email);
+                    left.append(avatar, meta);
+
+                    const right = document.createElement('div');
+                    right.className = 'friend-actions-right';
+                    const btnAdd = document.createElement('button');
+                    btnAdd.className = 'toy-button blue btn-friend-invite';
+                    btnAdd.textContent = '+ KẾT BẠN';
+                    btnAdd.addEventListener('click', async () => {
+                        btnAdd.disabled = true;
+                        btnAdd.textContent = 'ĐANG GỬI…';
+                        const { error } = await sendFriendRequest(player.id);
+                        if (error) {
+                            btnAdd.textContent = 'ĐÃ GỬI / BẠN BÈ';
+                        } else {
+                            btnAdd.textContent = '✓ ĐÃ GỬI';
+                        }
+                    });
+                    right.appendChild(btnAdd);
+
+                    card.append(left, right);
+                    this.searchResultsContainer.appendChild(card);
+                }
+            }
+            this.searchResultsContainer.style.display = 'flex';
+        };
+
+        this.btnSearchPlayer?.addEventListener('click', handleSearch);
+        this.inputSearchPlayer?.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                handleSearch();
+            }
+        });
+
+        // Hàm render danh sách bạn bè
+        const renderFriendsUI = () => {
+            if (!this.friendsListEl) return;
+            const friends = getFriendsList();
+            this.friendsListEl.replaceChildren();
+
+            let onlineCount = 0;
+            for (const f of friends) {
+                if (isUserOnline(f.targetUserId)) onlineCount++;
+            }
+
+            if (this.onlineCountEl) this.onlineCountEl.textContent = onlineCount;
+            if (this.totalCountEl) this.totalCountEl.textContent = friends.length;
+
+            if (friends.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'friends-empty-hint';
+                empty.textContent = 'Chưa có bạn bè nào. Hãy nhập email hoặc tên ở trên để kết bạn!';
+                this.friendsListEl.appendChild(empty);
+                return;
+            }
+
+            for (const friend of friends) {
+                const isOnline = isUserOnline(friend.targetUserId);
+                const card = document.createElement('div');
+                card.className = 'friend-item-card';
+
+                const left = document.createElement('div');
+                left.className = 'friend-info-left';
+
+                const avatar = document.createElement('div');
+                avatar.className = 'friend-avatar-thumb';
+                if (friend.avatarUrl) avatar.innerHTML = `<img src="${friend.avatarUrl}" alt="Avatar">`;
+                else avatar.textContent = friend.fullName.charAt(0).toUpperCase();
+
+                const pip = document.createElement('span');
+                pip.className = `friend-status-pip ${isOnline ? '' : 'offline'}`;
+                pip.title = isOnline ? 'Đang Online' : 'Ngoại tuyến';
+                avatar.appendChild(pip);
+
+                const meta = document.createElement('div');
+                meta.className = 'friend-text-meta';
+                const name = document.createElement('strong');
+                name.textContent = friend.fullName;
+                const sub = document.createElement('span');
+                sub.textContent = isOnline ? 'ĐANG ONLINE' : 'NGOẠI TUYẾN';
+                sub.style.color = isOnline ? '#34d399' : '#9ca3af';
+                meta.append(name, sub);
+                left.append(avatar, meta);
+
+                const right = document.createElement('div');
+                right.className = 'friend-actions-right';
+
+                // Nút Mời Chơi (khi online)
+                if (isOnline) {
+                    const btnInvite = document.createElement('button');
+                    btnInvite.className = 'toy-button orange btn-friend-invite';
+                    btnInvite.textContent = 'MỜI CHƠI';
+                    btnInvite.addEventListener('click', async () => {
+                        if (this.currentRoomCode) {
+                            btnInvite.disabled = true;
+                            btnInvite.textContent = 'ĐÃ MỜI!';
+                            await sendGameInvite(friend.targetUserId, this.currentRoomCode);
+                            setTimeout(() => {
+                                btnInvite.disabled = false;
+                                btnInvite.textContent = 'MỜI CHƠI';
+                            }, 2500);
+                        } else {
+                            btnInvite.disabled = true;
+                            btnInvite.textContent = 'TẠO PHÒNG…';
+                            this.pendingInviteFriendId = friend.targetUserId;
+                            this.game.roomCreate.click();
+                        }
+                    });
+                    right.appendChild(btnInvite);
+                }
+
+                // Nút Hủy kết bạn
+                const btnRemove = document.createElement('button');
+                btnRemove.className = 'btn-friend-remove';
+                btnRemove.textContent = '✕';
+                btnRemove.title = 'Hủy kết bạn';
+                btnRemove.addEventListener('click', async () => {
+                    if (confirm(`Bạn có chắc muốn hủy kết bạn với ${friend.fullName}?`)) {
+                        await removeFriendship(friend.friendshipId);
+                    }
+                });
+                right.appendChild(btnRemove);
+
+                card.append(left, right);
+                this.friendsListEl.appendChild(card);
+            }
+        };
+
+        // Hàm render danh sách lời mời kết bạn
+        const renderPendingUI = () => {
+            if (!this.friendsPendingContainer || !this.friendsPendingList) return;
+            const pending = getPendingRequests();
+            const incoming = pending.filter(p => !p.isSender);
+
+            if (incoming.length === 0) {
+                this.friendsPendingContainer.style.display = 'none';
+                return;
+            }
+
+            if (this.pendingCount) this.pendingCount.textContent = incoming.length;
+            this.friendsPendingList.replaceChildren();
+
+            for (const req of incoming) {
+                const card = document.createElement('div');
+                card.className = 'friend-item-card';
+
+                const left = document.createElement('div');
+                left.className = 'friend-info-left';
+
+                const avatar = document.createElement('div');
+                avatar.className = 'friend-avatar-thumb';
+                if (req.avatarUrl) avatar.innerHTML = `<img src="${req.avatarUrl}" alt="Avatar">`;
+                else avatar.textContent = req.fullName.charAt(0).toUpperCase();
+
+                const meta = document.createElement('div');
+                meta.className = 'friend-text-meta';
+                const name = document.createElement('strong');
+                name.textContent = req.fullName;
+                const email = document.createElement('span');
+                email.textContent = req.email;
+                meta.append(name, email);
+                left.append(avatar, meta);
+
+                const right = document.createElement('div');
+                right.className = 'friend-actions-right';
+
+                const btnAccept = document.createElement('button');
+                btnAccept.className = 'toy-button yellow btn-friend-invite';
+                btnAccept.textContent = 'ĐỒNG Ý';
+                btnAccept.addEventListener('click', async () => {
+                    btnAccept.disabled = true;
+                    await acceptFriendRequest(req.friendshipId);
+                });
+
+                const btnDecline = document.createElement('button');
+                btnDecline.className = 'toy-button coral btn-friend-invite';
+                btnDecline.textContent = 'TỪ CHỐI';
+                btnDecline.addEventListener('click', async () => {
+                    btnDecline.disabled = true;
+                    await removeFriendship(req.friendshipId);
+                });
+
+                right.append(btnAccept, btnDecline);
+                card.append(left, right);
+                this.friendsPendingList.appendChild(card);
+            }
+            this.friendsPendingContainer.style.display = 'block';
+        };
+
+        // Cập nhật huy hiệu bạn bè trên header
+        const updateFriendsBadge = () => {
+            const badge = document.querySelector('.button-badge');
+            if (!badge) return;
+            if (this.game.network.active && this.currentRoomCode) {
+                return; // Khi trong phòng thì hiển thị số người trong phòng
+            }
+            const pending = getPendingRequests().filter(p => !p.isSender);
+            if (pending.length > 0) {
+                badge.textContent = `+${pending.length}`;
+                badge.style.display = 'inline-block';
+            } else {
+                badge.textContent = '+';
+            }
+        };
+
+        // Đăng ký các listeners của Friends & Presence
+        onFriendsUpdate(() => {
+            renderFriendsUI();
+            renderPendingUI();
+            updateFriendsBadge();
+        });
+        onPresenceUpdate(() => {
+            renderFriendsUI();
+        });
+
+        // Xử lý Lời Mời Chơi Thời Gian Thực (In-game Toast Modal)
+        onGameInvite((invite) => {
+            if (!this.inviteModal) return;
+            this.incomingRoomCode = invite.roomCode;
+            if (this.inviteSenderName) this.inviteSenderName.textContent = (invite.fromName || 'ĐỒNG ĐỘI').toUpperCase();
+            if (this.inviteTargetRoom) this.inviteTargetRoom.textContent = invite.roomCode;
+            if (this.inviteSenderAvatar) {
+                if (invite.fromAvatar) this.inviteSenderAvatar.innerHTML = `<img src="${invite.fromAvatar}" alt="Avatar">`;
+                else this.inviteSenderAvatar.textContent = (invite.fromName || '★').charAt(0).toUpperCase();
+            }
+            sounds.play('switchWeapon', { volume: 1.0 });
+            this.inviteModal.style.display = 'block';
+        });
+
+        // Nút trong Toast Lời Mời Chơi
+        this.btnInviteAccept?.addEventListener('click', () => {
+            if (this.inviteModal) this.inviteModal.style.display = 'none';
+            if (this.dialog.open) this.dialog.close();
+            if (this.incomingRoomCode) {
+                this.game.roomCode.value = this.incomingRoomCode;
+                this.game.roomJoin.click();
+            }
+        });
+        this.btnInviteDecline?.addEventListener('click', () => {
+            if (this.inviteModal) this.inviteModal.style.display = 'none';
+        });
+        this.btnInviteClose?.addEventListener('click', () => {
+            if (this.inviteModal) this.inviteModal.style.display = 'none';
+        });
+
         // Lắng nghe thay đổi trạng thái xác thực
         onAuthStateChange(({ user, profile }) => {
             const authStatus = document.getElementById('profile-auth-status');
@@ -217,6 +573,8 @@ export class HomeMenu {
                 // Đã đăng nhập
                 if (this.loggedInView) this.loggedInView.style.display = 'block';
                 if (this.guestView) this.guestView.style.display = 'none';
+                if (this.friendsLoggedInContent) this.friendsLoggedInContent.style.display = 'block';
+                if (this.friendsGuestAlert) this.friendsGuestAlert.style.display = 'none';
 
                 const displayName = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Người chơi';
                 const nameEl = document.getElementById('auth-user-name');
@@ -251,10 +609,15 @@ export class HomeMenu {
                 game.roomName.value = displayName;
                 localStorage.setItem('arena_player_name', displayName);
                 document.getElementById('profile-name').textContent = displayName.toUpperCase();
+
+                // Khởi tạo hệ thống Bạn bè & Presence cho user này
+                initFriendsSystem();
             } else {
                 // Chưa đăng nhập / Khách
                 if (this.loggedInView) this.loggedInView.style.display = 'none';
                 if (this.guestView) this.guestView.style.display = 'block';
+                if (this.friendsLoggedInContent) this.friendsLoggedInContent.style.display = 'none';
+                if (this.friendsGuestAlert) this.friendsGuestAlert.style.display = 'block';
 
                 if (headerAvatar) headerAvatar.textContent = '★';
                 if (authStatus) {
@@ -266,6 +629,9 @@ export class HomeMenu {
                 game.roomName.value = savedName;
                 document.getElementById('profile-name').textContent = savedName.toUpperCase();
                 if (guestInput) guestInput.value = savedName;
+
+                // Dọn dẹp trạng thái bạn bè
+                cleanupFriendsSystem();
             }
         });
 
@@ -283,6 +649,7 @@ export class HomeMenu {
         game.roomCode.addEventListener('keydown', event => { if (event.key === 'Enter' && !game.roomJoin.disabled) game.roomJoin.click(); });
         this.preview();
     }
+
     open(panel) {
         if (panel === 'characters' || panel === 'weapons') {
             this.showroom.open();
@@ -295,6 +662,7 @@ export class HomeMenu {
         this.syncAudio();
         this.dialog.showModal();
     }
+
     syncAudio() {
         document.getElementById('home-sound').textContent = `ÂM THANH: ${sounds.enabled ? 'BẬT' : 'TẮT'}`;
         document.getElementById('home-music').textContent = `NHẠC: ${sounds.musicEnabled ? 'BẬT' : 'TẮT'}`;
@@ -302,6 +670,7 @@ export class HomeMenu {
         document.getElementById('toggle-music').textContent = `MUSIC: ${sounds.musicEnabled ? 'ON' : 'OFF'}`;
         this.game.syncDeveloperModeUI?.();
     }
+
     preview() {
         this.refreshLoadout();
         if (!this.game.network.active) this.game.roomLobby.update({ solo: true, code: '', you: 'preview', host: 'preview', players: [{ id: 'preview', name: this.game.roomName.value, character: this.game.characterId }] });
@@ -316,9 +685,18 @@ export class HomeMenu {
         const characters = Object.keys(CHARACTER_CONFIGS);
         document.getElementById('home-character-count').textContent = `${characters.filter(isCharacterUnlocked).length} / ${characters.length} ĐÃ MỞ`;
     }
+
     room(data) {
         const code = data?.code || '';
         const active = !!code;
+        this.currentRoomCode = code;
+
+        // Nếu vừa tạo phòng tự động để mời bạn bè
+        if (active && this.pendingInviteFriendId) {
+            sendGameInvite(this.pendingInviteFriendId, code);
+            this.pendingInviteFriendId = null;
+        }
+
         document.getElementById('share-room').hidden = !active;
         document.getElementById('share-link-row').hidden = !active;
         this.game.roomCreate.hidden = active;
@@ -344,3 +722,4 @@ export class HomeMenu {
         } else this.preview();
     }
 }
+
