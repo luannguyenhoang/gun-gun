@@ -1,8 +1,8 @@
 import { sounds } from '../audio/audio.js';
-import { CharacterShowroom } from './showroom.js?v=46';
+import { CharacterShowroom } from './showroom.js?v=48';
 import { CHARACTER_CONFIGS, isCharacterUnlocked } from '../gameplay/player/characters.js';
 import { getStartingWeapon } from '../gameplay/combat/weapons.js?v=32';
-import { initAuth, signIn, signUp, signInWithGoogle, signOut, onAuthStateChange, applyProfileProgressToGame, resetGameProgressToGuest } from '../network/auth.js';
+import { initAuth, signIn, signUp, signInWithGoogle, signOut, onAuthStateChange, applyProfileProgressToGame, resetGameProgressToGuest, refreshCurrentProfile } from '../network/auth.js?v=48';
 import {
     initFriendsSystem,
     cleanupFriendsSystem,

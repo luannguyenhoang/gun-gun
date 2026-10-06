@@ -149,6 +149,7 @@ export async function signInWithGoogle() {
 
 export async function signOut() {
     await flushGameProgress();
+    unsubscribeProfileRealtime();
     const client = getSupabaseClient();
     if (client) {
         try {
@@ -201,6 +202,7 @@ export async function initAuth() {
                 email: session.user.email,
                 full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0]
             };
+            subscribeProfileRealtime(session.user.id);
             notifyListeners();
         }
 
@@ -213,6 +215,7 @@ export async function initAuth() {
                     email: session.user.email,
                     full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0]
                 };
+                subscribeProfileRealtime(session.user.id);
                 // Dọn sạch hash chứa token sau khi đã lưu phiên an toàn
                 if (typeof window !== 'undefined' && (window.location.hash?.includes('access_token') || window.location.search?.includes('code='))) {
                     setTimeout(() => {
@@ -220,6 +223,7 @@ export async function initAuth() {
                     }, 500);
                 }
             } else {
+                unsubscribeProfileRealtime();
                 _currentUser = null;
                 _currentProfile = null;
             }
@@ -330,40 +334,7 @@ export async function flushGameProgress() {
 export function applyProfileProgressToGame(profile, game) {
     if (!profile || !game) return;
 
-    // Kiểm tra xem profile trên cloud có phải là tài khoản hoàn toàn mới hay không
-    const isCloudDefault = (profile.coins === 1000 || profile.coins === null) &&
-        (!profile.weapon_tiers || Object.keys(profile.weapon_tiers).length === 0) &&
-        (!profile.weapon_parts || Object.keys(profile.weapon_parts).length === 0) &&
-        (!profile.unlocked_weapons || profile.unlocked_weapons.length <= 3);
-
-    // Kiểm tra xem máy cục bộ hiện tại có dữ liệu cao hơn mặc định không
-    let localHasProgress = false;
-    try {
-        const localCoins = parseInt(localStorage.getItem('arena_player_coins') || '1000', 10);
-        const localWeapons = JSON.parse(localStorage.getItem('arena_unlocked_weapons') || '[]');
-        const localTiers = JSON.parse(localStorage.getItem('th_arena_weapon_tiers') || '{}');
-        const localParts = JSON.parse(localStorage.getItem('th_weapon_parts') || '{}');
-        if (localCoins > 1000 || localWeapons.length > 3 || Object.keys(localTiers).length > 0 || Object.keys(localParts).length > 0) {
-            localHasProgress = true;
-        }
-    } catch {}
-
-    // Nếu tài khoản mới tinh mà máy cục bộ đã cày game, đồng bộ tiến trình cục bộ lên tài khoản này
-    if (isCloudDefault && localHasProgress) {
-        saveGameProgressToCloud({
-            coins: game.coins,
-            unlockedWeapons: game.unlockedWeapons,
-            weaponTiers: game.th_weaponTiers,
-            weaponEnchants: game.th_weaponEnchants,
-            weaponParts: game.th_weaponParts,
-            characterId: game.characterId,
-            highScore: game.highScore,
-            loadout: game.getLoadout?.()
-        }, true);
-        return;
-    }
-
-    // Áp dụng dữ liệu tiến trình từ cloud vào game
+    // Áp dụng dữ liệu tiến trình từ database vào game
     if (typeof profile.coins === 'number') {
         game.coins = profile.coins;
         try { localStorage.setItem('arena_player_coins', game.coins.toString()); } catch {}
@@ -458,6 +429,89 @@ export function resetGameProgressToGuest(game) {
         game.homeMenu.showroom.renderDetails();
         game.homeMenu.showroom.renderArmoryWeapons?.();
     }
-    game.homeMenu?.preview();
+    game.homeMenu?.preview?.();
+}
+
+// ============================================================
+// REALTIME PROFILE SUBSCRIPTION & AUTO REFRESH
+// ============================================================
+
+let _profileRealtimeChannel = null;
+
+/**
+ * Đăng ký lắng nghe các thay đổi thời gian thực trên bảng profiles của chính user
+ * @param {string} userId
+ */
+export function subscribeProfileRealtime(userId) {
+    const client = getSupabaseClient();
+    if (!client || !userId) return;
+
+    if (_profileRealtimeChannel) {
+        try { client.removeChannel(_profileRealtimeChannel); } catch {}
+        _profileRealtimeChannel = null;
+    }
+
+    _profileRealtimeChannel = client
+        .channel(`realtime-profile-${userId}`)
+        .on(
+            'postgres_changes',
+            {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'profiles',
+                filter: `id=eq.${userId}`
+            },
+            (payload) => {
+                const updated = payload.new;
+                if (!updated) return;
+                _currentProfile = { ...(_currentProfile || {}), ...updated };
+                if (typeof window !== 'undefined' && window.game) {
+                    applyProfileProgressToGame(_currentProfile, window.game);
+                }
+                notifyListeners();
+            }
+        )
+        .subscribe();
+}
+
+/**
+ * Hủy đăng ký kênh Realtime Profile khi đăng xuất
+ */
+export function unsubscribeProfileRealtime() {
+    if (_profileRealtimeChannel) {
+        const client = getSupabaseClient();
+        if (client) {
+            try { client.removeChannel(_profileRealtimeChannel); } catch {}
+        }
+        _profileRealtimeChannel = null;
+    }
+}
+
+/**
+ * Tải lại hồ sơ người dùng từ Supabase và làm mới giao diện game
+ */
+export async function refreshCurrentProfile() {
+    if (!_currentUser) return null;
+    const profile = await fetchProfile(_currentUser.id);
+    if (profile) {
+        _currentProfile = { ...(_currentProfile || {}), ...profile };
+        if (typeof window !== 'undefined' && window.game) {
+            applyProfileProgressToGame(_currentProfile, window.game);
+        }
+        notifyListeners();
+    }
+    return _currentProfile;
+}
+
+// Tự động nạp lại dữ liệu mới nhất từ database khi người chơi quay lại tab game
+if (typeof window !== 'undefined') {
+    window.addEventListener('focus', () => {
+        if (_currentUser) refreshCurrentProfile();
+    });
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && _currentUser) {
+            refreshCurrentProfile();
+        }
+    });
 }
 

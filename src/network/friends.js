@@ -1,5 +1,5 @@
 // Quản lý hệ thống Bạn bè, Trạng thái Online thời gian thực và Mời chơi (Supabase Presence & Broadcast)
-import { getSupabaseClient, getCurrentUser, getCurrentProfile } from './auth.js';
+import { getSupabaseClient, getCurrentUser, getCurrentProfile } from './auth.js?v=48';
 
 let _presenceChannel = null;
 let _inviteChannel = null;

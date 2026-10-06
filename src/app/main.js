@@ -11,10 +11,10 @@ import { UIManager } from '../ui/ui.js?v=40';
 import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=33';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=35';
-import { HomeMenu } from '../ui/home.js?v=33';
+import { HomeMenu } from '../ui/home.js?v=48';
 import { LootingSystem } from '../gameplay/loot/looting.js?v=40';
 import { RenderQuality } from '../rendering/performance.js';
-import { saveGameProgressToCloud } from '../network/auth.js';
+import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=48';
 
 class CyberArenaGame {
     constructor() {
@@ -1465,6 +1465,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // Đảm bảo dữ liệu chưa lưu được đẩy lên cloud khi thoát hoặc reload trang
     window.addEventListener('beforeunload', () => {
-        game.saveProgress(true);
+        flushGameProgress();
     });
 });
