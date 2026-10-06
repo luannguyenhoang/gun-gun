@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import * as SkeletonUtils from '../../vendor/SkeletonUtils.js';
+import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { CHARACTER_CONFIGS, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { WEAPON_CONFIGS, getStartingWeapon, updateHeldWeaponPose, BOMB_CONFIGS, getBombConfig, MEDICAL_CONFIGS, th_UPGRADE_TIER_CONFIG, th_getWeaponTier, th_getWeaponEnchant, th_ELEMENTAL_EFFECTS, th_getWeaponParts, th_getPartTier, TH_PART_META, ATTACHMENT_DEFS } from '../gameplay/combat/weapons.js?v=46';
 
@@ -134,6 +135,26 @@ export class CharacterShowroom {
 
         // Render lưới hiệu ứng nguyên tố
         this.th_renderGachaEffects();
+
+        // Khởi tạo các biến quản lý Model 3D súng tại bàn nâng cấp
+        this.th_weaponCanvas = null;
+        this.th_weaponRenderer = null;
+        this.th_weaponScene = null;
+        this.th_weaponCamera = null;
+        this.th_weaponRoot = null;
+        this.th_weaponModel = null;
+        this.th_weaponIdLoaded = null;
+        this.th_defaultRotX = 0.22;
+        this.th_defaultRotY = -Math.PI * 0.72; // Góc 3/4 nòng hướng sang trái và chúc nhẹ
+        this.th_weaponRotX = this.th_defaultRotX;
+        this.th_weaponRotY = this.th_defaultRotY;
+        this.th_weaponTime = 0;
+        this.th_isDragging = false;
+        this.th_dragStartX = 0;
+        this.th_dragStartY = 0;
+        this.th_wpWidth = 0;
+        this.th_wpHeight = 0;
+        this.th_gltfLoader = new GLTFLoader();
         // ---- END TAB NÂNG CẤP ----
         this.scene = new THREE.Scene();
         this.scene.add(new THREE.HemisphereLight(0xfff5e6, 0x806585, 2.6));
@@ -340,11 +361,17 @@ export class CharacterShowroom {
         const enchant = th_getWeaponEnchant(id);
         const parts = th_getWeaponParts(id);
 
-        // 1. CỘT GIỮA: Preview Súng + Watermark
+        // 1. CỘT GIỮA: Preview Súng Model 3D + Watermark
         const previewImg = document.getElementById('th_up_preview_img');
-        if (previewImg) previewImg.src = item.icon;
+        if (previewImg) {
+            previewImg.src = item.icon;
+            previewImg.style.display = 'none';
+        }
         setEl('th_up_watermark', item.name.toUpperCase());
         setEl('th_up_bay_code', `${item.name.toUpperCase()} - ${item.category}`);
+
+        // Tải và hiển thị model 3D vũ khí
+        this.th_loadWeaponModel(id);
 
         // 2. Cập nhật 4 Slot Bộ phận với tier thực từ dữ liệu người dùng
         this.th_renderPartSlots(id, parts, isUnlocked);
@@ -426,6 +453,202 @@ export class CharacterShowroom {
                 this.th_upBtnGacha.innerHTML = `<span class="th_btn-label">${enchant ? 'ĐỔI LÕI ĐẠN ĐẶC BIỆT' : 'KHẢM LÕI ĐẠN ĐẶC BIỆT'} [${gachaCost} VÀNG]</span>`;
             }
         }
+    }
+
+    // ============================================================
+    // TRÌNH XUẤT MODEL 3D VŨ KHÍ TẠI BÀN NÂNG CẤP (Workbench 3D Viewer)
+    // ============================================================
+    th_initWeapon3DViewer() {
+        this.th_weaponCanvas = document.getElementById('th_up_weapon_canvas');
+        if (!this.th_weaponCanvas) return;
+
+        this.th_weaponScene = new THREE.Scene();
+        this.th_weaponCamera = new THREE.PerspectiveCamera(32, 1, 0.1, 50);
+        this.th_weaponCamera.position.set(0, 0.12, 4.3);
+        this.th_weaponCamera.lookAt(0, 0, 0);
+
+        this.th_weaponRenderer = new THREE.WebGLRenderer({
+            canvas: this.th_weaponCanvas,
+            alpha: true,
+            antialias: true,
+            powerPreference: 'high-performance'
+        });
+        this.th_weaponRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        if (THREE.SRGBColorSpace) this.th_weaponRenderer.outputColorSpace = THREE.SRGBColorSpace;
+        this.th_weaponRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.th_weaponRenderer.toneMappingExposure = 1.35;
+
+        // Ánh sáng Studio chuyên nghiệp tôn khối kim loại sắc nét
+        const hemi = new THREE.HemisphereLight(0xfff8ee, 0x2e114d, 3.2);
+        this.th_weaponScene.add(hemi);
+
+        const key = new THREE.DirectionalLight(0xffffff, 4.2);
+        key.position.set(4, 5, 5);
+        this.th_weaponScene.add(key);
+
+        const rimPurple = new THREE.DirectionalLight(0xa855f7, 3.8); // Viền tím neon
+        rimPurple.position.set(-4, -2, -3);
+        this.th_weaponScene.add(rimPurple);
+
+        const rimCyan = new THREE.DirectionalLight(0x38bdf8, 2.5); // Viền cyan tương phản
+        rimCyan.position.set(-3, 3, 3);
+        this.th_weaponScene.add(rimCyan);
+
+        const bottomGlow = new THREE.PointLight(0xffd079, 3.0, 7); // Hắt sáng từ bệ kính vàng
+        bottomGlow.position.set(0, -1.2, 0.4);
+        this.th_weaponScene.add(bottomGlow);
+
+        this.th_weaponRoot = new THREE.Group();
+        this.th_weaponScene.add(this.th_weaponRoot);
+
+        // Kéo chuột hoặc ngón tay để xoay súng 360 độ mượt mà
+        const canvas = this.th_weaponCanvas;
+        canvas.addEventListener('pointerdown', (e) => {
+            this.th_isDragging = true;
+            this.th_dragStartX = e.clientX;
+            this.th_dragStartY = e.clientY;
+            try { canvas.setPointerCapture?.(e.pointerId); } catch {}
+        });
+        canvas.addEventListener('pointermove', (e) => {
+            if (!this.th_isDragging) return;
+            const dx = e.clientX - this.th_dragStartX;
+            const dy = e.clientY - this.th_dragStartY;
+            this.th_dragStartX = e.clientX;
+            this.th_dragStartY = e.clientY;
+
+            this.th_weaponRotY += dx * 0.012;
+            this.th_weaponRotX = Math.max(-0.7, Math.min(0.7, this.th_weaponRotX + dy * 0.012));
+        });
+        const endDrag = (e) => {
+            if (this.th_isDragging) {
+                this.th_isDragging = false;
+                try { canvas.releasePointerCapture?.(e.pointerId); } catch {}
+            }
+        };
+        canvas.addEventListener('pointerup', endDrag);
+        canvas.addEventListener('pointercancel', endDrag);
+        canvas.addEventListener('dblclick', () => {
+            this.th_weaponRotX = this.th_defaultRotX;
+            this.th_weaponRotY = this.th_defaultRotY;
+        });
+    }
+
+    th_loadWeaponModel(weaponId) {
+        if (!weaponId) return;
+        const item = WEAPON_CONFIGS.find(w => w.id === weaponId);
+        if (!item || !item.modelFile) return;
+
+        if (!this.th_weaponCanvas) {
+            this.th_initWeapon3DViewer();
+        }
+
+        if (this.th_weaponIdLoaded === weaponId && this.th_weaponModel) {
+            this.th_applyWeaponEnchantVisuals(weaponId);
+            return;
+        }
+
+        const source = this.game.weapons?.models?.[item.modelFile];
+        if (source) {
+            this.th_setupWeaponMesh(source, weaponId);
+        } else {
+            this.th_gltfLoader.load(`assets/models/${item.modelFile}`, (gltf) => {
+                this.th_setupWeaponMesh(gltf.scene, weaponId);
+            });
+        }
+    }
+
+    th_setupWeaponMesh(source, weaponId) {
+        if (!this.th_weaponRoot) return;
+        while (this.th_weaponRoot.children.length > 0) {
+            this.th_weaponRoot.remove(this.th_weaponRoot.children[0]);
+        }
+
+        const gun = SkeletonUtils.clone(source) || source.clone(true);
+        gun.traverse(c => {
+            if (c.isMesh) {
+                c.castShadow = true;
+                c.receiveShadow = true;
+                if (c.material) {
+                    c.material = c.material.clone();
+                    c.material.roughness = Math.min(c.material.roughness, 0.42);
+                    c.material.metalness = Math.max(c.material.metalness, 0.32);
+                }
+            }
+        });
+
+        const pivot = new THREE.Group();
+        const box = new THREE.Box3().setFromObject(gun);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+
+        gun.position.set(-center.x, -center.y, -center.z);
+        pivot.add(gun);
+
+        const maxDim = Math.max(size.x, size.y, size.z) || 1.0;
+        const targetSize = 2.45;
+        const scale = targetSize / maxDim;
+        pivot.scale.setScalar(scale);
+
+        this.th_weaponModel = pivot;
+        this.th_weaponIdLoaded = weaponId;
+        this.th_weaponRoot.add(pivot);
+
+        this.th_applyWeaponEnchantVisuals(weaponId);
+    }
+
+    th_applyWeaponEnchantVisuals(weaponId) {
+        if (!this.th_weaponModel) return;
+        const enchant = th_getWeaponEnchant(weaponId);
+        const hexColor = enchant ? (enchant.color || '#38bdf8') : null;
+        const emissiveCol = hexColor ? new THREE.Color(hexColor) : new THREE.Color(0x000000);
+        const intensity = hexColor ? 0.38 : 0;
+
+        this.th_weaponModel.traverse(c => {
+            if (c.isMesh && c.material) {
+                c.material.emissive = emissiveCol;
+                c.material.emissiveIntensity = intensity;
+            }
+        });
+    }
+
+    th_renderUpgradeWeapon3D(delta) {
+        if (!this.th_weaponCanvas) {
+            this.th_initWeapon3DViewer();
+        }
+        if (!this.th_weaponRenderer || !this.th_weaponCanvas) return;
+
+        if (this.th_upgradeWeaponId && this.th_upgradeWeaponId !== this.th_weaponIdLoaded) {
+            this.th_loadWeaponModel(this.th_upgradeWeaponId);
+        }
+
+        const viewport = this.th_weaponCanvas.parentElement;
+        if (viewport) {
+            const w = viewport.clientWidth;
+            const h = viewport.clientHeight;
+            if (w > 0 && h > 0 && (this.th_wpWidth !== w || this.th_wpHeight !== h)) {
+                this.th_wpWidth = w;
+                this.th_wpHeight = h;
+                this.th_weaponRenderer.setSize(w, h, false);
+                this.th_weaponCamera.aspect = w / h;
+                this.th_weaponCamera.updateProjectionMatrix();
+            }
+        }
+
+        this.th_weaponTime += delta;
+        if (this.th_weaponRoot) {
+            if (!this.th_isDragging) {
+                // Hiệu ứng lơ lửng nhẹ trên bệ từ trường
+                this.th_weaponRoot.position.y = Math.sin(this.th_weaponTime * 2.2) * 0.045;
+                this.th_weaponRoot.rotation.x = this.th_weaponRotX + Math.sin(this.th_weaponTime * 1.3) * 0.02;
+                this.th_weaponRoot.rotation.y = this.th_weaponRotY + Math.sin(this.th_weaponTime * 0.9) * 0.045;
+            } else {
+                this.th_weaponRoot.position.y = 0;
+                this.th_weaponRoot.rotation.x = this.th_weaponRotX;
+                this.th_weaponRoot.rotation.y = this.th_weaponRotY;
+            }
+        }
+
+        this.th_weaponRenderer.render(this.th_weaponScene, this.th_weaponCamera);
     }
 
     // Render 4 slot bộ phận trong cột giữa với tier thực
@@ -1096,7 +1319,9 @@ export class CharacterShowroom {
         if (mode === 'weapons') {
             this.previewWeapon(this.weaponId);
         } else if (mode === 'upgrade') {
-            // Tab nâng cấp: render danh sách súng, không dùng nhân vật 3D
+            // Tab nâng cấp: render danh sách súng và chuẩn bị khung 3D vũ khí
+            this.th_wpWidth = 0;
+            this.th_wpHeight = 0;
             this.th_renderUpgradeWeaponList();
             // Tự động chọn súng đang trang bị nếu chưa có gì được chọn
             if (!this.th_upgradeWeaponId) {
@@ -1226,7 +1451,12 @@ export class CharacterShowroom {
     }
 
     render(delta) {
-        if (!this.dialog.open || !this.renderer) return;
+        if (!this.dialog.open) return;
+        if (this.mode === 'upgrade') {
+            this.th_renderUpgradeWeapon3D(delta);
+            return;
+        }
+        if (!this.renderer) return;
         const width = this.stage.clientWidth, height = this.stage.clientHeight;
         if (!width || !height) return;
         

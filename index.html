@@ -1016,10 +1016,15 @@
                 <div class="th_leader-line th_leader-mag"></div>
               </div>
 
-              <!-- Trọng tâm: Vũ khí hiển thị trên bệ kính -->
-              <div class="th_workbench-weapon-viewport">
+              <!-- Trọng tâm: Vũ khí hiển thị trên bệ kính bằng Model 3D -->
+              <div class="th_workbench-weapon-viewport" id="th_up_weapon_viewport">
                 <div class="th_weapon-pedestal-light"></div>
-                <img id="th_up_preview_img" class="th_workbench-weapon-img" src="assets/previews/kenney-blaster/blaster-c.png" alt="Khẩu súng">
+                <canvas id="th_up_weapon_canvas" class="th_workbench-weapon-canvas" title="Kéo chuột để xoay súng 360 độ"></canvas>
+                <div class="th_workbench-3d-hint">
+                  <span class="th_3d-hint-icon">⟳</span>
+                  <span class="th_3d-hint-text">KÉO ĐỂ XOAY 3D</span>
+                </div>
+                <img id="th_up_preview_img" class="th_workbench-weapon-img" src="assets/previews/kenney-blaster/blaster-c.png" alt="Khẩu súng" style="display: none;">
               </div>
 
               <!-- Watermark súng chìm -->
