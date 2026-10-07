@@ -329,3 +329,14 @@
  #screen-menu .friends-icon.lobby-png { width:21px; height:21px; }
  #screen-menu .coin-gold { width:29px; height:29px; }
 }
+/* Both footer controls share one row height, including room/guest states. */
+#screen-menu .play-area { --control-height:72px; align-items:stretch; }
+#screen-menu .play-area .mode-card { display:flex; flex-direction:column; min-height:var(--control-height); }
+#screen-menu .play-area .mode-ribbon { flex:0 0 24px; }
+#screen-menu .play-area .mode-content { flex:1; min-height:0; }
+#screen-menu .play-area .play-button,
+#screen-menu .play-area #btn-start { height:100%; min-height:var(--control-height); margin:0; align-self:stretch; }
+#screen-menu .play-area #guest-wait { margin:0; align-self:stretch; }
+@media(max-width:700px) {
+ #screen-menu .play-area { --control-height:68px; }
+}

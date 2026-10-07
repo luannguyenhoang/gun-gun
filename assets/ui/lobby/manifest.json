@@ -407,7 +407,7 @@
     },
     {
       "name": "weapon",
-      "source": "existing lobby SVG"
+      "source": "weapon-reference.png"
     }
   ]
 }

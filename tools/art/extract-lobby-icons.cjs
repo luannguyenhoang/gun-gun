@@ -40,8 +40,8 @@ async function saveIcon(name, buffer) {
   data[i+3]=Math.round(data[i+3]*Math.max(0,Math.min(1,(cream-140)/55)));
  }
  await saveIcon('friends-chat',await sharp(data,{raw:info}).png().toBuffer());
- // This reference contains no weapon; retain the established pistol silhouette.
- await saveIcon('weapon',Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="512" height="512"><g fill="#4b2d25"><path fill-rule="evenodd" d="M3 4h20v6h-8l-2 5H9l-1 6H2L4 10H2V6h1zm7 6-1 3h3l1-3z"/><path d="M5 3h3v2H5zm13 0h2v2h-2z"/></g></svg>'));
- await fs.writeFile(path.join(root,'manifest.json'),JSON.stringify({masterSize:[4096,4096],runtimeMaxEdge:512,note:'Upscaled extractions from a 1024x572 reference; not native 4K detail.',icons:[...regions.map(r=>({name:r[0],sourceRect:r.slice(1)})),{name:'friends-chat'},{name:'weapon',source:'existing lobby SVG'}]},null,2)+'\n');
+ // User-supplied replacement pistol; keep this shape when regenerating the pack.
+ await saveIcon('weapon',await fs.readFile(path.join(root,'weapon-transparent.png')));
+ await fs.writeFile(path.join(root,'manifest.json'),JSON.stringify({masterSize:[4096,4096],runtimeMaxEdge:512,note:'Upscaled extractions from a 1024x572 reference; not native 4K detail.',icons:[...regions.map(r=>({name:r[0],sourceRect:r.slice(1)})),{name:'friends-chat'},{name:'weapon',source:'weapon-reference.png'}]},null,2)+'\n');
  console.log('Exported '+(regions.length+2)+' icons.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
