@@ -713,9 +713,10 @@ export class Zombie {
             return;
         }
 
-        // Màn khói mù mịt (Smoke Grenade): người chơi tàng hình trong khói hoặc zombie đứng trong khói, zombie mất dấu mục tiêu
+        // Màn khói mù mịt (Smoke Grenade) hoặc Tàng hình (Shadow Veil): quái mất dấu mục tiêu
         const isZombieInSmoke = this.weapons?.isPositionInSmoke?.(this.position) || window.game?.weapons?.isPositionInSmoke?.(this.position);
-        if (player.isInSmoke || isZombieInSmoke) {
+        const isPlayerHidden = player.isInSmoke || player.isStealthed || ((player.shadowVeilTimer || 0) > 0);
+        if (isPlayerHidden || isZombieInSmoke) {
             this.combatState = ZombieCombatState.CHASE;
             this.spitCharge = 0;
             this.playAnimation('walk');
@@ -977,9 +978,10 @@ export class Zombie {
 
     // Pha 2: Kiem tra va gay sat thuong (Impact)
     executeImpact(player, currentDist) {
-        // Nếu người chơi ở trong màn khói, zombie mất dấu và đánh trượt hoàn toàn
+        // Nếu người chơi ở trong màn khói hoặc tàng hình, zombie mất dấu và đánh trượt hoàn toàn
         const isZombieInSmoke = this.weapons?.isPositionInSmoke?.(this.position) || window.game?.weapons?.isPositionInSmoke?.(this.position);
-        if (player.isInSmoke || isZombieInSmoke) {
+        const isPlayerHidden = player.isInSmoke || player.isStealthed || ((player.shadowVeilTimer || 0) > 0);
+        if (isPlayerHidden || isZombieInSmoke) {
             this.combatState = ZombieCombatState.RECOVERY;
             this.combatTimer = this.recoveryDuration;
             return;
@@ -1015,7 +1017,8 @@ export class Zombie {
     }
 
     applyMeleeDamage(player) {
-        if (player.isInSmoke || this.weapons?.isPositionInSmoke?.(this.position) || window.game?.weapons?.isPositionInSmoke?.(this.position)) return;
+        const isPlayerHidden = player.isInSmoke || player.isStealthed || ((player.shadowVeilTimer || 0) > 0);
+        if (isPlayerHidden || this.weapons?.isPositionInSmoke?.(this.position) || window.game?.weapons?.isPositionInSmoke?.(this.position)) return;
         sounds.play('enemyAttack', { volume: 0.7, pitchVariation: 0.15 });
         const hitDir = new THREE.Vector3().subVectors(player.position, this.position).normalize();
         
@@ -1313,11 +1316,14 @@ export class WaveManager {
                 continue;
             }
 
-            // Ưu tiên săn lùng mục tiêu nhìn thấy được (không đứng trong màn khói)
-            const visibleTargets = targets.filter(p => !p.isInSmoke);
-            const candidateTargets = visibleTargets.length > 0 ? visibleTargets : targets;
-            const target = candidateTargets.reduce((nearest, p) =>
-                !nearest || p.position.distanceToSquared(zombie.position) < nearest.position.distanceToSquared(zombie.position) ? p : nearest, null);
+            // Ưu tiên săn lùng mục tiêu nhìn thấy được (không tàng hình và không trong màn khói)
+            const isHidden = p => !p || p.isDead || p.isDowned || p.isInSmoke || p.isStealthed || ((p.shadowVeilTimer || 0) > 0);
+            const visibleTargets = targets.filter(p => !isHidden(p));
+            // Nếu có đồng đội lộ diện: quái chuyển hướng săn đồng đội đó.
+            // Nếu tất cả đều tàng hình: quái rơi vào trạng thái mất mục tiêu và đi lang thang ngơ ngác.
+            const target = visibleTargets.length > 0
+                ? visibleTargets.reduce((nearest, p) => !nearest || p.position.distanceToSquared(zombie.position) < nearest.position.distanceToSquared(zombie.position) ? p : nearest, null)
+                : (targets.length > 0 ? targets[0] : null);
 
             if (target) {
                 zombie.update(delta, target, arena, this.enemies, this.navigationBudget);

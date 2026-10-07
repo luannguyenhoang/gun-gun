@@ -2488,7 +2488,14 @@ export class WeaponSystem {
                 this.particles.createImpactSparks(blastPos, new THREE.Vector3(0, 1, 0), bCfg.color || 0xffdd44, 25);
                 sounds.play('enemyExplode', { volume: 1.0 });
 
-                if (tb.playerRef?.applyKickbackAndShake) {
+                // Kích hoạt rung màn hình chấn động nổ uy lực (Explosion Shockwave Screen Shake)
+                const blastTrauma = (bCfg.bombType === 'fire') ? 0.82 :
+                                    (bCfg.bombType === 'freeze') ? 0.75 :
+                                    (bCfg.bombType === 'smoke') ? 0.45 : 0.95;
+                window.triggerExplosionScreenShake?.(blastPos, 26, blastTrauma);
+                if (tb.playerRef?.applyScreenShake) {
+                    tb.playerRef.applyScreenShake(blastTrauma * 0.85);
+                } else if (tb.playerRef?.applyKickbackAndShake) {
                     tb.playerRef.applyKickbackAndShake(3.5, 0.4);
                 }
 
@@ -2888,7 +2895,7 @@ export class WeaponSystem {
 
         // Đảm bảo cờ isInSmoke được cập nhật chính xác mỗi frame kể cả khi không còn vùng khói
         for (const p of allTargets) {
-            if (p) p.isInSmoke = !!p._tempInSmoke;
+            if (p) p.isInSmoke = !!p._tempInSmoke || !!(p.shadowVeilTimer > 0) || !!p.isStealthed;
         }
     }
 
@@ -3137,11 +3144,20 @@ export class WeaponSystem {
                         let critMult = isCrit ? (p.critMultiplier || 1.8) : 1.0;
                         if (window.game?.player?.assassinCritReady) {
                             isCrit = true;
-                            critMult = 3.0;
+                            critMult = 4.0;
                             window.game.player.assassinCritReady = false;
                             window.game.player.shadowVeilTimer = 0;
                             window.game.player.isInSmoke = false;
-                            sounds.play('enemyDestroy', { volume: 0.9, pitchVariation: 0.2 });
+                            if (window.game.player.model) {
+                                window.game.player.model.traverse(c => {
+                                    if (c.isMesh && c.material) c.material.opacity = 1.0;
+                                });
+                            }
+                            if (window.game.player.shadowVeilAuraMesh) {
+                                window.game.scene?.remove(window.game.player.shadowVeilAuraMesh);
+                                window.game.player.shadowVeilAuraMesh = null;
+                            }
+                            sounds.play('enemyDestroy', { volume: 1.0, pitchVariation: 0.2 });
                         }
                         const finalDamage = Math.round(currentBaseDmg * critMult);
 

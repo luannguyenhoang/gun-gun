@@ -665,18 +665,22 @@ export const CONTAINER_CONFIGS = {
         name: 'Thùng Gỗ Quân Trang',
         searchDuration: 1.0,
         interactionRadius: 3.6,
-        capacity: 3,
+        capacity: 4,
         meshColor: 0x8b5a2b,
         accentColor: 0x00f0ff,
         promptLabel: '[F] LỤC THÙNG GỖ QUÂN TRANG',
         lootTable: [
-            { itemId: 'barrel_t1', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'magazine_t1', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'optic_t1', chance: 0.30, min: 1, max: 1 },
-            { itemId: 'grip_t1', chance: 0.30, min: 1, max: 1 },
-            { itemId: 'barrel_t2', chance: 0.20, min: 1, max: 1 },
-            { itemId: 'gun_scatter_t2', chance: 0.18, min: 1, max: 1 },
-            { itemId: 'medkit', chance: 0.45, min: 1, max: 1 }
+            // Ưu tiên cao nhất: Lựu đạn và vũ khí nổ chiến thuật
+            { itemId: 'grenade_a', chance: 0.80, min: 1, max: 3 },
+            { itemId: 'grenade_fire', chance: 0.70, min: 1, max: 2 },
+            { itemId: 'grenade_smoke', chance: 0.55, min: 1, max: 2 },
+            { itemId: 'medkit', chance: 0.50, min: 1, max: 1 },
+            { itemId: 'gun_scatter_t2', chance: 0.20, min: 1, max: 1 },
+            // Giảm mạnh tỷ lệ phụ kiện linh tinh
+            { itemId: 'barrel_t1', chance: 0.12, min: 1, max: 1 },
+            { itemId: 'magazine_t1', chance: 0.12, min: 1, max: 1 },
+            { itemId: 'optic_t1', chance: 0.10, min: 1, max: 1 },
+            { itemId: 'grip_t1', chance: 0.10, min: 1, max: 1 }
         ]
     },
     dead_body: {
@@ -684,17 +688,22 @@ export const CONTAINER_CONFIGS = {
         name: 'Thi Thể Đặc Nhiệm',
         searchDuration: 1.0,
         interactionRadius: 3.6,
-        capacity: 3,
+        capacity: 4,
         meshColor: 0x475569,
         accentColor: 0x22c55e,
         promptLabel: '[F] LỤC THI THỂ ĐẶC NHIỆM',
         lootTable: [
-            { itemId: 'barrel_t1', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'magazine_t1', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'optic_t1', chance: 0.30, min: 1, max: 1 },
-            { itemId: 'grip_t1', chance: 0.30, min: 1, max: 1 },
-            { itemId: 'gun_blaster_t2', chance: 0.22, min: 1, max: 1 },
-            { itemId: 'medkit', chance: 0.50, min: 1, max: 1 }
+            // Trang bị tác chiến của lính đặc nhiệm: Luôn dồi dào bom lửa và bom phá
+            { itemId: 'grenade_fire', chance: 0.75, min: 1, max: 3 },
+            { itemId: 'grenade_a', chance: 0.70, min: 1, max: 3 },
+            { itemId: 'grenade_freeze', chance: 0.60, min: 1, max: 2 },
+            { itemId: 'medkit', chance: 0.55, min: 1, max: 1 },
+            { itemId: 'gun_blaster_t2', chance: 0.25, min: 1, max: 1 },
+            // Phụ kiện chỉ rơi tỷ lệ phụ
+            { itemId: 'magazine_t2', chance: 0.15, min: 1, max: 1 },
+            { itemId: 'barrel_t1', chance: 0.12, min: 1, max: 1 },
+            { itemId: 'optic_t1', chance: 0.10, min: 1, max: 1 },
+            { itemId: 'grip_t1', chance: 0.10, min: 1, max: 1 }
         ]
     },
     military_safe: {
@@ -702,19 +711,22 @@ export const CONTAINER_CONFIGS = {
         name: 'Két Sắt Quân Sự',
         searchDuration: 1.6,
         interactionRadius: 3.6,
-        capacity: 3,
+        capacity: 4,
         meshColor: 0x334155,
         accentColor: 0xa855f7,
         promptLabel: '[F] MỞ KÉT SẮT QUÂN SỰ',
         lootTable: [
-            { itemId: 'barrel_t2', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'magazine_t2', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'optic_t2', chance: 0.30, min: 1, max: 1 },
-            { itemId: 'grip_t2', chance: 0.30, min: 1, max: 1 },
-            { itemId: 'barrel_t3', chance: 0.22, min: 1, max: 1 },
-            { itemId: 'gun_repeater_t3', chance: 0.20, min: 1, max: 1 },
-            { itemId: 'gun_plasma_t4', chance: 0.15, min: 1, max: 1 },
-            { itemId: 'medkit', chance: 0.55, min: 1, max: 1 }
+            // Kho vũ khí nổ và trang bị tác chiến hạng nặng
+            { itemId: 'grenade_freeze', chance: 0.80, min: 2, max: 3 },
+            { itemId: 'grenade_fire', chance: 0.80, min: 2, max: 3 },
+            { itemId: 'grenade_a', chance: 0.75, min: 2, max: 4 },
+            { itemId: 'medkit', chance: 0.60, min: 1, max: 2 },
+            { itemId: 'gun_repeater_t3', chance: 0.30, min: 1, max: 1 },
+            { itemId: 'gun_plasma_t4', chance: 0.20, min: 1, max: 1 },
+            // Phụ kiện cao cấp tỷ lệ vừa phải
+            { itemId: 'barrel_t2', chance: 0.15, min: 1, max: 1 },
+            { itemId: 'magazine_t2', chance: 0.15, min: 1, max: 1 },
+            { itemId: 'optic_t2', chance: 0.12, min: 1, max: 1 }
         ]
     },
     airdrop_crate: {
@@ -722,20 +734,23 @@ export const CONTAINER_CONFIGS = {
         name: 'Thính Tiếp Tế Airdrop',
         searchDuration: 2.0,
         interactionRadius: 4.0,
-        capacity: 4,
+        capacity: 5,
         meshColor: 0xd97706,
         accentColor: 0xf59e0b,
         promptLabel: '[F] MỞ HÒM THÍNH TIẾP TẾ',
         lootTable: [
-            // Đồ Cấp 4 (Epic) hoặc Cấp 5 (Legendary) tuyển chọn
-            { itemId: 'barrel_t4', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'magazine_t4', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'optic_t4', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'grip_t4', chance: 0.35, min: 1, max: 1 },
-            { itemId: 'gun_nova_t5', chance: 0.25, min: 1, max: 1 },
-            { itemId: 'gun_plasma_t4', chance: 0.30, min: 1, max: 1 },
-            { itemId: 'gun_storm_t4', chance: 0.30, min: 1, max: 1 },
-            { itemId: 'medkit', chance: 0.60, min: 1, max: 2 }
+            // Đồ Cấp 4 (Epic) hoặc Cấp 5 (Legendary) và kho bom mìn quân sự tối tân
+            { itemId: 'grenade_fire', chance: 0.90, min: 2, max: 4 },
+            { itemId: 'grenade_freeze', chance: 0.85, min: 2, max: 4 },
+            { itemId: 'grenade_a', chance: 0.85, min: 2, max: 4 },
+            { itemId: 'gun_nova_t5', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'gun_plasma_t4', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'gun_storm_t4', chance: 0.35, min: 1, max: 1 },
+            { itemId: 'medkit', chance: 0.75, min: 1, max: 2 },
+            { itemId: 'barrel_t4', chance: 0.18, min: 1, max: 1 },
+            { itemId: 'magazine_t4', chance: 0.18, min: 1, max: 1 },
+            { itemId: 'optic_t4', chance: 0.15, min: 1, max: 1 },
+            { itemId: 'grip_t4', chance: 0.15, min: 1, max: 1 }
         ]
     }
 };
@@ -1083,37 +1098,58 @@ export class LootContainer {
     generateLoot() {
         const table = this.config.lootTable || [];
         const generated = [];
-        const maxItems = Math.min(this.capacity, this.type === 'airdrop_crate' ? 3 : 2);
+        // Tăng số lượng vật phẩm tối đa mỗi hòm đồ để người chơi nhặt đã tay
+        const maxItems = Math.min(this.capacity, this.type === 'airdrop_crate' ? 5 : 4);
 
-        // Hòm Thính Tiếp Tế (Airdrop): Chắc chắn có 1 đồ Cấp 4/5 và 1 Túi cứu thương
+        // 1. Hòm Thính Tiếp Tế (Airdrop): Chắc chắn có 1 đồ Cấp 4/5, 1 Túi cứu thương, và 1-2 slot bom mìn tối tân
         if (this.type === 'airdrop_crate') {
             const highTierItems = [
                 'barrel_t5', 'magazine_t5', 'optic_t5', 'grip_t5', 'gun_nova_t5',
-                'barrel_t4', 'magazine_t4', 'optic_t4', 'grip_t4', 'gun_plasma_t4'
+                'barrel_t4', 'magazine_t4', 'optic_t4', 'grip_t4', 'gun_plasma_t4', 'gun_storm_t4'
             ];
             const guaranteed = highTierItems[Math.floor(Math.random() * highTierItems.length)];
             generated.push({ itemId: guaranteed, count: 1, revealed: true });
-            generated.push({ itemId: 'medkit', count: 1, revealed: true });
+            generated.push({ itemId: 'medkit', count: 2, revealed: true });
+
+            // Chắc chắn cấp 1 hòm lựu đạn hỏa thiêu hoặc bom băng cực mạnh
+            const heavyBombs = ['grenade_fire', 'grenade_freeze', 'grenade_a'];
+            const guaranteedBomb = heavyBombs[Math.floor(Math.random() * heavyBombs.length)];
+            generated.push({ itemId: guaranteedBomb, count: Math.floor(Math.random() * 2) + 2, revealed: true });
+        } else {
+            // 2. Với các hòm đồ chiến trường thông thường: BẢO ĐẢM luôn có ít nhất 1 slot bom mìn
+            const bombEntries = table.filter(e => e.itemId && e.itemId.startsWith('grenade_'));
+            if (bombEntries.length > 0) {
+                const picked = bombEntries[Math.floor(Math.random() * bombEntries.length)];
+                const min = picked.min || 1;
+                const max = picked.max || 2;
+                const count = Math.floor(Math.random() * (max - min + 1)) + min;
+                generated.push({ itemId: picked.itemId, count, revealed: true });
+            }
         }
 
-        // Lấy ngẫu nhiên từ bảng rớt đồ nhưng không vượt quá maxItems
+        // Lấy ngẫu nhiên từ bảng rớt đồ cho đến khi đạt giới hạn maxItems
         const shuffled = [...table].sort(() => Math.random() - 0.5);
         for (const entry of shuffled) {
             if (generated.length >= maxItems) break;
             if (Math.random() <= entry.chance) {
                 if (!generated.some(g => g.itemId === entry.itemId)) {
+                    const min = entry.min || 1;
+                    const max = entry.max || 1;
+                    const count = Math.floor(Math.random() * (max - min + 1)) + min;
                     generated.push({
                         itemId: entry.itemId,
-                        count: 1,
+                        count: count,
                         revealed: true
                     });
                 }
             }
         }
 
-        // Đảm bảo hòm luôn có ít nhất 1 món
+        // Đảm bảo hòm không bao giờ bị rỗng
         if (generated.length === 0 && table.length > 0) {
-            generated.push({ itemId: table[0].itemId, count: 1, revealed: true });
+            const fallback = table[0];
+            const count = fallback.min ? Math.floor(Math.random() * (fallback.max - fallback.min + 1)) + fallback.min : 1;
+            generated.push({ itemId: fallback.itemId, count, revealed: true });
         }
 
         // Tự động sắp xếp ưu tiên: Cấp bậc cao nhất nằm TRÊN CÙNG
@@ -1685,55 +1721,56 @@ export class LootingSystem {
         return container;
     }
 
-    // Rải số lượng tối thiểu hòm đồ khi bắt đầu game (tránh làm tràn ngập hòm trên sàn đấu)
+    // Rải hòm đồ khi bắt đầu ván đấu để người chơi có trang bị và bom mìn chiến đấu ngay
     spawnInitialContainers(arena) {
         this.clearAll();
-        // Chỉ để duy nhất 1 thùng gỗ quân trang dã chiến ở góc xa để người chơi làm quen
-        this.spawnContainer('wooden_crate', new THREE.Vector3(-12, 0, -10));
+        // Đặt sẵn 2 hòm trang bị dã chiến và két sắt ở 2 góc sàn đấu
+        this.spawnContainer('wooden_crate', new THREE.Vector3(-10, 0, -8));
+        this.spawnContainer('military_safe', new THREE.Vector3(12, 0, 10));
     }
 
-    // Xử lý rơi hòm đồ khi tiêu diệt quái vật theo các tỷ lệ nhỏ
+    // Xử lý rơi hòm đồ khi tiêu diệt quái vật
     handleEnemyKilled(enemy) {
         if (!enemy || !enemy.position) return;
 
-        // Giới hạn cứng số lượng hòm đồ tối đa đồng thời trên sân đấu: Đúng 2 hòm
-        const MAX_ACTIVE_CONTAINERS = 2;
+        // Giới hạn số lượng hòm đồ tối đa trên sân đấu: 4 hòm
+        const MAX_ACTIVE_CONTAINERS = 4;
         if (this.containers.length >= MAX_ACTIVE_CONTAINERS) return;
 
         const rand = Math.random();
         let dropType = null;
 
-        // Phân loại tỷ lệ rơi đồ cực hiếm theo từng loại quái vật
+        // Phân loại tỷ lệ rơi đồ hợp lý theo cấp độ quái
         switch (enemy.type) {
             case 'boss':
-                // Boss: 50% tỷ lệ rơi Két sắt quân sự chống đạn (nếu sân chưa quá 2 hòm)
-                if (rand < 0.50) {
-                    dropType = 'military_safe';
+                // Boss: 75% tỷ lệ rơi Két sắt quân sự hoặc Hòm tiếp tế
+                if (rand < 0.75) {
+                    dropType = Math.random() < 0.5 ? 'airdrop_crate' : 'military_safe';
                 }
                 break;
 
             case 'giant':
             case 'tank':
-                // Quái đột biến khổng lồ: 5% tỷ lệ rơi
-                if (rand < 0.05) {
-                    dropType = Math.random() < 0.35 ? 'military_safe' : 'wooden_crate';
+                // Quái đột biến khổng lồ: 20% tỷ lệ rơi két sắt hoặc thi thể đặc nhiệm
+                if (rand < 0.20) {
+                    dropType = Math.random() < 0.6 ? 'military_safe' : 'dead_body';
                 }
                 break;
 
             case 'spitter':
             case 'boomer':
-                // Quái trung cấp (phun độc, phát nổ): 2% tỷ lệ rơi
-                if (rand < 0.02) {
-                    dropType = Math.random() < 0.6 ? 'wooden_crate' : 'dead_body';
+                // Quái trung cấp (phun độc, phát nổ): 8% tỷ lệ rơi hòm
+                if (rand < 0.08) {
+                    dropType = Math.random() < 0.5 ? 'wooden_crate' : 'dead_body';
                 }
                 break;
 
             case 'sprinter':
             case 'walker':
             default:
-                // Quái thường: Tỷ lệ rơi cực hiếm 0.5%
-                if (rand < 0.005) {
-                    dropType = Math.random() < 0.75 ? 'wooden_crate' : 'dead_body';
+                // Quái thường: Tỷ lệ rơi 3.5%
+                if (rand < 0.035) {
+                    dropType = Math.random() < 0.65 ? 'wooden_crate' : 'dead_body';
                 }
                 break;
         }
