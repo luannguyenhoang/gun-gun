@@ -965,9 +965,47 @@ export class CharacterShowroom {
         document.getElementById('character-name').textContent = charCfg.label;
         document.getElementById('character-subtitle').textContent = `${charCfg.tierName || 'CƠ BẢN'} · ${charCfg.subtitle}`;
         
-        const passiveText = charCfg.passives?.passiveDesc ? `[NỘI TẠI]: ${charCfg.passives.passiveDesc}` : '';
-        const skillText = charCfg.activeSkill ? `[KỸ NĂNG Q - ${charCfg.activeSkill.name.toUpperCase()}]: ${charCfg.activeSkill.description} (${charCfg.activeSkill.cooldown}s)` : '';
-        document.getElementById('character-description').textContent = `${charCfg.description} | ${passiveText} | ${skillText}`;
+        // Cập nhật ô Kỹ năng chủ động riêng [Q]
+        const skill = charCfg.activeSkill;
+        const skillIconEl = document.getElementById('character-skill-icon');
+        const skillNameEl = document.getElementById('character-skill-name');
+        const skillMetaEl = document.getElementById('character-skill-meta');
+        const skillDescEl = document.getElementById('character-skill-desc');
+
+        if (skill) {
+            if (skillNameEl) skillNameEl.textContent = skill.name.toUpperCase();
+            if (skillMetaEl) skillMetaEl.textContent = `KỸ NĂNG [${skill.key || 'Q'}] · HỒI ${skill.cooldown}S`;
+            if (skillDescEl) skillDescEl.textContent = skill.description;
+            if (skillIconEl) {
+                const icons = {
+                    riot_charge: '🛡',
+                    cluster_grenades: '💣',
+                    healing_beacon: '✚',
+                    vulnerability_scan: '👁',
+                    auto_turret: '⚙',
+                    orbital_strike: '☄',
+                    ground_smash: '💥',
+                    bullet_frenzy: '🔥',
+                    supply_drop: '📦',
+                    sand_vortex: '🌪',
+                    chain_lightning: '⚡',
+                    shadow_veil: '🗡'
+                };
+                skillIconEl.textContent = icons[skill.effectType] || '⚡';
+            }
+        }
+
+        // Cập nhật ô Thiên phú nội tại riêng [NỘI TẠI]
+        const passiveDescEl = document.getElementById('character-passive-desc');
+        if (passiveDescEl) {
+            passiveDescEl.textContent = charCfg.passives?.passiveDesc || 'Không có hiệu ứng đặc biệt.';
+        }
+
+        // Mô tả tiểu sử nhân vật ngắn gọn, thanh lịch
+        const descEl = document.getElementById('character-description');
+        if (descEl) {
+            descEl.textContent = charCfg.description || '';
+        }
         document.getElementById('character-watermark').textContent = charCfg.label;
 
         const weapon = this.getItem(this.weaponId);
@@ -1172,6 +1210,13 @@ export class CharacterShowroom {
         this.renderDetails();
         this.game.updateCoinsUI?.();
         this.game.ui?.showPickupAlert?.(`ĐÃ MỞ KHÓA: ${charCfg.label}!`);
+    }
+
+    renderDetails() {
+        if (!this.selected) return;
+        const charCfg = CHARACTER_CONFIGS[this.selected];
+        if (!charCfg) return;
+        this.syncSelection();
     }
 
     // Lọc danh sách vũ khí theo 3 Tab Lớn (VŨ KHÍ CHÍNH | VŨ KHÍ PHỤ | TRANG BỊ KHÁC)
@@ -1382,17 +1427,22 @@ export class CharacterShowroom {
         for (const [id, entry] of this.entries) {
             if (!entry || entry.thumbnail) continue;
             for (const other of this.entries.values()) if (other) other.model.visible = other === entry;
-            this.renderer.setSize(160, 180, false);
-            this.camera.aspect = 160 / 180;
-            this.camera.position.set(0, 2.8, 7.6);
-            this.camera.lookAt(0, 2.05, 0);
+            // Chụp chân dung độ nét cao (280x320) ở cự ly bán thân cân đối (bust-shot)
+            this.renderer.setSize(280, 320, false);
+            this.camera.aspect = 280 / 320;
+            this.camera.position.set(0, 2.65, 5.8);
+            this.camera.lookAt(0, 1.95, 0);
             this.camera.updateProjectionMatrix();
             this.renderer.render(this.scene, this.camera);
-            const img = this.cards.find(c => c.dataset.previewCharacter === id).querySelector('img');
-            img.src = this.renderer.domElement.toDataURL();
-            img.hidden = false;
+            const cardEl = this.cards.find(c => c.dataset.previewCharacter === id);
+            const img = cardEl?.querySelector('img');
+            if (img) {
+                img.src = this.renderer.domElement.toDataURL('image/png');
+                img.hidden = false;
+            }
             entry.thumbnail = true;
             this.width = 0;
+            break; // Mỗi frame xử lý 1 thẻ để tránh tụt FPS
         }
         const currentSelected = this.selected || this.game.characterId || 'police';
         for (const [id, entry] of this.entries) if (entry) entry.model.visible = (id === currentSelected);

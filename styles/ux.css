@@ -25,7 +25,7 @@ button { -webkit-tap-highlight-color:transparent; }
 .play-area { width:54%; grid-template-columns:1fr 1fr; }.mode-card { min-height:78px; border-radius:13px; }.mode-content { padding:9px 13px; gap:12px; }.mode-content strong { font-size:21px; }.mode-ribbon { font-size:10px; }#screen-menu .play-button { font-size:35px; -webkit-text-stroke:1px #513644; letter-spacing:0; }
 #home-dialog { width:min(510px,calc(100vw - 28px)); border-radius:18px; background:#5a486b; }.dialog-body { padding:22px; }.dialog-body p { font-size:14px; }.help-row { font-size:14px; min-height:39px; }.help-row kbd { min-width:105px; font-size:12px; }.dialog-header h2 { font-size:22px; }
 /* Both equipment tabs use the same grid; long details scroll inside their own panel. */
-#character-screen[open] { display:grid; grid-template-columns:minmax(0,1fr) minmax(310px,32%); grid-template-rows:76px minmax(0,1fr) 155px; gap:18px 26px; padding:20px 26px 26px; box-sizing:border-box; }
+#character-screen[open] { display:grid; grid-template-columns:minmax(0,1fr) minmax(300px,30%); grid-template-rows:76px minmax(0,1fr) 155px; gap:18px 24px; padding:20px 24px 24px; box-sizing:border-box; }
 #character-screen::before { opacity:.075; }
 .character-header { grid-column:1/-1; position:relative; inset:auto; margin:0; }
 .character-header h2 { font-size:24px; }.character-header small { font-size:11px; }.character-collection { font-size:11px; }
@@ -35,7 +35,7 @@ button { -webkit-tap-highlight-color:transparent; }
 #character-subtitle,#armory-category { font-size:11px; }.character-info-body { padding:14px; }
 .character-stats small { font-size:10px; }.character-stats em { font-size:9px; }.character-stats b { font-size:24px; }
 .character-ability h3 { font-size:14px; }.character-ability h3 small { font-size:9px; }.character-ability p { font-size:12px; }.character-description { font-size:13px; }.character-balance-note { font-size:11px; line-height:1.5; }
-.character-cards { grid-column:1; grid-row:3; position:relative; inset:auto; justify-content:center; align-items:center; gap:14px; min-width:0; margin:0; }
+.character-cards { grid-column:1; grid-row:3; position:relative; inset:auto; width:100%; max-width:100%; justify-content:flex-start; align-items:center; gap:14px; min-width:0; margin:0; }
 .character-card { width:126px; height:135px; flex-shrink:0; }.character-card-status { font-size:10px; }.character-card strong { font-size:12px; }
 .character-action { grid-column:2; grid-row:3; position:relative; inset:auto; width:auto; max-width:none; align-self:center; margin:0; }.character-action button { min-height:64px; font-size:23px; }.character-action>span { font-size:12px; line-height:1.4; }
 .showroom-tabs { margin-left:10px; }.showroom-tabs button { font-size:12px; min-height:44px; }.armory-tags span { font-size:10px; }.armory-product { height:120px; }

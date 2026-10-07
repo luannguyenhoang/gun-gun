@@ -9,8 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="preload" href="assets/fonts/Nunito-Variable.ttf" as="font" type="font/ttf" crossorigin>
     <link rel="stylesheet" href="styles/style.css">
-    <link rel="stylesheet" href="styles/zappets.css?v=2"><link rel="stylesheet" href="styles/combat.css?v=44"><link rel="stylesheet" href="styles/showroom.css?v=45">
-    <link rel="stylesheet" href="styles/ux.css">
+    <link rel="stylesheet" href="styles/zappets.css?v=2"><link rel="stylesheet" href="styles/combat.css?v=44"><link rel="stylesheet" href="styles/showroom.css?v=47">
+    <link rel="stylesheet" href="styles/ux.css?v=2">
     <link rel="stylesheet" href="styles/home-polish.css?v=1">
     <link rel="stylesheet" href="styles/home-reference.css?v=13">
     <style>
@@ -1104,11 +1104,38 @@
             <div><span class="stat-symbol damage-symbol">✹</span><small>SÁT THƯƠNG</small><b id="character-damage">28</b><em>MỖI VIÊN</em></div>
             <div><span class="stat-symbol move-symbol">»</span><small>TỐC ĐỘ</small><b id="character-speed">7.5</b><em>MÉT / GIÂY</em></div>
           </div>
-          <div class="character-ability"><img id="character-weapon-icon" src="assets/previews/kenney-blaster/blaster-a.png" alt=""><div><h3><span id="character-weapon-name">BLASTER-X</span> <small>VŨ KHÍ KHỞI ĐẦU</small></h3><p id="character-weapon-detail">28 sát thương · 16 viên / băng</p></div><kbd>1</kbd></div>
-          <div class="character-ability"><span class="ability-icon dash-icon">➜</span><div><h3>LƯỚT NÉ <small>KỸ NĂNG</small></h3><p>Né theo hướng di chuyển, hồi sau 1 giây.</p></div><kbd>Q</kbd></div>
-          <div class="character-ability"><span class="ability-icon revive-icon">✚</span><div><h3>TIẾP SỨC <small>ĐỒNG ĐỘI</small></h3><p>Đến gần đồng đội bị hạ để hồi sinh.</p></div><kbd>E</kbd></div>
+          <!-- 1. Kỹ năng chủ động riêng của nhân vật [Q] -->
+          <div class="character-ability skill-active">
+            <span class="ability-icon skill-q-icon" id="character-skill-icon">⚡</span>
+            <div>
+              <h3><span id="character-skill-name">KỸ NĂNG CHỦ ĐỘNG</span> <small id="character-skill-meta">KỸ NĂNG [Q] · HỒI 0S</small></h3>
+              <p id="character-skill-desc">Mô tả kỹ năng</p>
+            </div>
+            <kbd>Q</kbd>
+          </div>
+
+          <!-- 2. Thiên phú nội tại riêng của nhân vật [NỘI TẠI] -->
+          <div class="character-ability skill-passive">
+            <span class="ability-icon skill-passive-icon">★</span>
+            <div>
+              <h3><span id="character-passive-name">THIÊN PHÚ NỘI TẠI</span> <small>HIỆU ỨNG VĨNH VIỄN</small></h3>
+              <p id="character-passive-desc">Mô tả nội tại</p>
+            </div>
+            <kbd class="kbd-passive">NỘI TẠI</kbd>
+          </div>
+
+          <!-- 3. Vũ khí trang bị / Vũ khí khởi đầu [1] -->
+          <div class="character-ability skill-weapon">
+            <img id="character-weapon-icon" src="assets/previews/kenney-blaster/blaster-a.png" alt="">
+            <div>
+              <h3><span id="character-weapon-name">BLASTER-X</span> <small>VŨ KHÍ TRANG BỊ</small></h3>
+              <p id="character-weapon-detail">28 sát thương · 16 viên / băng</p>
+            </div>
+            <kbd>1</kbd>
+          </div>
+
           <p id="character-description" class="character-description"></p>
-          <p class="character-balance-note">Mọi nhân vật có cùng chỉ số khởi đầu.</p>
+          <p class="character-balance-note">Mỗi chiến binh sở hữu bộ kỹ năng và thiên phú nội tại độc nhất trên chiến trường.</p>
         </div>
       </section>
 

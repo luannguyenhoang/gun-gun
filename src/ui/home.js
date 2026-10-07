@@ -1,5 +1,5 @@
 import { sounds } from '../audio/audio.js?v=52';
-import { CharacterShowroom } from './showroom.js?v=49';
+import { CharacterShowroom } from './showroom.js?v=51';
 import { CHARACTER_CONFIGS, isCharacterUnlocked } from '../gameplay/player/characters.js';
 import { getStartingWeapon } from '../gameplay/combat/weapons.js?v=32';
 import { initAuth, signIn, signUp, signInWithGoogle, signOut, onAuthStateChange, applyProfileProgressToGame, resetGameProgressToGuest, refreshCurrentProfile } from '../network/auth.js?v=48';
