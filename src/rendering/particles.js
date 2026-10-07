@@ -54,8 +54,8 @@ export class ParticleSystem {
         // Pool tái sử dụng Muzzle Flash tránh tạo mới và dispose Material liên tục gây micro-stutter
         this.muzzlePool = [];
 
-        // Texture lửa, khói và tia lửa nòng súng chất lượng cao (Kenney Particle Pack)
-        this.textures = { fire: [], smoke: [], muzzle: [] };
+        // Texture lửa, khói và tia lửa nòng súng, hào quang light chất lượng cao (Kenney Particle Pack)
+        this.textures = { fire: [], smoke: [], muzzle: [], lights: [] };
         this.initTextures();
     }
 
@@ -92,6 +92,11 @@ export class ParticleSystem {
                 'assets/textures/particles/muzzle_03.png',
                 'assets/textures/particles/muzzle_04.png'
             ];
+            const lightPaths = [
+                'assets/particles/light_01.png',
+                'assets/particles/light_02.png',
+                'assets/particles/light_03.png'
+            ];
 
             firePaths.forEach(path => {
                 loader.load(path, (tex) => {
@@ -111,6 +116,13 @@ export class ParticleSystem {
                 loader.load(path, (tex) => {
                     if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
                     this.textures.muzzle.push(tex);
+                }, undefined, () => {});
+            });
+
+            lightPaths.forEach(path => {
+                loader.load(path, (tex) => {
+                    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+                    this.textures.lights.push(tex);
                 }, undefined, () => {});
             });
         } catch {}
@@ -340,6 +352,24 @@ export class ParticleSystem {
                 const fireList = hasFire ? this.textures.fire : this.textures.smoke;
                 const smokeList = hasSmoke ? this.textures.smoke : this.textures.fire;
 
+                // Quầng sáng chớp lóa vụ nổ cực nhanh (Explosion Flash Flare từ light_01/light_02)
+                let flashSprite = null;
+                let flashMat = null;
+                if (this.textures?.lights?.length > 0) {
+                    const lTex = this.textures.lights[0];
+                    flashMat = new THREE.SpriteMaterial({
+                        map: lTex,
+                        color: color || 0xffaa22,
+                        transparent: true,
+                        opacity: 0.95,
+                        blending: THREE.AdditiveBlending,
+                        depthWrite: false
+                    });
+                    flashSprite = new THREE.Sprite(flashMat);
+                    flashSprite.scale.set((radius || 4.0) * 0.8, (radius || 4.0) * 0.8, 1);
+                    expGroup.add(flashSprite);
+                }
+
                 // 1. Quả cầu lửa lõi trắng bùng nổ cực nhanh
                 const coreTex = fireList[0];
                 const coreMat = new THREE.SpriteMaterial({
@@ -447,6 +477,8 @@ export class ParticleSystem {
                 this.explosions.push({
                     isSprite: true,
                     group: expGroup,
+                    flashSprite,
+                    flashMat,
                     coreSprite,
                     coreMat,
                     fireSprite,
@@ -710,6 +742,7 @@ export class ParticleSystem {
 
             if (exp.age >= exp.maxLife) {
                 this.scene.remove(exp.group);
+                exp.flashMat?.dispose();
                 exp.coreMat?.dispose();
                 exp.fireMat?.dispose();
                 exp.ringMat?.dispose();
@@ -721,6 +754,18 @@ export class ParticleSystem {
 
             if (exp.isSprite) {
                 // XỬ LÝ ANIMATION CHO SPRITE KHÓI LỬA
+                // Quầng sáng chớp lóa bùng nổ nở to cực nhanh và tắt trong 0.16s
+                if (exp.flashSprite && exp.flashMat) {
+                    if (exp.age < 0.16) {
+                        const flashT = exp.age / 0.16;
+                        const scale = (exp.targetRadius * 0.8) + (exp.targetRadius * 1.6) * (1 - Math.pow(1 - flashT, 2));
+                        exp.flashSprite.scale.set(scale, scale, 1);
+                        exp.flashMat.opacity = Math.max(0, 0.95 * (1 - flashT));
+                    } else {
+                        exp.flashSprite.visible = false;
+                    }
+                }
+
                 // Lõi trắng nở cực nhanh và tắt trong 0.2s
                 if (exp.coreSprite && exp.coreMat) {
                     if (exp.age < 0.2) {

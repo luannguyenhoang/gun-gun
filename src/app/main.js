@@ -1,18 +1,18 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js?v=58';
-import { ParticleSystem } from '../rendering/particles.js?v=60';
+import { ParticleSystem } from '../rendering/particles.js?v=67';
 import { Arena } from '../world/arena.js?v=22';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=66';
-import { PlayerController } from '../gameplay/player/player.js?v=66';
-import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=66';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=67';
+import { PlayerController } from '../gameplay/player/player.js?v=67';
+import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=67';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
 import { UIManager } from '../ui/ui.js?v=40';
 import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=35';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=37';
 import { HomeMenu } from '../ui/home.js?v=57';
-import { LootingSystem } from '../gameplay/loot/looting.js?v=66';
+import { LootingSystem } from '../gameplay/loot/looting.js?v=67';
 import { RenderQuality } from '../rendering/performance.js';
 import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=49';
 

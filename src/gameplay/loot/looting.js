@@ -1295,6 +1295,25 @@ export class AirdropDropEntity {
         this.scene.add(this.shadowMesh);
 
         this.group.add(boxMesh, chuteMesh, linesMesh);
+
+        // 4. Đèn tín hiệu cứu hộ phát quang màu đỏ rực (Airdrop Beacon Light từ light_01.png)
+        const beaconTex = new THREE.TextureLoader().load('assets/particles/light_01.png');
+        if (THREE.SRGBColorSpace) beaconTex.colorSpace = THREE.SRGBColorSpace;
+        const beaconMat = new THREE.SpriteMaterial({
+            map: beaconTex,
+            color: 0xff1100,
+            transparent: true,
+            opacity: 0.85,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        const beaconSprite = new THREE.Sprite(beaconMat);
+        beaconSprite.position.set(0, 1.35, 0);
+        beaconSprite.scale.set(1.5, 1.5, 1);
+        this.group.add(beaconSprite);
+        this.beaconSprite = beaconSprite;
+        this.beaconMat = beaconMat;
+
         this.group.position.copy(this.currentPos);
         this.scene.add(this.group);
     }
@@ -1348,10 +1367,20 @@ export class AirdropDropEntity {
                 }
             }
         }
+
+        // Nhấp nháy đèn hải đăng cứu hộ trên đỉnh hòm Airdrop
+        if (this.beaconSprite) {
+            const pulse = 1.35 + Math.sin(performance.now() * 0.009) * 0.45;
+            this.beaconSprite.scale.set(pulse, pulse, 1);
+        }
     }
 
     dispose() {
         this.smokeTimer = 0;
+        if (this.beaconMat) {
+            this.beaconMat.dispose();
+            this.beaconMat = null;
+        }
         if (this.group) {
             this.group.removeFromParent();
             this.group.traverse(c => {

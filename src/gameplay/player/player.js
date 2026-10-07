@@ -735,6 +735,21 @@ export class PlayerController {
         auraMesh.position.y += 1.1;
         this.scene.add(auraMesh);
 
+        // 2b. Quầng sáng hào quang bừng nở tỏa sáng (Radial Flare Glow Sprite từ light_01.png)
+        const flareMat = new THREE.SpriteMaterial({
+            map: getSkillTexture('assets/particles/light_01.png'),
+            color,
+            transparent: true,
+            opacity: 0.95,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        const flareSprite = new THREE.Sprite(flareMat);
+        flareSprite.position.copy(startPos);
+        flareSprite.position.y += 1.1;
+        flareSprite.scale.set(0.6, 0.6, 1);
+        this.scene.add(flareSprite);
+
         // 3. Bắn các hạt phát sáng tóe ra
         this.particles?.createImpactSparks?.(
             startPos.clone().add(new THREE.Vector3(0, 0.6, 0)),
@@ -758,10 +773,12 @@ export class PlayerController {
             if (elapsed > animDuration) {
                 this.scene.remove(shockMesh);
                 this.scene.remove(auraMesh);
+                this.scene.remove(flareSprite);
                 shockGeo.dispose();
                 shockMat.dispose();
                 auraGeo.dispose();
                 auraMat.dispose();
+                flareMat.dispose();
                 return;
             }
 
@@ -773,6 +790,10 @@ export class PlayerController {
             auraMesh.scale.set(1.0 + t * 0.4, 1.0 + t * 0.6, 1.0 + t * 0.4);
             auraMesh.position.y = startPos.y + 1.1 + t * 0.5;
             auraMat.opacity = Math.max(0, 0.7 * (1.0 - t));
+
+            const flareScale = 0.6 + t * 3.6;
+            flareSprite.scale.set(flareScale, flareScale, 1);
+            flareMat.opacity = Math.max(0, 0.95 * (1.0 - t));
 
             requestAnimationFrame(anim);
         };
@@ -949,6 +970,20 @@ export class PlayerController {
         emitterRing.position.y = 1.05;
         group.add(emitterRing);
 
+        // 5. Hào quang phát quang mềm Hologram y tế (Radial Beacon Glow Sprite từ light_01.png)
+        const glowMat = new THREE.SpriteMaterial({
+            map: getSkillTexture('assets/particles/light_01.png'),
+            color: 0x10b981,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        const glowSprite = new THREE.Sprite(glowMat);
+        glowSprite.position.y = 1.05;
+        glowSprite.scale.set(1.4, 1.4, 1);
+        group.add(glowSprite);
+
         this.scene.add(group);
         this.activeBeacons.push({
             group,
@@ -956,6 +991,8 @@ export class PlayerController {
             coreMesh,
             emitterRing,
             rangeRing,
+            glowSprite,
+            glowMat,
             position: pos,
             timer: duration,
             tickTimer: 0,
@@ -1530,6 +1567,24 @@ export class PlayerController {
 
             // Bắn chùm hồ quang điện nổ tung tại mỗi zombie bị giật điện
             this.particles?.createImpactSparks?.(tPos, new THREE.Vector3(0, 1, 0), 0x00f0ff, 22);
+
+            // Quầng sáng chớp điện hồ quang lóa mắt (Lightning Flare Glow từ light_03.png)
+            const flashMat = new THREE.SpriteMaterial({
+                map: getSkillTexture('assets/particles/light_03.png'),
+                color: 0x00f0ff,
+                transparent: true,
+                opacity: 0.95,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const flashSprite = new THREE.Sprite(flashMat);
+            flashSprite.position.copy(tPos);
+            flashSprite.scale.set(2.4, 2.4, 1);
+            this.scene.add(flashSprite);
+            setTimeout(() => {
+                this.scene.remove(flashSprite);
+                flashMat.dispose();
+            }, 380);
         }
 
         // Tạo các dải tia sét 3D nối liên tiếp giữa các điểm (dùng đúng asset spark_05_rotated.png)
@@ -1716,6 +1771,11 @@ export class PlayerController {
             if (b.domeMesh) {
                 b.domeMesh.material.opacity = 0.05 + Math.sin(b.timer * 3.0) * 0.025;
             }
+            // Quầng sáng phát quang Hologram y tế nhấp nháy thở nhẹ
+            if (b.glowSprite) {
+                const breathe = 1.35 + Math.sin(b.timer * 4.5) * 0.22;
+                b.glowSprite.scale.set(breathe, breathe, 1);
+            }
 
             // Mỗi 1 giây: Hồi máu và bắn sóng xung nhịp 3D nở từ trụ ra ngoài
             if (b.tickTimer >= 1.0) {
@@ -1767,6 +1827,7 @@ export class PlayerController {
             }
 
             if (b.timer <= 0) {
+                b.glowMat?.dispose();
                 this.scene.remove(b.group);
                 b.group.traverse?.(c => {
                     if (c.geometry) c.geometry.dispose();
