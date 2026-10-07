@@ -1,5 +1,5 @@
 import { sounds } from '../audio/audio.js?v=52';
-import { CharacterShowroom } from './showroom.js?v=48';
+import { CharacterShowroom } from './showroom.js?v=49';
 import { CHARACTER_CONFIGS, isCharacterUnlocked } from '../gameplay/player/characters.js';
 import { getStartingWeapon } from '../gameplay/combat/weapons.js?v=32';
 import { initAuth, signIn, signUp, signInWithGoogle, signOut, onAuthStateChange, applyProfileProgressToGame, resetGameProgressToGuest, refreshCurrentProfile } from '../network/auth.js?v=48';
@@ -685,8 +685,7 @@ export class HomeMenu {
 
     open(panel) {
         if (panel === 'characters' || panel === 'weapons') {
-            this.showroom.open();
-            if (panel === 'weapons') this.showroom.setMode('weapons');
+            this.showroom.open(panel);
             return;
         }
         document.getElementById('dialog-title').textContent = this.titles[panel];

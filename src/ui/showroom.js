@@ -890,7 +890,7 @@ export class CharacterShowroom {
 
     locked() { return this.game.network.active && this.game.state !== 'MENU'; }
 
-    open() {
+    open(initialMode = 'characters') {
         this.game.homeMenu.dialog.close();
         this.game.roomLobby.mount();
         this.renderer = this.game.roomLobby.renderer;
@@ -905,7 +905,7 @@ export class CharacterShowroom {
         this.weaponId = this.loadout.primary;
         this.syncLoadoutUI();
         for (const entry of this.entries.values()) if (entry) this.attachGun(entry);
-        this.setMode('weapons'); // Mặc định mở tab VŨ KHÍ khi vào kho súng
+        this.setMode(initialMode); // Mở tab tương ứng: characters hoặc weapons
         for (const id of Object.keys(CHARACTER_CONFIGS)) this.load(id);
     }
 
