@@ -1,0 +1,702 @@
+/* ==========================================================================
+   CYBER ARENA - MODERN PASTEL LOBBY THEME
+   Thiết kế giao diện Sảnh chờ theo phong cách 3D Warm Pastel Cyber Arena
+   ========================================================================== */
+
+:root {
+  --home-bg-top: #fedec7;
+  --home-bg-mid: #f7c39f;
+  --home-bg-bot: #eb9e72;
+  --home-ink-dark: #221410;
+  --home-ink-sub: #5c433b;
+  --home-ink-light: #ffffff;
+  --home-pill-dark: #433346;
+  --home-pill-dark-hover: #503d54;
+  --home-pill-purple: #564567;
+  --home-pill-cream: #fff8ee;
+  --home-pill-cream-hover: #ffffff;
+  --home-gold-bright: #ffd248;
+  --home-accent-coral: #fa9768;
+}
+
+/* 1. KHUNG CHÍNH SẢNH CHỜ (SCREEN MENU CONTAINER) */
+#screen-menu {
+  background: radial-gradient(circle at 50% 42%, #ffdfc9 0%, #f7c29e 52%, #eb9d70 100%) !important;
+  backdrop-filter: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  font-family: 'Nunito', 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+}
+
+#screen-menu .home-shell {
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  overflow: hidden !important;
+  isolation: isolate !important;
+}
+
+/* Họa tiết mạng lưới chòm sao mờ ảo (Constellation Network Grid) */
+#screen-menu .home-shell::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 1 !important;
+  pointer-events: none !important;
+  opacity: 0.3 !important;
+  background-image: 
+    radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.8) 1.5px, transparent 2px),
+    radial-gradient(circle at 35% 15%, rgba(255, 255, 255, 0.9) 2px, transparent 3px),
+    radial-gradient(circle at 75% 25%, rgba(255, 255, 255, 0.85) 2px, transparent 3px),
+    radial-gradient(circle at 85% 18%, rgba(255, 255, 255, 0.75) 1.5px, transparent 2.5px),
+    radial-gradient(circle at 12% 65%, rgba(255, 255, 255, 0.8) 2px, transparent 3px),
+    radial-gradient(circle at 28% 78%, rgba(255, 255, 255, 0.7) 1.5px, transparent 2.5px),
+    radial-gradient(circle at 88% 68%, rgba(255, 255, 255, 0.8) 2px, transparent 3px),
+    radial-gradient(circle at 65% 82%, rgba(255, 255, 255, 0.75) 1.5px, transparent 2px) !important;
+  background-size: 100% 100% !important;
+}
+
+/* Ánh sáng đèn sân khấu chiếu rọi từ trên cao xuống tâm bục nhân vật */
+#screen-menu .home-stage-light {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 580px;
+  height: 90%;
+  background: radial-gradient(ellipse at 50% 65%, rgba(255, 255, 255, 0.45) 0%, rgba(255, 240, 225, 0.18) 42%, transparent 70%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 2. THANH HEADER TRÊN CÙNG */
+#screen-menu .home-header {
+  position: absolute !important;
+  top: 24px !important;
+  left: 28px !important;
+  right: 28px !important;
+  height: 64px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  z-index: 10 !important;
+  gap: 16px !important;
+}
+
+.home-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Profile Card bo tròn hình viên thuốc */
+#screen-menu .profile-button {
+  background: var(--home-pill-dark) !important;
+  border: 2px solid #2b1f2e !important;
+  border-radius: 999px !important;
+  box-shadow: 0 4px 0 #201622, 0 8px 18px rgba(35, 20, 40, 0.22) !important;
+  padding: 6px 20px 6px 8px !important;
+  min-height: 54px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  color: #fff !important;
+  cursor: pointer !important;
+  transition: transform 0.15s ease, filter 0.15s ease !important;
+}
+#screen-menu .profile-button:hover {
+  transform: translateY(-2px) !important;
+  filter: brightness(1.08) !important;
+}
+
+/* Avatar tròn có badge LV */
+#screen-menu .profile-avatar {
+  position: relative !important;
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50% !important;
+  border: 2px solid #86efac !important;
+  background: linear-gradient(135deg, #4b5563, #1f2937) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 22px !important;
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.25) !important;
+}
+
+#screen-menu .profile-avatar #header-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#screen-menu .profile-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.profile-avatar .avatar-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  background: #111827;
+  color: #facc15;
+  font-size: 9px;
+  font-weight: 900;
+  padding: 1px 4px;
+  border-radius: 6px;
+  border: 1.5px solid #374151;
+  letter-spacing: 0.5px;
+}
+
+.profile-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+#screen-menu .profile-button strong {
+  font-size: 15px !important;
+  font-weight: 900 !important;
+  color: #ffffff !important;
+  letter-spacing: 0.5px !important;
+  line-height: 1.2 !important;
+  text-transform: uppercase !important;
+}
+#screen-menu .profile-button small {
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  color: #86efac !important;
+  letter-spacing: 0.3px !important;
+  margin-top: 1px !important;
+}
+
+/* Nút Bạn Bè */
+#screen-menu .friends-button {
+  background: var(--home-pill-purple) !important;
+  border: 2px solid #362943 !important;
+  border-radius: 18px !important;
+  box-shadow: 0 4px 0 #281d33, 0 8px 16px rgba(45, 25, 55, 0.2) !important;
+  padding: 8px 18px !important;
+  height: 52px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  color: #ffffff !important;
+  font-weight: 900 !important;
+  font-size: 14px !important;
+  cursor: pointer !important;
+  transition: transform 0.15s ease, filter 0.15s ease !important;
+}
+#screen-menu .friends-button:hover {
+  transform: translateY(-2px) !important;
+  filter: brightness(1.1) !important;
+}
+#screen-menu .friends-icon {
+  width: 22px !important;
+  height: 22px !important;
+  fill: #ffffff !important;
+  transform: none !important;
+}
+
+/* Nhóm góc phải: Chỉ có Tiền Vàng và Nút Cài Đặt (Đã loại bỏ hoàn toàn Kim Cương & Năng Lượng) */
+.home-header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Khối pill Vàng */
+#screen-menu .coins-pill {
+  background: var(--home-pill-dark) !important;
+  border: 2px solid #2b1f2e !important;
+  border-radius: 999px !important;
+  box-shadow: 0 4px 0 #201622, 0 8px 18px rgba(35, 20, 40, 0.22) !important;
+  padding: 4px 18px 4px 6px !important;
+  height: 52px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+#screen-menu .coin-gold {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg, #fde047 0%, #eab308 50%, #ca8a04 100%) !important;
+  border: 2px solid #fef08a !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25), inset 0 2px 2px rgba(255, 255, 255, 0.6) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #713f12 !important;
+  font-weight: 1000 !important;
+  font-size: 20px !important;
+  margin: 0 !important;
+}
+
+.coins-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+}
+#screen-menu #menu-coins {
+  font-size: 18px !important;
+  font-weight: 1000 !important;
+  color: #fde047 !important;
+  letter-spacing: 0.5px !important;
+}
+.coins-info small {
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  color: #fef08a !important;
+  letter-spacing: 0.8px !important;
+  margin-top: 1px !important;
+}
+
+/* Nút Cài đặt góc phải */
+#screen-menu .header-settings {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 16px !important;
+  background: var(--home-pill-purple) !important;
+  border: 2px solid #362943 !important;
+  box-shadow: 0 4px 0 #281d33, 0 8px 16px rgba(45, 25, 55, 0.2) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  color: #ffffff !important;
+  cursor: pointer !important;
+  transition: transform 0.15s ease, filter 0.15s ease !important;
+}
+#screen-menu .header-settings:hover {
+  transform: translateY(-2px) rotate(15deg) !important;
+  filter: brightness(1.1) !important;
+}
+#screen-menu .header-settings svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* 3. TIÊU ĐỀ LỚN BÊN TRÁI (INTRO HERO TEXT) */
+#screen-menu .home-intro {
+  position: absolute !important;
+  top: 120px !important;
+  left: 36px !important;
+  text-align: left !important;
+  z-index: 5 !important;
+  pointer-events: none !important;
+}
+
+#screen-menu .home-intro .intro-kicker {
+  font-size: 14px !important;
+  font-weight: 900 !important;
+  letter-spacing: 2px !important;
+  color: #6a4437 !important;
+  text-transform: uppercase !important;
+  display: block !important;
+  margin-bottom: 6px !important;
+}
+
+#screen-menu .home-intro h1 {
+  font-size: clamp(34px, 3.8vw, 56px) !important;
+  font-weight: 1000 !important;
+  line-height: 1.04 !important;
+  color: #261612 !important;
+  margin: 0 0 12px 0 !important;
+  text-transform: uppercase !important;
+  letter-spacing: -0.5px !important;
+  text-shadow: 0 2px 8px rgba(255, 255, 255, 0.4) !important;
+  -webkit-text-stroke: 0 !important;
+}
+
+#screen-menu .home-intro p {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.5 !important;
+  color: #5c4239 !important;
+  margin: 0 !important;
+}
+
+/* 4. MENU ĐIỀU HƯỚNG DỌC (VERTICAL NAVIGATION TILES) */
+#screen-menu .home-nav {
+  position: absolute !important;
+  left: 36px !important;
+  bottom: 40px !important;
+  top: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  z-index: 8 !important;
+  width: 230px !important;
+}
+
+#screen-menu .nav-tile {
+  width: 100% !important;
+  height: 58px !important;
+  min-height: 58px !important;
+  padding: 0 16px !important;
+  background: linear-gradient(180deg, #fffdf8 0%, #faede1 100%) !important;
+  border: 2px solid #ecd3bd !important;
+  border-radius: 18px !important;
+  box-shadow: 0 4px 0 #d9bc9f, 0 8px 16px rgba(100, 55, 20, 0.12) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 12px !important;
+  color: #2b1b16 !important;
+  font-weight: 900 !important;
+  font-size: 15px !important;
+  letter-spacing: 0.5px !important;
+  cursor: pointer !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+#screen-menu .nav-tile:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 0 #d9bc9f, 0 12px 20px rgba(100, 55, 20, 0.16) !important;
+  background: #ffffff !important;
+}
+#screen-menu .nav-tile:active {
+  transform: translateY(3px) !important;
+  box-shadow: 0 1px 0 #d9bc9f, 0 4px 8px rgba(100, 55, 20, 0.1) !important;
+}
+
+#screen-menu .nav-tile .tile-icon {
+  position: static !important;
+  transform: none !important;
+  width: 26px !important;
+  height: 26px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #3b251d !important;
+  flex-shrink: 0 !important;
+}
+#screen-menu .nav-tile .tile-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+#screen-menu .nav-tile strong {
+  flex: 1 !important;
+  text-align: left !important;
+  font-size: 15px !important;
+  font-weight: 1000 !important;
+  color: #261612 !important;
+}
+
+#screen-menu .nav-chevron {
+  color: #8c6a5a;
+  font-size: 16px;
+  margin-left: auto;
+}
+
+/* Hàng kép Cài Đặt + Hướng Dẫn */
+.nav-tile-dual {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.nav-tile-dual .tile-settings {
+  flex: 1;
+}
+
+#screen-menu .help-shortcut {
+  width: 58px !important;
+  height: 58px !important;
+  min-height: 58px !important;
+  flex-shrink: 0 !important;
+  padding: 0 !important;
+  background: linear-gradient(180deg, #fffdf8 0%, #faede1 100%) !important;
+  border: 2px solid #ecd3bd !important;
+  border-radius: 18px !important;
+  box-shadow: 0 4px 0 #d9bc9f, 0 8px 16px rgba(100, 55, 20, 0.12) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #3b251d !important;
+  cursor: pointer !important;
+  transition: transform 0.15s ease !important;
+}
+#screen-menu .help-shortcut:hover {
+  transform: translateY(-2px) !important;
+  background: #ffffff !important;
+}
+
+/* 5. KHU VỰC SÂN KHẤU 3D TRUNG TÂM (#room-lobby) */
+#screen-menu #room-lobby {
+  position: absolute !important;
+  inset: 10% 18% 12% 18% !important;
+  z-index: 4 !important;
+  background: transparent !important;
+  pointer-events: auto !important;
+}
+
+#screen-menu #room-lobby::before {
+  /* Bóng đổ mờ nhạt dưới chân bục */
+  content: '' !important;
+  position: absolute !important;
+  left: 32% !important;
+  right: 32% !important;
+  bottom: 8% !important;
+  height: 18% !important;
+  background: #714636 !important;
+  opacity: 0.28 !important;
+  filter: blur(28px) !important;
+  border-radius: 50% !important;
+}
+
+/* 6. GÓC DƯỚI BÊN PHẢI (CHẾ ĐỘ CHƠI & NÚT CHƠI KHỔNG LỒ) */
+#screen-menu .home-footer {
+  position: absolute !important;
+  right: 36px !important;
+  bottom: 36px !important;
+  left: auto !important;
+  z-index: 10 !important;
+  display: flex !important;
+  align-items: flex-end !important;
+}
+
+#screen-menu .play-area {
+  width: auto !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  gap: 16px !important;
+}
+
+/* Hộp Chọn Chế Độ Chơi */
+#screen-menu .mode-card {
+  width: 260px !important;
+  background: #362846 !important;
+  border: 2px solid #231932 !important;
+  border-radius: 20px !important;
+  box-shadow: 0 5px 0 #21162e, 0 12px 24px rgba(25, 15, 35, 0.35) !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+#screen-menu .mode-ribbon {
+  text-align: center !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  color: #fff6d9 !important;
+  padding: 6px 12px !important;
+  background: #2b1f38 !important;
+  letter-spacing: 1px !important;
+  text-transform: uppercase !important;
+}
+
+#screen-menu .mode-content {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 10px 14px !important;
+  background: #4a3a60 !important;
+  margin: 6px 6px 4px 6px !important;
+  border-radius: 14px !important;
+  cursor: pointer !important;
+}
+#screen-menu .mode-content .mode-icon {
+  font-size: 20px !important;
+  color: #60a5fa !important;
+}
+
+.mode-titles {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  flex: 1;
+}
+.mode-titles strong {
+  font-size: 14px !important;
+  font-weight: 1000 !important;
+  color: #ffffff !important;
+}
+.mode-titles small {
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  color: #bbf7d0 !important;
+  letter-spacing: 0.5px !important;
+}
+
+.mode-dropdown-arrow {
+  color: #e2e8f0;
+  font-size: 14px;
+}
+
+.mode-secondary-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 10px 14px;
+}
+.mode-secondary-row .mode-sec-icon {
+  font-size: 16px;
+  color: #cbd5e1;
+}
+.mode-sec-titles {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+.mode-sec-titles b {
+  font-size: 12px;
+  color: #e2e8f0;
+  font-weight: 900;
+}
+.mode-sec-titles small {
+  font-size: 9px;
+  color: #94a3b8;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+/* NÚT CHƠI KHỔNG LỒ (THE HERO PLAY BUTTON) */
+#screen-menu .play-button {
+  min-height: 86px !important;
+  height: 86px !important;
+  padding: 0 48px !important;
+  background: linear-gradient(180deg, #fff7eb 0%, #ffd4b2 42%, #fca275 100%) !important;
+  border: 2px solid #ecd3be !important;
+  border-radius: 22px !important;
+  box-shadow: inset 0 2px 0 #ffffff, 0 7px 0 #df7f4f, 0 16px 28px rgba(223, 127, 79, 0.45) !important;
+  color: #5c230b !important;
+  font-size: 42px !important;
+  font-weight: 1000 !important;
+  letter-spacing: 2px !important;
+  text-transform: uppercase !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  cursor: pointer !important;
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  -webkit-text-stroke: 0 !important;
+}
+
+#screen-menu .play-button:hover {
+  transform: translateY(-3px) scale(1.02) !important;
+  box-shadow: inset 0 2px 0 #ffffff, 0 10px 0 #df7f4f, 0 22px 34px rgba(223, 127, 79, 0.55) !important;
+  filter: brightness(1.05) !important;
+}
+#screen-menu .play-button:active {
+  transform: translateY(4px) scale(0.99) !important;
+  box-shadow: inset 0 2px 0 #ffffff, 0 2px 0 #df7f4f, 0 6px 12px rgba(223, 127, 79, 0.3) !important;
+}
+
+.play-button .bolt {
+  font-size: 32px;
+  color: #5c230b;
+  display: inline-block;
+}
+
+/* 7. THANH DOCK BÊN PHẢI (RIGHT FLOATING DOCK) */
+.home-side-dock {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #362846;
+  border: 2px solid #231932;
+  border-right: none;
+  border-radius: 16px 0 0 16px;
+  padding: 10px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 10;
+  box-shadow: -4px 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+.home-side-dock .dock-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #4a3a60;
+  border: none;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.home-side-dock .dock-btn:hover {
+  transform: scale(1.1);
+  background: #604e7a;
+  color: #ffffff;
+}
+.home-side-dock .dock-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* 8. DIALOG / MODAL ĐỒNG BỘ THEME WARM PASTEL */
+#home-dialog {
+  border-radius: 24px !important;
+  border: 2px solid #362846 !important;
+  background: #423354 !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45) !important;
+}
+#home-dialog .dialog-header {
+  background: linear-gradient(135deg, #f98555, #ea6b39) !important;
+  border-bottom: 2px solid #30223f !important;
+  border-radius: 20px 20px 0 0 !important;
+}
+
+/* RESPONSIVE TRÊN CÁC THIẾT BỊ NHỎ HOẶC TABLET */
+@media (max-width: 900px) {
+  #screen-menu .home-intro {
+    top: 96px !important;
+    left: 20px !important;
+  }
+  #screen-menu .home-intro h1 {
+    font-size: 32px !important;
+  }
+  #screen-menu .home-nav {
+    left: 20px !important;
+    bottom: 20px !important;
+    width: 190px !important;
+  }
+  #screen-menu .nav-tile {
+    height: 50px !important;
+    min-height: 50px !important;
+    font-size: 13px !important;
+  }
+  #screen-menu .home-footer {
+    right: 20px !important;
+    bottom: 20px !important;
+  }
+  #screen-menu .play-button {
+    font-size: 32px !important;
+    padding: 0 28px !important;
+    height: 72px !important;
+  }
+  #screen-menu .mode-card {
+    width: 210px !important;
+  }
+  .home-side-dock {
+    display: none;
+  }
+}

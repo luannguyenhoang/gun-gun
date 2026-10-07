@@ -18,6 +18,53 @@ export class RoomLobby {
         const light = new THREE.DirectionalLight(0xffffff, 3);
         light.position.set(-4, 8, 6);
         this.scene.add(light);
+
+        // Bục tròn 3D phát sáng cao cấp theo ảnh mẫu (Glowing Stage Pedestal)
+        this.pedestalGroup = new THREE.Group();
+
+        // 1. Tầng đế dưới (Base cylinder)
+        const baseGeo = new THREE.CylinderGeometry(2.35, 2.45, 0.22, 64);
+        const baseMat = new THREE.MeshStandardMaterial({
+            color: 0xdec2af,
+            roughness: 0.55,
+            metalness: 0.05
+        });
+        const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+        baseMesh.position.y = -0.22;
+        this.pedestalGroup.add(baseMesh);
+
+        // 2. Tầng bục trên (Top cylinder)
+        const topGeo = new THREE.CylinderGeometry(2.1, 2.2, 0.16, 64);
+        const topMat = new THREE.MeshStandardMaterial({
+            color: 0xf6dfd0,
+            roughness: 0.45,
+            metalness: 0.05
+        });
+        const topMesh = new THREE.Mesh(topGeo, topMat);
+        topMesh.position.y = -0.06;
+        this.pedestalGroup.add(topMesh);
+
+        // 3. Vòng neon phát sáng tròn (Glow Light Ring trên mặt bục)
+        const ringGeo = new THREE.TorusGeometry(1.92, 0.045, 16, 64);
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: 0xfff3db
+        });
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.rotation.x = Math.PI / 2;
+        ringMesh.position.y = 0.025;
+        this.pedestalGroup.add(ringMesh);
+
+        // 4. Vòng viền đế phụ (Sub-glow ring)
+        const subRingGeo = new THREE.TorusGeometry(2.32, 0.025, 16, 64);
+        const subRingMat = new THREE.MeshBasicMaterial({
+            color: 0xffedd5
+        });
+        const subRingMesh = new THREE.Mesh(subRingGeo, subRingMat);
+        subRingMesh.rotation.x = Math.PI / 2;
+        subRingMesh.position.y = -0.11;
+        this.pedestalGroup.add(subRingMesh);
+
+        this.scene.add(this.pedestalGroup);
     }
 
     load(character) {
@@ -52,6 +99,7 @@ export class RoomLobby {
         const players = data.players || [];
         this.solo = !!data.solo;
         this.container.classList?.toggle('solo-preview', this.solo);
+        if (this.pedestalGroup) this.pedestalGroup.visible = this.solo;
         const signature = JSON.stringify([data.code, data.host, data.you, players, this.solo]);
         if (signature === this.signature) return;
         this.signature = signature;

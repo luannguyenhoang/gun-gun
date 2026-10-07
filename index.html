@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="styles/zappets.css"><link rel="stylesheet" href="styles/combat.css?v=44"><link rel="stylesheet" href="styles/showroom.css?v=45">
     <link rel="stylesheet" href="styles/ux.css">
     <link rel="stylesheet" href="styles/home-polish.css?v=1">
+    <link rel="stylesheet" href="styles/home-reference.css?v=2">
     <style>
       #armory-grid-section { display: none; }
       .weapon-mode #character-cards { display: none !important; }
@@ -782,33 +783,128 @@
     <!-- Full-screen character lobby -->
     <div id="screen-menu" class="screen-overlay" style="display:none;">
       <main class="home-shell">
-        <div class="home-intro"><span>CYBER ARENA</span><h1>SẴN SÀNG<br>SINH TỒN?</h1><p>Chọn chiến binh. Trang bị súng.<br>Cùng nhau vượt qua bầy zombie.</p></div>
+        <div class="home-stage-light" aria-hidden="true"></div>
+
         <header class="home-header">
-          <button class="toy-button purple profile-button" data-open="profile" aria-label="Hồ sơ & Tài khoản"><span class="profile-avatar" id="header-avatar">★</span><span><strong id="profile-name">NGƯỜI CHƠI</strong><small id="profile-auth-status">ĐĂNG NHẬP / HỒ SƠ</small></span></button>
-          <button class="toy-button orange friends-button" data-open="friends"><span class="friends-icon">▣</span> <span id="friends-label">BẠN BÈ</span> <span class="button-badge" aria-hidden="true">+</span></button>
-          <div class="score-pill" title="Điểm cao nhất"><span class="coin">★</span><span id="menu-highscore">0</span></div>
-          <div class="score-pill coins-pill" title="Vàng tích lũy"><span class="coin-gold">VÀNG:</span> <b id="menu-coins">1,000</b></div>
+          <div class="home-header-left">
+            <button class="toy-button purple profile-button" data-open="profile" aria-label="Hồ sơ & Tài khoản">
+              <span class="profile-avatar"><span id="header-avatar">★</span><span class="avatar-badge">LV</span></span>
+              <span class="profile-meta">
+                <strong id="profile-name">LUÂN NGUYỄN</strong>
+                <small id="profile-auth-status">LÀ ĐĂNG NHẬP</small>
+              </span>
+            </button>
+            <button class="toy-button purple friends-button" data-open="friends">
+              <svg class="friends-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
+              <span id="friends-label">BẠN BÈ</span>
+              <span class="button-badge" aria-hidden="true" style="display:none;">+</span>
+            </button>
+          </div>
+
+          <span id="menu-highscore" hidden>0</span>
+
+          <!-- Góc phải: Chỉ giữ lại VÀNG và NÚT CÀI ĐẶT (Đã loại bỏ năng lượng và kim cương theo yêu cầu) -->
+          <div class="home-header-right">
+            <div class="score-pill coins-pill" title="Vàng tích lũy">
+              <span class="coin-gold" aria-hidden="true">$</span>
+              <span class="coins-info">
+                <b id="menu-coins">1,000</b>
+                <small>VÀNG</small>
+              </span>
+            </div>
+            <button class="toy-button header-settings" data-open="settings" aria-label="Cài đặt">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="m9 1 6 0 .7 3 2 .9 2.7-1.3 3 5.2-2.2 2.1v2.2l2.2 2.1-3 5.2-2.7-1.3-2 .9-.7 3H9l-.7-3-2-.9-2.7 1.3-3-5.2 2.2-2.1v-2.2L.6 8.8l3-5.2 2.7 1.3 2-.9zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8"/></svg>
+            </button>
+          </div>
         </header>
+
+        <div class="home-intro">
+          <span class="intro-kicker">CYBER ARENA</span>
+          <h1>SẴN SÀNG<br>SINH TỒN?</h1>
+          <p>Chọn chiến binh. Trang bị súng.<br>Cùng nhau vượt qua bầy zombie.</p>
+        </div>
+
         <nav class="home-nav" aria-label="Menu chính">
-          <button class="toy-button blue nav-tile" data-open="characters"><span class="tile-icon character-icon">♟</span><strong>NHÂN VẬT</strong><small id="home-character-count">CHỌN NHÂN VẬT</small></button>
-          <button class="toy-button blue nav-tile" data-open="weapons"><span class="tile-icon weapon-nav-icon">⌁</span><strong>KHO SÚNG</strong><small>TRANG BỊ</small></button>
-          <button class="toy-button blue nav-tile" data-open="help"><span class="tile-icon help-icon">?</span><strong>HƯỚNG DẪN</strong></button>
-          <button class="toy-button blue nav-tile" data-open="settings"><span class="tile-icon gear-icon">⚙</span><strong>CÀI ĐẶT</strong></button>
-        <button class="toy-button blue nav-tile mobile-record" data-open="records"><span class="tile-icon" aria-hidden="true">♜</span><strong>KỶ LỤC</strong></button>
+          <button class="toy-button nav-tile" data-open="characters">
+            <span class="tile-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a6 6 0 0 1 12 0v2z"/></svg>
+            </span>
+            <strong>NHÂN VẬT</strong>
+            <span class="nav-chevron" aria-hidden="true">▴</span>
+            <small id="home-character-count" hidden>CHỌN NHÂN VẬT</small>
+          </button>
+          <button class="toy-button nav-tile" data-open="weapons">
+            <span class="tile-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 6H9c-1.1 0-2 .9-2 2v2H3c-.55 0-1 .45-1 1v2c0 .55.45 1 1 1h4v2c0 1.1.9 2 2 2h4l4 4h4v-3l2-2V8c0-1.1-.9-2-2-2z"/></svg>
+            </span>
+            <strong>KHO SÚNG</strong>
+            <span class="nav-chevron" aria-hidden="true">▾</span>
+          </button>
+          <button class="toy-button nav-tile" data-open="records">
+            <span class="tile-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0 0 11 15.9V19H8v2h8v-2h-3v-3.1c1.94-.44 3.44-2 3.61-4.06C19.08 11.63 21 9.55 21 7V5c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/></svg>
+            </span>
+            <strong>THÀNH TỰU</strong>
+            <span class="nav-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="nav-tile-dual">
+            <button class="toy-button nav-tile tile-settings" data-open="settings">
+              <span class="tile-icon">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="m9 1 6 0 .7 3 2 .9 2.7-1.3 3 5.2-2.2 2.1v2.2l2.2 2.1-3 5.2-2.7-1.3-2 .9-.7 3H9l-.7-3-2-.9-2.7 1.3-3-5.2 2.2-2.1v-2.2L.6 8.8l3-5.2 2.7 1.3 2-.9zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8"/></svg>
+              </span>
+              <strong>CÀI ĐẶT</strong>
+            </button>
+            <button class="toy-button help-shortcut" data-open="help" aria-label="Hướng dẫn chơi" title="Hướng dẫn chơi">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M6 2h12v2H6zm0 18h12v2H6zm2-16h8v2H8zm0 14h8v2H8zm4-9.5L16 13H8l4-4.5z"/></svg>
+            </button>
+          </div>
         </nav>
+
         <div id="room-lobby" aria-label="Xem trước nhân vật 3D"></div>
-        <button class="home-equipped" data-open="weapons" title="Thay đổi súng khởi đầu"><img id="home-equipped-icon" alt="Súng đã trang bị"><span><small>TRANG BỊ CỦA BẠN</small><strong id="home-equipped-character">LÍNH</strong><b id="home-equipped-weapon">BLASTER-X</b></span><span aria-hidden="true">↗</span></button>
-        <button class="toy-button orange invite-button" data-open="friends" aria-label="Mời bạn vào phòng">+</button>
+
+        <button class="home-equipped" data-open="weapons" title="Thay đổi súng khởi đầu" style="display:none;"><img id="home-equipped-icon" alt="Súng đã trang bị"><span><small>TRANG BỊ CỦA BẠN</small><strong id="home-equipped-character">LÍNH</strong><b id="home-equipped-weapon">BLASTER-X</b></span><span aria-hidden="true">↗</span></button>
+        <button class="toy-button orange invite-button" data-open="friends" aria-label="Mời bạn vào phòng" style="display:none;">+</button>
+
         <footer class="home-footer">
-          <button class="toy-button blue record-button" data-open="records"><span>♜</span><span>KỶ LỤC<small>THÀNH TÍCH CỦA BẠN</small></span></button>
           <div class="play-area">
             <button id="room-leave" class="toy-button purple leave-button" style="display:none">RỜI PHÒNG</button>
-            <div class="mode-card purple"><div class="mode-ribbon" id="mode-status" role="status">CHƠI ĐƠN · SẴN SÀNG</div><div class="mode-content"><span>⏩</span><div><strong>VÔ TẬN</strong><small>ĐẤU TRƯỜNG ZOMBIE</small></div></div></div>
-            <button id="btn-start" class="toy-button yellow play-button">CHƠI</button>
-            <button id="room-start" class="toy-button yellow play-button" style="display:none">BẮT ĐẦU</button>
+            <div class="mode-card purple">
+              <div class="mode-ribbon">⚡ Chế Độ Chơi ⚡</div>
+              <div class="mode-content">
+                <span class="mode-icon" aria-hidden="true">⏩</span>
+                <div class="mode-titles">
+                  <strong>Vô Tận (Zombie)</strong>
+                  <small>ĐẤU (ZOMBIE)</small>
+                </div>
+                <span class="mode-dropdown-arrow" aria-hidden="true">▾</span>
+              </div>
+              <div class="mode-secondary-row">
+                <span class="mode-sec-icon" aria-hidden="true">💀</span>
+                <div class="mode-sec-titles">
+                  <b>Vô Tận</b>
+                  <small>ĐẤU TRƯỜNG ZOMBIE</small>
+                </div>
+              </div>
+              <div id="mode-status" role="status" style="display:none;">CHƠI ĐƠN · SẴN SÀNG</div>
+            </div>
+            <button id="btn-start" class="toy-button yellow play-button"><span class="bolt">⚡</span> CHƠI <span class="bolt">⚡</span></button>
+            <button id="room-start" class="toy-button yellow play-button" style="display:none"><span class="bolt">⚡</span> BẮT ĐẦU <span class="bolt">⚡</span></button>
             <div id="guest-wait" role="status" hidden>ĐANG CHỜ CHỦ PHÒNG…</div>
           </div>
         </footer>
+
+        <!-- Thanh dock bên phải -->
+        <aside class="home-side-dock" aria-label="Menu cạnh">
+          <button class="dock-btn" data-open="settings" title="Cài đặt">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="m9 1 6 0 .7 3 2 .9 2.7-1.3 3 5.2-2.2 2.1v2.2l2.2 2.1-3 5.2-2.7-1.3-2 .9-.7 3H9l-.7-3-2-.9-2.7 1.3-3-5.2 2.2-2.1v-2.2L.6 8.8l3-5.2 2.7 1.3 2-.9zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8"/></svg>
+          </button>
+          <button class="dock-btn" data-open="records" title="Thành tựu">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0 0 11 15.9V19H8v2h8v-2h-3v-3.1c1.94-.44 3.44-2 3.61-4.06C19.08 11.63 21 9.55 21 7V5c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/></svg>
+          </button>
+          <button class="dock-btn" data-open="friends" title="Cộng đồng">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+          </button>
+        </aside>
         <dialog id="home-dialog" aria-labelledby="dialog-title">
           <div class="dialog-header"><h2 id="dialog-title"></h2><button class="toy-button coral close-dialog" aria-label="Đóng">×</button></div>
           <div class="dialog-body">
