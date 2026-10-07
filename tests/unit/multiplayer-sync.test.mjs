@@ -253,3 +253,43 @@ test('looting container snapshot has finite life on wire and preserves Infinity 
  clientLooting.applySnapshot(snap);
  assert.equal(clientLooting.containers[0].life, Infinity);
 });
+
+test('host disconnect promotes remaining client to authoritative match instead of stopping game', () => {
+ const scene = new THREE.Scene();
+ const dummyPlayer = {
+  position: new THREE.Vector3(0, 0, 0),
+  cooperative: true,
+  name: 'ClientPlayer'
+ };
+ const mockGame = {
+  state: 'PLAYING',
+  player: dummyPlayer,
+  currentWave: 3,
+  coopPlayers: [dummyPlayer],
+  remotePlayers: new Map(),
+  weapons: { onCommand: () => {}, enemyTargets: [] },
+  waveManager: { enemies: [{ id: 'z1', netTarget: new THREE.Vector3() }], isWaveInProgress: false },
+  ui: { showBanner() {} },
+  removeCoopPlayer(id) {
+   this.remotePlayers.delete(id);
+   this.coopPlayers = this.coopPlayers.filter(p => p.id !== id);
+  }
+ };
+
+ const net = new NetworkRoom(mockGame);
+ net.active = true;
+ net.host = false;
+ net.playerId = 'client_1';
+ net.players = [{ id: 'host', name: 'Host' }, { id: 'client_1', name: 'ClientPlayer' }];
+ net.conn = { close() {} };
+
+ net.handleHostDisconnect();
+
+ // Host was removed from match
+ assert.equal(mockGame.weapons.onCommand, null, 'Weapon commands are restored to local authoritative');
+ assert.equal(mockGame.waveManager.isWaveInProgress, true, 'Wave progression remains active');
+ assert.equal(mockGame.waveManager.enemies[0].netTarget, null, 'Enemies switch from remote interpolation to local AI');
+ assert.equal(mockGame.state, 'PLAYING', 'Match is not stopped');
+ assert.equal(dummyPlayer.cooperative, false, 'Solo player is not left in stuck coop mode');
+});
+

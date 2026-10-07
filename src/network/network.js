@@ -214,10 +214,7 @@ export class NetworkRoom {
                 });
                 
                 this.conn.on('close', () => {
-                    this.active = false;
-                    this.stopTicker?.();
-                    this.stopTicker = null;
-                    this.game.showRoomError('Mất kết nối với Host.');
+                    this.handleHostDisconnect();
                 });
                 
                 this.conn.on('error', (err) => reject(new Error("Lỗi kết nối: " + err.message)));
@@ -435,13 +432,217 @@ export class NetworkRoom {
         }
     }
 
-    changeWeapon(id) {
-        if (!this.active || this.game.state !== 'MENU') return;
-        const weapon = getStartingWeapon(id).id;
-        if (this.host) {
-            const player = this.players.find(p => p.id === this.playerId);
-            if (player) { player.weapon = weapon; this.broadcastRoster(); }
-        } else if (this.conn?.open) this.conn.send({ type: 'weapon', weapon, loadout: this.game.getLoadout?.() });
+    handleHostDisconnect() {
+        if (!this.active) return;
+
+        // Nếu trận đấu chưa bắt đầu (đang ở phòng chờ MENU)
+        if (this.game.state === 'MENU' || this.game.state === 'LOADING') {
+            this.active = false;
+            this.stopTicker?.();
+            this.stopTicker = null;
+            this.game.showRoomError('Chủ phòng đã rời phòng.');
+            this.game.resetRoomUI?.();
+            return;
+        }
+
+        // Nếu trận đấu đang diễn ra (PLAYING hoặc PAUSED)
+        if (this.game.state === 'PLAYING' || this.game.state === 'PAUSED') {
+            console.warn('[NetworkRoom] Chủ phòng đã ngắt kết nối. Kích hoạt chuyển giao quyền điều khiển để trận đấu tiếp tục!');
+
+            // 1. Dọn dẹp kết nối mạng client cũ
+            this.stopTicker?.();
+            this.stopTicker = null;
+            if (this.conn) {
+                try { this.conn.close(); } catch {}
+                this.conn = null;
+            }
+
+            // 2. Gỡ bỏ người chơi Host cũ khỏi trận đấu
+            this.game.removeCoopPlayer('host');
+            const zone = this.game.reviveZoneMeshes?.get('host');
+            if (zone) {
+                this.game.scene?.remove(zone.group);
+                this.game.reviveZoneMeshes?.delete('host');
+            }
+
+            // 3. Khôi phục quyền kiểm soát vũ khí cục bộ: loại bỏ onCommand để đạn bắn trực tiếp gây sát thương
+            if (this.game.weapons) {
+                this.game.weapons.onCommand = null;
+            }
+
+            // 4. Kích hoạt toàn bộ quái vật hiện có trên sân chuyển sang AI cục bộ
+            if (this.game.waveManager) {
+                this.game.waveManager.isWaveInProgress = true;
+                this.game.waveManager.currentWave = this.game.currentWave;
+                for (const enemy of this.game.waveManager.enemies) {
+                    enemy.netTarget = null;
+                    enemy.netVelocity = null;
+                }
+            }
+
+            // 5. Kiểm tra các người chơi còn lại
+            const remainingPlayers = this.players.filter(p => p.id !== 'host');
+            const otherTeammates = remainingPlayers.filter(p => p.id !== this.playerId);
+
+            if (otherTeammates.length === 0) {
+                // Chỉ còn 1 người chơi duy nhất: Chuyển sang chế độ Solo Authoritative
+                this.active = false;
+                this.host = false;
+                this.game.player.cooperative = false;
+                this.game.weapons.enemyTargets = this.game.coopPlayers;
+
+                this.game.ui?.showBanner?.('CHỦ PHÒNG ĐÃ RỜI TRẬN! BẠN ĐÃ TIẾP QUẢN TRẬN ĐẤU VÀ TIẾP TỤC CHIẾN ĐẤU!');
+                if (typeof sounds !== 'undefined' && sounds.play) {
+                    sounds.play('powerup', { volume: 1.0 });
+                }
+            } else {
+                // Còn nhiều đồng đội: Bầu New Host theo thứ tự ID
+                remainingPlayers.sort((a, b) => a.id.localeCompare(b.id));
+                const newHost = remainingPlayers[0];
+                const isMeNewHost = (newHost.id === this.playerId);
+
+                if (isMeNewHost) {
+                    this.host = true;
+                    this.active = true;
+                    this.players = remainingPlayers;
+                    this.connections = [];
+                    this.game.weapons.enemyTargets = this.game.coopPlayers;
+                    this.game.player.cooperative = true;
+
+                    this.game.ui?.showBanner?.('CHỦ PHÒNG ĐÃ RỜI TRẬN! BẠN ĐÃ TRỞ THÀNH CHỦ PHÒNG MỚI, TRẬN ĐẤU TIẾP TỤC!');
+                    if (typeof sounds !== 'undefined' && sounds.play) {
+                        sounds.play('powerup', { volume: 1.0 });
+                    }
+
+                    // Tái thiết lập PeerJS lắng nghe để các đồng đội kết nối lại vào mình
+                    this.rehostRoom();
+                } else {
+                    this.active = true;
+                    this.host = false;
+                    this.players = remainingPlayers;
+                    this.game.player.cooperative = true;
+                    this.game.weapons.enemyTargets = this.game.coopPlayers;
+
+                    this.game.ui?.showBanner?.(`CHỦ PHÒNG ĐÃ RỜI! ĐỒNG ĐỘI ${newHost.name || ''} TIẾP QUẢN, TRẬN ĐẤU TIẾP TỤC!`);
+
+                    // Thử kết nối lại với New Host
+                    this.reconnectToNewHost();
+                }
+            }
+        }
+    }
+
+    rehostRoom() {
+        if (!this.host || !this.code) return;
+        const code = this.code;
+        try {
+            if (this.peer && !this.peer.destroyed) {
+                this.peer.destroy();
+            }
+        } catch {}
+
+        setTimeout(() => {
+            if (!this.active || !this.host) return;
+            try {
+                this.peer = new window.Peer('gungun-room-' + code, PEER_CONFIG);
+                this.peer.on('open', () => {
+                    console.log('[NetworkHost] Đã tái thiết lập phòng thành công với vai trò Host mới:', code);
+                    this.startTicker();
+                });
+                this.peer.on('connection', (conn) => {
+                    let pId = 'p' + Math.random().toString(36).substring(2, 8);
+                    let clientState = { id: pId, conn, input: {}, commands: [], ack: 0 };
+                    this.connections.push(clientState);
+                    conn.on('data', (data) => {
+                        if (data.type === 'join' || data.type === 'rejoin') {
+                            clientState.id = data.playerId || pId;
+                            clientState.joined = true;
+                            conn.send({
+                                type: 'accept_rejoin',
+                                protocol: PROTOCOL_VERSION,
+                                you: clientState.id,
+                                epoch: this.epoch,
+                                host: this.playerId
+                            });
+                        } else if (data.type === 'sync') {
+                            if (!Number.isSafeInteger(data.inputSeq) || data.inputSeq <= (clientState.inputSeq || 0)) return;
+                            clientState.inputSeq = data.inputSeq;
+                            clientState.input = data.input;
+                            this.applyInputs({ [clientState.id]: data.input });
+                            if (data.commands && data.commands.length > 0) {
+                                this.applyCommands([{ player: clientState.id, commands: data.commands }]);
+                            }
+                        }
+                    });
+                    conn.on('close', () => {
+                        this.connections = this.connections.filter(c => c.conn !== conn);
+                    });
+                });
+                this.peer.on('error', (err) => {
+                    console.warn('[NetworkHost] Rehost thông báo:', err.message);
+                });
+            } catch (err) {
+                console.warn('[NetworkHost] Không thể tái mở Peer:', err);
+            }
+        }, 1000);
+    }
+
+    reconnectToNewHost() {
+        if (this.host || !this.code) return;
+        const code = this.code;
+        let attempts = 0;
+        const maxAttempts = 5;
+
+        const tryConnect = () => {
+            if (!this.active || this.host || (this.conn && this.conn.open)) return;
+            attempts++;
+            try {
+                if (!this.peer || this.peer.destroyed) {
+                    this.peer = new window.Peer(PEER_CONFIG);
+                }
+                const newConn = this.peer.connect('gungun-room-' + code, { reliable: true });
+                newConn.on('open', () => {
+                    this.conn = newConn;
+                    newConn.send({
+                        type: 'rejoin',
+                        protocol: PROTOCOL_VERSION,
+                        playerId: this.playerId,
+                        name: this.game.player.name || 'Đồng đội',
+                        character: this.game.characterId
+                    });
+                    this.startTicker();
+                    console.log('[NetworkClient] Đã kết nối lại thành công với Tân Chủ Phòng!');
+                });
+                newConn.on('data', (data) => {
+                    if (data.type === 'snapshot') {
+                        if (!data.snapshot) return;
+                        if (!Number.isSafeInteger(data.snapshotSeq) || data.snapshotSeq <= this.lastSnapshotSeq) return;
+                        this.lastSnapshotSeq = data.snapshotSeq;
+                        try {
+                            this.game.applyCoopSnapshot(data.snapshot, this.playerId);
+                        } catch (err) {
+                            console.warn('[NetworkClient] Lỗi snapshot sau rejoin:', err);
+                        }
+                    }
+                });
+                newConn.on('error', () => {
+                    if (attempts < maxAttempts) {
+                        setTimeout(tryConnect, 2000);
+                    } else {
+                        // Nếu không kết nối lại được sau 5 lần, chuyển hẳn sang chơi độc lập mượt mà
+                        this.active = false;
+                        this.game.player.cooperative = false;
+                        this.game.weapons.enemyTargets = this.game.coopPlayers;
+                        this.game.ui?.showBanner?.('MẤT KẾT NỐI VỚI ĐỒNG ĐỘI! BẠN TIẾP TỤC CHIẾN ĐẤU MỘT MÌNH!');
+                    }
+                });
+            } catch {
+                if (attempts < maxAttempts) setTimeout(tryConnect, 2000);
+            }
+        };
+
+        // Chờ 2 giây để New Host kịp mở cổng
+        setTimeout(tryConnect, 2200);
     }
 
     leave() {

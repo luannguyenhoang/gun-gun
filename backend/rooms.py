@@ -35,7 +35,10 @@ class RoomService:
                 if now - player['seen'] > 15:
                     del room['players'][pid]
             if room['host'] not in room['players']:
-                del self.rooms[code]
+                if room['players']:
+                    room['host'] = next(iter(room['players'].keys()))
+                else:
+                    del self.rooms[code]
 
     def authorize(self, data):
         room = self.rooms.get(str(data.get('code', '')).upper())
@@ -81,12 +84,13 @@ class RoomService:
                 room['players'][player['id']] = player
                 return {**self.public(room, player), 'token': player['token']}
             room, player = self.authorize(data)
-            is_host = room['host'] == player['id']
             if action == 'leave':
+                del room['players'][player['id']]
                 if is_host:
-                    del self.rooms[room['code']]
-                else:
-                    del room['players'][player['id']]
+                    if room['players']:
+                        room['host'] = next(iter(room['players'].keys()))
+                    else:
+                        del self.rooms[room['code']]
                 return {'left': True}
             if action == 'start':
                 if not is_host:
