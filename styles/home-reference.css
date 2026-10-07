@@ -311,3 +311,21 @@
 @media(max-width:700px) {
  #screen-menu .profile-button::before { left:24px; }
 }
+/* Transparent PNG artwork from the supplied icon sheet. */
+#screen-menu .lobby-png { display:block; width:100%; height:100%; object-fit:contain; pointer-events:none; }
+#screen-menu .friends-icon.lobby-png { width:27px; height:27px; }
+#screen-menu .coin-gold { border:0; outline:0; padding:0; background:none; box-shadow:none; text-shadow:none; width:37px; height:37px; }
+#screen-menu .header-settings { padding:0; border:0; background:none; box-shadow:none; width:40px; height:40px; }
+#screen-menu .profile-avatar { border:0; padding:6px; background: url('../assets/ui/lobby/runtime/avatar-ring.png') center/contain no-repeat; box-shadow:none; }
+#screen-menu .help-shortcut { padding:0; border:0; background:none; box-shadow:none; }
+#screen-menu .mode-content > .mode-icon { padding:0; border:0; background:none; box-shadow:none; width:29px; height:29px; }
+#screen-menu .nav-chevron { display:block; width:15px; height:17px; flex-shrink:0; }
+#screen-menu .mode-content > .mode-dropdown-arrow { width:20px; height:25px; }
+#screen-menu .home-side-dock .dock-btn { padding:0; width:24px; height:24px; background:none; }
+#screen-menu #btn-start { background: url('../assets/ui/lobby/runtime/play-button.png') center/100% 100% no-repeat; border:0; box-shadow:none; color:transparent; text-shadow:none; font-size:0; height:82px; min-height:82px; margin:0; }
+#screen-menu #btn-start::after { content:none; }
+@media(max-width:700px) {
+ #screen-menu #btn-start { height:64px; min-height:64px; }
+ #screen-menu .friends-icon.lobby-png { width:21px; height:21px; }
+ #screen-menu .coin-gold { width:29px; height:29px; }
+}

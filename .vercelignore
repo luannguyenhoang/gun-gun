@@ -5,3 +5,7 @@ assets/*.zip
 docs
 tools
 README.md
+# High-resolution authoring sources; the lobby serves runtime PNGs only.
+assets/ui/lobby/4k
+assets/ui/lobby/source-sheet.png
+assets/ui/lobby/transparent-sheet.png
