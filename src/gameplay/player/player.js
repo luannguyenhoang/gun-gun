@@ -1227,18 +1227,157 @@ export class PlayerController {
 
         this.scene.add(reticleGroup);
 
-        // Hiệu ứng nhấp nháy báo động với tần số tăng dần trong 0.8s
-        const aimStartTime = performance.now();
-        const aimAnim = () => {
-            const elapsed = (performance.now() - aimStartTime) / 1000;
-            if (elapsed >= 0.8) return;
-            reticleRing.material.opacity = 0.5 + Math.sin(elapsed * 24) * 0.45;
-            guideBeam.material.opacity = 0.5 + Math.sin(elapsed * 24) * 0.4;
-            requestAnimationFrame(aimAnim);
-        };
-        requestAnimationFrame(aimAnim);
+        // Sau 0.85 giây khóa mục tiêu: Cột Laser Pháo Kích Quỹ Đạo 3D giáng xuống mặt đất
+        setTimeout(() => {
+            // Xóa vòng ngắm laser
+            this.scene.remove(reticleGroup);
+            reticleRingGeo.dispose();
+            reticleRingMat.dispose();
+            guideBeamGeo.dispose();
+            guideBeamMat.dispose();
 
-        (this.activeStrikes ||= []).push({mesh: reticleGroup, position: targetPos, timer: 1.15, fired: false});
+            // 1. Cột Laser Pháo Kích Quỹ Đạo Thể Tích 3D (Giant Volumetric Orbital Laser Beam)
+            const beamGroup = new THREE.Group();
+            beamGroup.position.copy(targetPos);
+
+            // Lõi plasma trắng tinh siêu sáng ở giữa (bán kính 1.4m, cao 50m)
+            const coreBeamGeo = new THREE.CylinderGeometry(1.4, 1.8, 50, 16);
+            coreBeamGeo.translate(0, 25, 0);
+            const coreBeamMat = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.95,
+                blending: THREE.AdditiveBlending
+            });
+            const coreBeamMesh = new THREE.Mesh(coreBeamGeo, coreBeamMat);
+            beamGroup.add(coreBeamMesh);
+
+            // Vỏ hào quang laser đỏ cam năng lượng cao bao ngoài (bán kính 3.2m)
+            const outerBeamGeo = new THREE.CylinderGeometry(2.8, 3.6, 50, 16);
+            outerBeamGeo.translate(0, 25, 0);
+            const outerBeamMat = new THREE.MeshBasicMaterial({
+                color: 0xff1744,
+                transparent: true,
+                opacity: 0.80,
+                blending: THREE.AdditiveBlending,
+                side: THREE.DoubleSide
+            });
+            const outerBeamMesh = new THREE.Mesh(outerBeamGeo, outerBeamMat);
+            beamGroup.add(outerBeamMesh);
+
+            // Vầng hào quang flash chớp nổ bùng cháy dưới chân (Radial Flare từ light_01.png)
+            const impactFlareMat = new THREE.SpriteMaterial({
+                map: getSkillTexture('assets/particles/light_01.png'),
+                color: 0xff2200,
+                transparent: true,
+                opacity: 0.95,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const impactFlare = new THREE.Sprite(impactFlareMat);
+            impactFlare.position.set(0, 1.2, 0);
+            impactFlare.scale.set(12.0, 12.0, 1);
+            beamGroup.add(impactFlare);
+
+            this.scene.add(beamGroup);
+
+            // 2. Vết cháy nứt đất khổng lồ (Decal Scorch từ scorch_03.png) dán sàn đấu
+            const scorchDecal = createGroundParticleDecal(targetPos, 8.5, 'assets/particles/scorch_03.png', 0xea580c, 0.92, THREE.NormalBlending);
+            scorchDecal.position.y = 0.04;
+            this.scene.add(scorchDecal);
+
+            // 3. Vũng than hồng bốc cháy âm ỉ trên mặt đất (fire_01.png)
+            const emberDecal = createGroundParticleDecal(targetPos, 7.2, 'assets/particles/fire_01.png', 0xff3a00, 0.85, THREE.AdditiveBlending);
+            emberDecal.position.y = 0.05;
+            this.scene.add(emberDecal);
+
+            // 4. Vòng sóng xung kích chấn động lửa 3D bung nở ra 7.5m
+            const blastRingGeo = new THREE.RingGeometry(0.5, 1.6, 48);
+            blastRingGeo.rotateX(-Math.PI / 2);
+            const blastRingMat = new THREE.MeshBasicMaterial({
+                color: 0xff3300,
+                transparent: true,
+                opacity: 0.95,
+                side: THREE.DoubleSide,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const blastRing = new THREE.Mesh(blastRingGeo, blastRingMat);
+            blastRing.position.copy(targetPos);
+            blastRing.position.y = 0.06;
+            this.scene.add(blastRing);
+
+            // 5. Hiệu ứng khói lửa và tia lửa nổ tung tóe
+            this.particles?.createExplosion?.(targetPos, 0xff1744, 55, 6.5);
+            this.particles?.createImpactSparks?.(targetPos.clone().add(new THREE.Vector3(0, 1.2, 0)), new THREE.Vector3(0, 1, 0), 0xffaa00, 40);
+
+            // 6. Âm thanh oanh tạc cực mạnh
+            sounds.play('enemyExplode', { volume: 1.0 });
+            sounds.play('enemyDestroy', { volume: 1.0, rate: 0.75 });
+
+            // 7. Rung chấn màn hình uy lực toàn bản đồ
+            this.applyExplosionShock(targetPos, 30, 1.0);
+            window.triggerExplosionScreenShake?.(targetPos, 30, 1.0);
+
+            // 8. Sát thương oanh tạc hủy diệt (350 sát thương + hất tung)
+            const blastRadius = 6.8;
+            const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
+            for (const enemy of enemies) {
+                if (!enemy || enemy.isDead || !enemy.active) continue;
+                const dist = targetPos.distanceTo(enemy.position);
+                if (dist <= blastRadius) {
+                    const pushDir = new THREE.Vector3().subVectors(enemy.position, targetPos).normalize();
+                    pushDir.y = 0.55;
+                    enemy.takeDamage(350, 5, true, pushDir);
+                    if (enemy.knockbackVelocity) enemy.knockbackVelocity.addScaledVector(pushDir, 42);
+                    enemy.burnTimer = 4.0;
+                    enemy.burnDamage = 35;
+                }
+            }
+
+            // Animation cột laser rọi xuống trong 0.45s rồi tan biến mượt mà
+            const strikeStart = performance.now();
+            const strikeAnim = () => {
+                const el = (performance.now() - strikeStart) / 1000;
+                if (el > 0.45) {
+                    this.scene.remove(beamGroup);
+                    this.scene.remove(blastRing);
+                    coreBeamGeo.dispose();
+                    coreBeamMat.dispose();
+                    outerBeamGeo.dispose();
+                    outerBeamMat.dispose();
+                    impactFlareMat.dispose();
+                    blastRingGeo.dispose();
+                    blastRingMat.dispose();
+                    return;
+                }
+                const progress = el / 0.45;
+                coreBeamMat.opacity = Math.max(0, 0.95 * (1.0 - progress));
+                outerBeamMat.opacity = Math.max(0, 0.80 * (1.0 - progress));
+                impactFlareMat.opacity = Math.max(0, 0.95 * (1.0 - progress * 1.5));
+                
+                // Vòng sóng xung kích bung nở nhanh
+                const ringScale = 1.0 + progress * 5.0;
+                blastRing.scale.set(ringScale, ringScale, ringScale);
+                blastRingMat.opacity = Math.max(0, 0.95 * (1.0 - progress));
+
+                requestAnimationFrame(strikeAnim);
+            };
+            requestAnimationFrame(strikeAnim);
+
+            // Dọn dẹp vết than hồng sau 6s và vết nứt cháy sau 12s
+            setTimeout(() => {
+                this.scene.remove(emberDecal);
+                emberDecal.geometry?.dispose();
+                emberDecal.material?.dispose();
+            }, 6000);
+            setTimeout(() => {
+                this.scene.remove(scorchDecal);
+                scorchDecal.geometry?.dispose();
+                scorchDecal.material?.dispose();
+            }, 12000);
+
+        }, 850);
     }
 
 
