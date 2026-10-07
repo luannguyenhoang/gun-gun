@@ -22,6 +22,16 @@ import {
 export class HomeMenu {
     constructor(game) {
         this.game = game;
+        // Scale the reference composition as a whole, including type and icons.
+        const shell = document.querySelector('.home-shell');
+        const fitLobby = () => {
+            const scale = window.innerWidth > 700 ? Math.min(window.innerWidth / 1024, window.innerHeight / 572) : 1;
+            shell.style.setProperty('--reference-scale', scale);
+            shell.style.setProperty('--reference-width', window.innerWidth / scale + 'px');
+            shell.style.setProperty('--reference-height', window.innerHeight / scale + 'px');
+        };
+        fitLobby();
+        window.addEventListener('resize', fitLobby);
         this.dialog = document.getElementById('home-dialog');
         this.showroom = new CharacterShowroom(game);
         this.currentRoomCode = '';

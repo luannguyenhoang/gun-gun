@@ -1,6 +1,13 @@
+@font-face {
+ font-family:'Arena Nunito';
+ src:url('../assets/fonts/Nunito-Variable.ttf') format('truetype');
+ font-style:normal;
+ font-weight:200 1000;
+ font-display:swap;
+}
 /* Home lobby based on the supplied peach-and-cream reference. */
-#screen-menu { padding:0; background:#f4b090; overflow:auto; font-family:'Nunito','Segoe UI',Arial,sans-serif; }
-#screen-menu .home-shell { --toy-font:'Nunito','Segoe UI',Arial,sans-serif; width:100%; height:100dvh; min-height:540px; margin:0; border:0; border-radius:0; box-shadow:none; color:#352018; background:radial-gradient(ellipse at 53% 44%,#fffbd8 0%,#fae6bd 25%,#f8c6a0 62%,#f4a58d 100%); overflow:hidden; }
+#screen-menu { padding:0; background:#f4b090; overflow:auto; font-family:'Arena Nunito',sans-serif; }
+#screen-menu .home-shell { --toy-font:'Arena Nunito',sans-serif; width:100%; height:100dvh; min-height:540px; margin:0; border:0; border-radius:0; box-shadow:none; color:#352018; background:radial-gradient(ellipse at 53% 44%,#fffbd8 0%,#fae6bd 25%,#f8c6a0 62%,#f4a58d 100%); overflow:hidden; }
 #screen-menu .home-shell::before { opacity:.3; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='572' viewBox='0 0 1024 572'%3E%3Cg stroke='%23fff9dc' stroke-width='1' fill='none'%3E%3Cpath d='M0 20L110 60 230 24 293 105 405 73M110 60L40 176 0 165M293 105L250 194 105 218 0 192M0 276L120 263 146 334 46 363 0 435M120 263L80 405 146 334M740 0L810 58 922 72 969 116 1024 73M810 58L873 142 969 116 958 176 1024 219M873 142L867 216 960 239 958 176 873 142M922 72L958 176M0 509L70 476 143 541M929 572L990 484 1024 504'/%3E%3C/g%3E%3Cg fill='%23fffce4'%3E%3Ccircle cx='110' cy='60' r='4'/%3E%3Ccircle cx='293' cy='105' r='4'/%3E%3Ccircle cx='405' cy='73' r='4'/%3E%3Ccircle cx='120' cy='263' r='4'/%3E%3Ccircle cx='146' cy='334' r='4'/%3E%3Ccircle cx='873' cy='142' r='4'/%3E%3Ccircle cx='969' cy='116' r='4'/%3E%3Ccircle cx='958' cy='176' r='4'/%3E%3Ccircle cx='867' cy='216' r='4'/%3E%3C/g%3E%3C/svg%3E"); background-size:cover; pointer-events:none; }
 #screen-menu .home-shell::after { content:''; position:absolute; inset:0; pointer-events:none; background-image:radial-gradient(circle at 21% 23%,#fffeed 0 2px,transparent 3px),radial-gradient(circle at 31% 27%,#fffeed 0 2px,transparent 3px),radial-gradient(circle at 36% 42%,#fffeed 0 2px,transparent 3px),radial-gradient(circle at 29% 65%,#fffeed 0 2px,transparent 3px),radial-gradient(circle at 84% 67%,#fffeed 0 2px,transparent 3px),radial-gradient(circle at 92% 25%,#fffeed 0 2px,transparent 4px),radial-gradient(circle at 95% 49%,#fffeed 0 2px,transparent 3px); }
 #screen-menu .home-stage-light { position:absolute; inset:12% 24% 15% 34%; background:radial-gradient(ellipse,#fffce780,transparent 70%); pointer-events:none; }
@@ -167,3 +174,118 @@
 #screen-menu .home-header button,#screen-menu .mode-card { font-weight:800; }
 #screen-menu .mode-titles small { font-size:10px; text-shadow:none; }
 #screen-menu .mode-dropdown-arrow svg { display:block; }
+/* Mode selector typography and alignment follow the reference card. */
+#screen-menu .mode-card {
+ min-height:64px;
+ border:1px solid #493b55;
+ border-radius:12px 12px 9px 9px;
+ background:#756380;
+ box-shadow:inset 0 1px 0 #ffffff18,0 2px 3px #49303b26;
+ font-family:'Arena Nunito',sans-serif;
+ font-weight:600;
+ text-shadow:none;
+ -webkit-text-stroke:0;
+}
+#screen-menu .mode-ribbon {
+ height:24px;
+ padding:2px 10px;
+ background:#44364f;
+ color:#f5d69d;
+ font:700 14px/20px 'Arena Nunito',sans-serif;
+ text-shadow:none;
+}
+#screen-menu .mode-content {
+ display:grid;
+ grid-template-columns:27px minmax(0,1fr) 18px;
+ align-items:center;
+ gap:8px;
+ min-height:39px;
+ padding:5px 10px;
+ background:linear-gradient(180deg,#806e8d,#73617f);
+ text-align:left;
+}
+#screen-menu .mode-titles { display:flex; flex-direction:column; gap:0; }
+#screen-menu .mode-titles strong {
+ font:700 15px/17px 'Arena Nunito',sans-serif;
+ color:#fff9ff;
+ letter-spacing:0;
+ text-shadow:none;
+}
+#screen-menu .mode-titles small {
+ font:600 10px/12px 'Arena Nunito',sans-serif;
+ color:#d7ebc3;
+ letter-spacing:0;
+ text-shadow:none;
+ white-space:nowrap;
+}
+#screen-menu .mode-content > .mode-icon {
+ display:grid;
+ place-items:center;
+ width:27px;
+ height:27px;
+ border:1px solid #4b558c;
+ border-radius:7px;
+ background:linear-gradient(145deg,#83d2ed,#5879bc 70%,#5c61a4);
+ box-shadow:inset 0 1px 1px #d8f7ff99,0 1px 2px #30263b50;
+ line-height:1;
+}
+#screen-menu .mode-icon svg { display:block; width:22px; height:22px; }
+#screen-menu .mode-content > .mode-dropdown-arrow {
+ display:grid;
+ place-items:center;
+ position:static;
+ width:18px;
+ height:24px;
+ margin:0;
+ align-self:center;
+ font-size:0;
+ line-height:0;
+}
+#screen-menu .mode-dropdown-arrow svg { display:block; width:18px; height:24px; }
+@media(max-width:700px) {
+ #screen-menu .mode-content { grid-template-columns:24px minmax(0,1fr) 14px; gap:6px; padding:5px 7px; }
+ #screen-menu .mode-content > .mode-icon { width:24px; height:26px; }
+ #screen-menu .mode-titles strong { font-size:13px; }
+ #screen-menu .mode-titles small { font-size:9px; }
+ #screen-menu .mode-ribbon { font-size:12px; }
+}
+
+/* Desktop uses the reference's design units instead of stretching controls. */
+@media(min-width:701px) {
+ #screen-menu .home-shell { zoom:var(--reference-scale,1); width:var(--reference-width,100vw); height:var(--reference-height,100vh); min-height:572px; flex-shrink:0; --toy-font:'Arena Nunito',sans-serif; font-family:'Arena Nunito',sans-serif; }
+ #screen-menu .home-header { inset:16px 21px auto; height:48px; }
+ #screen-menu .home-header-left { gap:12px; }
+ #screen-menu .profile-button { width:197px; max-width:197px; padding-left:70px; }
+ #screen-menu .profile-button strong { font-size:15px; font-weight:700; }
+ #screen-menu .profile-button small { font-size:9px; color:#f3d399; }
+ #screen-menu .friends-button { width:121px; min-width:121px; font-size:14px; }
+ #screen-menu .home-intro { top:108px; left:21px; }
+ #screen-menu .home-intro h1 { font:900 32px/1.04 'Arena Nunito',sans-serif; letter-spacing:-.8px; margin:10px 0 8px; }
+ #screen-menu .home-intro p { font:10px/1.4 'Arena Nunito',sans-serif; }
+ #screen-menu .home-nav { top:281px; left:21px; width:180px; gap:10px; }
+ #screen-menu .nav-tile { width:180px; height:51px; min-height:51px; padding:0 12px; gap:10px; font-size:16px; border-radius:13px; box-shadow:inset 0 1px #fffdf2,0 3px 1px #b29376,0 5px 5px #6c4a3533; }
+ #screen-menu .nav-tile strong { font-weight:700; }
+ #screen-menu .nav-tile .tile-icon { width:25px; height:27px; }
+ #screen-menu .nav-chevron { font-size:16px; }
+ #screen-menu .help-shortcut { height:51px; width:52px; }
+ #screen-menu .home-footer { top:462px; left:40%; right:auto; bottom:auto; width:526px; }
+ #screen-menu .play-area { grid-template-columns:260px 256px; gap:10px; }
+ #screen-menu .play-button { height:62px; min-height:62px; font:900 36px/1 'Arena Nunito',sans-serif; border-width:1px; box-shadow:inset 0 2px 3px #ffffdc,inset 0 -3px 4px #e8a48b,0 4px 2px #b68a71,0 0 18px #fff4ae; }
+ #screen-menu #room-lobby { inset:86px 18% 125px 25%; }
+ #screen-menu .home-side-dock { top:350px; }
+ #screen-menu .mode-card { font-family:'Arena Nunito',sans-serif; }
+ #screen-menu .mode-ribbon { font:700 14px/18px 'Arena Nunito',sans-serif; height:24px; padding:3px 8px; }
+ #screen-menu .mode-titles strong { font:700 14px/17px 'Arena Nunito',sans-serif; }
+ #screen-menu .mode-titles small { font:600 10px/11px 'Arena Nunito',sans-serif; }
+ #screen-menu.party-menu #room-lobby { inset:110px 5% 145px 26%; }
+}
+#screen-menu .home-shell::before { opacity:.17; }
+#screen-menu .home-shell { background:radial-gradient(ellipse at 52% 43%,#fff7d0 0%,#fbe5b8 25%,#f9c39e 64%,#f3a28b 100%); }
+#screen-menu .home-stage-light { background:radial-gradient(ellipse,#fffad580,transparent 70%); }
+#screen-menu .coins-pill { border:1px solid #866444 !important; background:linear-gradient(#897353,#615043) !important; }
+@media(min-width:701px) {
+ #screen-menu .friends-button { padding:8px 12px; gap:8px; white-space:nowrap; }
+ #screen-menu .friends-button #friends-label { font:700 14px/1 'Arena Nunito',sans-serif; }
+ #screen-menu .home-intro .intro-kicker { font-weight:500; }
+}
+#screen-menu .home-shell::after { background-image:radial-gradient(circle at 21% 23%,#fffeed 0 1px,transparent 2px),radial-gradient(circle at 31% 27%,#fffeed 0 2px,transparent 3px),radial-gradient(circle at 36% 42%,#fffeed 0 2px,transparent 3px),radial-gradient(circle at 29% 65%,#fffeed 0 2px,transparent 3px),radial-gradient(circle at 84% 67%,#fffeed 0 2px,transparent 3px),radial-gradient(circle at 92% 25%,#fffeed 0 2px,transparent 4px),radial-gradient(circle at 95% 49%,#fffeed 0 2px,transparent 3px),radial-gradient(circle at 24% 31%,#fffde8 0 1px,transparent 2px),radial-gradient(circle at 23% 47%,#fffde8 0 1px,transparent 2px),radial-gradient(circle at 27% 51%,#fffde8 0 1.5px,transparent 3px),radial-gradient(circle at 32% 60%,#fffde8 0 1px,transparent 2px),radial-gradient(circle at 72% 29%,#fffde8 0 2px,transparent 3px),radial-gradient(circle at 81% 46%,#fffde8 0 1px,transparent 2px),radial-gradient(circle at 25% 76%,#fffde8 0 1px,transparent 2px),radial-gradient(circle at 70% 58%,#fffde8 0 1px,transparent 2px); }
