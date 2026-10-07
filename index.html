@@ -7,11 +7,12 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="preload" href="assets/fonts/Nunito-Variable.ttf" as="font" type="font/ttf" crossorigin>
     <link rel="stylesheet" href="styles/style.css">
-    <link rel="stylesheet" href="styles/zappets.css"><link rel="stylesheet" href="styles/combat.css?v=44"><link rel="stylesheet" href="styles/showroom.css?v=45">
+    <link rel="stylesheet" href="styles/zappets.css?v=2"><link rel="stylesheet" href="styles/combat.css?v=44"><link rel="stylesheet" href="styles/showroom.css?v=45">
     <link rel="stylesheet" href="styles/ux.css">
     <link rel="stylesheet" href="styles/home-polish.css?v=1">
-    <link rel="stylesheet" href="styles/home-reference.css?v=3">
+    <link rel="stylesheet" href="styles/home-reference.css?v=12">
     <style>
       #armory-grid-section { display: none; }
       .weapon-mode #character-cards { display: none !important; }
@@ -795,7 +796,7 @@
               </span>
             </button>
             <button class="toy-button purple friends-button" data-open="friends">
-              <svg class="friends-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
+              <img class="friends-icon lobby-png" src="assets/ui/lobby/runtime/friends-chat.png" alt="" aria-hidden="true" draggable="false">
               <span id="friends-label">BẠN BÈ</span>
               <span class="button-badge" aria-hidden="true" style="display:none;">+</span>
             </button>
@@ -806,14 +807,13 @@
           <!-- Góc phải: Chỉ giữ lại VÀNG và NÚT CÀI ĐẶT (Đã loại bỏ năng lượng và kim cương theo yêu cầu) -->
           <div class="home-header-right">
             <div class="score-pill coins-pill" title="Vàng tích lũy">
-              <span class="coin-gold" aria-hidden="true">$</span>
+              <span class="coin-gold" aria-hidden="true"><img class="lobby-png" src="assets/ui/lobby/runtime/coin.png" alt="" aria-hidden="true" draggable="false"></span>
               <span class="coins-info">
                 <b id="menu-coins">1,000</b>
                 <small>VÀNG</small>
               </span>
             </div>
-            <button class="toy-button header-settings" data-open="settings" aria-label="Cài đặt">
-              <svg aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="m9 1 6 0 .7 3 2 .9 2.7-1.3 3 5.2-2.2 2.1v2.2l2.2 2.1-3 5.2-2.7-1.3-2 .9-.7 3H9l-.7-3-2-.9-2.7 1.3-3-5.2 2.2-2.1v-2.2L.6 8.8l3-5.2 2.7 1.3 2-.9zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8"/></svg>
+            <button class="toy-button header-settings" data-open="settings" aria-label="Cài đặt"><img class="lobby-png" src="assets/ui/lobby/runtime/settings-button.png" alt="" aria-hidden="true" draggable="false">
             </button>
           </div>
         </header>
@@ -826,36 +826,28 @@
 
         <nav class="home-nav" aria-label="Menu chính">
           <button class="toy-button nav-tile" data-open="characters">
-            <span class="tile-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a6 6 0 0 1 12 0v2z"/></svg>
+            <span class="tile-icon"><img class="lobby-png" src="assets/ui/lobby/runtime/character.png" alt="" aria-hidden="true" draggable="false">
             </span>
             <strong>NHÂN VẬT</strong>
-            <span class="nav-chevron" aria-hidden="true">▴</span>
             <small id="home-character-count" hidden>CHỌN NHÂN VẬT</small>
           </button>
           <button class="toy-button nav-tile" data-open="weapons">
-            <span class="tile-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 6H9c-1.1 0-2 .9-2 2v2H3c-.55 0-1 .45-1 1v2c0 .55.45 1 1 1h4v2c0 1.1.9 2 2 2h4l4 4h4v-3l2-2V8c0-1.1-.9-2-2-2z"/></svg>
+            <span class="tile-icon"><img class="lobby-png" src="assets/ui/lobby/runtime/weapon.png?v=2" alt="" aria-hidden="true" draggable="false">
             </span>
             <strong>KHO SÚNG</strong>
-            <span class="nav-chevron" aria-hidden="true">▾</span>
           </button>
           <button class="toy-button nav-tile" data-open="records">
-            <span class="tile-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0 0 11 15.9V19H8v2h8v-2h-3v-3.1c1.94-.44 3.44-2 3.61-4.06C19.08 11.63 21 9.55 21 7V5c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/></svg>
+            <span class="tile-icon"><img class="lobby-png" src="assets/ui/lobby/runtime/trophy.png" alt="" aria-hidden="true" draggable="false">
             </span>
             <strong>THÀNH TỰU</strong>
-            <span class="nav-chevron" aria-hidden="true">▾</span>
           </button>
           <div class="nav-tile-dual">
             <button class="toy-button nav-tile tile-settings" data-open="settings">
-              <span class="tile-icon">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="m9 1 6 0 .7 3 2 .9 2.7-1.3 3 5.2-2.2 2.1v2.2l2.2 2.1-3 5.2-2.7-1.3-2 .9-.7 3H9l-.7-3-2-.9-2.7 1.3-3-5.2 2.2-2.1v-2.2L.6 8.8l3-5.2 2.7 1.3 2-.9zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8"/></svg>
+              <span class="tile-icon"><img class="lobby-png" src="assets/ui/lobby/runtime/gear.png" alt="" aria-hidden="true" draggable="false">
               </span>
               <strong>CÀI ĐẶT</strong>
             </button>
-            <button class="toy-button help-shortcut" data-open="help" aria-label="Hướng dẫn chơi" title="Hướng dẫn chơi">
-              <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M6 2h12v2H6zm0 18h12v2H6zm2-16h8v2H8zm0 14h8v2H8zm4-9.5L16 13H8l4-4.5z"/></svg>
+            <button class="toy-button help-shortcut" data-open="help" aria-label="Hướng dẫn chơi" title="Hướng dẫn chơi"><img class="lobby-png" src="assets/ui/lobby/runtime/hourglass-button.png" alt="" aria-hidden="true" draggable="false">
             </button>
           </div>
         </nav>
@@ -869,40 +861,30 @@
           <div class="play-area">
             <button id="room-leave" class="toy-button purple leave-button" style="display:none">RỜI PHÒNG</button>
             <div class="mode-card purple">
-              <div class="mode-ribbon">⚡ Chế Độ Chơi ⚡</div>
+              <div class="mode-ribbon">Mode Selector</div>
               <div class="mode-content">
-                <span class="mode-icon" aria-hidden="true">⏩</span>
+                <span class="mode-icon" aria-hidden="true"><img class="lobby-png" src="assets/ui/lobby/runtime/skull-blue.png" alt="" aria-hidden="true" draggable="false"></span>
                 <div class="mode-titles">
-                  <strong>Vô Tận (Zombie)</strong>
-                  <small>ĐẤU (ZOMBIE)</small>
+                  <strong>VÔ TẬN</strong>
+                  <small>Đấu trường Zombie</small>
                 </div>
-                <span class="mode-dropdown-arrow" aria-hidden="true">▾</span>
-              </div>
-              <div class="mode-secondary-row">
-                <span class="mode-sec-icon" aria-hidden="true">💀</span>
-                <div class="mode-sec-titles">
-                  <b>Vô Tận</b>
-                  <small>ĐẤU TRƯỜNG ZOMBIE</small>
-                </div>
+                <span class="mode-dropdown-arrow" aria-hidden="true"><img class="lobby-png" src="assets/ui/lobby/runtime/sort-button.png" alt="" aria-hidden="true" draggable="false"></span>
               </div>
               <div id="mode-status" role="status" style="display:none;">CHƠI ĐƠN · SẴN SÀNG</div>
             </div>
-            <button id="btn-start" class="toy-button yellow play-button"><span class="bolt">⚡</span> CHƠI <span class="bolt">⚡</span></button>
-            <button id="room-start" class="toy-button yellow play-button" style="display:none"><span class="bolt">⚡</span> BẮT ĐẦU <span class="bolt">⚡</span></button>
+            <button id="btn-start" class="toy-button yellow play-button">CHƠI</button>
+            <button id="room-start" class="toy-button yellow play-button" style="display:none">BẮT ĐẦU</button>
             <div id="guest-wait" role="status" hidden>ĐANG CHỜ CHỦ PHÒNG…</div>
           </div>
         </footer>
 
         <!-- Thanh dock bên phải -->
         <aside class="home-side-dock" aria-label="Menu cạnh">
-          <button class="dock-btn" data-open="settings" title="Cài đặt">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="m9 1 6 0 .7 3 2 .9 2.7-1.3 3 5.2-2.2 2.1v2.2l2.2 2.1-3 5.2-2.7-1.3-2 .9-.7 3H9l-.7-3-2-.9-2.7 1.3-3-5.2 2.2-2.1v-2.2L.6 8.8l3-5.2 2.7 1.3 2-.9zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8"/></svg>
+          <button class="dock-btn" data-open="settings" title="Cài đặt"><img class="lobby-png" src="assets/ui/lobby/runtime/settings-button.png" alt="" aria-hidden="true" draggable="false">
           </button>
-          <button class="dock-btn" data-open="records" title="Thành tựu">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0 0 11 15.9V19H8v2h8v-2h-3v-3.1c1.94-.44 3.44-2 3.61-4.06C19.08 11.63 21 9.55 21 7V5c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/></svg>
+          <button class="dock-btn" data-open="records" title="Thành tựu"><img class="lobby-png" src="assets/ui/lobby/runtime/star-purple.png" alt="" aria-hidden="true" draggable="false">
           </button>
-          <button class="dock-btn" data-open="friends" title="Cộng đồng">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+          <button class="dock-btn" data-open="friends" title="Cộng đồng"><img class="lobby-png" src="assets/ui/lobby/runtime/chat-brown.png" alt="" aria-hidden="true" draggable="false">
           </button>
         </aside>
         <dialog id="home-dialog" aria-labelledby="dialog-title">

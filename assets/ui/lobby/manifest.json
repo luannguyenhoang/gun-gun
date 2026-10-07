@@ -1,0 +1,410 @@
+{
+  "masterSize": null,
+  "runtimeMaxEdge": 512,
+  "note": "Runtime PNGs only. Large 4K exports removed to reduce project size; recoverable from Git commit d8c6e84 or regenerate explicitly with --4k.",
+  "icons": [
+    {
+      "name": "friends-button",
+      "sourceRect": [
+        32,
+        25,
+        208,
+        95
+      ]
+    },
+    {
+      "name": "profile-frame",
+      "sourceRect": [
+        258,
+        11,
+        114,
+        122
+      ]
+    },
+    {
+      "name": "settings-button",
+      "sourceRect": [
+        390,
+        25,
+        89,
+        95
+      ]
+    },
+    {
+      "name": "heart",
+      "sourceRect": [
+        638,
+        24,
+        96,
+        92
+      ]
+    },
+    {
+      "name": "diamond",
+      "sourceRect": [
+        770,
+        26,
+        98,
+        88
+      ]
+    },
+    {
+      "name": "coin",
+      "sourceRect": [
+        899,
+        22,
+        98,
+        98
+      ]
+    },
+    {
+      "name": "character",
+      "sourceRect": [
+        48,
+        146,
+        58,
+        66
+      ]
+    },
+    {
+      "name": "hourglass",
+      "sourceRect": [
+        158,
+        150,
+        47,
+        60
+      ]
+    },
+    {
+      "name": "skull-blue",
+      "sourceRect": [
+        261,
+        144,
+        92,
+        94
+      ]
+    },
+    {
+      "name": "zombie-blue",
+      "sourceRect": [
+        368,
+        144,
+        91,
+        94
+      ]
+    },
+    {
+      "name": "avatar-ring",
+      "sourceRect": [
+        490,
+        135,
+        110,
+        109
+      ]
+    },
+    {
+      "name": "avatar-character",
+      "sourceRect": [
+        612,
+        135,
+        112,
+        110
+      ]
+    },
+    {
+      "name": "check-brown",
+      "sourceRect": [
+        749,
+        145,
+        74,
+        73
+      ]
+    },
+    {
+      "name": "star-purple",
+      "sourceRect": [
+        835,
+        145,
+        73,
+        73
+      ]
+    },
+    {
+      "name": "question-blue",
+      "sourceRect": [
+        921,
+        145,
+        75,
+        73
+      ]
+    },
+    {
+      "name": "trophy",
+      "sourceRect": [
+        42,
+        241,
+        72,
+        76
+      ]
+    },
+    {
+      "name": "trophy-alt",
+      "sourceRect": [
+        147,
+        241,
+        71,
+        76
+      ]
+    },
+    {
+      "name": "skull-purple",
+      "sourceRect": [
+        264,
+        248,
+        91,
+        95
+      ]
+    },
+    {
+      "name": "zombie-purple",
+      "sourceRect": [
+        369,
+        249,
+        89,
+        94
+      ]
+    },
+    {
+      "name": "avatar-ring-alt",
+      "sourceRect": [
+        490,
+        248,
+        110,
+        109
+      ]
+    },
+    {
+      "name": "avatar-character-alt",
+      "sourceRect": [
+        612,
+        248,
+        112,
+        109
+      ]
+    },
+    {
+      "name": "check-orange",
+      "sourceRect": [
+        748,
+        222,
+        75,
+        73
+      ]
+    },
+    {
+      "name": "star-cream",
+      "sourceRect": [
+        835,
+        222,
+        73,
+        73
+      ]
+    },
+    {
+      "name": "question-purple",
+      "sourceRect": [
+        921,
+        222,
+        75,
+        74
+      ]
+    },
+    {
+      "name": "gear",
+      "sourceRect": [
+        40,
+        350,
+        75,
+        75
+      ]
+    },
+    {
+      "name": "check-green",
+      "sourceRect": [
+        749,
+        299,
+        74,
+        73
+      ]
+    },
+    {
+      "name": "star-magenta",
+      "sourceRect": [
+        835,
+        299,
+        73,
+        73
+      ]
+    },
+    {
+      "name": "question-sky",
+      "sourceRect": [
+        921,
+        299,
+        75,
+        73
+      ]
+    },
+    {
+      "name": "warning",
+      "sourceRect": [
+        261,
+        387,
+        81,
+        79
+      ]
+    },
+    {
+      "name": "info",
+      "sourceRect": [
+        362,
+        386,
+        79,
+        80
+      ]
+    },
+    {
+      "name": "chat-alert",
+      "sourceRect": [
+        457,
+        380,
+        89,
+        84
+      ]
+    },
+    {
+      "name": "lock-orange",
+      "sourceRect": [
+        561,
+        386,
+        66,
+        79
+      ]
+    },
+    {
+      "name": "star-brown",
+      "sourceRect": [
+        648,
+        387,
+        78,
+        79
+      ]
+    },
+    {
+      "name": "play-button",
+      "sourceRect": [
+        742,
+        379,
+        255,
+        94
+      ]
+    },
+    {
+      "name": "gear-alt",
+      "sourceRect": [
+        40,
+        468,
+        75,
+        76
+      ]
+    },
+    {
+      "name": "hourglass-button",
+      "sourceRect": [
+        136,
+        466,
+        83,
+        90
+      ]
+    },
+    {
+      "name": "chat-brown",
+      "sourceRect": [
+        263,
+        478,
+        77,
+        76
+      ]
+    },
+    {
+      "name": "chat-star",
+      "sourceRect": [
+        362,
+        475,
+        79,
+        79
+      ]
+    },
+    {
+      "name": "lock-beige",
+      "sourceRect": [
+        464,
+        475,
+        67,
+        80
+      ]
+    },
+    {
+      "name": "star-gold",
+      "sourceRect": [
+        555,
+        476,
+        78,
+        79
+      ]
+    },
+    {
+      "name": "star-gold-alt",
+      "sourceRect": [
+        648,
+        476,
+        78,
+        79
+      ]
+    },
+    {
+      "name": "arrow-up-button",
+      "sourceRect": [
+        744,
+        472,
+        81,
+        84
+      ]
+    },
+    {
+      "name": "arrow-down-button",
+      "sourceRect": [
+        829,
+        472,
+        82,
+        84
+      ]
+    },
+    {
+      "name": "sort-button",
+      "sourceRect": [
+        916,
+        472,
+        81,
+        84
+      ]
+    },
+    {
+      "name": "friends-chat"
+    },
+    {
+      "name": "weapon",
+      "source": "weapon-reference.png"
+    }
+  ]
+}
