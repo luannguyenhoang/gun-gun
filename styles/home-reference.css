@@ -106,4 +106,64 @@
  #screen-menu.party-menu .lobby-nameplate { font-size:8px; }
  #screen-menu.party-menu .leave-button { bottom:calc(100% + 12px); }
 }
+/* Compact landscape crop used by the reference menu (about 587x392). */
+@media (min-width:480px) and (max-width:700px) and (max-height:600px) {
+ #screen-menu .home-shell { min-height:100dvh; }
+ #screen-menu .home-header { inset:14px 20px auto; }
+ #screen-menu .home-intro { top:18px; left:30px; opacity:0; pointer-events:none; }
+ #screen-menu #room-lobby { inset:0 0 0 285px; }
+ #screen-menu .home-nav { top:70px; left:30px; bottom:auto; width:251px; gap:9px; }
+ #screen-menu .nav-tile { width:251px; height:65px; min-height:65px; padding:0 16px; gap:14px; border-radius:14px; font-size:18px; }
+ #screen-menu .nav-tile .tile-icon { width:26px; height:26px; }
+ #screen-menu .nav-chevron { font-size:12px; }
+ #screen-menu .nav-tile-dual { width:251px; }
+ #screen-menu .help-shortcut { left:calc(100% + 10px); width:52px; height:52px; min-height:52px; top:6px; border-radius:14px; }
+ #screen-menu .home-footer { display:none; }
+ .home-side-dock { display:none; }
+}
 @media (prefers-reduced-motion:reduce) { #screen-menu .toy-button { transition:none; } }
+
+/* Match the supplied 1024 × 572 lobby, keeping the existing room controls. */
+#screen-menu .mode-card { min-height:64px; }
+#screen-menu .mode-ribbon { font-size:14px; line-height:18px; padding:3px 8px; }
+#screen-menu .mode-content { min-height:39px; box-sizing:border-box; border-bottom:0; }
+#screen-menu .mode-icon svg { width:22px; height:22px; }
+#screen-menu .mode-dropdown-arrow { display:block; width:19px; height:24px; }
+#screen-menu .mode-dropdown-arrow svg { width:100%; height:100%; }
+#screen-menu .help-shortcut svg { width:28px; height:28px; }
+#screen-menu .nav-tile strong { font-weight:900; }
+#screen-menu .play-button::after { content:''; position:absolute; width:34px; height:42px; right:-18px; top:0; background:#fff9de; opacity:.8; clip-path:polygon(50% 0,60% 37%,100% 50%,60% 61%,50% 100%,40% 61%,0 50%,40% 37%); pointer-events:none; }
+@media (min-width:701px) {
+ #screen-menu .home-intro h1 { font-size:clamp(32px,3.2vw,46px); margin:10px 0 7px; }
+ #screen-menu .home-nav { width:17.6%; gap:10px; }
+ #screen-menu .nav-tile { height:clamp(52px,9.1vh,65px); min-height:52px; padding:0 12px; gap:10px; font-size:clamp(14px,1.65vw,19px); }
+ #screen-menu .home-footer { inset:80.8% 8.5% auto 40%; }
+ #screen-menu .friends-icon { display:block; }
+ #screen-menu .profile-avatar { width:60px; height:60px; }
+ #screen-menu .profile-button { max-width:240px; }
+ #screen-menu .profile-button strong { font-size:15px; }
+}
+@media (min-width:480px) and (max-width:700px) and (max-height:600px) {
+ #screen-menu .home-shell { min-height:390px; }
+ #screen-menu .home-header { inset:12px 16px auto; }
+ #screen-menu .home-header-left { flex-wrap:nowrap; }
+ #screen-menu .home-intro { top:85px; left:16px; opacity:1; }
+ #screen-menu .home-intro h1 { font-size:24px; }
+ #screen-menu .home-nav { top:180px; left:16px; width:154px; gap:7px; }
+ #screen-menu .nav-tile { width:100%; height:38px; min-height:38px; padding:0 10px; font-size:12px; gap:8px; border-radius:10px; }
+ #screen-menu .nav-tile .tile-icon { width:21px; height:21px; }
+ #screen-menu .nav-tile-dual { width:100%; }
+ #screen-menu .help-shortcut { top:0; left:calc(100% + 7px); width:36px; height:38px; min-height:38px; }
+ #screen-menu #room-lobby { inset:60px 5% 74px 30%; }
+ #screen-menu .home-footer { display:block; inset:auto 5% 20px 40%; }
+ #screen-menu .mode-card { min-height:56px; }
+ #screen-menu .mode-ribbon { font-size:11px; line-height:14px; }
+ #screen-menu .mode-content { min-height:34px; }
+ #screen-menu .mode-icon { width:22px; height:22px; }
+ #screen-menu .play-button { height:56px; min-height:56px; font-size:26px; }
+}
+#screen-menu .mode-content > .mode-dropdown-arrow { position:static; align-self:center; }
+#screen-menu .coins-pill { border-color:#7a5e40; background:linear-gradient(#897353,#615043); }
+#screen-menu .home-header button,#screen-menu .mode-card { font-weight:800; }
+#screen-menu .mode-titles small { font-size:10px; text-shadow:none; }
+#screen-menu .mode-dropdown-arrow svg { display:block; }
