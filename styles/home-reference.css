@@ -289,3 +289,25 @@
  #screen-menu .home-intro .intro-kicker { font-weight:500; }
 }
 #screen-menu .home-shell::after { background-image:radial-gradient(circle at 21% 23%,#fffeed 0 1px,transparent 2px),radial-gradient(circle at 31% 27%,#fffeed 0 2px,transparent 3px),radial-gradient(circle at 36% 42%,#fffeed 0 2px,transparent 3px),radial-gradient(circle at 29% 65%,#fffeed 0 2px,transparent 3px),radial-gradient(circle at 84% 67%,#fffeed 0 2px,transparent 3px),radial-gradient(circle at 92% 25%,#fffeed 0 2px,transparent 4px),radial-gradient(circle at 95% 49%,#fffeed 0 2px,transparent 3px),radial-gradient(circle at 24% 31%,#fffde8 0 1px,transparent 2px),radial-gradient(circle at 23% 47%,#fffde8 0 1px,transparent 2px),radial-gradient(circle at 27% 51%,#fffde8 0 1.5px,transparent 3px),radial-gradient(circle at 32% 60%,#fffde8 0 1px,transparent 2px),radial-gradient(circle at 72% 29%,#fffde8 0 2px,transparent 3px),radial-gradient(circle at 81% 46%,#fffde8 0 1px,transparent 2px),radial-gradient(circle at 25% 76%,#fffde8 0 1px,transparent 2px),radial-gradient(circle at 70% 58%,#fffde8 0 1px,transparent 2px); }
+/* Start the nameplate behind the avatar's centre, avoiding exposed left corners. */
+#screen-menu .profile-button {
+ background:transparent;
+ border-color:transparent;
+ box-shadow:none;
+ isolation:isolate;
+}
+#screen-menu .profile-button::before {
+ content:'';
+ position:absolute;
+ inset:0 0 0 30px;
+ z-index:-1;
+ border:1px solid #705144;
+ border-radius:0 13px 13px 0;
+ background:linear-gradient(#866449,#624b40);
+ box-shadow:inset 0 1px #c6a287;
+ pointer-events:none;
+}
+#screen-menu .friends-icon { overflow:visible; fill:none; }
+@media(max-width:700px) {
+ #screen-menu .profile-button::before { left:24px; }
+}
