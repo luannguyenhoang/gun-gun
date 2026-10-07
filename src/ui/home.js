@@ -735,6 +735,7 @@ export class HomeMenu {
         if (pauseSfxBadge) pauseSfxBadge.textContent = `${sounds.enabled ? sfxPct : 0}%`;
 
         this.game.syncDeveloperModeUI?.();
+        this.game.syncPerformanceUI?.();
     }
 
     preview() {

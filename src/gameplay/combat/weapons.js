@@ -1701,10 +1701,10 @@ export class WeaponSystem {
     }
 
     getCurrentWeapon() {
-        return this.weaponSlots[this.currentSlotIndex] 
-            || this.weaponSlots[0] 
-            || this.weaponSlots[1] 
-            || this.weaponSlots[4] 
+        return this.weaponSlots[this.currentSlotIndex]
+            || this.weaponSlots[0]
+            || this.weaponSlots[1]
+            || this.weaponSlots[4]
             || KNIFE_CONFIG;
     }
 
@@ -1803,7 +1803,7 @@ export class WeaponSystem {
         const medCfg = MEDICAL_CONFIGS.find(m => m.id === itemType) || MEDICAL_CONFIGS[1];
         const invKey = itemType === 'first_aid_kit' ? (this.inventory.first_aid !== undefined ? 'first_aid' : 'medkits')
             : itemType === 'bandage_field' ? 'bandage'
-            : itemType;
+                : itemType;
 
         if ((this.inventory[invKey] || 0) <= 0 && (this.inventory.medkits || 0) <= 0) return false;
 
@@ -2152,10 +2152,12 @@ export class WeaponSystem {
             sounds.playShot(w.id);
         }
 
-        // Phụt tia lửa nòng
+        // Phụt tia lửa nòng (Chỉ chạy khi bật hiệu ứng để tránh lag)
         const bulletColor = isOverclockActive ? 0xffdd00 : (effective.hasLegendary ? 0xf59e0b : w.color);
         const bulletType = getBulletType(w);
-        this.particles?.createMuzzleFlash?.(origin, new THREE.Vector3().subVectors(targetPoint, origin).normalize(), bulletColor);
+        if (this.particles?.muzzleFlashEnabled) {
+            this.particles.createMuzzleFlash(origin, new THREE.Vector3().subVectors(targetPoint, origin).normalize(), bulletColor);
+        }
         this.onShotFired?.({ origin, target: targetPoint, ads: isADS, weapon: w, color: bulletColor, bulletType });
 
         const beams = isPlayer ? this.beamCount : 1;
@@ -2184,6 +2186,7 @@ export class WeaponSystem {
             // Chỉ những vũ khí có thuộc tính pierceCount riêng hoặc đạt cấp 5 Huyền Thoại (Tier 5) mới xuyên người.
             const basePierce = w.pierceCount || (effective.hasLegendary ? 3 : 1);
             const pierceCount = Math.max(1, basePierce);
+            const charExtraPen = playerRef?.penetrationBonus || 0;
             const charCritBonus = playerRef?.critChanceBonus || 0;
             const isGuaranteedCrit = playerRef?.activeSkillEffect === 'guaranteed_crit';
             const finalCritChance = isGuaranteedCrit ? 1.0 : Math.min(1.0, 0.12 + (effective.extraCritChance || 0) + charCritBonus);
@@ -2231,7 +2234,9 @@ export class WeaponSystem {
         _tempAimDir.normalize();
 
         const color = acid ? 0x99ff22 : 0xff3322;
-        this.particles.createMuzzleFlash(origin, _tempAimDir, color);
+        if (this.particles?.muzzleFlashEnabled) {
+            this.particles.createMuzzleFlash(origin, _tempAimDir, color);
+        }
         sounds.play('enemyAttack', { volume: 0.65, pitchVariation: 0.1 });
 
         const entry = this.getEnemyMesh(color, acid);

@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js?v=58';
-import { ParticleSystem } from '../rendering/particles.js?v=58';
+import { ParticleSystem } from '../rendering/particles.js?v=60';
 import { Arena } from '../world/arena.js?v=22';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=59';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=61';
 import { PlayerController } from '../gameplay/player/player.js?v=59';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=41';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
@@ -11,7 +11,7 @@ import { UIManager } from '../ui/ui.js?v=40';
 import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=35';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=37';
-import { HomeMenu } from '../ui/home.js?v=56';
+import { HomeMenu } from '../ui/home.js?v=57';
 import { LootingSystem } from '../gameplay/loot/looting.js?v=40';
 import { RenderQuality } from '../rendering/performance.js';
 import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=49';
@@ -53,6 +53,18 @@ class CyberArenaGame {
             this.unlockedWeapons = WEAPON_CONFIGS.map(w => w.id);
         }
 
+        // Cấu hình tối ưu đồ họa và hiệu năng (Mặc định tối ưu mượt mà, tắt lửa nòng và tia lửa)
+        let savedPerf = null;
+        try {
+            savedPerf = JSON.parse(localStorage.getItem('arena_perf_settings') || 'null');
+        } catch { }
+        this.perfSettings = savedPerf || {
+            muzzleFlash: false,     // Mặc định tắt lửa nòng súng để tối ưu theo yêu cầu
+            bulletSparks: false,    // Mặc định tắt tia lửa va chạm đạn để tăng FPS tối đa
+            shadows: false,         // Mặc định tắt bóng đổ để nhẹ GPU
+            mode: 'optimized'       // 'optimized' (Mượt mà) hoặc 'full' (Đầy đủ)
+        };
+
         this.initThree();
         this.initSubsystems();
         this.initDOM();
@@ -79,7 +91,7 @@ class CyberArenaGame {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderQuality = new RenderQuality(window.devicePixelRatio);
         this.renderer.setPixelRatio(this.renderQuality.ratio);
-        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.enabled = !!this.perfSettings.shadows;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.15;
@@ -99,6 +111,7 @@ class CyberArenaGame {
 
     initSubsystems() {
         this.particles = new ParticleSystem(this.scene);
+        this.particles.setQuality(this.perfSettings);
         this.arena = new Arena(this.scene, this.gltfLoader);
         this.weapons = new WeaponSystem(this.scene, this.gltfLoader, this.particles);
         const initialLoadout = this.getLoadout();
@@ -268,8 +281,133 @@ class CyberArenaGame {
             });
         }
 
+        // Nút điều khiển Hiệu Năng & Đồ Họa ở Home Settings
+        document.getElementById('setting-perf-mode')?.addEventListener('click', () => {
+            this.togglePerformanceMode();
+        });
+        document.getElementById('setting-toggle-muzzle')?.addEventListener('click', () => {
+            this.applyPerformanceSettings({ muzzleFlash: !this.perfSettings.muzzleFlash, mode: 'custom' });
+        });
+        document.getElementById('setting-toggle-sparks')?.addEventListener('click', () => {
+            this.applyPerformanceSettings({ bulletSparks: !this.perfSettings.bulletSparks, mode: 'custom' });
+        });
+        document.getElementById('setting-toggle-shadows')?.addEventListener('click', () => {
+            this.applyPerformanceSettings({ shadows: !this.perfSettings.shadows, mode: 'custom' });
+        });
+
+        // Nút điều khiển Hiệu Năng & Đồ Họa ở Pause Menu
+        document.getElementById('pause-toggle-perf')?.addEventListener('click', () => {
+            this.togglePerformanceMode();
+        });
+        document.getElementById('pause-toggle-muzzle')?.addEventListener('click', () => {
+            this.applyPerformanceSettings({ muzzleFlash: !this.perfSettings.muzzleFlash, mode: 'custom' });
+        });
+        document.getElementById('pause-toggle-sparks')?.addEventListener('click', () => {
+            this.applyPerformanceSettings({ bulletSparks: !this.perfSettings.bulletSparks, mode: 'custom' });
+        });
+        document.getElementById('pause-toggle-shadows')?.addEventListener('click', () => {
+            this.applyPerformanceSettings({ shadows: !this.perfSettings.shadows, mode: 'custom' });
+        });
+
+        this.syncPerformanceUI();
         this.syncDeveloperModeUI();
         this.updateCoinsUI();
+    }
+
+    togglePerformanceMode() {
+        const nextMode = this.perfSettings.mode === 'optimized' ? 'full' : 'optimized';
+        if (nextMode === 'optimized') {
+            this.applyPerformanceSettings({
+                mode: 'optimized',
+                muzzleFlash: false,
+                bulletSparks: false,
+                shadows: false
+            });
+        } else {
+            this.applyPerformanceSettings({
+                mode: 'full',
+                muzzleFlash: true,
+                bulletSparks: true,
+                shadows: true
+            });
+        }
+    }
+
+    applyPerformanceSettings(settings) {
+        this.perfSettings = { ...this.perfSettings, ...settings };
+        try {
+            localStorage.setItem('arena_perf_settings', JSON.stringify(this.perfSettings));
+        } catch { }
+
+        if (this.particles) {
+            this.particles.setQuality(this.perfSettings);
+        }
+        if (this.renderer) {
+            this.renderer.shadowMap.enabled = !!this.perfSettings.shadows;
+        }
+        if (this.arena?.sunLight) {
+            this.arena.sunLight.castShadow = !!this.perfSettings.shadows;
+        }
+        this.syncPerformanceUI();
+    }
+
+    syncPerformanceUI() {
+        const p = this.perfSettings;
+        const isOpt = p.mode === 'optimized';
+
+        // Giao diện Sảnh chính
+        const badge = document.getElementById('perf-mode-badge');
+        if (badge) badge.textContent = isOpt ? 'TỐI ƯU FPS' : (p.mode === 'full' ? 'MAX HIỆU ỨNG' : 'TÙY BIẾN');
+
+        const btnPerfMode = document.getElementById('setting-perf-mode');
+        if (btnPerfMode) {
+            btnPerfMode.textContent = `CHẾ ĐỘ: ${isOpt ? 'TỐI ƯU MƯỢT MÀ' : (p.mode === 'full' ? 'ĐẦY ĐỦ ĐỒ HỌA' : 'TÙY BIẾN')}`;
+            btnPerfMode.className = `toy-button ${isOpt ? 'yellow' : 'blue'} wide-button`;
+        }
+
+        const btnMuzzle = document.getElementById('setting-toggle-muzzle');
+        if (btnMuzzle) {
+            btnMuzzle.textContent = `LỬA NÒNG: ${p.muzzleFlash ? 'BẬT' : 'TẮT'}`;
+            btnMuzzle.style.opacity = p.muzzleFlash ? '1' : '0.65';
+        }
+
+        const btnSparks = document.getElementById('setting-toggle-sparks');
+        if (btnSparks) {
+            btnSparks.textContent = `TIA LỬA ĐẠN: ${p.bulletSparks ? 'BẬT' : 'TẮT'}`;
+            btnSparks.style.opacity = p.bulletSparks ? '1' : '0.65';
+        }
+
+        const btnShadows = document.getElementById('setting-toggle-shadows');
+        if (btnShadows) {
+            btnShadows.textContent = `ĐỔ BÓNG THỜI GIAN THỰC: ${p.shadows ? 'BẬT' : 'TẮT'}`;
+            btnShadows.style.opacity = p.shadows ? '1' : '0.65';
+        }
+
+        // Giao diện Menu Tạm Dừng (Pause Menu)
+        const pausePerf = document.getElementById('pause-toggle-perf');
+        if (pausePerf) {
+            pausePerf.textContent = `CHẾ ĐỘ MƯỢT MÀ (TỐI ƯU FPS): ${isOpt ? 'BẬT' : 'TẮT'}`;
+            pausePerf.style.background = isOpt ? 'rgba(0,180,216,0.5)' : 'rgba(30,41,59,0.8)';
+            pausePerf.style.borderColor = isOpt ? '#38bdf8' : 'rgba(255,255,255,0.2)';
+        }
+
+        const pauseMuzzle = document.getElementById('pause-toggle-muzzle');
+        if (pauseMuzzle) {
+            pauseMuzzle.textContent = `LỬA NÒNG: ${p.muzzleFlash ? 'BẬT' : 'TẮT'}`;
+            pauseMuzzle.style.opacity = p.muzzleFlash ? '1' : '0.65';
+        }
+
+        const pauseSparks = document.getElementById('pause-toggle-sparks');
+        if (pauseSparks) {
+            pauseSparks.textContent = `TIA LỬA: ${p.bulletSparks ? 'BẬT' : 'TẮT'}`;
+            pauseSparks.style.opacity = p.bulletSparks ? '1' : '0.65';
+        }
+
+        const pauseShadows = document.getElementById('pause-toggle-shadows');
+        if (pauseShadows) {
+            pauseShadows.textContent = `ĐỔ BÓNG: ${p.shadows ? 'BẬT' : 'TẮT'}`;
+            pauseShadows.style.opacity = p.shadows ? '1' : '0.65';
+        }
     }
 
     async loadAssetsAndStart() {
@@ -383,6 +521,7 @@ class CyberArenaGame {
         this.player.setInputEnabled(false);
         this.ui.clearTeammateIndicators();
         this.homeMenu?.syncAudio();
+        this.syncPerformanceUI();
         if (this.screenPause) this.screenPause.style.display = 'flex';
     }
 
@@ -1134,7 +1273,9 @@ class CyberArenaGame {
                 const weapon = WEAPON_CONFIGS.find(w => w.id === ev.weaponId) || WEAPON_CONFIGS[0];
                 const bulletColor = ev.color || weapon.color || 0xffee44;
 
-                this.particles.createMuzzleFlash(origin, dir, bulletColor);
+                if (this.particles?.muzzleFlashEnabled) {
+                    this.particles.createMuzzleFlash(origin, dir, bulletColor);
+                }
                 if (weapon.fireSound) {
                     sounds.play(weapon.fireSound, { volume: 0.65, pitchVariation: 0.08 });
                 }

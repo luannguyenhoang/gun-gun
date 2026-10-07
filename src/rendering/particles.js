@@ -45,9 +45,28 @@ export class ParticleSystem {
         this.explosions = [];
         this.maxExplosions = 12;
 
+        // Cấu hình tối ưu hóa hiệu năng (Mặc định tắt hiệu ứng nòng súng & tia lửa để đạt FPS tối đa)
+        this.muzzleFlashEnabled = false;
+        this.sparksEnabled = false;
+        this.sparksCountMultiplier = 0;
+        this.effectLightEnabled = false;
+
+        // Pool tái sử dụng Muzzle Flash tránh tạo mới và dispose Material liên tục gây micro-stutter
+        this.muzzlePool = [];
+
         // Texture lửa, khói và tia lửa nòng súng chất lượng cao (Kenney Particle Pack)
         this.textures = { fire: [], smoke: [], muzzle: [] };
         this.initTextures();
+    }
+
+    setQuality({ muzzleFlash = false, bulletSparks = false, effectLight = false } = {}) {
+        this.muzzleFlashEnabled = !!muzzleFlash;
+        this.sparksEnabled = !!bulletSparks;
+        this.sparksCountMultiplier = bulletSparks ? 1.0 : 0;
+        this.effectLightEnabled = !!effectLight;
+        if (!this.effectLightEnabled && this.effectLight) {
+            this.effectLight.intensity = 0;
+        }
     }
 
     initTextures() {
@@ -98,83 +117,105 @@ export class ParticleSystem {
     }
 
     createMuzzleFlash(position, direction, color = 0x00f0ff) {
-        if (this.muzzleFlashes.length >= 24) return;
-        const flashGroup = new THREE.Group();
-        flashGroup.position.copy(position);
+        // Nếu đã tắt tia lửa nòng súng để tối ưu hiệu năng: bỏ qua ngay lập tức
+        if (!this.muzzleFlashEnabled) return;
+        if (this.muzzleFlashes.length >= 16) return;
 
-        if (this.textures?.muzzle?.length > 0) {
-            // Tia lửa nòng súng 2D Billboard Sprite chuyên nghiệp từ Kenney Particle Pack
-            const mTex = this.textures.muzzle[Math.floor(Math.random() * this.textures.muzzle.length)];
-            const mat = new THREE.SpriteMaterial({
-                map: mTex,
-                color: color || 0xffbb33,
-                transparent: true,
-                opacity: 0.95,
-                blending: THREE.AdditiveBlending,
-                depthWrite: false,
-                rotation: Math.random() * Math.PI * 2
-            });
-            const sprite = new THREE.Sprite(mat);
-            sprite.scale.set(0.48, 0.48, 1);
-            flashGroup.add(sprite);
-
-            // Khói nòng súng nhỏ thoảng qua bay ra theo hướng đạn
+        // Tái sử dụng đối tượng từ pool nếu có để tránh cấp phát bộ nhớ liên tục
+        let entry = this.muzzlePool.pop();
+        if (!entry) {
+            const flashGroup = new THREE.Group();
+            let sprite = null;
+            let mat = null;
             let smokeSprite = null;
             let smokeMat = null;
-            if (this.textures?.smoke?.length > 0) {
-                const sTex = this.textures.smoke[0];
-                smokeMat = new THREE.SpriteMaterial({
-                    map: sTex,
-                    color: 0x9999aa,
+
+            if (this.textures?.muzzle?.length > 0) {
+                const mTex = this.textures.muzzle[0];
+                mat = new THREE.SpriteMaterial({
+                    map: mTex,
+                    color: color || 0xffbb33,
                     transparent: true,
-                    opacity: 0.35,
-                    blending: THREE.NormalBlending,
-                    depthWrite: false,
-                    rotation: Math.random() * Math.PI * 2
+                    opacity: 0.95,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
                 });
-                smokeSprite = new THREE.Sprite(smokeMat);
-                smokeSprite.scale.set(0.25, 0.25, 1);
-                if (direction) {
-                    smokeSprite.position.copy(direction).multiplyScalar(0.15);
+                sprite = new THREE.Sprite(mat);
+                sprite.scale.set(0.48, 0.48, 1);
+                flashGroup.add(sprite);
+
+                if (this.textures?.smoke?.length > 0) {
+                    smokeMat = new THREE.SpriteMaterial({
+                        map: this.textures.smoke[0],
+                        color: 0x9999aa,
+                        transparent: true,
+                        opacity: 0.35,
+                        blending: THREE.NormalBlending,
+                        depthWrite: false
+                    });
+                    smokeSprite = new THREE.Sprite(smokeMat);
+                    smokeSprite.scale.set(0.25, 0.25, 1);
+                    flashGroup.add(smokeSprite);
                 }
-                flashGroup.add(smokeSprite);
+            } else {
+                const geo = new THREE.SphereGeometry(0.15, 6, 6);
+                mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 });
+                const mesh = new THREE.Mesh(geo, mat);
+                flashGroup.add(mesh);
             }
 
-            this.scene.add(flashGroup);
-            this.muzzleFlashes.push({
+            entry = {
                 obj: flashGroup,
-                lightColor: color,
-                mat: mat,
-                extraMat: smokeMat,
-                life: 0.08,
-                maxLife: 0.08,
-                onUpdate: (delta, progress) => {
-                    const s = 0.48 * (1 - progress * 0.4);
-                    sprite.scale.set(s, s, 1);
-                    mat.opacity = Math.max(0, 0.95 * (1 - progress));
-                    if (smokeSprite && smokeMat) {
-                        const ss = 0.25 + progress * 0.25;
-                        smokeSprite.scale.set(ss, ss, 1);
-                        smokeMat.opacity = Math.max(0, 0.35 * (1 - progress));
-                    }
-                }
-            });
-        } else {
-            // Fallback nếu chưa tải xong texture
-            const geo = new THREE.SphereGeometry(0.15, 8, 8);
-            const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 });
-            const mesh = new THREE.Mesh(geo, mat);
-            flashGroup.add(mesh);
-
-            this.scene.add(flashGroup);
-            this.muzzleFlashes.push({
-                obj: flashGroup,
-                lightColor: color,
-                mat: mat,
-                life: 0.06,
-                maxLife: 0.06
-            });
+                sprite,
+                mat,
+                smokeSprite,
+                smokeMat,
+                inScene: false
+            };
         }
+
+        entry.obj.position.copy(position);
+        if (entry.mat) {
+            entry.mat.color.setHex(color || 0xffbb33);
+            entry.mat.opacity = 0.95;
+            if (entry.mat.rotation !== undefined) entry.mat.rotation = Math.random() * Math.PI * 2;
+        }
+        if (entry.sprite) {
+            entry.sprite.scale.set(0.48, 0.48, 1);
+        }
+        if (entry.smokeSprite && entry.smokeMat) {
+            entry.smokeMat.opacity = 0.35;
+            if (direction) {
+                entry.smokeSprite.position.copy(direction).multiplyScalar(0.15);
+            }
+        }
+
+        if (!entry.inScene) {
+            this.scene.add(entry.obj);
+            entry.inScene = true;
+        } else {
+            entry.obj.visible = true;
+        }
+
+        this.muzzleFlashes.push({
+            entry: entry,
+            obj: entry.obj,
+            lightColor: color,
+            mat: entry.mat,
+            extraMat: entry.smokeMat,
+            life: 0.07,
+            maxLife: 0.07,
+            onUpdate: (delta, progress) => {
+                const s = 0.48 * (1 - progress * 0.4);
+                if (entry.sprite) entry.sprite.scale.set(s, s, 1);
+                if (entry.mat) entry.mat.opacity = Math.max(0, 0.95 * (1 - progress));
+                if (entry.smokeSprite && entry.smokeMat) {
+                    const ss = 0.25 + progress * 0.25;
+                    entry.smokeSprite.scale.set(ss, ss, 1);
+                    entry.smokeMat.opacity = Math.max(0, 0.35 * (1 - progress));
+                }
+            }
+        });
     }
 
     createKnifeSlash(position, direction, color = 0x99e6ff, range = 1.1) {
@@ -233,10 +274,14 @@ export class ParticleSystem {
     }
 
     createImpactSparks(position, normal, color = 0x00f0ff, count = 10) {
+        // Nếu đã tắt tia lửa va chạm đạn để tăng FPS: bỏ qua ngay lập tức
+        if (!this.sparksEnabled || this.sparksCountMultiplier <= 0) return;
+
         const mat = color === 0xff2255 ? this.critSparkMaterial : 
                     color === 0xffaa00 ? this.orangeSparkMaterial : this.sparkMaterial;
 
-        const available = Math.min(count, this.maxSparks - this.particles.length);
+        const effectiveCount = Math.max(1, Math.round(count * this.sparksCountMultiplier));
+        const available = Math.min(effectiveCount, this.maxSparks - this.particles.length);
         for (let i = 0; i < available; i++) {
             const particle = this.sparkPool.pop() || {
                 mesh: new THREE.Mesh(this.sparkGeo, mat.clone()),
@@ -565,13 +610,15 @@ export class ParticleSystem {
     }
 
     update(delta) {
-        this.effectLight.intensity = 0;
+        if (this.effectLight) {
+            this.effectLight.intensity = 0;
+        }
         // Update muzzle flashes
         for (let i = this.muzzleFlashes.length - 1; i >= 0; i--) {
             const f = this.muzzleFlashes[i];
             f.life -= delta;
             const progress = Math.max(0, f.life / f.maxLife);
-            if (f.lightColor !== undefined && progress * 8 > this.effectLight.intensity) {
+            if (this.effectLightEnabled && f.lightColor !== undefined && progress * 8 > this.effectLight.intensity) {
                 this.effectLight.intensity = progress * 8;
                 this.effectLight.color.setHex(f.lightColor);
                 this.effectLight.position.copy(f.obj.position);
@@ -581,12 +628,22 @@ export class ParticleSystem {
             if (f.onUpdate) f.onUpdate(delta, progress);
 
             if (f.life <= 0) {
-                this.scene.remove(f.obj);
-                if (f.obj.traverse) {
-                    f.obj.traverse(c => {
-                        if (c.geometry) c.geometry.dispose();
-                        if (c.material) c.material.dispose();
-                    });
+                if (f.entry) {
+                    // Tái sử dụng đối tượng vào pool thay vì hủy và tạo mới liên tục
+                    f.entry.obj.visible = false;
+                    if (this.muzzlePool.length < 24) {
+                        this.muzzlePool.push(f.entry);
+                    } else {
+                        this.scene.remove(f.entry.obj);
+                    }
+                } else {
+                    this.scene.remove(f.obj);
+                    if (f.obj.traverse) {
+                        f.obj.traverse(c => {
+                            if (c.geometry) c.geometry.dispose();
+                            if (c.material) c.material.dispose();
+                        });
+                    }
                 }
                 this.muzzleFlashes.splice(i, 1);
             }

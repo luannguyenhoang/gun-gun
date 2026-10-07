@@ -1031,6 +1031,21 @@
                 <button id="home-sound" class="toy-button blue wide-button">ÂM THANH: BẬT</button>
               </div>
 
+              <div class="settings-audio-card">
+                <div class="settings-audio-header">
+                  <span class="settings-audio-title">ĐỒ HỌA & HIỆU NĂNG</span>
+                  <span id="perf-mode-badge" class="settings-vol-badge">TỐI ƯU FPS</span>
+                </div>
+                <button id="setting-perf-mode" class="toy-button yellow wide-button" style="margin-bottom:8px;">CHẾ ĐỘ: TỐI ƯU MƯỢT MÀ</button>
+                <div class="join-row" style="gap:6px; margin-bottom:6px;">
+                  <button id="setting-toggle-muzzle" class="toy-button purple" style="flex:1;">LỬA NÒNG: TẮT</button>
+                  <button id="setting-toggle-sparks" class="toy-button blue" style="flex:1;">TIA LỬA ĐẠN: TẮT</button>
+                </div>
+                <div class="join-row" style="gap:6px;">
+                  <button id="setting-toggle-shadows" class="toy-button orange" style="width:100%;">ĐỔ BÓNG THỜI GIAN THỰC: TẮT</button>
+                </div>
+              </div>
+
               <button id="home-devmode" class="toy-button orange wide-button">CHẾ ĐỘ DEVELOPER: TẮT</button>
               <p>Cài đặt được áp dụng và lưu tự động ngay trong trận đấu.</p>
             </section>
@@ -1410,6 +1425,12 @@
                     <input type="range" id="pause-sfx-slider" class="range-slider mini" min="0" max="100" value="80" aria-label="Âm lượng hiệu ứng">
                   </div>
                 </div>
+                <button id="pause-toggle-perf" class="btn-toggle" style="background:#1e293b; border-color:#38bdf8;">CHẾ ĐỘ MƯỢT MÀ: BẬT</button>
+                <div class="toggle-row" style="gap:6px;">
+                    <button id="pause-toggle-muzzle" class="btn-toggle">LỬA NÒNG: TẮT</button>
+                    <button id="pause-toggle-sparks" class="btn-toggle">TIA LỬA: TẮT</button>
+                </div>
+                <button id="pause-toggle-shadows" class="btn-toggle">ĐỔ BÓNG: TẮT</button>
                 <div class="toggle-row">
                     <button id="toggle-sound" class="btn-toggle">SOUND: ON</button>
                     <button id="toggle-music" class="btn-toggle">MUSIC: ON</button>
@@ -1463,6 +1484,6 @@
     </div>
 
     <!-- Main Game Script -->
-    <script src="vendor/qrcode.min.js"></script><script type="module" src="src/app/main.js?v=59"></script>
+    <script src="vendor/qrcode.min.js"></script><script type="module" src="src/app/main.js?v=61"></script>
 </body>
 </html>
