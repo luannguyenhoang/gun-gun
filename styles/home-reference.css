@@ -1,11 +1,10 @@
 /* ==========================================================================
-   CYBER ARENA - PIXEL-PERFECT WARM PASTEL LOBBY THEME
-   Khắc phục toàn diện và đồng bộ 100% theo ảnh mẫu Cyber Arena:
-   - Ẩn triệt để nút thừa (chỉ giữ 1 nút CHƠI duy nhất to bản, loại bỏ nút BẮT ĐẦU song song)
-   - Bục tròn 3D phát sáng và nhân vật nằm thoáng đãng ở trung tâm, không bị che lấp
-   - Hộp Chế Độ Chơi phẳng gọn gàng (ẩn hàng phụ tĩnh)
-   - Mạng lưới chòm sao Constellation SVG nổi bật
-   - Chuẩn xác kích thước và màu sắc từng thành phần
+   CYBER ARENA - 100% ACCURATE PIXEL-PERFECT LOBBY THEME
+   Đồng bộ tuyệt đối theo ảnh mẫu:
+   - Footer căn từ giữa sang phải (left: 40%), nằm ngay dưới chân bục 3D
+   - Hộp Chế Độ Chơi hiển thị đầy đủ 2 hàng theo thiết kế
+   - Nút CHƠI khổng lồ duy nhất, gradient kem đào có vệt lấp lánh sparkle
+   - Bục tròn 3D to bản bề thế và nhân vật ở giữa màn hình
    ========================================================================== */
 
 :root {
@@ -13,14 +12,13 @@
   --home-bg-mid: #f7c39f;
   --home-bg-bot: #eb9e72;
   --home-ink-dark: #241611;
-  --home-ink-sub: #5c433b;
-  --home-pill-dark: #46374a;
+  --home-pill-dark: #443545;
   --home-pill-purple: #564567;
   --home-pill-cream: #fffdf8;
   --home-gold-bright: #ffd248;
 }
 
-/* 1. KHUNG CHÍNH SẢNH CHỜ (SCREEN MENU) */
+/* 1. MÀN HÌNH CHÍNH (SCREEN MENU) */
 #screen-menu {
   background: radial-gradient(circle at 50% 42%, #ffdfc9 0%, #f7c29e 52%, #eb9d70 100%) !important;
   backdrop-filter: none !important;
@@ -46,28 +44,28 @@
   isolation: isolate !important;
 }
 
-/* Mạng lưới chòm sao hình học Constellation SVG mờ ảo */
+/* Mạng lưới chòm sao hình học Constellation SVG */
 #screen-menu .home-shell::before {
   content: '' !important;
   position: absolute !important;
   inset: 0 !important;
   z-index: 1 !important;
   pointer-events: none !important;
-  opacity: 0.42 !important;
+  opacity: 0.45 !important;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1400' height='800' viewBox='0 0 1400 800'%3E%3Cg stroke='%23ffffff' stroke-width='0.8' stroke-opacity='0.45' fill='%23ffffff'%3E%3Cline x1='140' y1='150' x2='280' y2='100'/%3E%3Cline x1='280' y1='100' x2='410' y2='190'/%3E%3Cline x1='410' y1='190' x2='310' y2='270'/%3E%3Cline x1='310' y1='270' x2='140' y2='150'/%3E%3Cline x1='280' y1='100' x2='310' y2='270'/%3E%3Cline x1='940' y1='130' x2='1110' y2='90'/%3E%3Cline x1='1110' y1='90' x2='1260' y2='180'/%3E%3Cline x1='1260' y1='180' x2='1140' y2='260'/%3E%3Cline x1='1140' y1='260' x2='940' y2='130'/%3E%3Cline x1='1110' y1='90' x2='1140' y2='260'/%3E%3Cline x1='90' y1='520' x2='230' y2='450'/%3E%3Cline x1='230' y1='450' x2='340' y2='570'/%3E%3Cline x1='340' y1='570' x2='90' y2='520'/%3E%3Cline x1='1040' y1='510' x2='1200' y2='460'/%3E%3Cline x1='1200' y1='460' x2='1280' y2='590'/%3E%3Cline x1='1280' y1='590' x2='1040' y2='510'/%3E%3Ccircle cx='140' cy='150' r='3.5' fill-opacity='0.85'/%3E%3Ccircle cx='280' cy='100' r='4' fill-opacity='0.95'/%3E%3Ccircle cx='410' cy='190' r='3.5' fill-opacity='0.85'/%3E%3Ccircle cx='310' cy='270' r='3' fill-opacity='0.75'/%3E%3Ccircle cx='940' cy='130' r='3.5' fill-opacity='0.85'/%3E%3Ccircle cx='1110' cy='90' r='4' fill-opacity='0.95'/%3E%3Ccircle cx='1260' cy='180' r='3.5' fill-opacity='0.85'/%3E%3Ccircle cx='1140' cy='260' r='3' fill-opacity='0.75'/%3E%3Ccircle cx='90' cy='520' r='3' fill-opacity='0.75'/%3E%3Ccircle cx='230' cy='450' r='3.5' fill-opacity='0.85'/%3E%3Ccircle cx='340' cy='570' r='3' fill-opacity='0.75'/%3E%3Ccircle cx='1040' cy='510' r='3' fill-opacity='0.75'/%3E%3Ccircle cx='1200' cy='460' r='3.5' fill-opacity='0.85'/%3E%3Ccircle cx='1280' cy='590' r='3' fill-opacity='0.75'/%3E%3C/g%3E%3C/svg%3E") !important;
   background-size: cover !important;
   background-position: center !important;
 }
 
-/* Ánh sáng đèn nón sân khấu chiếu rọi xuống bục */
+/* Ánh sáng đèn nón sân khấu rọi xuống bục */
 #screen-menu .home-stage-light {
   position: absolute;
   top: 0;
-  left: 50%;
+  left: 54%;
   transform: translateX(-50%);
-  width: 650px;
+  width: 680px;
   height: 85%;
-  background: radial-gradient(ellipse at 50% 55%, rgba(255, 255, 255, 0.45) 0%, rgba(255, 240, 225, 0.16) 45%, transparent 72%);
+  background: radial-gradient(ellipse at 50% 55%, rgba(255, 255, 255, 0.48) 0%, rgba(255, 240, 225, 0.18) 45%, transparent 72%);
   pointer-events: none;
   z-index: 2;
 }
@@ -76,8 +74,8 @@
 #screen-menu .home-header {
   position: absolute !important;
   top: 24px !important;
-  left: 32px !important;
-  right: 32px !important;
+  left: 36px !important;
+  right: 36px !important;
   height: 60px !important;
   display: flex !important;
   align-items: center !important;
@@ -91,7 +89,7 @@
   gap: 14px;
 }
 
-/* Khối Profile bo tròn elip */
+/* Profile Card bo tròn elip */
 #screen-menu .profile-button {
   background: var(--home-pill-dark) !important;
   border: 2px solid #2b1f2e !important;
@@ -204,7 +202,7 @@
   transform: none !important;
 }
 
-/* Khối góc phải: CHỈ CÓ VÀNG & CÀI ĐẶT */
+/* Khối góc phải: CHỈ CÓ VÀNG & CÀI ĐẶT (Đã loại bỏ năng lượng & kim cương) */
 .home-header-right {
   display: flex;
   align-items: center;
@@ -248,18 +246,17 @@
 #screen-menu #menu-coins {
   font-size: 17px !important;
   font-weight: 1000 !important;
-  color: #ffffff !important;
+  color: #fde047 !important;
   letter-spacing: 0.5px !important;
 }
 .coins-info small {
   font-size: 10px !important;
   font-weight: 800 !important;
-  color: #fde047 !important;
+  color: #fef08a !important;
   letter-spacing: 0.8px !important;
   margin-top: 1px !important;
 }
 
-/* Nút Cài đặt vuông tròn */
 #screen-menu .header-settings {
   width: 52px !important;
   height: 52px !important;
@@ -328,13 +325,13 @@
 #screen-menu .home-nav {
   position: absolute !important;
   left: 36px !important;
-  bottom: 40px !important;
+  bottom: 36px !important;
   top: auto !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 12px !important;
   z-index: 8 !important;
-  width: 240px !important;
+  width: 245px !important;
 }
 
 #screen-menu .nav-tile {
@@ -393,7 +390,7 @@
 }
 
 #screen-menu .nav-chevron {
-  color: #8c6a5a;
+  color: #241611 !important;
   font-size: 15px;
   margin-left: auto;
 }
@@ -431,10 +428,13 @@
 }
 
 /* 5. KHU VỰC SÂN KHẤU 3D TRUNG TÂM (#room-lobby) */
-/* Cố định không gian trung tâm, lùi lên trên đáy để bục tròn không chạm các nút */
+/* Căn chỉnh để tâm nhân vật và bục tròn nằm ở X = 54%, đáy bục tròn ngay phía trên hộp Chế Độ Chơi */
 #screen-menu #room-lobby {
   position: absolute !important;
-  inset: 40px 240px 80px 240px !important;
+  left: 280px !important;
+  right: 60px !important;
+  top: 50px !important;
+  bottom: 120px !important;
   z-index: 4 !important;
   background: transparent !important;
   pointer-events: auto !important;
@@ -443,45 +443,47 @@
 #screen-menu #room-lobby::before {
   content: '' !important;
   position: absolute !important;
-  left: 28% !important;
-  right: 28% !important;
-  bottom: 12% !important;
-  height: 16% !important;
+  left: 26% !important;
+  right: 26% !important;
+  bottom: 8% !important;
+  height: 18% !important;
   background: #714636 !important;
-  opacity: 0.3 !important;
-  filter: blur(28px) !important;
+  opacity: 0.32 !important;
+  filter: blur(30px) !important;
   border-radius: 50% !important;
 }
 
-/* 6. GÓC DƯỚI BÊN PHẢI (CHẾ ĐỘ CHƠI & NÚT CHƠI KHỔNG LỒ) */
+/* 6. GÓC DƯỚI (FOOTER: CHẾ ĐỘ CHƠI & NÚT CHƠI) */
+/* Căn vị trí từ giữa màn hình (left: 40%) sang phải (right: 60px) ngay dưới chân bục 3D */
 #screen-menu .home-footer {
   position: absolute !important;
-  right: 36px !important;
+  left: 40% !important;
+  right: 60px !important;
   bottom: 36px !important;
-  left: auto !important;
   z-index: 10 !important;
   display: flex !important;
   align-items: flex-end !important;
+  justify-content: flex-start !important;
 }
 
 #screen-menu .play-area {
-  width: auto !important;
+  width: 100% !important;
   display: flex !important;
-  align-items: center !important;
-  gap: 16px !important;
+  align-items: flex-end !important;
+  gap: 20px !important;
 }
 
-/* Hộp Chọn Chế Độ Chơi: Phẳng gọn gàng, ẩn hàng phụ theo mặc định */
+/* HỘP CHẾ ĐỘ CHƠI: HIỂN THỊ ĐẦY ĐỦ 2 HÀNG Y HỆT ẢNH MẪU */
 #screen-menu .mode-card {
-  width: 250px !important;
-  height: 76px !important;
-  background: #362846 !important;
-  border: 2px solid #231932 !important;
+  width: 265px !important;
+  background: #3c304d !important;
+  border: 2px solid #281d36 !important;
   border-radius: 18px !important;
-  box-shadow: 0 4px 0 #21162e, 0 10px 20px rgba(25, 15, 35, 0.3) !important;
+  box-shadow: 0 4px 0 #1e142b, 0 10px 20px rgba(25, 15, 35, 0.3) !important;
   overflow: hidden !important;
   display: flex !important;
   flex-direction: column !important;
+  flex-shrink: 0 !important;
 }
 
 #screen-menu .mode-ribbon {
@@ -489,8 +491,8 @@
   font-size: 11px !important;
   font-weight: 900 !important;
   color: #fff6d9 !important;
-  padding: 4px 10px !important;
-  background: #2b1f38 !important;
+  padding: 5px 12px !important;
+  background: #2f233f !important;
   letter-spacing: 1px !important;
   text-transform: uppercase !important;
 }
@@ -500,11 +502,10 @@
   align-items: center !important;
   gap: 10px !important;
   padding: 8px 12px !important;
-  background: #4a3a60 !important;
-  margin: 4px 5px !important;
+  background: #4a3b62 !important;
+  margin: 5px 5px 3px 5px !important;
   border-radius: 12px !important;
   cursor: pointer !important;
-  flex: 1 !important;
 }
 #screen-menu .mode-content .mode-icon {
   font-size: 18px !important;
@@ -534,16 +535,38 @@
   font-size: 14px;
 }
 
-/* ẨN HÀNG PHỤ TĨNH CỦA MODE-CARD ĐỂ KHÔNG BỊ PHÌNH TO ĐÈ LÊN BỤC */
+/* Hàng phụ: Vô Tận (Đấu trường zombie) */
 #screen-menu .mode-secondary-row {
-  display: none !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 7px 14px 9px 14px !important;
+  background: #3c304d !important;
+}
+#screen-menu .mode-secondary-row .mode-sec-icon {
+  font-size: 16px !important;
+  color: #cbd5e1 !important;
+}
+.mode-sec-titles {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+.mode-sec-titles b {
+  font-size: 12px !important;
+  color: #e2e8f0 !important;
+  font-weight: 900 !important;
+}
+.mode-sec-titles small {
+  font-size: 9px !important;
+  color: #94a3b8 !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.3px !important;
 }
 
-/* ẨN TRIỆT ĐỂ NÚT BẮT ĐẦU VÀ NÚT RỜI PHÒNG KHI ĐANG Ở STYLE NONE */
+/* ẨN TRIỆT ĐỂ NÚT BẮT ĐẦU VÀ NÚT RỜI PHÒNG KHI ĐANG Ở CHẾ ĐỘ MẶC ĐỊNH */
 #screen-menu #room-start[style*="display: none"],
 #screen-menu #room-start[style*="display:none"],
-#screen-menu #btn-start[style*="display: none"],
-#screen-menu #btn-start[style*="display:none"],
 #screen-menu .leave-button[style*="display: none"],
 #screen-menu .leave-button[style*="display:none"] {
   display: none !important;
@@ -551,16 +574,19 @@
 
 /* NÚT CHƠI KHỔNG LỒ (THE HERO PLAY BUTTON) - CHIẾM TRỌN KHÔNG GIAN BỀ THẾ */
 #screen-menu .play-button {
-  min-height: 76px !important;
-  height: 76px !important;
-  min-width: 280px !important;
-  padding: 0 46px !important;
-  background: linear-gradient(180deg, #fff7eb 0%, #ffd6b8 42%, #fba176 100%) !important;
-  border: 2px solid #fff2e4 !important;
+  position: relative !important;
+  height: 82px !important;
+  min-height: 82px !important;
+  min-width: 320px !important;
+  max-width: 380px !important;
+  width: auto !important;
+  padding: 0 48px !important;
+  background: linear-gradient(180deg, #fff2e2 0%, #ffcfb0 45%, #f99f72 100%) !important;
+  border: 2px solid #fff5ea !important;
   border-radius: 20px !important;
-  box-shadow: inset 0 2px 0 #ffffff, 0 6px 0 #d97545, 0 14px 26px rgba(217, 117, 69, 0.4) !important;
-  color: #551c07 !important;
-  font-size: clamp(34px, 3.2vw, 44px) !important;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,0.95), 0 6px 0 #cf6d40, 0 16px 28px rgba(200, 95, 45, 0.35) !important;
+  color: #4a1a09 !important;
+  font-size: clamp(36px, 3.4vw, 46px) !important;
   font-weight: 1000 !important;
   letter-spacing: 2px !important;
   text-transform: uppercase !important;
@@ -570,27 +596,40 @@
   gap: 12px !important;
   cursor: pointer !important;
   transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease !important;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) !important;
   -webkit-text-stroke: 0 !important;
+}
+
+/* Vệt sao lấp lánh Sparkle ở góc nút CHƠI */
+#screen-menu .play-button::after {
+  content: '✦';
+  position: absolute;
+  top: 6px;
+  right: 12px;
+  font-size: 22px;
+  color: #ffffff;
+  opacity: 0.95;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
+  pointer-events: none;
 }
 
 #screen-menu .play-button:hover {
   transform: translateY(-3px) scale(1.02) !important;
-  box-shadow: inset 0 2px 0 #ffffff, 0 9px 0 #d97545, 0 20px 32px rgba(217, 117, 69, 0.5) !important;
+  box-shadow: inset 0 2px 0 #ffffff, 0 9px 0 #cf6d40, 0 20px 32px rgba(200, 95, 45, 0.45) !important;
   filter: brightness(1.04) !important;
 }
 #screen-menu .play-button:active {
   transform: translateY(4px) scale(0.99) !important;
-  box-shadow: inset 0 2px 0 #ffffff, 0 2px 0 #d97545, 0 6px 12px rgba(217, 117, 69, 0.3) !important;
+  box-shadow: inset 0 2px 0 #ffffff, 0 2px 0 #cf6d40, 0 6px 12px rgba(200, 95, 45, 0.25) !important;
 }
 
 .play-button .bolt {
   font-size: 28px;
-  color: #551c07;
+  color: #4a1a09;
   display: inline-block;
 }
 
-/* 7. THANH DOCK BÊN PHẢI (RIGHT FLOATING DOCK) - ĐỒNG BỘ 1 CỤM DUY NHẤT */
+/* 7. THANH DOCK BÊN PHẢI (RIGHT FLOATING DOCK) */
 .home-side-dock {
   position: absolute;
   right: 0;
@@ -631,7 +670,7 @@
   height: 20px;
 }
 
-/* RESPONSIVE */
+/* RESPONSIVE TRÊN MÀN HÌNH NHỎ */
 @media (max-width: 900px) {
   #screen-menu .home-intro {
     top: 96px !important;
@@ -651,6 +690,7 @@
     font-size: 13px !important;
   }
   #screen-menu .home-footer {
+    left: auto !important;
     right: 20px !important;
     bottom: 20px !important;
   }
@@ -658,11 +698,10 @@
     font-size: 30px !important;
     padding: 0 28px !important;
     height: 68px !important;
-    min-width: 200px !important;
+    min-width: 180px !important;
   }
   #screen-menu .mode-card {
     width: 200px !important;
-    height: 68px !important;
   }
   .home-side-dock {
     display: none;

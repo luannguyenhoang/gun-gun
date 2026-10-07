@@ -31,19 +31,19 @@ export class RoomLobby {
         // Bục tròn 3D phát sáng cao cấp theo ảnh mẫu (Glowing Stage Pedestal)
         this.pedestalGroup = new THREE.Group();
 
-        // 1. Tầng đế dưới (Base cylinder: màu be hồng nhạt có viền nổi)
-        const baseGeo = new THREE.CylinderGeometry(2.4, 2.5, 0.22, 64);
+        // 1. Tầng đế dưới (Base cylinder: màu be hồng nhạt có viền nổi rộng bề thế)
+        const baseGeo = new THREE.CylinderGeometry(3.25, 3.35, 0.28, 64);
         const baseMat = new THREE.MeshStandardMaterial({
             color: 0xead3c3,
             roughness: 0.45,
             metalness: 0.08
         });
         const baseMesh = new THREE.Mesh(baseGeo, baseMat);
-        baseMesh.position.y = -0.22;
+        baseMesh.position.y = -0.26;
         this.pedestalGroup.add(baseMesh);
 
         // 2. Tầng bục trên (Top cylinder: màu kem sáng bóng)
-        const topGeo = new THREE.CylinderGeometry(2.15, 2.25, 0.16, 64);
+        const topGeo = new THREE.CylinderGeometry(2.9, 3.0, 0.2, 64);
         const topMat = new THREE.MeshStandardMaterial({
             color: 0xfcf4eb,
             roughness: 0.35,
@@ -54,23 +54,23 @@ export class RoomLobby {
         this.pedestalGroup.add(topMesh);
 
         // 3. Vòng neon phát sáng tròn (Glow Light Ring trên mặt bục rực rỡ)
-        const ringGeo = new THREE.TorusGeometry(1.95, 0.055, 16, 64);
+        const ringGeo = new THREE.TorusGeometry(2.6, 0.075, 16, 64);
         const ringMat = new THREE.MeshBasicMaterial({
             color: 0xfffae8
         });
         const ringMesh = new THREE.Mesh(ringGeo, ringMat);
         ringMesh.rotation.x = Math.PI / 2;
-        ringMesh.position.y = 0.025;
+        ringMesh.position.y = 0.035;
         this.pedestalGroup.add(ringMesh);
 
         // 4. Vòng viền đế phụ (Sub-glow ring)
-        const subRingGeo = new THREE.TorusGeometry(2.38, 0.03, 16, 64);
+        const subRingGeo = new THREE.TorusGeometry(3.2, 0.04, 16, 64);
         const subRingMat = new THREE.MeshBasicMaterial({
             color: 0xfff0db
         });
         const subRingMesh = new THREE.Mesh(subRingGeo, subRingMat);
         subRingMesh.rotation.x = Math.PI / 2;
-        subRingMesh.position.y = -0.11;
+        subRingMesh.position.y = -0.13;
         this.pedestalGroup.add(subRingMesh);
 
         this.scene.add(this.pedestalGroup);
