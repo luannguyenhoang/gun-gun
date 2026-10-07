@@ -34,7 +34,7 @@ export class RoomLobby {
         // 1. Tầng đế dưới (Base cylinder: màu be hồng nhạt có viền nổi rộng bề thế)
         const baseGeo = new THREE.CylinderGeometry(3.25, 3.35, 0.28, 64);
         const baseMat = new THREE.MeshStandardMaterial({
-            color: 0xead3c3,
+            color: 0x806359,
             roughness: 0.45,
             metalness: 0.08
         });
@@ -45,7 +45,7 @@ export class RoomLobby {
         // 2. Tầng bục trên (Top cylinder: màu kem sáng bóng)
         const topGeo = new THREE.CylinderGeometry(2.9, 3.0, 0.2, 64);
         const topMat = new THREE.MeshStandardMaterial({
-            color: 0xfcf4eb,
+            color: 0xb59b8e,
             roughness: 0.35,
             metalness: 0.05
         });
@@ -74,6 +74,7 @@ export class RoomLobby {
         this.pedestalGroup.add(subRingMesh);
 
         this.scene.add(this.pedestalGroup);
+        this.pedestalGroup.scale.set(0.65, 1, 0.65);
     }
 
     load(character) {
@@ -93,6 +94,8 @@ export class RoomLobby {
         this.stage = document.createElement('div');
         this.stage.className = 'lobby-stage';
         this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.1;
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
         this.renderer.domElement.setAttribute('aria-label', 'Các nhân vật đứng trong sảnh chờ');
         this.labels = document.createElement('div');
@@ -215,8 +218,8 @@ export class RoomLobby {
         }
         if (this.solo) {
             // Đặt góc camera nghiêng nhìn xuống nhẹ để bục tròn nở elip 3D rõ nét và nằm chính giữa màn hình
-            const dist = Math.max(8.4, 5.8 / this.camera.aspect);
-            this.camera.position.set(0, 3.6, dist);
+            const dist = Math.max(7.8, 5.8 / this.camera.aspect);
+            this.camera.position.set(0, 4.8, dist);
             this.camera.lookAt(0, 1.25, 0);
         } else {
             this.camera.position.set(0, 4.7, Math.max(13.5, 17 / this.camera.aspect));

@@ -10,7 +10,7 @@ import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
 import { UIManager } from '../ui/ui.js?v=40';
 import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=34';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
-import { RoomLobby } from '../ui/lobby.js?v=35';
+import { RoomLobby } from '../ui/lobby.js?v=36';
 import { HomeMenu } from '../ui/home.js?v=48';
 import { LootingSystem } from '../gameplay/loot/looting.js?v=40';
 import { RenderQuality } from '../rendering/performance.js';
