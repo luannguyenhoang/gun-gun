@@ -3,7 +3,7 @@ import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js?v=58';
 import { ParticleSystem } from '../rendering/particles.js?v=60';
 import { Arena } from '../world/arena.js?v=22';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=62';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=63';
 import { PlayerController } from '../gameplay/player/player.js?v=59';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=41';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
