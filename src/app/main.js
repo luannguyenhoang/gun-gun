@@ -8,7 +8,7 @@ import { PlayerController } from '../gameplay/player/player.js?v=67';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=67';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
 import { UIManager } from '../ui/ui.js?v=40';
-import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=35';
+import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=36';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=37';
 import { HomeMenu } from '../ui/home.js?v=57';
@@ -485,6 +485,8 @@ class CyberArenaGame {
         const currentLoadout = this.getLoadout();
         this.weapons.resetRun(currentLoadout.primary, currentLoadout.secondary, currentLoadout.bomb1, currentLoadout.bomb2);
         for (const remote of this.remotePlayers.values()) {
+            remote.clearSharedSkills?.();
+            remote.applyCharacterStats?.();
             remote.weapons.resetRun(remote.loadout?.primary, remote.loadout?.secondary, remote.loadout?.bomb1, remote.loadout?.bomb2); remote.health = remote.maxHealth; remote.shield = remote.maxShield;
             remote.isDead = false; remote.isDowned = false; remote.commandQueue = [];
             remote.bleedOutTimer = 30; remote.reviveProgress = 0; remote.isBeingRevived = false; remote.invulnerability = 0;
@@ -771,6 +773,11 @@ class CyberArenaGame {
             return remote;
         }
         const remote = makeRemotePlayer(this.scene, this.gltfLoader, id, name, character);
+        remote.scene = this.scene; remote.particles = this.particles;
+        for (const key of Object.getOwnPropertyNames(PlayerController.prototype)) {
+            if (/^(trigger|tryActiveSkill|createSkillVisualEffect|createLightningEntity|showStrikeBeam|removeSkillEntity|clearSharedSkills|getSharedSkillState|applySharedSkillState|updateActiveSkills|applyCharacterStats|applyExplosionShock|applyScreenShake)$/.test(key) || key.startsWith('trigger')) remote[key] = PlayerController.prototype[key];
+        }
+        remote.clearSharedSkills(); remote.applyCharacterStats();
         remote.weapons = new WeaponSystem(this.scene, this.gltfLoader, this.particles);
         remote.weapons.models = this.weapons.models;
         // Dùng chung mảng activeZones và thrownBombs để đồng bộ toàn bộ vùng khói/lửa giữa tất cả người chơi
@@ -792,6 +799,7 @@ class CyberArenaGame {
     removeCoopPlayer(id) {
         const remote = this.remotePlayers.get(id);
         if (!remote) return;
+        remote.clearSharedSkills?.();
         remote.dispose();
         this.remotePlayers.delete(id);
         this.coopPlayers = this.coopPlayers.filter(player => player !== remote);
@@ -1247,6 +1255,7 @@ class CyberArenaGame {
         this.networkEvents = [];
 
         return {
+            worldEffects: this.weapons.getWorldState?.(),
             bombs: this.waveManager.bombs.snapshot(),
             state: this.state,
             wave: this.currentWave,
@@ -1255,8 +1264,8 @@ class CyberArenaGame {
             events,
             looting: this.lootingSystem?.snapshot ? this.lootingSystem.snapshot() : null,
             projectiles: this.coopPlayers.flatMap(player => (player.weapons?.projectiles || []).filter(p => p.mesh).map(p => ({ id: `${player.id || this.network.playerId}:${p.id}`, owner: player.id || this.network.playerId, position: p.mesh.position.toArray(), direction: p.direction.toArray(), speed: p.speed, color: p.color }))),
-            players: this.coopPlayers.map(player => ({ id: player.id || this.network.playerId, name: player.name || 'Bạn', character: player.characterId || this.characterId, position: player.position.toArray(), health: player.health, shield: player.shield, maxHealth: player.maxHealth, maxShield: player.maxShield, isDead: player.isDead, isDowned: player.isDowned, isInSmoke: !!player.isInSmoke, bleedOutTimer: player.bleedOutTimer, reviveProgress: player.reviveProgress || 0, isBeingRevived: !!player.isBeingRevived, invulnerability: player.invulnerability || 0, lootInventory: (player === this.player ? this.lootingSystem?.inventory : player.lootInventory)?.slots || null, aim: player.aimYaw, ads: !!player.isADS, moving: player === this.player ? player.velocity.lengthSq() > 0.1 : player.moving, weapons: player.weapons?.getNetworkState(), processedSeq: player.processedSeq || 0 })),
-            enemies: this.waveManager.enemies.filter(enemy => !enemy.isDead).map(enemy => ({ id: enemy.id, type: enemy.type, position: enemy.position.toArray(), health: enemy.health, maxHealth: enemy.maxHealth, armor: enemy.armor ?? 0, animation: enemy.animationName || null, animationSeq: enemy.animationSeq || 0, animationTime: Number.isFinite(enemy.currentAction?.time) ? enemy.currentAction.time : null, animationRate: Number.isFinite(enemy.currentAction?.getEffectiveTimeScale()) ? enemy.currentAction.getEffectiveTimeScale() : null, animationPaused: typeof enemy.currentAction?.paused === 'boolean' ? enemy.currentAction.paused : null, yaw: enemy.mesh?.rotation.y || 0 })),
+            players: this.coopPlayers.map(player => ({ id: player.id || this.network.playerId, name: player.name || 'Bạn', character: player.characterId || this.characterId, position: player.position.toArray(), health: player.health, shield: player.shield, maxHealth: player.maxHealth, maxShield: player.maxShield, isDead: player.isDead, isDowned: player.isDowned, isInSmoke: !!player.isInSmoke, bleedOutTimer: player.bleedOutTimer, reviveProgress: player.reviveProgress || 0, isBeingRevived: !!player.isBeingRevived, invulnerability: player.invulnerability || 0, lootInventory: (player === this.player ? this.lootingSystem?.inventory : player.lootInventory)?.slots || null, aim: player.aimYaw, ads: !!player.isADS, moving: player === this.player ? player.velocity.lengthSq() > 0.1 : player.moving, skills: player.getSharedSkillState?.(), weapons: player.weapons?.getNetworkState(), processedSeq: player.processedSeq || 0 })),
+            enemies: this.waveManager.enemies.filter(enemy => !enemy.isDead).map(enemy => ({ id: enemy.id, type: enemy.type, position: enemy.position.toArray(), health: enemy.health, maxHealth: enemy.maxHealth, armor: enemy.armor ?? 0, status: {burnTimer: enemy.burnTimer || 0, burnDamage: enemy.burnDamage || 0, freezeTimer: enemy.freezeTimer || 0, vulnerableTimer: enemy.vulnerableTimer || 0, vulnerableMult: enemy.vulnerableMult || 1, combatState: enemy.combatState, combatTimer: enemy.combatTimer || 0}, animation: enemy.animationName || null, animationSeq: enemy.animationSeq || 0, animationTime: Number.isFinite(enemy.currentAction?.time) ? enemy.currentAction.time : null, animationRate: Number.isFinite(enemy.currentAction?.getEffectiveTimeScale()) ? enemy.currentAction.getEffectiveTimeScale() : null, animationPaused: typeof enemy.currentAction?.paused === 'boolean' ? enemy.currentAction.paused : null, yaw: enemy.mesh?.rotation.y || 0 })),
             pickups: this.pickups.pickups.map(pickup => ({ id: pickup.id, type: pickup.type, position: pickup.mesh.position.toArray(), weaponSlot: pickup.weaponSlot, life: pickup.life }))
         };
     }
@@ -1264,6 +1273,7 @@ class CyberArenaGame {
     applyCoopSnapshot(snapshot, localId) {
         if (!snapshot) return;
         this.waveManager.bombs.applySnapshot(snapshot.bombs || []);
+        if (snapshot.worldEffects) this.weapons.applyWorldState?.(snapshot.worldEffects);
 
         if (snapshot.looting && this.lootingSystem?.applySnapshot) {
             this.lootingSystem.applySnapshot(snapshot.looting);
@@ -1271,6 +1281,16 @@ class CyberArenaGame {
 
         // Đồng bộ hiệu ứng đường đạn, ánh chớp nòng và âm thanh khi người chơi khác bắn
         for (const ev of snapshot.events || []) {
+            if (ev.type === 'turret_hit') {
+                this.particles?.createImpactSparks?.(new THREE.Vector3().fromArray(ev.position), new THREE.Vector3(0,1,0), 0xfb923c, 6);
+                sounds.play('pistol', {volume: 0.45});
+            }
+            if (ev.type === 'bomb_explosion') {
+                const pos = new THREE.Vector3().fromArray(ev.position);
+                this.particles?.createExplosion?.(pos, ev.color, 40, ev.radius);
+                this.particles?.createImpactSparks?.(pos, new THREE.Vector3(0,1,0), ev.color, 25);
+                sounds.play('enemyExplode', {volume: 1});
+            }
             if (ev.type === 'hit' && ev.id > (this.lastHitEventId || 0)) {
                 this.lastHitEventId = ev.id;
                 if (ev.shooterId === localId) this.ui.triggerHitmarker(ev.crit);
@@ -1289,14 +1309,14 @@ class CyberArenaGame {
                     sounds.play(weapon.fireSound, { volume: 0.65, pitchVariation: 0.08 });
                 }
 
-            } else if (ev.type === 'throw_bomb' && ev.throwerId !== localId) {
+            } else if (ev.type === 'throw_bomb' && !snapshot.worldEffects && ev.throwerId !== localId) {
                 const origin = new THREE.Vector3().fromArray(ev.origin);
                 const target = new THREE.Vector3().fromArray(ev.target);
                 const bombCfg = getBombConfig(ev.weaponId);
                 if (bombCfg) {
                     this.weapons.spawnVisualBomb(origin, target, bombCfg);
                 }
-            } else if (ev.type === 'smoke_zone') {
+            } else if (ev.type === 'smoke_zone' && !snapshot.worldEffects) {
                 const pos = new THREE.Vector3().fromArray(ev.position);
                 this.weapons.createSmokeZone(pos, ev.radius || 6.0, ev.duration || 10.0);
                 this.particles?.createExplosion?.(pos, 0x94a3b8, 25, ev.radius || 6.0);
@@ -1339,6 +1359,7 @@ class CyberArenaGame {
                 if ((state.isDowned || state.isDead) && this.player.model) this.player.model.rotation.x = -Math.PI / 2.2;
                 this.player.maxHealth = state.maxHealth ?? this.player.maxHealth;
                 this.player.maxShield = state.maxShield ?? this.player.maxShield;
+                this.player.applySharedSkillState?.(state.skills);
                 this.player.health = state.health; this.player.shield = state.shield;
                 this.player.isDead = state.isDead; this.player.isDowned = state.isDowned;
                 this.player.isInSmoke = !!state.isInSmoke;
@@ -1362,6 +1383,7 @@ class CyberArenaGame {
             remote.bleedOutTimer = state.bleedOutTimer ?? 30; remote.reviveProgress = state.reviveProgress || 0;
             remote.isBeingRevived = !!state.isBeingRevived;
             remote.aimYaw = state.aim; remote.isADS = !!state.ads; remote.moving = !!state.moving;
+            remote.applySharedSkillState?.(state.skills);
             remote.weapons.applyNetworkState(state.weapons);
         }
         const byId = new Map(this.waveManager.enemies.map(enemy => [enemy.id, enemy]));
@@ -1382,6 +1404,12 @@ class CyberArenaGame {
             } else enemy.netVelocity = new THREE.Vector3();
             enemy.netTarget = nextPosition;
             enemy.netSampleTime = sampleTime;
+            Object.assign(enemy, state.status || {});
+            if (state.status) {
+                const status = state.status;
+                enemy.setEmissiveColor?.(status.freezeTimer > 0 ? 0x00f0ff : status.burnTimer > 0 ? 0xff6600 : 0xff00ff,
+                    status.freezeTimer > 0 || status.burnTimer > 0 || status.vulnerableTimer > 0 ? 0.8 : 0);
+            }
             enemy.position.copy(nextPosition); enemy.health = state.health;
             enemy.maxHealth = state.maxHealth;
             enemy.armor = state.armor ?? enemy.armor;
@@ -1493,7 +1521,9 @@ class CyberArenaGame {
                 this.weapons.update(delta, this.arena, this.waveManager.enemies, this.player,
                     (dmg, crit, pt, hitResult) => this.onHitEnemy(dmg, crit, pt, hitResult));
                 for (const remote of this.remotePlayers.values()) {
+                    remote.latestEnemies = this.waveManager.enemies;
                     this.network.processCommands(remote);
+                    remote.updateActiveSkills?.(delta, this.arena, this.waveManager.enemies);
                     remote.weapons.update(delta, this.arena, this.waveManager.enemies, remote,
                         (dmg, crit, pt, hitResult) => this.onHitEnemy(dmg, crit, pt, hitResult, remote.id));
                 }
@@ -1501,7 +1531,7 @@ class CyberArenaGame {
                 this.waveManager.bombs.update(delta, [], false);
                 // Predicted shots are cosmetic. Only the host resolves hits and world damage.
                 this.weapons.enemyTargets = [];
-                this.weapons.update(delta, this.arena, this.waveManager.enemies, this.player, () => {});
+                this.weapons.update(delta, this.arena, [], this.player, () => {});
                 for (const [id, projectile] of this.remoteProjectiles) {
                     projectile.mesh.position.addScaledVector(projectile.direction, projectile.speed * delta);
                     if (projectile.life !== undefined) {
