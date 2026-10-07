@@ -10,11 +10,11 @@ import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
 import { UIManager } from '../ui/ui.js?v=40';
 import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=35';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
-import { RoomLobby } from '../ui/lobby.js?v=36';
+import { RoomLobby } from '../ui/lobby.js?v=37';
 import { HomeMenu } from '../ui/home.js?v=56';
 import { LootingSystem } from '../gameplay/loot/looting.js?v=40';
 import { RenderQuality } from '../rendering/performance.js';
-import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=48';
+import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=49';
 
 class CyberArenaGame {
     constructor() {
@@ -508,7 +508,7 @@ class CyberArenaGame {
         if (this.network?.active) {
             this.network.changeCharacter?.(this.characterId);
         }
-        this.saveProgress();
+        this.saveProgress(true);
     }
 
     updateCharacterSelection() {
@@ -552,7 +552,7 @@ class CyberArenaGame {
         localStorage.setItem('cyber_arena_weapon', weapon.id);
         this.weapons.resetRun(currentLoadout.primary, currentLoadout.secondary, currentLoadout.bomb1, currentLoadout.bomb2);
         this.network.changeWeapon(weapon.id);
-        this.saveProgress();
+        this.saveProgress(true);
         return true;
     }
 
@@ -1107,8 +1107,8 @@ class CyberArenaGame {
             events,
             looting: this.lootingSystem?.snapshot ? this.lootingSystem.snapshot() : null,
             projectiles: this.coopPlayers.flatMap(player => (player.weapons?.projectiles || []).filter(p => p.mesh).map(p => ({ id: `${player.id || this.network.playerId}:${p.id}`, owner: player.id || this.network.playerId, position: p.mesh.position.toArray(), direction: p.direction.toArray(), speed: p.speed, color: p.color }))),
-            players: this.coopPlayers.map(player => ({ id: player.id || this.network.playerId, name: player.name || 'Bạn', character: player.characterId || this.characterId, position: player.position.toArray(), health: player.health, shield: player.shield, maxHealth: player.maxHealth, maxShield: player.maxShield, isDead: player.isDead, isDowned: player.isDowned, isInSmoke: !!player.isInSmoke, bleedOutTimer: player.bleedOutTimer, reviveProgress: player.reviveProgress || 0, isBeingRevived: !!player.isBeingRevived, invulnerability: player.invulnerability || 0, lootInventory: (player === this.player ? this.lootingSystem?.inventory : player.lootInventory)?.slots, aim: player.aimYaw, ads: !!player.isADS, moving: player === this.player ? player.velocity.lengthSq() > 0.1 : player.moving, weapons: player.weapons?.getNetworkState(), processedSeq: player.processedSeq || 0 })),
-            enemies: this.waveManager.enemies.filter(enemy => !enemy.isDead).map(enemy => ({ id: enemy.id, type: enemy.type, position: enemy.position.toArray(), health: enemy.health, maxHealth: enemy.maxHealth, armor: enemy.armor, animation: enemy.animationName, animationSeq: enemy.animationSeq, animationTime: enemy.currentAction?.time, animationRate: enemy.currentAction?.getEffectiveTimeScale(), animationPaused: enemy.currentAction?.paused, yaw: enemy.mesh?.rotation.y || 0 })),
+            players: this.coopPlayers.map(player => ({ id: player.id || this.network.playerId, name: player.name || 'Bạn', character: player.characterId || this.characterId, position: player.position.toArray(), health: player.health, shield: player.shield, maxHealth: player.maxHealth, maxShield: player.maxShield, isDead: player.isDead, isDowned: player.isDowned, isInSmoke: !!player.isInSmoke, bleedOutTimer: player.bleedOutTimer, reviveProgress: player.reviveProgress || 0, isBeingRevived: !!player.isBeingRevived, invulnerability: player.invulnerability || 0, lootInventory: (player === this.player ? this.lootingSystem?.inventory : player.lootInventory)?.slots || null, aim: player.aimYaw, ads: !!player.isADS, moving: player === this.player ? player.velocity.lengthSq() > 0.1 : player.moving, weapons: player.weapons?.getNetworkState(), processedSeq: player.processedSeq || 0 })),
+            enemies: this.waveManager.enemies.filter(enemy => !enemy.isDead).map(enemy => ({ id: enemy.id, type: enemy.type, position: enemy.position.toArray(), health: enemy.health, maxHealth: enemy.maxHealth, armor: enemy.armor ?? 0, animation: enemy.animationName || null, animationSeq: enemy.animationSeq || 0, animationTime: Number.isFinite(enemy.currentAction?.time) ? enemy.currentAction.time : null, animationRate: Number.isFinite(enemy.currentAction?.getEffectiveTimeScale()) ? enemy.currentAction.getEffectiveTimeScale() : null, animationPaused: typeof enemy.currentAction?.paused === 'boolean' ? enemy.currentAction.paused : null, yaw: enemy.mesh?.rotation.y || 0 })),
             pickups: this.pickups.pickups.map(pickup => ({ id: pickup.id, type: pickup.type, position: pickup.mesh.position.toArray(), weaponSlot: pickup.weaponSlot, life: pickup.life }))
         };
     }

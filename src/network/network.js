@@ -140,7 +140,11 @@ export class NetworkRoom {
 
     broadcastRoster() {
         const data = { type: 'roster', players: this.players, host: 'host' };
-        for (const c of this.connections) if (c.joined && c.conn.open) c.conn.send(data);
+        for (const c of this.connections) {
+            if (c.joined && c.conn.open) {
+                try { c.conn.send(data); } catch (e) { console.warn('[NetworkHost] Lỗi gửi roster:', e); }
+            }
+        }
         this.updateRoster(this.players);
         this.game.showRoomState({ code: this.code, host: 'host', you: 'host', players: this.players, isHost: true });
     }
@@ -198,7 +202,11 @@ export class NetworkRoom {
                         if (!this.beginMatch(data.epoch)) return;
                         if (!Number.isSafeInteger(data.snapshotSeq) || data.snapshotSeq <= this.lastSnapshotSeq) return;
                         this.lastSnapshotSeq = data.snapshotSeq;
-                        this.game.applyCoopSnapshot(data.snapshot, this.playerId);
+                        try {
+                            this.game.applyCoopSnapshot(data.snapshot, this.playerId);
+                        } catch (err) {
+                            console.warn('[NetworkClient] Lỗi khi áp dụng snapshot:', err);
+                        }
                         if (data.ack) {
                             this.pendingCommands = this.pendingCommands.filter(c => c.seq > data.ack);
                         }
@@ -239,7 +247,11 @@ export class NetworkRoom {
         for (const c of this.connections) { c.input = {}; c.ack = 0; c.inputSeq = 0; }
         this.game.showRoomState({ code: this.code, host: 'host', you: 'host', players: this.players, isHost: true, started: true });
         const data = { type: 'start', epoch: this.epoch };
-        for (const c of this.connections) if (c.joined && c.conn.open) c.conn.send(data);
+        for (const c of this.connections) {
+            if (c.joined && c.conn.open) {
+                try { c.conn.send(data); } catch (e) { console.warn('[NetworkHost] Lỗi gửi start:', e); }
+            }
+        }
     }
 
     sendCommand(command) {
@@ -268,7 +280,13 @@ export class NetworkRoom {
             const snapshot = this.game.makeCoopSnapshot();
             const snapshotSeq = ++this.snapshotSeq;
             for (const c of this.connections) {
-                if (c.joined && c.conn.open) c.conn.send({ type: 'snapshot', snapshot, snapshotSeq, started, epoch: this.epoch, ack: c.ack });
+                if (c.joined && c.conn.open) {
+                    try {
+                        c.conn.send({ type: 'snapshot', snapshot, snapshotSeq, started, epoch: this.epoch, ack: c.ack });
+                    } catch (err) {
+                        console.warn('[NetworkHost] Lỗi khi gửi snapshot cho client:', c.id, err);
+                    }
+                }
             }
         } else {
             if (!this.conn || !this.conn.open) return;
@@ -289,7 +307,11 @@ export class NetworkRoom {
                 commands: this.pendingCommands.slice(0, 30)
             };
             local.reviveRequested = false;
-            this.conn.send(body);
+            try {
+                this.conn.send(body);
+            } catch (err) {
+                console.warn('[NetworkClient] Lỗi khi gửi sync input:', err);
+            }
         }
     }
 

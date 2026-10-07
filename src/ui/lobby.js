@@ -261,9 +261,10 @@ export class RoomLobby {
         }
         if (this.solo) {
             // Đặt góc camera nghiêng nhìn xuống nhẹ để bục tròn nở elip 3D rõ nét và nằm chính giữa màn hình
-            const dist = Math.max(7.8, 5.8 / this.camera.aspect);
+            const dist = Math.max(8.4, 6.2 / this.camera.aspect);
             this.camera.position.set(0, 3.9, dist);
-            this.camera.lookAt(0, 1.25, 0);
+            // Aim slightly lower so the pedestal front edge has room inside the canvas.
+            this.camera.lookAt(0, 1.0, 0);
         } else {
             this.camera.position.set(0, 4.7, Math.max(13.5, 17 / this.camera.aspect));
             this.camera.lookAt(0, 1, 0);

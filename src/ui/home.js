@@ -2,7 +2,7 @@ import { sounds } from '../audio/audio.js?v=52';
 import { CharacterShowroom } from './showroom.js?v=51';
 import { CHARACTER_CONFIGS, isCharacterUnlocked } from '../gameplay/player/characters.js';
 import { getStartingWeapon } from '../gameplay/combat/weapons.js?v=32';
-import { initAuth, signIn, signUp, signInWithGoogle, signOut, onAuthStateChange, applyProfileProgressToGame, resetGameProgressToGuest, refreshCurrentProfile } from '../network/auth.js?v=48';
+import { initAuth, signIn, signUp, signInWithGoogle, signOut, onAuthStateChange, applyProfileProgressToGame, resetGameProgressToGuest, refreshCurrentProfile } from '../network/auth.js?v=49';
 import {
     initFriendsSystem,
     cleanupFriendsSystem,
@@ -218,6 +218,7 @@ export class HomeMenu {
         // Đăng xuất
         document.getElementById('btn-auth-logout')?.addEventListener('click', async () => {
             await signOut();
+            resetGameProgressToGuest(game);
             const defaultName = 'Người chơi';
             game.roomName.value = defaultName;
             localStorage.setItem('arena_player_name', defaultName);
@@ -646,8 +647,10 @@ export class HomeMenu {
                 // Dọn dẹp trạng thái bạn bè
                 cleanupFriendsSystem();
 
-                // Đặt lại súng, tiền và cấp độ nâng cấp về mặc định chế độ khách
-                resetGameProgressToGuest(game);
+                // Ở chế độ khách, giữ nguyên tiến trình người chơi đã lưu trong localStorage và cập nhật UI
+                game.updateCoinsUI?.();
+                game.updateCharacterSelection?.();
+                game.homeMenu?.preview?.();
             }
         });
 

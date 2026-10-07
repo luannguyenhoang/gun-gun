@@ -363,6 +363,10 @@ export function applyProfileProgressToGame(profile, game) {
     if (profile.character_id) {
         game.characterId = profile.character_id;
         try { localStorage.setItem('cyber_arena_character', game.characterId); } catch {}
+        if (game.player) game.player.setCharacter(game.characterId);
+        if (game.homeMenu?.showroom) {
+            game.homeMenu.showroom.selected = game.characterId;
+        }
     }
 
     if (Array.isArray(profile.unlocked_characters) && profile.unlocked_characters.length > 0) {
@@ -377,6 +381,13 @@ export function applyProfileProgressToGame(profile, game) {
                 if (game.weapons) game.weapons.startingWeaponId = profile.loadout.primary;
             }
         } catch {}
+        if (game.homeMenu?.showroom) {
+            game.homeMenu.showroom.loadout = (typeof game.homeMenu.showroom.getSavedLoadout === 'function')
+                ? game.homeMenu.showroom.getSavedLoadout()
+                : { ...profile.loadout };
+            game.homeMenu.showroom.weaponId = game.homeMenu.showroom.loadout?.primary;
+            game.homeMenu.showroom.syncLoadoutUI?.();
+        }
     }
 
     if (typeof profile.high_score === 'number' && profile.high_score > 0) {
@@ -511,6 +522,11 @@ if (typeof window !== 'undefined') {
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && _currentUser) {
             refreshCurrentProfile();
+        }
+    });
+    window.addEventListener('beforeunload', () => {
+        if (_currentUser) {
+            flushGameProgress();
         }
     });
 }

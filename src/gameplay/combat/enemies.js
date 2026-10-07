@@ -482,7 +482,7 @@ export class Zombie {
         if (Number.isFinite(state.animationTime)) action.time = Math.max(0, Math.min(state.animationTime, action.getClip().duration));
         if (Number.isFinite(state.animationRate)) action.setEffectiveTimeScale(state.animationRate);
         if (typeof state.animationPaused === 'boolean') action.paused = state.animationPaused;
-        this.mixer.update(0);
+        this.mixer?.update(0);
     }
 
     setEmissiveColor(colorHex, intensity = 0.5) {

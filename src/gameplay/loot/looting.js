@@ -964,7 +964,7 @@ export class LootContainer {
         this.isOpen = false;
         this.id = options.id || ('container_' + Math.random().toString(36).substring(2, 9));
         // Hòm tồn tại trên sân cho đến khi người chơi nhặt sạch đồ thì tự động giải phóng vị trí
-        this.life = typeof options.life === 'number' ? options.life : Infinity;
+        this.life = typeof options.life === 'number' && options.life !== -1 ? options.life : Infinity;
         this.maxLife = this.life;
 
         this.mesh = null;
@@ -1160,7 +1160,8 @@ export class LootContainer {
             name: this.name,
             position: this.position.toArray(),
             slots: this.slots.map(s => s ? { ...s } : null),
-            life: this.life,
+            // PeerJS BinaryPack không hỗ trợ Infinity. Dùng -1 khi truyền mạng cho thời gian sống vô hạn.
+            life: Number.isFinite(this.life) ? this.life : -1,
             isOpen: !!this.isOpen,
             isUnlocked: !!this.isUnlocked,
             isLooted: !!this.isLooted,
@@ -2768,7 +2769,7 @@ export class LootingSystem {
                 id: dw.id,
                 position: dw.group.position.toArray(),
                 gunData: dw.gunData,
-                life: dw.life
+                life: Number.isFinite(dw.life) ? dw.life : -1
             }))
         };
     }
@@ -2835,7 +2836,7 @@ export class LootingSystem {
                 container.isLooted = !!cSnap.isLooted;
                 container.checkEmpty();
             }
-            container.life = cSnap.life ?? container.life;
+            container.life = cSnap.life === -1 ? Infinity : (cSnap.life ?? container.life);
             if (this.activeContainer && this.activeContainer.id === container.id) {
                 this.ui?.refreshPUBGMiniCrate?.(this.activeContainer, this);
             }
@@ -2863,7 +2864,7 @@ export class LootingSystem {
                 const pos = new THREE.Vector3().fromArray(wSnap.position);
                 dw = this.spawnDroppedWeapon(pos, wSnap.gunData, wSnap.id, wSnap.life);
             } else {
-                dw.life = wSnap.life;
+                dw.life = wSnap.life === -1 ? 30.0 : wSnap.life;
                 if (Array.isArray(wSnap.position) && dw.group) {
                     dw.group.position.fromArray(wSnap.position);
                 }

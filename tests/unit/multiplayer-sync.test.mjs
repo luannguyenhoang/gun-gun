@@ -9,6 +9,7 @@ const { NetworkRoom, makeRemotePlayer }=await import('../../src/network/network.
 const { WeaponSystem, WEAPON_CONFIGS }=await import('../../src/gameplay/combat/weapons.js');
 const { SkyBombs }=await import('../../src/gameplay/combat/skybombs.js');
 const { Zombie }=await import('../../src/gameplay/combat/enemies.js');
+const { LootingSystem }=await import('../../src/gameplay/loot/looting.js');
 const source=readFileSync(new URL('../../src/app/main.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'').split('// Instantiate game on page load')[0];
 const Game=vm.runInNewContext(source+'\nCyberArenaGame;', {THREE,Zombie,performance,sounds:{play(){}}});
 function weapons(scene){const w=new WeaponSystem(scene,null,{createMuzzleFlash(){}});w.resetRun();return w;}
@@ -235,4 +236,20 @@ test('enemy bullets cannot damage a remote player before reaching their body', (
  assert.equal(p.checkHit(start,new THREE.Vector3(0,1,1),ray).hit,false);
  assert.equal(p.checkHit(start,new THREE.Vector3(0,1,21),ray).hit,true);
  p.isDowned=true;assert.equal(p.checkHit(start,new THREE.Vector3(0,1,21),ray).hit,false);
+});
+
+test('looting container snapshot has finite life on wire and preserves Infinity on client', () => {
+ const scene = new THREE.Scene();
+ const looting = new LootingSystem(scene, null, { position: new THREE.Vector3() }, null, { hidePUBGMiniCrate(){} });
+ looting.spawnContainer('wooden_crate', new THREE.Vector3(0, 0, 0));
+ const snap = looting.snapshot();
+ assert.equal(snap.containers[0].life, -1);
+ function assertFinite(v) {
+  if (typeof v === 'number') assert.ok(Number.isFinite(v), 'PeerJS cannot pack non-finite numbers');
+  else if (v && typeof v === 'object') Object.values(v).forEach(assertFinite);
+ }
+ assertFinite(snap);
+ const clientLooting = new LootingSystem(scene, null, { position: new THREE.Vector3() }, null, { hidePUBGMiniCrate(){} });
+ clientLooting.applySnapshot(snap);
+ assert.equal(clientLooting.containers[0].life, Infinity);
 });

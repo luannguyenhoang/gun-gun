@@ -838,11 +838,19 @@ export class CharacterShowroom {
     saveLoadout() {
         try {
             localStorage.setItem('cyber_arena_loadout', JSON.stringify(this.loadout));
+            if (this.loadout?.primary) {
+                localStorage.setItem('cyber_arena_weapon', this.loadout.primary);
+            }
         } catch {}
         if (this.game.weapons) {
             this.game.weapons.startingWeaponId = this.loadout.primary;
             this.game.startingLoadout = { ...this.loadout };
         }
+        if (this.game.network?.active && this.loadout?.primary) {
+            this.game.network.changeWeapon?.(this.loadout.primary);
+        }
+        this.game.homeMenu?.preview?.();
+        this.game.saveProgress?.(true);
     }
 
     equipToSlot(slotName, itemId) {
@@ -903,6 +911,8 @@ export class CharacterShowroom {
         this.dialog.showModal();
         this.loadout = this.getSavedLoadout();
         this.weaponId = this.loadout.primary;
+        this.selected = this.game.characterId || 'police';
+        this.syncSelection();
         this.syncLoadoutUI();
         for (const entry of this.entries.values()) if (entry) this.attachGun(entry);
         this.setMode(initialMode); // Mở tab tương ứng: characters hoặc weapons
