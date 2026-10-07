@@ -1350,7 +1350,7 @@ export class WeaponSystem {
             [starter.id]: Infinity,
             [this.secondaryWeapon.id]: Infinity
         };
-        this.thrownBombs = [];
+        // Keep the shared room array: remote weapon systems reference it too.
         this.inventory = {
             medkits: 3
         };
@@ -1561,6 +1561,7 @@ export class WeaponSystem {
 
     // Kích hoạt chế độ Overclock (Xả đạn nhanh trong 6 giây)
     th_activateOverclock() {
+        if (this.onCommand) { this.onCommand({type: 'overclock'}); return true; }
         if (this.overclockCooldown > 0) return false;
         this.overclockTimer = this.overclockDuration;
         this.overclockCooldown = this.overclockMaxCooldown;
@@ -1570,6 +1571,7 @@ export class WeaponSystem {
 
     // Bơm máu nhanh cấp cứu (Quick Heal)
     th_quickHeal(player) {
+        if (this.onCommand) { this.onCommand({type: 'quick_heal'}); return true; }
         if (!player || player.isDead) return false;
         if ((this.inventory.medkits || 0) <= 0) return false;
         if (player.health >= player.maxHealth) return false;
@@ -1664,6 +1666,8 @@ export class WeaponSystem {
             upgrades: { ...this.upgrades },
             attachments: { ...this.attachments },
             isUsingMedkit: this.isUsingMedkit,
+            overclockTimer: this.overclockTimer,
+            overclockCooldown: this.overclockCooldown,
             medkitTimer: this.medkitTimer,
             medkitTotalTime: this.medkitTotalTime,
             isReloading: this.isReloading,
@@ -1675,6 +1679,8 @@ export class WeaponSystem {
 
     applyNetworkState(state) {
         if (!state) return;
+        this.overclockTimer = state.overclockTimer || 0;
+        this.overclockCooldown = state.overclockCooldown || 0;
         const previousId = this.getCurrentWeapon()?.id;
         const configs = [...WEAPON_CONFIGS, ...RARE_WEAPON_CONFIGS];
         const guns = state.guns || [{ id: state.gun }, null];
@@ -2148,14 +2154,14 @@ export class WeaponSystem {
                 life: 0.12,
                 isPlayer,
                 isKnife: true,
-                ownerId: 'player'
+                ownerId: 'player', owner: playerRef
             });
             return true;
         }
 
         const effective = this.getModifiedStats(w);
 
-        const isBulletFrenzy = (playerRef?.bulletFrenzyTimer > 0) || (window.game?.player?.bulletFrenzyTimer > 0);
+        const isBulletFrenzy = playerRef?.bulletFrenzyTimer > 0;
 
         // Kiểm tra hết băng đạn -> Tự động nạp đạn (trừ khi đang cuồng xả đạn vô hạn)
         if (!isBulletFrenzy && this.ammo[w.id] <= 0) {
@@ -2252,7 +2258,7 @@ export class WeaponSystem {
                 color: bulletColor,
                 life: 2.0,
                 isPlayer: true,
-                ownerId: 'player',
+                ownerId: 'player', owner: playerRef,
                 isKnife: false,
                 isExplosive: !!w.isExplosive,
                 splashRadius: w.splashRadius || 4.8
@@ -2306,18 +2312,14 @@ export class WeaponSystem {
         if (!w || !w.isBomb) return false;
         if ((w.count || 0) <= 0) return false;
 
+        if (this.onCommand) {
+            this.onCommand({type: 'throw_bomb', origin: origin.toArray(), target: targetPoint.toArray(), weaponId: w.id});
+            return true;
+        }
+
         w.count--;
         sounds.play('switchWeapon', { volume: 0.8, rate: 1.5 });
 
-        // Đồng bộ sự kiện ném bom trong phòng Multiplayer
-        if (this.onCommand) {
-            this.onCommand({
-                type: 'throw_bomb',
-                origin: origin.toArray(),
-                target: targetPoint.toArray(),
-                weaponId: w.id
-            });
-        }
         if (this.onBombThrown) {
             this.onBombThrown({
                 origin,
@@ -2455,6 +2457,238 @@ export class WeaponSystem {
         });
     }
 
+    createFireZone(blastPos, radius, bCfg = {}) {
+        const fireGroup = new THREE.Group();
+        fireGroup.position.copy(blastPos);
+
+        // Nhóm mặt đất (Ground Group) để co dãn hiệu ứng lan tỏa (Spread Expansion)
+        const groundGroup = new THREE.Group();
+        groundGroup.position.set(0, 0.02, 0);
+        groundGroup.scale.set(0.2, 1, 0.2); // Ban đầu nhỏ, lan rộng trong 0.65s
+
+        // Lớp 1: Decal mặt đất cháy xém CSGO (scorch_01 rách mép loang lổ)
+        const scorchGeo = new THREE.PlaneGeometry(radius * 2.3, radius * 2.3);
+        scorchGeo.rotateX(-Math.PI / 2);
+        const scorchMat = new THREE.MeshBasicMaterial({
+            map: getMolotovTexture('scorch_01'),
+            transparent: true,
+            opacity: 0.92,
+            depthWrite: false
+        });
+        const scorchMesh = new THREE.Mesh(scorchGeo, scorchMat);
+        scorchMesh.rotation.y = Math.random() * Math.PI * 2;
+        groundGroup.add(scorchMesh);
+
+        // Lớp 2: Vết cháy phụ (scorch_02) tạo hình dạng vũng loang lổ hữu cơ
+        const scorch2Geo = new THREE.PlaneGeometry(radius * 1.8, radius * 1.8);
+        scorch2Geo.rotateX(-Math.PI / 2);
+        const scorch2Mat = new THREE.MeshBasicMaterial({
+            map: getMolotovTexture('scorch_02'),
+            transparent: true,
+            opacity: 0.85,
+            depthWrite: false
+        });
+        const scorch2Mesh = new THREE.Mesh(scorch2Geo, scorch2Mat);
+        scorch2Mesh.position.set(radius * 0.25, 0.002, -radius * 0.2);
+        scorch2Mesh.rotation.y = Math.random() * Math.PI * 2;
+        groundGroup.add(scorch2Mesh);
+
+        // Lớp 3: Vùng than hồng bốc cháy Additive Blending rực rỡ (fire_01)
+        const emberGeo = new THREE.PlaneGeometry(radius * 1.9, radius * 1.9);
+        emberGeo.rotateX(-Math.PI / 2);
+        const emberMat = new THREE.MeshBasicMaterial({
+            map: getMolotovTexture('fire_01'),
+            color: 0xff3a00,
+            transparent: true,
+            opacity: 0.82,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+        });
+        const emberMesh = new THREE.Mesh(emberGeo, emberMat);
+        emberMesh.position.y = 0.004;
+        groundGroup.add(emberMesh);
+
+        // Lớp 4: Lõi nhiệt vàng rực cháy sáng (fire_02)
+        const coreGeo = new THREE.PlaneGeometry(radius * 1.25, radius * 1.25);
+        coreGeo.rotateX(-Math.PI / 2);
+        const coreMat = new THREE.MeshBasicMaterial({
+            map: getMolotovTexture('fire_02'),
+            color: 0xffaa22,
+            transparent: true,
+            opacity: 0.88,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+        });
+        const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+        coreMesh.position.y = 0.007;
+        groundGroup.add(coreMesh);
+
+        fireGroup.add(groundGroup);
+
+        // Lớp 5: Các cụm ngọn lửa 3D đa hướng (Cross-Quad Flame Billboards) rực cháy
+        const flames = [];
+        const totalFlames = 22;
+        for (let f = 0; f < totalFlames; f++) {
+            let dist, baseH, baseW, col, texName;
+            if (f === 0) {
+                // Ngọn lửa mẹ ở trung tâm (cao, rộng, vàng sáng chói)
+                dist = 0;
+                baseH = 2.4;
+                baseW = 1.45;
+                col = 0xffe066;
+                texName = 'flame_01';
+            } else if (f <= 6) {
+                // Cụm tầng gần trung tâm (vàng cam rực rỡ)
+                dist = radius * (0.22 + Math.random() * 0.22);
+                baseH = 1.6 + Math.random() * 0.45;
+                baseW = 0.95 + Math.random() * 0.25;
+                col = Math.random() < 0.5 ? 0xffbb33 : 0xff8811;
+                texName = Math.random() < 0.5 ? 'flame_02' : 'flame_03';
+            } else if (f <= 14) {
+                // Cụm tầng trung (cam đỏ bùng cháy)
+                dist = radius * (0.45 + Math.random() * 0.28);
+                baseH = 1.2 + Math.random() * 0.4;
+                baseW = 0.75 + Math.random() * 0.2;
+                col = Math.random() < 0.5 ? 0xff5511 : 0xff7722;
+                texName = Math.random() < 0.5 ? 'flame_04' : 'flame_01';
+            } else {
+                // Cụm rìa ngoài (đỏ cam rực lửa)
+                dist = radius * (0.72 + Math.random() * 0.24);
+                baseH = 0.8 + Math.random() * 0.35;
+                baseW = 0.55 + Math.random() * 0.15;
+                col = Math.random() < 0.6 ? 0xef4444 : 0xf97316;
+                texName = Math.random() < 0.5 ? 'flame_03' : 'flame_05';
+            }
+
+            const angle = f === 0 ? 0 : (f / totalFlames) * Math.PI * 2 + (f * 1.618);
+            const posX = Math.cos(angle) * dist;
+            const posZ = Math.sin(angle) * dist;
+
+            const { group: flGroup, mat: flMat } = createCrossQuadFlame(baseW, baseH, texName, col);
+            flGroup.position.set(posX, 0, posZ);
+            flGroup.rotation.y = Math.random() * Math.PI;
+            flGroup.scale.set(0, 0, 0); // Ban đầu thu nhỏ, bùng lên khi sóng lửa lan tới
+            fireGroup.add(flGroup);
+
+            flames.push({
+                group: flGroup,
+                mat: flMat,
+                dist: dist,
+                baseX: posX,
+                baseZ: posZ,
+                baseHeight: baseH,
+                baseScaleW: baseW,
+                ignited: false,
+                igniteProgress: 0,
+                phase: f * 1.2 + Math.random() * 2,
+                flickerSpeed: 10.0 + Math.random() * 7.0,
+                swaySpeed: 2.5 + Math.random() * 2.5
+            });
+        }
+
+        // Lớp 6: Làn khói mềm cuộn nhẹ (Soft Rising Smoke - không che khuất màn hình)
+        const smokePuffs = [];
+        const smokeGeo = new THREE.PlaneGeometry(1.8, 1.8);
+        const smokeMat = new THREE.MeshBasicMaterial({
+            map: getMolotovTexture('smoke_04'),
+            color: 0x1e293b,
+            transparent: true,
+            opacity: 0.16,
+            depthWrite: false
+        });
+
+        for (let s = 0; s < 6; s++) {
+            const sMesh = new THREE.Mesh(smokeGeo, smokeMat);
+            sMesh.rotation.x = -Math.PI / 2.5; // Hơi nghiêng theo góc nhìn camera
+            const sAngle = Math.random() * Math.PI * 2;
+            const sDist = Math.random() * radius * 0.6;
+            sMesh.position.set(Math.cos(sAngle) * sDist, 0.5 + s * 0.45, Math.sin(sAngle) * sDist);
+            fireGroup.add(sMesh);
+            smokePuffs.push({
+                mesh: sMesh,
+                baseX: sMesh.position.x,
+                baseZ: sMesh.position.z,
+                y: sMesh.position.y,
+                speed: 0.7 + Math.random() * 0.5,
+                scale: 0.9 + Math.random() * 0.4,
+                maxHeight: 3.2 + Math.random() * 0.5
+            });
+        }
+
+        this.scene.add(fireGroup);
+
+        this.activeZones.push({
+            type: 'fire',
+            pos: blastPos.clone(),
+            radius: radius,
+            life: bCfg.duration || 10.0,
+            maxLife: bCfg.duration || 10.0,
+            burnDps: bCfg.burnDps || 25,
+            tickTimer: 0,
+            sparkTimer: 0,
+            group: fireGroup,
+            groundGroup: groundGroup,
+            scorchMat: scorchMat,
+            scorch2Mat: scorch2Mat,
+            emberMat: emberMat,
+            coreMat: coreMat,
+            flames: flames,
+            smokePuffs: smokePuffs
+        });
+
+    }
+
+    getWorldState() {
+        const id = entity => entity.netId ||= 'effect-' + (this.nextEffectId = (this.nextEffectId || 0) + 1);
+        return {
+            zones: this.activeZones.map(z => ({ id: id(z), type: z.type, position: z.pos.toArray(), radius: z.radius,
+                life: z.life, maxLife: z.maxLife, burnDps: z.burnDps || 0 })),
+            bombs: this.thrownBombs.map(b => ({ id: id(b), start: b.startPos.toArray(), end: b.endPos.toArray(),
+                time: b.time, duration: b.duration, weaponId: b.bombConfig.id }))
+        };
+    }
+
+    removeWorldZone(zone) {
+        const root = zone.group || zone.mesh;
+        if (!root) return;
+        this.scene.remove(root);
+        const geometries = new Set(), materials = new Set();
+        root.traverse(o => {
+            if (o.geometry) geometries.add(o.geometry);
+            if (o.material) for (const m of [o.material].flat()) materials.add(m);
+        });
+        for (const g of geometries) g.dispose();
+        for (const m of materials) m.dispose();
+    }
+
+    applyWorldState(state) {
+        this.worldReplica = true;
+        const reconcile = (list, states, create) => {
+            const ids = new Set(states.map(s => s.id));
+            for (let i = list.length - 1; i >= 0; i--) {
+                if (!ids.has(list[i].netId)) {
+                    if (list === this.activeZones) this.removeWorldZone(list[i]);
+                    else if (list[i].mesh) this.scene.remove(list[i].mesh);
+                    list.splice(i, 1);
+                }
+            }
+            for (const s of states) {
+                let entity = list.find(e => e.netId === s.id);
+                if (!entity) { create(s); entity = list[list.length - 1]; entity.netId = s.id; }
+                if (s.life !== undefined) { entity.life = s.life; entity.maxLife = s.maxLife; }
+                else { entity.time = s.time; entity.duration = s.duration; }
+            }
+        };
+        reconcile(this.activeZones, state.zones || [], s => {
+            const pos = new THREE.Vector3().fromArray(s.position);
+            if (s.type === 'fire') this.createFireZone(pos, s.radius, {duration: s.maxLife, burnDps: s.burnDps});
+            else this.createSmokeZone(pos, s.radius, s.maxLife);
+        });
+        reconcile(this.thrownBombs, (state.bombs || []).filter(s => getBombConfig(s.weaponId)), s => {
+            this.spawnVisualBomb(new THREE.Vector3().fromArray(s.start), new THREE.Vector3().fromArray(s.end), getBombConfig(s.weaponId));
+        });
+    }
+
     updateThrownBombs(delta, arena, enemies = []) {
         if (!this.thrownBombs || !this.thrownBombs.length) return;
         for (let i = this.thrownBombs.length - 1; i >= 0; i--) {
@@ -2474,6 +2708,7 @@ export class WeaponSystem {
                 tb.mesh.rotation.z += delta * 10;
             }
 
+            if (this.worldReplica) continue;
             if (progress >= 1.0) {
                 // Tiếp đất -> Kích nổ diện rộng!
                 if (tb.mesh) {
@@ -2482,6 +2717,10 @@ export class WeaponSystem {
                 const blastPos = tb.endPos.clone();
                 const bCfg = tb.bombConfig;
                 const radius = bCfg.blastRadius || 5.5;
+                const game = globalThis.window?.game;
+                if (game?.network?.active && game.network.host) {
+                    (game.networkEvents ||= []).push({type: 'bomb_explosion', position: blastPos.toArray(), color: bCfg.color || 0xf97316, radius});
+                }
 
                 // Hiệu ứng hạt nổ & chớp sáng
                 this.particles.createExplosion(blastPos, bCfg.color || 0xf97316, 40, radius);
@@ -2505,183 +2744,7 @@ export class WeaponSystem {
                     this.createSmokeZone(blastPos, radius, bCfg.duration || 10.0);
                 } else if (bCfg.bombType === 'fire') {
                     // 2. BOM LỬA MOLOTOV (CS:GO STYLE): Vết cháy xém Decal, biển lửa Cross-Quad 3D bập bùng và hiệu ứng Lan Tỏa (Fire Spread)
-                    const fireGroup = new THREE.Group();
-                    fireGroup.position.copy(blastPos);
-
-                    // Nhóm mặt đất (Ground Group) để co dãn hiệu ứng lan tỏa (Spread Expansion)
-                    const groundGroup = new THREE.Group();
-                    groundGroup.position.set(0, 0.02, 0);
-                    groundGroup.scale.set(0.2, 1, 0.2); // Ban đầu nhỏ, lan rộng trong 0.65s
-
-                    // Lớp 1: Decal mặt đất cháy xém CSGO (scorch_01 rách mép loang lổ)
-                    const scorchGeo = new THREE.PlaneGeometry(radius * 2.3, radius * 2.3);
-                    scorchGeo.rotateX(-Math.PI / 2);
-                    const scorchMat = new THREE.MeshBasicMaterial({
-                        map: getMolotovTexture('scorch_01'),
-                        transparent: true,
-                        opacity: 0.92,
-                        depthWrite: false
-                    });
-                    const scorchMesh = new THREE.Mesh(scorchGeo, scorchMat);
-                    scorchMesh.rotation.y = Math.random() * Math.PI * 2;
-                    groundGroup.add(scorchMesh);
-
-                    // Lớp 2: Vết cháy phụ (scorch_02) tạo hình dạng vũng loang lổ hữu cơ
-                    const scorch2Geo = new THREE.PlaneGeometry(radius * 1.8, radius * 1.8);
-                    scorch2Geo.rotateX(-Math.PI / 2);
-                    const scorch2Mat = new THREE.MeshBasicMaterial({
-                        map: getMolotovTexture('scorch_02'),
-                        transparent: true,
-                        opacity: 0.85,
-                        depthWrite: false
-                    });
-                    const scorch2Mesh = new THREE.Mesh(scorch2Geo, scorch2Mat);
-                    scorch2Mesh.position.set(radius * 0.25, 0.002, -radius * 0.2);
-                    scorch2Mesh.rotation.y = Math.random() * Math.PI * 2;
-                    groundGroup.add(scorch2Mesh);
-
-                    // Lớp 3: Vùng than hồng bốc cháy Additive Blending rực rỡ (fire_01)
-                    const emberGeo = new THREE.PlaneGeometry(radius * 1.9, radius * 1.9);
-                    emberGeo.rotateX(-Math.PI / 2);
-                    const emberMat = new THREE.MeshBasicMaterial({
-                        map: getMolotovTexture('fire_01'),
-                        color: 0xff3a00,
-                        transparent: true,
-                        opacity: 0.82,
-                        depthWrite: false,
-                        blending: THREE.AdditiveBlending
-                    });
-                    const emberMesh = new THREE.Mesh(emberGeo, emberMat);
-                    emberMesh.position.y = 0.004;
-                    groundGroup.add(emberMesh);
-
-                    // Lớp 4: Lõi nhiệt vàng rực cháy sáng (fire_02)
-                    const coreGeo = new THREE.PlaneGeometry(radius * 1.25, radius * 1.25);
-                    coreGeo.rotateX(-Math.PI / 2);
-                    const coreMat = new THREE.MeshBasicMaterial({
-                        map: getMolotovTexture('fire_02'),
-                        color: 0xffaa22,
-                        transparent: true,
-                        opacity: 0.88,
-                        depthWrite: false,
-                        blending: THREE.AdditiveBlending
-                    });
-                    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
-                    coreMesh.position.y = 0.007;
-                    groundGroup.add(coreMesh);
-
-                    fireGroup.add(groundGroup);
-
-                    // Lớp 5: Các cụm ngọn lửa 3D đa hướng (Cross-Quad Flame Billboards) rực cháy
-                    const flames = [];
-                    const totalFlames = 22;
-                    for (let f = 0; f < totalFlames; f++) {
-                        let dist, baseH, baseW, col, texName;
-                        if (f === 0) {
-                            // Ngọn lửa mẹ ở trung tâm (cao, rộng, vàng sáng chói)
-                            dist = 0;
-                            baseH = 2.4;
-                            baseW = 1.45;
-                            col = 0xffe066;
-                            texName = 'flame_01';
-                        } else if (f <= 6) {
-                            // Cụm tầng gần trung tâm (vàng cam rực rỡ)
-                            dist = radius * (0.22 + Math.random() * 0.22);
-                            baseH = 1.6 + Math.random() * 0.45;
-                            baseW = 0.95 + Math.random() * 0.25;
-                            col = Math.random() < 0.5 ? 0xffbb33 : 0xff8811;
-                            texName = Math.random() < 0.5 ? 'flame_02' : 'flame_03';
-                        } else if (f <= 14) {
-                            // Cụm tầng trung (cam đỏ bùng cháy)
-                            dist = radius * (0.45 + Math.random() * 0.28);
-                            baseH = 1.2 + Math.random() * 0.4;
-                            baseW = 0.75 + Math.random() * 0.2;
-                            col = Math.random() < 0.5 ? 0xff5511 : 0xff7722;
-                            texName = Math.random() < 0.5 ? 'flame_04' : 'flame_01';
-                        } else {
-                            // Cụm rìa ngoài (đỏ cam rực lửa)
-                            dist = radius * (0.72 + Math.random() * 0.24);
-                            baseH = 0.8 + Math.random() * 0.35;
-                            baseW = 0.55 + Math.random() * 0.15;
-                            col = Math.random() < 0.6 ? 0xef4444 : 0xf97316;
-                            texName = Math.random() < 0.5 ? 'flame_03' : 'flame_05';
-                        }
-
-                        const angle = f === 0 ? 0 : (f / totalFlames) * Math.PI * 2 + (f * 1.618);
-                        const posX = Math.cos(angle) * dist;
-                        const posZ = Math.sin(angle) * dist;
-
-                        const { group: flGroup, mat: flMat } = createCrossQuadFlame(baseW, baseH, texName, col);
-                        flGroup.position.set(posX, 0, posZ);
-                        flGroup.rotation.y = Math.random() * Math.PI;
-                        flGroup.scale.set(0, 0, 0); // Ban đầu thu nhỏ, bùng lên khi sóng lửa lan tới
-                        fireGroup.add(flGroup);
-
-                        flames.push({
-                            group: flGroup,
-                            mat: flMat,
-                            dist: dist,
-                            baseX: posX,
-                            baseZ: posZ,
-                            baseHeight: baseH,
-                            baseScaleW: baseW,
-                            ignited: false,
-                            igniteProgress: 0,
-                            phase: f * 1.2 + Math.random() * 2,
-                            flickerSpeed: 10.0 + Math.random() * 7.0,
-                            swaySpeed: 2.5 + Math.random() * 2.5
-                        });
-                    }
-
-                    // Lớp 6: Làn khói mềm cuộn nhẹ (Soft Rising Smoke - không che khuất màn hình)
-                    const smokePuffs = [];
-                    const smokeGeo = new THREE.PlaneGeometry(1.8, 1.8);
-                    const smokeMat = new THREE.MeshBasicMaterial({
-                        map: getMolotovTexture('smoke_04'),
-                        color: 0x1e293b,
-                        transparent: true,
-                        opacity: 0.16,
-                        depthWrite: false
-                    });
-
-                    for (let s = 0; s < 6; s++) {
-                        const sMesh = new THREE.Mesh(smokeGeo, smokeMat);
-                        sMesh.rotation.x = -Math.PI / 2.5; // Hơi nghiêng theo góc nhìn camera
-                        const sAngle = Math.random() * Math.PI * 2;
-                        const sDist = Math.random() * radius * 0.6;
-                        sMesh.position.set(Math.cos(sAngle) * sDist, 0.5 + s * 0.45, Math.sin(sAngle) * sDist);
-                        fireGroup.add(sMesh);
-                        smokePuffs.push({
-                            mesh: sMesh,
-                            baseX: sMesh.position.x,
-                            baseZ: sMesh.position.z,
-                            y: sMesh.position.y,
-                            speed: 0.7 + Math.random() * 0.5,
-                            scale: 0.9 + Math.random() * 0.4,
-                            maxHeight: 3.2 + Math.random() * 0.5
-                        });
-                    }
-
-                    this.scene.add(fireGroup);
-
-                    this.activeZones.push({
-                        type: 'fire',
-                        pos: blastPos.clone(),
-                        radius: radius,
-                        life: bCfg.duration || 10.0,
-                        maxLife: bCfg.duration || 10.0,
-                        burnDps: bCfg.burnDps || 25,
-                        tickTimer: 0,
-                        sparkTimer: 0,
-                        group: fireGroup,
-                        groundGroup: groundGroup,
-                        scorchMat: scorchMat,
-                        scorch2Mat: scorch2Mat,
-                        emberMat: emberMat,
-                        coreMat: coreMat,
-                        flames: flames,
-                        smokePuffs: smokePuffs
-                    });
+                    this.createFireZone(blastPos, radius, bCfg);
 
                     // Sát thương nổ ban đầu
                     for (const e of enemies) {
@@ -2746,7 +2809,8 @@ export class WeaponSystem {
 
     // Cập nhật các vùng hiệu ứng chiến trường (Khói, Lửa)
     updateActiveZones(delta, player, enemies = []) {
-        const allTargets = this.enemyTargets || (Array.isArray(player) ? player : (player ? [player] : []));
+        if (this.worldReplica) enemies = [];
+        const allTargets = this.worldReplica ? [] : this.enemyTargets || (Array.isArray(player) ? player : (player ? [player] : []));
         for (const p of allTargets) {
             if (p) p._tempInSmoke = false;
         }
@@ -2754,7 +2818,7 @@ export class WeaponSystem {
         if (this.activeZones && this.activeZones.length > 0) {
             for (let i = this.activeZones.length - 1; i >= 0; i--) {
                 const zone = this.activeZones[i];
-                zone.life -= delta;
+                if (!this.worldReplica) zone.life -= delta;
                 const progress = Math.max(0, zone.life / zone.maxLife);
 
                 if (zone.type === 'smoke') {
@@ -2883,11 +2947,7 @@ export class WeaponSystem {
                 }
 
                 if (zone.life <= 0) {
-                    if (zone.group) {
-                        this.scene.remove(zone.group);
-                    } else if (zone.mesh) {
-                        this.scene.remove(zone.mesh);
-                    }
+                    this.removeWorldZone(zone);
                     this.activeZones.splice(i, 1);
                 }
             }
@@ -2902,6 +2962,7 @@ export class WeaponSystem {
     update(delta, arena, enemies, player, onHitCallback) {
         // Chỉ cập nhật bom và vùng hiệu ứng từ hệ thống chính của Host/Local để tránh trừ timer nhiều lần
         if (!this.isRemoteClone) {
+            this.worldReplica = !!(globalThis.window?.game?.network?.active && !window.game.network.host);
             this.updateThrownBombs(delta, arena, enemies);
             this.updateActiveZones(delta, player, enemies);
         }
@@ -2918,7 +2979,7 @@ export class WeaponSystem {
         }
 
         // Xử lý tiến trình sơ cứu / uống nước tăng lực
-        if (this.isUsingMedkit && this.medkitPlayerRef) {
+        if (!this.worldReplica && this.isUsingMedkit && this.medkitPlayerRef) {
             const p = this.medkitPlayerRef;
             if (p.isDead || p.isDowned) {
                 this.cancelMedkitUse();
@@ -3142,21 +3203,13 @@ export class WeaponSystem {
                         // Tính tỷ lệ bạo kích theo Phụ kiện Kính ngắm hoặc Kỹ năng Ám sát
                         let isCrit = hitInfo.isCrit || (Math.random() < (p.critChance || 0.12));
                         let critMult = isCrit ? (p.critMultiplier || 1.8) : 1.0;
-                        if (window.game?.player?.assassinCritReady) {
+                        if (p.owner?.assassinCritReady) {
                             isCrit = true;
                             critMult = 4.0;
-                            window.game.player.assassinCritReady = false;
-                            window.game.player.shadowVeilTimer = 0;
-                            window.game.player.isInSmoke = false;
-                            if (window.game.player.model) {
-                                window.game.player.model.traverse(c => {
-                                    if (c.isMesh && c.material) c.material.opacity = 1.0;
-                                });
-                            }
-                            if (window.game.player.shadowVeilAuraMesh) {
-                                window.game.scene?.remove(window.game.player.shadowVeilAuraMesh);
-                                window.game.player.shadowVeilAuraMesh = null;
-                            }
+                            p.owner.assassinCritReady = false;
+                            p.owner.shadowVeilTimer = 0;
+                            p.owner.isInSmoke = false;
+                            p.owner.isStealthed = false;
                             sounds.play('enemyDestroy', { volume: 1.0, pitchVariation: 0.2 });
                         }
                         const finalDamage = Math.round(currentBaseDmg * critMult);
@@ -3243,6 +3296,13 @@ export class WeaponSystem {
     }
 
     clear() {
+        if (!this.isRemoteClone) {
+            for (const z of this.activeZones) this.removeWorldZone(z);
+            for (const b of this.thrownBombs) if (b.mesh) this.scene.remove(b.mesh);
+            this.activeZones.splice(0);
+            this.thrownBombs.splice(0);
+            this.worldReplica = false;
+        }
         for (const p of this.projectiles) {
             if (p.meshEntry) {
                 if (p.isPlayer) {

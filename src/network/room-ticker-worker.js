@@ -1,1 +1,1 @@
-setInterval(() => postMessage(null), 33);
+setInterval(() => postMessage(null), 1000 / 60);

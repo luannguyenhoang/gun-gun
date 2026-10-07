@@ -621,7 +621,87 @@ export class PlayerController {
         this.shieldRegenRate = 25 * (passives.shieldRegenRate || 1.0);
     }
 
+
+    showStrikeBeam(e) {
+        if (e.beam) return;
+        e.beam = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 2.8, 45, 16), new THREE.MeshBasicMaterial({color: 0xff3355, transparent: true, opacity: 0.85}));
+        e.beam.position.copy(e.position); e.beam.position.y = 22;
+        this.scene.add(e.beam);
+    }
+
+    removeSkillEntity(e) {
+        for (const root of [e.group || e.mesh, e.beam]) {
+            if (!root) continue;
+            this.scene.remove(root);
+            root.traverse(o => { o.geometry?.dispose(); if (o.material) for (const m of [o.material].flat()) m.dispose(); });
+        }
+    }
+
+    clearSharedSkills() {
+        for (const key of ['activeBeacons','activeTurrets','activeVortexes','activeGrenades','activeStrikes','activeLightning']) {
+            for (const e of this[key] || []) this.removeSkillEntity(e);
+            this[key] = [];
+        }
+        this.activeSkillCooldownTimer = 0; this.activeSkillDurationTimer = 0;
+        this.activeSkillEffect = null; this.riotChargeTimer = 0; this.bulletFrenzyTimer = 0; this.shadowVeilTimer = 0;
+        this.assassinCritReady = false;
+    }
+
+    getSharedSkillState() {
+        const stats = {};
+        for (const key of ['activeSkillCooldownTimer','activeSkillMaxCooldown','activeSkillDurationTimer','activeSkillEffect','riotChargeTimer','bulletFrenzyTimer','shadowVeilTimer','assassinCritReady','shadowVeilCritMult','speedBoostTimer','speedBoostFactor','radarScanTimer']) stats[key] = this[key] ?? null;
+        const entities = [];
+        for (const kind of ['activeBeacons','activeTurrets','activeVortexes','activeGrenades','activeStrikes','activeLightning']) {
+            for (const e of this[kind] || []) entities.push({kind, id: e.netId ||= (this.nextSkillEntityId = (this.nextSkillEntityId || 0) + 1),
+                position: (e.group || e.mesh).position.toArray(), timer: e.timer,
+                yaw: e.headGroup?.rotation.y || 0, rotation: e.ring?.rotation.z || 0,
+                fired: !!e.fired, points: e.points?.map(p => p.toArray())});
+        }
+        return {stats, entities, activation: this.skillActivationSeq || 0};
+    }
+
+    applySharedSkillState(state) {
+        if (!state) return;
+        Object.assign(this, state.stats);
+        if (state.activation > (this.skillActivationSeq || 0)) {
+            this.skillActivationSeq = state.activation;
+            if (this.activeSkillEffect) this.createSkillVisualEffect(this.activeSkillEffect);
+        }
+        for (const kind of ['activeBeacons','activeTurrets','activeVortexes','activeGrenades','activeStrikes','activeLightning']) {
+            const list = this[kind] ||= [];
+            const incoming = state.entities.filter(e => e.kind === kind);
+            const ids = new Set(incoming.map(e => e.id));
+            for (let i = list.length - 1; i >= 0; i--) if (!ids.has(list[i].netId)) { this.removeSkillEntity(list[i]); list.splice(i,1); }
+            for (const data of incoming) {
+                let e = list.find(e => e.netId === data.id);
+                if (!e) {
+                    if (kind === 'activeBeacons') this.triggerHealingBeacon(data.timer);
+                    else if (kind === 'activeTurrets') this.triggerAutoTurret(data.timer);
+                    else if (kind === 'activeVortexes') this.triggerSandVortex(data.timer);
+                    else if (kind === 'activeStrikes') this.triggerOrbitalStrike();
+                    else if (kind === 'activeLightning') this.createLightningEntity(data.points.map(p => new THREE.Vector3().fromArray(p)));
+                    else {
+                        const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.18,8,8),new THREE.MeshStandardMaterial({color:0x38bdf8}));
+                        this.scene.add(mesh); list.push({mesh});
+                    }
+                    e = list[list.length - 1]; e.netId = data.id;
+                }
+                (e.group || e.mesh).position.fromArray(data.position);
+                e.position?.fromArray(data.position); e.timer = data.timer;
+                if (e.headGroup) e.headGroup.rotation.y = data.yaw;
+                if (e.ring) e.ring.rotation.z = data.rotation;
+                if (data.fired) { e.fired = true; this.showStrikeBeam(e); }
+            }
+        }
+    }
+
     tryActiveSkill() {
+        const network = globalThis.window?.game?.network;
+        if (network?.active && !network.host) {
+            if (this.isDead || this.isDowned || this.activeSkillCooldownTimer > 0) return false;
+            network.sendCommand({type: 'active_skill'});
+            return true;
+        }
         if (this.isDead || this.isDowned) return false;
         if (this.activeSkillCooldownTimer > 0) return false;
 
@@ -679,6 +759,7 @@ export class PlayerController {
                 break;
         }
 
+        this.skillActivationSeq = (this.skillActivationSeq || 0) + 1;
         this.createSkillVisualEffect(skill.effectType, skill.name);
         return true;
     }
@@ -746,7 +827,7 @@ export class PlayerController {
         // 4. Kích hoạt phản hồi giao diện người dùng
         const colorHex = '#' + color.toString(16).padStart(6, '0');
         const uiManager = window.game?.ui;
-        if (uiManager?.triggerSkillActivationFeedback) {
+        if (this === window.game?.player && uiManager?.triggerSkillActivationFeedback) {
             uiManager.triggerSkillActivationFeedback(skillName, colorHex);
         }
 
@@ -1120,126 +1201,9 @@ export class PlayerController {
         };
         requestAnimationFrame(aimAnim);
 
-        setTimeout(() => {
-            // Cột Laser Pháo Kích Quỹ Đạo Thể Tích 3D
-            const beamGroup = new THREE.Group();
-            beamGroup.position.copy(targetPos);
-
-            // Lõi laser cực sáng
-            const coreBeamGeo = new THREE.CylinderGeometry(1.2, 1.8, 48, 16);
-            coreBeamGeo.translate(0, 24, 0);
-            const coreBeamMat = new THREE.MeshBasicMaterial({
-                color: 0xffffff,
-                transparent: true,
-                opacity: 0.95,
-                blending: THREE.AdditiveBlending
-            });
-            const coreBeam = new THREE.Mesh(coreBeamGeo, coreBeamMat);
-            beamGroup.add(coreBeam);
-
-            // Vỏ laser năng lượng đỏ chói bao quanh
-            const shellBeamGeo = new THREE.CylinderGeometry(3.2, 4.2, 48, 16);
-            shellBeamGeo.translate(0, 24, 0);
-            const shellBeamMat = new THREE.MeshBasicMaterial({
-                color: 0xff1744,
-                transparent: true,
-                opacity: 0.75,
-                blending: THREE.AdditiveBlending
-            });
-            const shellBeam = new THREE.Mesh(shellBeamGeo, shellBeamMat);
-            beamGroup.add(shellBeam);
-
-            this.scene.add(beamGroup);
-
-            // Vòng sóng nổ trên sàn nở bung nhanh 12m
-            const shockGeo = new THREE.RingGeometry(0.5, 1.2, 48);
-            shockGeo.rotateX(-Math.PI / 2);
-            const shockMat = new THREE.MeshBasicMaterial({
-                color: 0xff3355,
-                transparent: true,
-                opacity: 0.9,
-                side: THREE.DoubleSide,
-                blending: THREE.AdditiveBlending,
-                depthWrite: false
-            });
-            const shockMesh = new THREE.Mesh(shockGeo, shockMat);
-            shockMesh.position.copy(targetPos);
-            shockMesh.position.y = 0.06;
-            this.scene.add(shockMesh);
-
-            // Vết nứt cháy xém sàn đấu CỐ ĐỊNH (KHÔNG XOAY)
-            const scorchDecal = createGroundParticleDecal(targetPos, 7.5, 'assets/particles/scorch_03.png', 0xea580c, 0.9, THREE.NormalBlending);
-            scorchDecal.position.y = 0.035;
-            this.scene.add(scorchDecal);
-
-            const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
-            for (const enemy of enemies) {
-                if (!enemy || enemy.isDead) continue;
-                const d = targetPos.distanceTo(enemy.position);
-                if (d <= 7.5) {
-                    const pushDir = new THREE.Vector3().subVectors(enemy.position, targetPos).normalize();
-                    pushDir.y = 0.35;
-                    enemy.takeDamage(350, 4, true, pushDir);
-                    if (enemy.knockbackVelocity) enemy.knockbackVelocity.addScaledVector(pushDir, 45);
-                    enemy.burnTimer = 4.0;
-                    enemy.burnDamage = 18;
-                }
-            }
-
-            this.particles?.createExplosion?.(targetPos, 0xff2244, 45);
-            sounds.play('enemyDestroy', { volume: 1.0 });
-            this.applyKickbackAndShake?.(new THREE.Vector2(0, 0), 0.95);
-
-            // Animation nở sóng xung kích và mờ dần
-            const strikeStartTime = performance.now();
-            const strikeAnim = () => {
-                const elapsed = (performance.now() - strikeStartTime) / 1000;
-                if (elapsed > 0.4) {
-                    this.scene.remove(beamGroup);
-                    this.scene.remove(shockMesh);
-                    this.scene.remove(reticleGroup);
-                    beamGroup.traverse?.(c => {
-                        if (c.geometry) c.geometry.dispose();
-                        if (c.material) c.material.dispose();
-                    });
-                    shockGeo.dispose();
-                    shockMat.dispose();
-                    reticleGroup.traverse?.(c => {
-                        if (c.geometry) c.geometry.dispose();
-                        if (c.material) c.material.dispose();
-                    });
-                    return;
-                }
-                const t = elapsed / 0.4;
-                const s = 1.0 + t * 9.5;
-                shockMesh.scale.set(s, s, s);
-                shockMat.opacity = Math.max(0, 0.9 * (1.0 - t));
-
-                coreBeamMat.opacity = Math.max(0, 0.95 * (1.0 - t));
-                shellBeamMat.opacity = Math.max(0, 0.75 * (1.0 - t));
-                requestAnimationFrame(strikeAnim);
-            };
-            requestAnimationFrame(strikeAnim);
-
-            // Giữ vết nứt địa chấn tồn tại 2.5s rồi fade out
-            setTimeout(() => {
-                const fadeStart = performance.now();
-                const fadeAnim = () => {
-                    const el = (performance.now() - fadeStart) / 1000;
-                    if (el > 0.8) {
-                        this.scene.remove(scorchDecal);
-                        scorchDecal.geometry?.dispose();
-                        scorchDecal.material?.dispose();
-                        return;
-                    }
-                    scorchDecal.material.opacity = Math.max(0, 0.9 * (1.0 - el));
-                    requestAnimationFrame(fadeAnim);
-                };
-                requestAnimationFrame(fadeAnim);
-            }, 1800);
-
-        }, 800);
+        (this.activeStrikes ||= []).push({mesh: reticleGroup, position: targetPos, timer: 1.15, fired: false});
     }
+
 
     // 7. Đấu sĩ dũng mãnh: Dộng đất hất tung quái và làm choáng 3s (dame 130, radius 11)
     triggerGroundSmash() {
@@ -1353,11 +1317,10 @@ export class PlayerController {
     // 9. Quản lý chiến trường: Thả dù Hòm Tiếp Tế Chiến Thuật (Airdrop Crate)
     triggerSupplyDrop() {
         if (this.weapons) {
-            for (const wp of this.weapons.weapons) {
+            for (const wp of this.weapons.weaponSlots.filter(w => w && !w.isBomb && !w.isKnife && !w.isUtility)) {
                 if (wp) {
-                    wp.ammo = wp.maxAmmo;
-                    if (this.weapons.ammo) this.weapons.ammo[wp.id] = wp.maxAmmo;
-                    if (this.weapons.reserve) this.weapons.reserve[wp.id] = (wp.maxReserve || 200);
+                    this.weapons.ammo[wp.id] = this.weapons.getModifiedStats(wp).magSize;
+                    this.weapons.reserve[wp.id] = Infinity;
                 }
             }
             if (this.weapons.inventory) {
@@ -1532,43 +1495,13 @@ export class PlayerController {
             this.particles?.createImpactSparks?.(tPos, new THREE.Vector3(0, 1, 0), 0x00f0ff, 22);
         }
 
-        // Tạo các dải tia sét 3D nối liên tiếp giữa các điểm (dùng đúng asset spark_05_rotated.png)
-        const lightningMeshes = [];
-        for (let i = 0; i < points.length - 1; i++) {
-            const p1 = points[i];
-            const p2 = points[i + 1];
-            const beam = createOrientedLightningBeam(p1, p2, 1.35, 'assets/particles/Rotated/spark_05_rotated.png', 0x00f0ff);
-            this.scene.add(beam);
-            lightningMeshes.push(beam);
-        }
+        if (points.length > 1) this.createLightningEntity(points);
+    }
 
-        // Âm thanh điện cao thế phóng giật đanh thép
-        sounds.play('enemyDestroy', { volume: 0.95, rate: 1.8 });
-        // Rung giật màn hình chấn động điện
-        this.applyScreenShake(0.8);
-
-        // Hiệu ứng nhấp nháy phát sáng (flicker) trong 0.55 giây rồi mới dọn dẹp
-        const startTime = performance.now();
-        const anim = () => {
-            const elapsed = (performance.now() - startTime) / 1000;
-            if (elapsed > 0.55) {
-                for (const m of lightningMeshes) {
-                    this.scene.remove(m);
-                    m.traverse?.(c => {
-                        if (c.geometry) c.geometry.dispose();
-                        if (c.material) c.material.dispose();
-                    });
-                }
-                return;
-            }
-            // Nhấp nháy tỷ lệ ngẫu nhiên tạo cảm giác điện trường phóng giật
-            const jitterScale = 1.0 + (Math.random() - 0.5) * 0.35;
-            for (const m of lightningMeshes) {
-                m.scale.set(jitterScale, 1.0, jitterScale);
-            }
-            requestAnimationFrame(anim);
-        };
-        requestAnimationFrame(anim);
+    createLightningEntity(points) {
+        const mesh = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({color: 0x00f0ff}));
+        this.scene.add(mesh);
+        (this.activeLightning ||= []).push({mesh, points, timer: 0.3});
     }
 
     // 12. Sát thủ bóng đêm: Tàng hình và đòn đánh kế tiếp chí mạng x4
@@ -1597,7 +1530,28 @@ export class PlayerController {
 
     // Cập nhật vòng lặp các thực thể kỹ năng độc đáo
     updateActiveSkills(delta, arena, enemies = []) {
-        // Cập nhật Húc khiên bạo động (Riot Charge)
+        if (globalThis.window?.game?.network?.active && !window.game.network.host) return;
+        this.activeSkillCooldownTimer = Math.max(0, (this.activeSkillCooldownTimer || 0) - delta);
+        this.activeSkillDurationTimer = Math.max(0, (this.activeSkillDurationTimer || 0) - delta);
+        if (!this.activeSkillDurationTimer) this.activeSkillEffect = null;
+        for (const kind of ['activeStrikes', 'activeLightning']) {
+            const list = this[kind] ||= [];
+            for (let i = list.length - 1; i >= 0; i--) {
+                const e = list[i]; e.timer -= delta;
+                if (kind === 'activeStrikes' && e.timer <= 0.35 && !e.fired) {
+                    e.fired = true;
+                    this.showStrikeBeam(e);
+                    for (const enemy of enemies) {
+                        if (enemy.isDead || enemy.position.distanceTo(e.position) > 7) continue;
+                        enemy.takeDamage(350, 4, true, new THREE.Vector3().subVectors(enemy.position, e.position).normalize());
+                        enemy.burnTimer = 3.5; enemy.burnDamage = 16;
+                    }
+                    this.particles?.createExplosion?.(e.position, 0xff2244, 40);
+                }
+                if (e.timer <= 0) { this.removeSkillEntity(e); list.splice(i, 1); }
+            }
+        }
+        // Cập nhật Húc khiên bạo động
         if (this.riotChargeTimer > 0) {
             this.riotChargeTimer -= delta;
 
@@ -1677,6 +1631,10 @@ export class PlayerController {
             g.velocity.y -= 22 * delta;
             g.timer -= delta;
             if (g.timer <= 0 || g.mesh.position.y <= 0.2) {
+                const game = globalThis.window?.game;
+                if (game?.network?.active && game.network.host) {
+                    (game.networkEvents ||= []).push({type:'bomb_explosion',position:g.mesh.position.toArray(),color:0x38bdf8,radius:g.radius});
+                }
                 this.particles?.createExplosion?.(g.mesh.position, 0x38bdf8, 25);
                 sounds.play('enemyDestroy', { volume: 0.85 });
                 this.applyExplosionShock(g.mesh.position, 20, 0.70);
@@ -1801,6 +1759,10 @@ export class PlayerController {
                     closest.takeDamage(t.damage, 2, false, null);
                     sounds.play('pistol', { volume: 0.45, pitchVariation: 0.2 });
                     this.particles?.createImpactSparks?.(closest.position, new THREE.Vector3(0, 1, 0), 0xfb923c, 6);
+                    const game = globalThis.window?.game;
+                    if (game?.network?.active && game.network.host) {
+                        (game.networkEvents ||= []).push({type:'turret_hit',position:closest.position.toArray()});
+                    }
                 }
             }
 
@@ -2200,6 +2162,7 @@ export class PlayerController {
 
     update(delta, arena, enemies = []) {
         const authoritative = !window.game?.network?.active || window.game.network.host;
+        this.updateActiveSkills(delta, arena, enemies);
         // Duy tri trang thai day mau va song sot khi bat Che do Developer
         if (authoritative && (this.developerMode || window.developerMode)) {
             this.health = this.maxHealth;
@@ -2288,19 +2251,6 @@ export class PlayerController {
         } else if (authoritative && this.shield < this.maxShield) {
             this.shield = Math.min(this.maxShield, this.shield + this.shieldRegenRate * delta);
         }
-
-        // Cap nhat bo dem thoi gian hoi chieu va hieu luc Ky nang chu dong
-        if (this.activeSkillCooldownTimer > 0) {
-            this.activeSkillCooldownTimer = Math.max(0, this.activeSkillCooldownTimer - delta);
-        }
-        if (this.activeSkillDurationTimer > 0) {
-            this.activeSkillDurationTimer = Math.max(0, this.activeSkillDurationTimer - delta);
-            if (this.activeSkillDurationTimer === 0) {
-                this.activeSkillEffect = null;
-            }
-        }
-        // Cập nhật các thực thể kỹ năng độc đáo (Trạm hồi máu, Tháp súng, Lốc xoáy, Lựu đạn...)
-        this.updateActiveSkills(delta, arena, enemies);
 
         // Noi tai tu phuc hoi mau (Xac uop / Mummy)
         if (authoritative && this.passiveRegenRate > 0 && this.health < this.maxHealth * 0.5 && !this.isDead && !this.isDowned) {
@@ -2644,6 +2594,7 @@ export class PlayerController {
     }
 
     reset(startPos = new THREE.Vector3(0, 0, 8)) {
+        this.clearSharedSkills();
         this.position.copy(startPos);
         this.velocity.set(0, 0, 0);
         this.applyCharacterStats();

@@ -13,10 +13,10 @@ export function createRoomTicker(tick) {
     const fallback = () => {
         worker?.terminate();
         worker = null;
-        timer ??= setInterval(update, 33);
+        timer ??= setInterval(update, 1000 / 60);
     };
     try {
-        worker = new Worker(new URL('./room-ticker-worker.js', import.meta.url));
+        worker = new Worker(new URL('./room-ticker-worker.js?v=2', import.meta.url));
         worker.onmessage = update;
         worker.onerror = fallback;
     } catch { fallback(); }

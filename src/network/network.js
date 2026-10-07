@@ -3,7 +3,7 @@ import * as SkeletonUtils from '../../vendor/SkeletonUtils.js';
 import { HealthBar3D } from '../rendering/healthbar.js';
 import { CHARACTER_CONFIGS, normalizeCharacter } from '../gameplay/player/characters.js';
 import { getStartingWeapon } from '../gameplay/combat/weapons.js';
-import { createRoomTicker } from './room-ticker.js';
+import { createRoomTicker } from './room-ticker.js?v=2';
 
 // Cấu hình STUN Server của Google giúp đục lỗ NAT khi chơi qua mạng Internet (4G, Wifi khác nhà)
 const PEER_CONFIG = {
@@ -17,7 +17,7 @@ const PEER_CONFIG = {
 };
 
 const MAX_ROOM_PLAYERS = 4;
-const PROTOCOL_VERSION = 2;
+const PROTOCOL_VERSION = 3;
 
 export class NetworkRoom {
     constructor(game) {
@@ -244,7 +244,7 @@ export class NetworkRoom {
     async start() {
         if (!this.host) return;
         this.beginMatch(Math.max(Date.now(), (this.epoch || 0) + 1));
-        for (const c of this.connections) { c.input = {}; c.ack = 0; c.inputSeq = 0; }
+        for (const c of this.connections) { c.input = {}; c.ack = 0; c.inputSeq = 0; c.events = []; }
         this.game.showRoomState({ code: this.code, host: 'host', you: 'host', players: this.players, isHost: true, started: true });
         const data = { type: 'start', epoch: this.epoch };
         for (const c of this.connections) {
@@ -258,6 +258,8 @@ export class NetworkRoom {
         if (!this.active || this.host) return;
         command.seq = ++this.seq;
         this.pendingCommands.push(command);
+        this.pollTimer = 0;
+        this.update(0);
     }
 
     update(delta) {
@@ -265,8 +267,8 @@ export class NetworkRoom {
         this.pollTimer -= delta;
         if (this.pollTimer > 0) return;
         
-        // Polling rate of 33ms (30fps) for syncing
-        this.pollTimer = Math.max(0, this.pollTimer + 0.033);
+        // Target 60 updates/s; never enqueue stale snapshots behind a congested channel.
+        this.pollTimer = Math.max(0, this.pollTimer + 1 / 60);
         
         if (this.host) {
             const inputs = {};
@@ -281,15 +283,21 @@ export class NetworkRoom {
             const snapshotSeq = ++this.snapshotSeq;
             for (const c of this.connections) {
                 if (c.joined && c.conn.open) {
+                    c.events ||= [];
+                    c.events.push(...(snapshot.events || []));
+                    // Persistent gameplay lives in the snapshot; bound cosmetic event history.
+                    if (c.events.length > 256) c.events.splice(0, c.events.length - 256);
+                    if ((c.conn.dataChannel?.bufferedAmount || 0) > 65536) continue;
                     try {
-                        c.conn.send({ type: 'snapshot', snapshot, snapshotSeq, started, epoch: this.epoch, ack: c.ack });
+                        c.conn.send({ type: 'snapshot', snapshot: {...snapshot, events: c.events}, snapshotSeq, started, epoch: this.epoch, ack: c.ack });
+                        c.events = [];
                     } catch (err) {
                         console.warn('[NetworkHost] Lỗi khi gửi snapshot cho client:', c.id, err);
                     }
                 }
             }
         } else {
-            if (!this.conn || !this.conn.open) return;
+            if (!this.conn || !this.conn.open || (this.conn.dataChannel?.bufferedAmount || 0) > 65536) return;
             if (this.startedEpoch === null) return;
             const local = this.game.player;
             const body = {
@@ -299,6 +307,7 @@ export class NetworkRoom {
                 input: {
                     position: local.position.toArray(),
                     aim: local.aimYaw,
+                    aimPoint: local.aimPoint?.toArray(),
                     ads: !!local.isADS,
                     revive: !!local.reviveRequested,
                     moving: local.velocity.lengthSq() > 0.1,
@@ -322,6 +331,7 @@ export class NetworkRoom {
             if (!player || !Array.isArray(input?.position)) continue;
             if (!player.isDead && input.position.length === 3 && input.position.every(Number.isFinite)) player.position.fromArray(input.position);
             if (Number.isFinite(input.aim)) player.aimYaw = input.aim;
+            if (Array.isArray(input.aimPoint) && input.aimPoint.length === 3 && input.aimPoint.every(Number.isFinite)) (player.aimPoint ||= new THREE.Vector3()).fromArray(input.aimPoint);
             player.isADS = !!input.ads;
             player.isDodging = !!input.isDodging;
             player.moving = !!input.moving;
@@ -355,7 +365,10 @@ export class NetworkRoom {
             if (player.isDead || player.isDowned) continue;
             const weapons = player.weapons;
             const validVector = v => Array.isArray(v) && v.length === 3 && v.every(Number.isFinite);
-            if (command.type === 'reload') weapons.reload();
+            if (command.type === 'active_skill') player.tryActiveSkill?.();
+            else if (command.type === 'overclock') weapons.th_activateOverclock();
+            else if (command.type === 'quick_heal') weapons.th_quickHeal(player);
+            else if (command.type === 'reload') weapons.reload();
             else if (command.type === 'switch') weapons.switchWeapon(command.slot, player);
             else if (command.type === 'medkit') weapons.startMedkitUse(player, command.itemType);
             else if (command.type === 'cancel_medkit') weapons.cancelMedkitUse();
@@ -468,6 +481,8 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
         isDead: false, isDowned: false, bleedOutTimer: 30.0, health: 100, maxHealth: 100, shield: 100, maxShield: 100,
         radius: 0.55, height: 1.6, mesh: group, healthBar,
         updateSimulation(delta) {
+            this.speedBoostTimer = Math.max(0, (this.speedBoostTimer || 0) - delta);
+            this.radarScanTimer = Math.max(0, (this.radarScanTimer || 0) - delta);
             this.invulnerability = Math.max(0, (this.invulnerability || 0) - delta);
             this.shieldRegenTimer = Math.max(0, (this.shieldRegenTimer || 0) - delta);
             if (!this.isDead && !this.isDowned && !this.shieldRegenTimer) this.shield = Math.min(this.maxShield, this.shield + 25 * delta);
@@ -558,6 +573,7 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
             const next = normalizeCharacter(nextCharacter);
             if (next === this.characterId && (characterModel || loadingCharacter === next)) return;
             this.characterId = next;
+            this.applyCharacterStats?.();
             if (!loader) return;
             const config = CHARACTER_CONFIGS[next];
             loadingCharacter = next;
