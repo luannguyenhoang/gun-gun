@@ -752,6 +752,22 @@ export const CONTAINER_CONFIGS = {
             { itemId: 'optic_t4', chance: 0.15, min: 1, max: 1 },
             { itemId: 'grip_t4', chance: 0.15, min: 1, max: 1 }
         ]
+    },
+    supply_drop_crate: {
+        id: 'supply_drop_crate',
+        name: 'Hòm Quân Nhu Tiếp Tế',
+        searchDuration: 0.4,
+        interactionRadius: 3.8,
+        capacity: 4,
+        meshColor: 0x10b981,
+        accentColor: 0x34d399,
+        promptLabel: '[F] NHẬN TIẾP TẾ CHIẾN THUẬT',
+        lootTable: [
+            { itemId: 'medkit', chance: 1.0, min: 2, max: 3 },
+            { itemId: 'grenade_a', chance: 0.95, min: 2, max: 4 },
+            { itemId: 'grenade_fire', chance: 0.90, min: 2, max: 3 },
+            { itemId: 'grenade_freeze', chance: 0.85, min: 1, max: 2 }
+        ]
     }
 };
 
@@ -1072,6 +1088,29 @@ export class LootContainer {
             const beacon = new THREE.Mesh(beaconGeo, beaconMat);
             beacon.position.set(0, 1.15, 0);
             group.add(beacon);
+        } else if (this.type === 'supply_drop_crate') {
+            // Hòm quân nhu tiếp tế: Model thùng quân nhu xanh lục
+            const fallbackGeo = new THREE.BoxGeometry(1.5, 1.1, 1.5);
+            const fallbackMat = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.5 });
+            const crate = new THREE.Mesh(fallbackGeo, fallbackMat);
+            crate.position.y = 0.55;
+            group.add(crate);
+
+            getOrLoadModel('assets/models/kenney-blaster/crate-wide.glb', (model) => {
+                model.scale.set(2.0, 2.0, 2.0);
+                model.position.set(0, 0, 0);
+                group.remove(crate);
+                fallbackGeo.dispose();
+                fallbackMat.dispose();
+                group.add(model);
+            });
+
+            // Đèn tín hiệu màu xanh ngọc bích
+            const beaconGeo = new THREE.CylinderGeometry(0.08, 0.1, 0.45, 8);
+            const beaconMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+            const beacon = new THREE.Mesh(beaconGeo, beaconMat);
+            beacon.position.set(0, 1.15, 0);
+            group.add(beacon);
         }
 
         // Vòng sáng tương tác mở rộng dưới sàn (Bán kính 3.6m - 4.0m)
@@ -1234,15 +1273,24 @@ export class AirdropDropEntity {
         this.lootingSystem = lootingSystem;
         this.targetPos = targetPos.clone();
         this.id = options.id || ('airdrop_' + Math.random().toString(36).substring(2, 9));
-        this.currentPos = new THREE.Vector3(targetPos.x, 34, targetPos.z);
-        this.fallSpeed = 5.2; // Tốc độ hạ cánh
+        this.containerType = options.containerType || 'airdrop_crate';
+        this.initialHeight = options.initialHeight || 34;
+        this.currentPos = new THREE.Vector3(targetPos.x, this.initialHeight, targetPos.z);
+        this.fallSpeed = options.fallSpeed || 5.2; // Tốc độ hạ cánh
+        this.chuteColor = options.chuteColor || 0xff4422;
+        this.beaconColor = options.beaconColor || 0xff1100;
+        this.smokeColor = options.smokeColor || 0xff2200;
+        this.smokeTimer = options.smokeTimer || 75; // Thời gian phụt khói
+        this.isSupplySkill = !!options.isSupplySkill;
         this.landed = false;
-        this.smokeTimer = 75; // Khói đỏ nghi ngút phụt lên trong 75 giây
         this.group = new THREE.Group();
 
         // 1. Thùng hàng thính Airdrop
         const boxGeo = new THREE.BoxGeometry(1.6, 1.2, 1.6);
-        const boxMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.6 });
+        const boxMat = new THREE.MeshStandardMaterial({
+            color: this.containerType === 'supply_drop_crate' ? 0x10b981 : 0xd97706,
+            roughness: 0.6
+        });
         const boxMesh = new THREE.Mesh(boxGeo, boxMat);
         boxMesh.position.y = 0.6;
         boxMesh.castShadow = true;
@@ -1251,6 +1299,14 @@ export class AirdropDropEntity {
         getOrLoadModel('assets/models/kenney-blaster/crate-wide.glb', (model) => {
             model.scale.set(2.0, 2.0, 2.0);
             model.position.set(0, 0, 0);
+            if (this.containerType === 'supply_drop_crate') {
+                model.traverse(c => {
+                    if (c.isMesh && c.material) {
+                        c.material = c.material.clone();
+                        c.material.color.set(0x10b981);
+                    }
+                });
+            }
             this.group.remove(boxMesh);
             boxGeo.dispose();
             boxMat.dispose();
@@ -1260,7 +1316,7 @@ export class AirdropDropEntity {
         // 2. Dù lượn đơn giản (Parachute dome)
         const chuteGeo = new THREE.SphereGeometry(2.4, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.48);
         const chuteMat = new THREE.MeshStandardMaterial({
-            color: 0xff4422,
+            color: this.chuteColor,
             roughness: 0.8,
             side: THREE.DoubleSide
         });
@@ -1296,12 +1352,12 @@ export class AirdropDropEntity {
 
         this.group.add(boxMesh, chuteMesh, linesMesh);
 
-        // 4. Đèn tín hiệu cứu hộ phát quang màu đỏ rực (Airdrop Beacon Light từ light_01.png)
+        // 4. Đèn tín hiệu cứu hộ phát quang (Airdrop Beacon Light từ light_01.png)
         const beaconTex = (typeof document !== 'undefined') ? new THREE.TextureLoader().load('assets/particles/light_01.png') : null;
         if (beaconTex && THREE.SRGBColorSpace) beaconTex.colorSpace = THREE.SRGBColorSpace;
         const beaconMat = new THREE.SpriteMaterial({
             map: beaconTex,
-            color: 0xff1100,
+            color: this.beaconColor,
             transparent: true,
             opacity: 0.85,
             blending: THREE.AdditiveBlending,
@@ -1325,7 +1381,7 @@ export class AirdropDropEntity {
             this.group.position.copy(this.currentPos);
 
             // Bóng đổ trên mặt đất nở to và đậm dần khi hòm tiếp cận mặt đất
-            const heightRatio = Math.max(0, Math.min(1, (34 - this.currentPos.y) / 34));
+            const heightRatio = Math.max(0, Math.min(1, (this.initialHeight - this.currentPos.y) / this.initialHeight));
             const shadowScale = 0.4 + heightRatio * 0.9;
             this.shadowMesh.scale.set(shadowScale, shadowScale, 1);
             this.shadowMesh.material.opacity = 0.15 + heightRatio * 0.65;
@@ -1343,10 +1399,10 @@ export class AirdropDropEntity {
                 this.linesMesh.visible = false;
                 sounds.play('land', { volume: 0.95 });
 
-                // Ở chế độ Client, hòm airdrop_crate sẽ được tạo thông qua snapshot của Host
+                // Ở chế độ Client, hòm sẽ được tạo thông qua snapshot của Host
                 const isClient = window.game?.network?.active && !window.game?.network?.host;
                 if (!isClient) {
-                    this.container = this.lootingSystem.spawnContainer('airdrop_crate', this.targetPos);
+                    this.container = this.lootingSystem.spawnContainer(this.containerType, this.targetPos);
                     if (this.container) {
                         this.container.airdropEntity = this;
                     }
@@ -1354,7 +1410,7 @@ export class AirdropDropEntity {
                 }
             }
         } else {
-            // Sau khi tiếp đất: Khói hiệu ứng màu đỏ phụt lên liên tục trong 60-90 giây
+            // Sau khi tiếp đất: Khói hiệu ứng phụt lên liên tục
             if (this.smokeTimer > 0) {
                 this.smokeTimer -= delta;
                 if (Math.random() < 0.45 && particles) {
@@ -1363,7 +1419,7 @@ export class AirdropDropEntity {
                         1.2 + Math.random() * 0.8,
                         (Math.random() - 0.5) * 0.6
                     ));
-                    particles.createImpactSparks(smokePos, new THREE.Vector3(0, 1, 0), 0xff2200, 3);
+                    particles.createImpactSparks(smokePos, new THREE.Vector3(0, 1, 0), this.smokeColor, 3);
                 }
             }
         }
