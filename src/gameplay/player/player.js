@@ -630,7 +630,7 @@ export class PlayerController {
     }
 
     removeSkillEntity(e) {
-        for (const root of [e.group || e.mesh, e.beam]) {
+        for (const root of [e.group || e.mesh, e.beam, e.coreMesh, e.twirlDecal, e.dirtRingDecal]) {
             if (!root) continue;
             this.scene.remove(root);
             root.traverse(o => { o.geometry?.dispose(); if (o.material) for (const m of [o.material].flat()) m.dispose(); });
@@ -894,46 +894,76 @@ export class PlayerController {
             this.riotShieldGroup = null;
         }
 
-        // Tạo Khiên Năng Lượng 3D Cong Bán Nguyệt (Curved 3D Forcefield Barrier)
+        // Tạo Khiên Năng Lượng Công Nghệ Cao 3D (Tactical Hex-Forcefield Barrier)
         const shieldGroup = new THREE.Group();
 
         // Mặt cong 3D bán nguyệt bao bọc phía trước ngực người chơi
-        const shieldGeo = new THREE.CylinderGeometry(1.25, 1.25, 1.4, 24, 1, true, -Math.PI / 3, (Math.PI * 2) / 3);
+        const shieldGeo = new THREE.CylinderGeometry(1.3, 1.3, 1.45, 24, 1, true, -Math.PI / 3, (Math.PI * 2) / 3);
         const shieldMat = new THREE.MeshBasicMaterial({
             color: 0x00f0ff,
             transparent: true,
-            opacity: 0.75,
+            opacity: 0.82,
             side: THREE.DoubleSide,
             depthWrite: false,
             blending: THREE.AdditiveBlending
         });
         const shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
-        shieldMesh.position.set(0, 0.75, 0.45);
+        shieldMesh.position.set(0, 0.75, 0.5);
         shieldGroup.add(shieldMesh);
 
+        // Lớp màng năng lượng lõi phụ bên trong phát quang cyan sáng chói
+        const innerShieldGeo = new THREE.CylinderGeometry(1.22, 1.22, 1.3, 20, 1, true, -Math.PI / 3.4, (Math.PI * 2) / 3.4);
+        const innerShieldMat = new THREE.MeshBasicMaterial({
+            color: 0x38bdf8,
+            transparent: true,
+            opacity: 0.45,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+        });
+        const innerShieldMesh = new THREE.Mesh(innerShieldGeo, innerShieldMat);
+        innerShieldMesh.position.set(0, 0.75, 0.48);
+        shieldGroup.add(innerShieldMesh);
+
         // Viền năng lượng phát quang ở đỉnh và đáy khiên
-        const rimGeo = new THREE.TorusGeometry(1.25, 0.035, 8, 24, (Math.PI * 2) / 3);
+        const rimGeo = new THREE.TorusGeometry(1.3, 0.04, 8, 24, (Math.PI * 2) / 3);
         rimGeo.rotateX(Math.PI / 2);
         rimGeo.rotateZ(-Math.PI / 3);
         const rimMat = new THREE.MeshBasicMaterial({
-            color: 0x38bdf8,
+            color: 0x00f0ff,
             transparent: true,
-            opacity: 0.9,
+            opacity: 0.95,
             blending: THREE.AdditiveBlending
         });
         const topRim = new THREE.Mesh(rimGeo, rimMat);
-        topRim.position.set(0, 1.45, 0.45);
+        topRim.position.set(0, 1.47, 0.5);
         shieldGroup.add(topRim);
 
         const bottomRim = new THREE.Mesh(rimGeo, rimMat);
-        bottomRim.position.set(0, 0.05, 0.45);
+        bottomRim.position.set(0, 0.03, 0.5);
         shieldGroup.add(bottomRim);
+
+        // Lõi năng lượng phát quang trung tâm khiên (Hexagonal Reactor Core từ light_01.png)
+        const coreMat = new THREE.SpriteMaterial({
+            map: getSkillTexture('assets/particles/light_01.png'),
+            color: 0x00f0ff,
+            transparent: true,
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        const coreSprite = new THREE.Sprite(coreMat);
+        coreSprite.position.set(0, 0.75, 1.32);
+        coreSprite.scale.set(1.4, 1.4, 1);
+        shieldGroup.add(coreSprite);
 
         shieldGroup.position.copy(this.position);
         shieldGroup.rotation.y = this.aimYaw;
         this.scene.add(shieldGroup);
         this.riotShieldGroup = shieldGroup;
         this.riotTrailTimer = 0;
+
+        sounds.play('land', { volume: 0.85, rate: 1.4 });
     }
 
     // 2. Nữ đặc nhiệm: Cụm lựu đạn ném theo hình quạt (4 quả, dame 180)
@@ -941,28 +971,35 @@ export class PlayerController {
         const angles = [-0.35, -0.12, 0.12, 0.35];
         for (let i = 0; i < angles.length; i++) {
             const yaw = this.aimYaw + angles[i];
-            const dir = new THREE.Vector3(Math.sin(yaw), 0.3, Math.cos(yaw)).normalize();
+            const dir = new THREE.Vector3(Math.sin(yaw), 0.35, Math.cos(yaw)).normalize();
             const pos = this.position.clone().add(new THREE.Vector3(0, 1.0, 0));
 
-            const geom = new THREE.SphereGeometry(0.18, 8, 8);
-            const mat = new THREE.MeshStandardMaterial({
-                color: 0x38bdf8,
-                emissive: 0x0284c7,
-                emissiveIntensity: 0.8
-            });
-            const mesh = new THREE.Mesh(geom, mat);
-            mesh.position.copy(pos);
+            // Mô hình lựu đạn chiến thuật có chốt và rãnh cơ khí
+            const grenadeGroup = new THREE.Group();
+            grenadeGroup.position.copy(pos);
 
-            this.scene.add(mesh);
+            const bodyGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.28, 8);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.8, roughness: 0.3 });
+            const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+            grenadeGroup.add(bodyMesh);
+
+            const capGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.08, 8);
+            const capMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.8 });
+            const capMesh = new THREE.Mesh(capGeo, capMat);
+            capMesh.position.y = 0.16;
+            grenadeGroup.add(capMesh);
+
+            this.scene.add(grenadeGroup);
             this.activeGrenades.push({
-                mesh,
-                velocity: dir.multiplyScalar(16.0),
-                timer: 0.5 + i * 0.15,
+                mesh: grenadeGroup,
+                velocity: dir.multiplyScalar(17.0),
+                rotSpeed: new THREE.Vector3((Math.random() - 0.5) * 16, (Math.random() - 0.5) * 16, (Math.random() - 0.5) * 16),
+                timer: 0.55 + i * 0.12,
                 damage: 180,
                 radius: 4.8
             });
         }
-        sounds.play('jump', { volume: 0.8, rate: 1.5 });
+        sounds.play('jump', { volume: 0.85, rate: 1.5 });
     }
 
     // 3. Bác sĩ tác chiến: Trạm cứu thương dã chiến hồi 15 HP/s trong 6s
@@ -1082,7 +1119,7 @@ export class PlayerController {
         sounds.playMedkit();
     }
 
-    // 4. Chuyên viên phân tích: Quét radar và khiến quái chịu thêm 50% sát thương
+    // 4. Chuyên viên phân tích: Quét radar và khiến quái chịu thêm 50% sát thương (Ký hiệu Hologram xuyên tường)
     triggerVulnerabilityScan(duration = 8.0) {
         this.radarScanTimer = duration;
         const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
@@ -1093,10 +1130,38 @@ export class PlayerController {
                 enemy.vulnerableTimer = duration;
                 enemy.vulnerableMultiplier = 1.50;
                 enemy.setEmissiveColor?.(0x84cc16, 0.9);
+
+                // Gắn biểu tượng Hologram điểm yếu trên đầu quái vật nhìn xuyên tường
+                if (enemy.mesh && !enemy.vulnerabilityIcon) {
+                    const symMat = new THREE.SpriteMaterial({
+                        map: getSkillTexture('assets/particles/symbol_01.png'),
+                        color: 0x84cc16,
+                        transparent: true,
+                        opacity: 0.95,
+                        blending: THREE.AdditiveBlending,
+                        depthTest: false // Nhìn xuyên tường
+                    });
+                    const symSprite = new THREE.Sprite(symMat);
+                    symSprite.scale.set(1.3, 1.3, 1);
+                    symSprite.position.set(0, 2.3, 0);
+                    enemy.mesh.add(symSprite);
+                    enemy.vulnerabilityIcon = symSprite;
+
+                    setTimeout(() => {
+                        if (enemy.mesh && symSprite.parent === enemy.mesh) {
+                            enemy.mesh.remove(symSprite);
+                        }
+                        symMat.dispose();
+                        enemy.vulnerabilityIcon = null;
+                    }, duration * 1000);
+                }
             }
         }
 
-        // Sóng radar quét siêu âm 3D bùng nổ ra xa 35m trong 0.6s
+        // Sóng radar quét siêu âm 3D công nghệ cao bung nở từ tâm ra xa 35m trong 0.65s
+        const radarDecal = createGroundParticleDecal(this.position, 6.0, 'assets/particles/circle_03.png', 0x84cc16, 0.95, THREE.AdditiveBlending);
+        this.scene.add(radarDecal);
+
         const radarRingGeo = new THREE.RingGeometry(0.5, 1.2, 48);
         radarRingGeo.rotateX(-Math.PI / 2);
         const radarRingMat = new THREE.MeshBasicMaterial({
@@ -1115,49 +1180,68 @@ export class PlayerController {
         const startTime = performance.now();
         const anim = () => {
             const elapsed = (performance.now() - startTime) / 1000;
-            if (elapsed > 0.6) {
+            if (elapsed > 0.65) {
                 this.scene.remove(radarRing);
+                this.scene.remove(radarDecal);
                 radarRingGeo.dispose();
                 radarRingMat.dispose();
+                radarDecal.geometry?.dispose();
+                radarDecal.material?.dispose();
                 return;
             }
-            const t = elapsed / 0.6;
-            const s = 1.0 + t * 28.0;
+            const t = elapsed / 0.65;
+            const s = 1.0 + t * 29.0;
             radarRing.scale.set(s, s, s);
             radarRingMat.opacity = Math.max(0, 0.9 * (1.0 - t));
+
+            radarDecal.scale.set(1.0 + t * 5.0, 1.0 + t * 5.0, 1);
+            radarDecal.material.opacity = Math.max(0, 0.95 * (1.0 - t));
             requestAnimationFrame(anim);
         };
         requestAnimationFrame(anim);
+        sounds.play('reload', { volume: 0.8, rate: 1.8 });
     }
 
-    // 5. Kỹ sư cơ khí: Tháp súng mini tự động bắn zombie trong 8s
+    // 5. Kỹ sư cơ khí: Tháp súng mini tự động nòng kép cơ khí có tia laser định vị
     triggerAutoTurret(duration = 8.0) {
         const forward = new THREE.Vector3(Math.sin(this.aimYaw), 0, Math.cos(this.aimYaw)).normalize();
-        const pos = this.position.clone().add(forward.clone().multiplyScalar(1.2));
+        const pos = this.position.clone().add(forward.clone().multiplyScalar(1.4));
         pos.y = 0.05;
 
         const group = new THREE.Group();
         group.position.copy(pos);
 
-        const baseGeom = new THREE.CylinderGeometry(0.35, 0.45, 0.3, 8);
-        const baseMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4 });
+        // Chân kiềng hợp kim 3 chạc
+        const baseGeom = new THREE.CylinderGeometry(0.35, 0.52, 0.28, 6);
+        const baseMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.7, roughness: 0.4 });
         const baseMesh = new THREE.Mesh(baseGeom, baseMat);
-        baseMesh.position.y = 0.15;
+        baseMesh.position.y = 0.14;
         group.add(baseMesh);
 
+        // Khối đầu tháp xoay
         const headGroup = new THREE.Group();
-        headGroup.position.y = 0.4;
-        const boxGeom = new THREE.BoxGeometry(0.25, 0.25, 0.35);
-        const boxMat = new THREE.MeshStandardMaterial({ color: 0xfb923c, roughness: 0.3 });
+        headGroup.position.y = 0.42;
+        const boxGeom = new THREE.BoxGeometry(0.28, 0.26, 0.38);
+        const boxMat = new THREE.MeshStandardMaterial({ color: 0xfb923c, metalness: 0.4, roughness: 0.3 });
         const boxMesh = new THREE.Mesh(boxGeom, boxMat);
         headGroup.add(boxMesh);
 
-        const barrelGeom = new THREE.CylinderGeometry(0.04, 0.04, 0.45, 8);
+        // Cụm 2 nòng súng đôi cơ khí
+        const barrelGeom = new THREE.CylinderGeometry(0.035, 0.035, 0.5, 8);
         barrelGeom.rotateX(Math.PI / 2);
-        const barrelMat = new THREE.MeshStandardMaterial({ color: 0x0f172a });
-        const barrelMesh = new THREE.Mesh(barrelGeom, barrelMat);
-        barrelMesh.position.z = 0.25;
-        headGroup.add(barrelMesh);
+        const barrelMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.8 });
+
+        const barrelLeft = new THREE.Mesh(barrelGeom, barrelMat);
+        barrelLeft.position.set(-0.08, 0, 0.28);
+        const barrelRight = new THREE.Mesh(barrelGeom, barrelMat);
+        barrelRight.position.set(0.08, 0, 0.28);
+        headGroup.add(barrelLeft, barrelRight);
+
+        // Tia laser định vị mục tiêu màu cam (Aiming Laser Line)
+        const laserGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0.35), new THREE.Vector3(0, 0, 8.0)]);
+        const laserMat = new THREE.LineBasicMaterial({ color: 0xff7700, transparent: true, opacity: 0.85 });
+        const laserLine = new THREE.Line(laserGeo, laserMat);
+        headGroup.add(laserLine);
 
         group.add(headGroup);
         this.scene.add(group);
@@ -1165,15 +1249,19 @@ export class PlayerController {
         this.activeTurrets.push({
             group,
             headGroup,
-            barrelMesh,
+            barrelLeft,
+            barrelRight,
+            laserLine,
+            laserGeo,
+            laserMat,
             position: pos,
             timer: duration,
             fireCooldown: 0,
-            fireRate: 0.18,
-            damage: 45,
-            range: 18
+            fireRate: 0.16,
+            damage: 48,
+            range: 20
         });
-        sounds.play('reload', { volume: 0.7 });
+        sounds.play('reload', { volume: 0.75 });
     }
 
     // 6. Điệp viên áo đen: Không kích vệ tinh oanh tạc quỹ đạo
@@ -1385,13 +1473,18 @@ export class PlayerController {
     triggerGroundSmash() {
         const startPos = this.position.clone();
 
-        // 1. Vết nứt địa chấn nổ vỡ mặt đất (CỐ ĐỊNH, KHÔNG XOAY)
-        const scorchDecal = createGroundParticleDecal(startPos, 9.0, 'assets/particles/scorch_03.png', 0xea580c, 0.92, THREE.NormalBlending);
+        // 1. Vết nứt địa chấn nứt vỡ nham thạch khổng lồ dán sàn (CỐ ĐỊNH, KHÔNG XOAY)
+        const scorchDecal = createGroundParticleDecal(startPos, 10.5, 'assets/particles/scorch_03.png', 0xea580c, 0.95, THREE.NormalBlending);
         scorchDecal.position.y = 0.04;
         this.scene.add(scorchDecal);
 
-        // 2. Vòng sóng xung kích địa chấn 3D bùng nổ cực nhanh ra xa 11 mét
-        const shockGeo = new THREE.RingGeometry(0.4, 1.2, 48);
+        // 2. Vệt bụi đá và mảnh vỡ mặt đất bốc lên từ tâm chấn
+        const dirtDecal = createGroundParticleDecal(startPos, 8.5, 'assets/particles/dirt_03.png', 0x9a3412, 0.85, THREE.AdditiveBlending);
+        dirtDecal.position.y = 0.05;
+        this.scene.add(dirtDecal);
+
+        // 3. Vòng sóng xung kích địa chấn 3D bùng nổ cực nhanh ra xa 11.5 mét
+        const shockGeo = new THREE.RingGeometry(0.5, 1.4, 48);
         shockGeo.rotateX(-Math.PI / 2);
         const shockMat = new THREE.MeshBasicMaterial({
             color: 0xea580c,
@@ -1406,46 +1499,48 @@ export class PlayerController {
         shockMesh.position.y = 0.06;
         this.scene.add(shockMesh);
 
-        // 3. Cột bụi đá và áp lực nổ bốc ngược lên trời
-        const geyserGeo = new THREE.CylinderGeometry(1.2, 2.8, 3.8, 16, 1, true);
+        // 4. Cột bụi đá và áp lực nổ bốc ngược lên trời
+        const geyserGeo = new THREE.CylinderGeometry(1.4, 3.2, 4.2, 16, 1, true);
         const geyserMat = new THREE.MeshBasicMaterial({
             color: 0xfb923c,
             transparent: true,
-            opacity: 0.85,
+            opacity: 0.9,
             side: THREE.DoubleSide,
             blending: THREE.AdditiveBlending,
             depthWrite: false
         });
         const geyserMesh = new THREE.Mesh(geyserGeo, geyserMat);
         geyserMesh.position.copy(startPos);
-        geyserMesh.position.y += 1.9;
+        geyserMesh.position.y += 2.1;
         this.scene.add(geyserMesh);
 
         const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
         for (const enemy of enemies) {
             if (!enemy || enemy.isDead) continue;
             const dist = startPos.distanceTo(enemy.position);
-            if (dist <= 11.0) {
+            if (dist <= 11.5) {
                 const pushDir = new THREE.Vector3().subVectors(enemy.position, startPos).normalize();
                 pushDir.y = 0.9;
                 enemy.takeDamage(130, 3, true, pushDir);
                 if (enemy.knockbackVelocity) {
-                    enemy.knockbackVelocity.set(pushDir.x * 24, 14, pushDir.z * 24);
+                    enemy.knockbackVelocity.set(pushDir.x * 26, 15, pushDir.z * 26);
                 }
                 enemy.combatState = 'STUNNED';
                 enemy.combatTimer = 3.0;
             }
         }
 
-        this.particles?.createExplosion?.(startPos, 0xea580c, 45);
-        this.applyKickbackAndShake?.(new THREE.Vector2(0, 0), 0.9);
-        sounds.play('enemyDestroy', { volume: 1.0 });
+        this.particles?.createExplosion?.(startPos, 0xea580c, 50, 7.0);
+        this.particles?.createImpactSparks?.(startPos.clone().add(new THREE.Vector3(0, 0.8, 0)), new THREE.Vector3(0, 1, 0), 0xfb923c, 35);
+        this.applyExplosionShock(startPos, 32, 1.0);
+        window.triggerExplosionScreenShake?.(startPos, 32, 1.0);
+        sounds.play('enemyDestroy', { volume: 1.0, rate: 0.65 });
 
-        // Animation sóng phóng ra và mờ dần trong 0.35 giây
+        // Animation sóng phóng ra và mờ dần trong 0.38 giây
         const animStartTime = performance.now();
         const anim = () => {
             const elapsed = (performance.now() - animStartTime) / 1000;
-            if (elapsed > 0.35) {
+            if (elapsed > 0.38) {
                 this.scene.remove(shockMesh);
                 this.scene.remove(geyserMesh);
                 shockGeo.dispose();
@@ -1454,43 +1549,70 @@ export class PlayerController {
                 geyserMat.dispose();
                 return;
             }
-            const t = elapsed / 0.35;
-            const s = 1.0 + t * 9.5;
+            const t = elapsed / 0.38;
+            const s = 1.0 + t * 9.8;
             shockMesh.scale.set(s, s, s);
             shockMat.opacity = Math.max(0, 0.95 * (1.0 - t));
 
-            geyserMesh.scale.set(1.0 + t * 0.4, 1.0 + t * 0.6, 1.0 + t * 0.4);
-            geyserMat.opacity = Math.max(0, 0.85 * (1.0 - t));
+            geyserMesh.scale.set(1.0 + t * 0.45, 1.0 + t * 0.7, 1.0 + t * 0.45);
+            geyserMat.opacity = Math.max(0, 0.9 * (1.0 - t));
             requestAnimationFrame(anim);
         };
         requestAnimationFrame(anim);
 
-        // Vết nứt địa chấn mờ dần sau 2.0s
+        // Vết nứt nham thạch và bụi đá mờ dần sau 3.0s
         setTimeout(() => {
             const fStart = performance.now();
             const fAnim = () => {
                 const el = (performance.now() - fStart) / 1000;
                 if (el > 0.8) {
                     this.scene.remove(scorchDecal);
+                    this.scene.remove(dirtDecal);
                     scorchDecal.geometry?.dispose();
                     scorchDecal.material?.dispose();
+                    dirtDecal.geometry?.dispose();
+                    dirtDecal.material?.dispose();
                     return;
                 }
-                scorchDecal.material.opacity = Math.max(0, 0.92 * (1.0 - el));
+                scorchDecal.material.opacity = Math.max(0, 0.95 * (1.0 - el));
+                dirtDecal.material.opacity = Math.max(0, 0.85 * (1.0 - el));
                 requestAnimationFrame(fAnim);
             };
             requestAnimationFrame(fAnim);
-        }, 1600);
+        }, 2500);
     }
 
-    // 8. Tiểu thư nổi loạn: Cuồng xả đạn vô hạn trong 5s
+    // 8. Tiểu thư nổi loạn: Cuồng xả đạn vô hạn trong 5s (Hào quang rực lửa bao quanh)
     triggerBulletFrenzy(duration = 5.0) {
         this.bulletFrenzyTimer = duration;
-        sounds.play('pickupAmmo', { volume: 0.9 });
-        this.particles?.createImpactSparks?.(this.position, new THREE.Vector3(0, 1, 0), 0xfbbf24, 25);
+
+        // Tạo quầng sáng hào quang cuồng nộ màu vàng rực bọc quanh nhân vật
+        if (this.frenzyAuraMesh) {
+            this.scene.remove(this.frenzyAuraMesh);
+            this.frenzyAuraMesh = null;
+        }
+
+        const frenzyMat = new THREE.SpriteMaterial({
+            map: getSkillTexture('assets/particles/flame_05.png'),
+            color: 0xfbbf24,
+            transparent: true,
+            opacity: 0.88,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        const frenzySprite = new THREE.Sprite(frenzyMat);
+        frenzySprite.scale.set(2.8, 2.8, 1);
+        frenzySprite.position.set(0, 1.1, 0);
+        if (this.model) this.model.add(frenzySprite);
+        this.frenzyAuraSprite = frenzySprite;
+        this.frenzyAuraMat = frenzyMat;
+
+        sounds.play('pickupAmmo', { volume: 0.95 });
+        sounds.play('reload', { volume: 0.9, rate: 1.4 });
+        this.particles?.createImpactSparks?.(this.position, new THREE.Vector3(0, 1, 0), 0xfbbf24, 30);
     }
 
-    // 9. Quản lý chiến trường: Thả dù Hòm Tiếp Tế Chiến Thuật (Airdrop Crate)
+    // 9. Quản lý chiến trường: Thả dù Hòm Tiếp Tế Quân Nhu Tiếp Đất trong 1.5s
     triggerSupplyDrop() {
         if (this.weapons) {
             for (const wp of this.weapons.weaponSlots.filter(w => w && !w.isBomb && !w.isKnife && !w.isUtility)) {
@@ -1513,26 +1635,14 @@ export class PlayerController {
         dropPos.z = Math.max(-20, Math.min(20, dropPos.z));
         dropPos.y = 0;
 
-        // Triển khai Hòm Thính Tiếp Tế Thả Dù (Airdrop Drop Simulation)
-        const looting = window.game?.lootingSystem;
-        if (looting) {
-            // Âm thanh máy bay vận tải gầm rú trên bầu trời
-            sounds.playAirdropPlaneSound?.();
+        // 1. Pháo sáng khói xanh lá chỉ điểm tọa độ tiếp tế (Green Smoke Flare)
+        const flareDecal = createGroundParticleDecal(dropPos, 3.2, 'assets/particles/smoke_02.png', 0x10b981, 0.92, THREE.AdditiveBlending);
+        flareDecal.position.y = 0.05;
+        this.scene.add(flareDecal);
 
-            // Banner thông báo chiến thuật toàn màn hình
-            looting.ui?.showBanner('CHỈ HUY ĐÃ THẢ DÙ HÒM TIẾP TẾ CHIẾN THUẬT!');
-
-            // Đánh dấu vòng tròn tiếp tế trên Radar
-            looting.activeAirdropZone = { x: dropPos.x, z: dropPos.z, radius: 4.5, time: 45 };
-
-            // Sinh thực thể hòm thính thả dù rơi từ bầu trời (AirdropDropEntity)
-            const airdropDrop = new AirdropDropEntity(this.scene, dropPos, looting);
-            looting.airdropDrops.push(airdropDrop);
-        }
-
-        // Cột sáng tín hiệu chỉ thị tọa độ tiếp tế (Signal Flare Beam)
-        const beamGeo = new THREE.CylinderGeometry(0.5, 0.9, 32.0, 16);
-        beamGeo.translate(0, 16.0, 0);
+        // 2. Cột sáng tín hiệu xanh ngọc bích bắn vút lên bầu trời
+        const beamGeo = new THREE.CylinderGeometry(0.35, 0.75, 36.0, 16);
+        beamGeo.translate(0, 18.0, 0);
         const beamMat = new THREE.MeshBasicMaterial({
             color: 0x10b981,
             transparent: true,
@@ -1544,18 +1654,40 @@ export class PlayerController {
         beamMesh.position.copy(dropPos);
         this.scene.add(beamMesh);
 
+        // Triển khai Hòm Quân Nhu Tiếp Tế Thả Dù Nhanh (Rơi từ 18m trong 1.5s)
+        const looting = window.game?.lootingSystem;
+        if (looting) {
+            sounds.playAirdropPlaneSound?.();
+            looting.ui?.showBanner('CHỈ HUY ĐÃ THẢ DÙ HÒM TIẾP TẾ QUÂN NHU CHIẾN THUẬT!');
+            looting.activeAirdropZone = { x: dropPos.x, z: dropPos.z, radius: 4.0, time: 35 };
+
+            const airdropDrop = new AirdropDropEntity(this.scene, dropPos, looting, {
+                containerType: 'supply_drop_crate',
+                chuteColor: 0x10b981,
+                beaconColor: 0x10b981,
+                smokeColor: 0x10b981,
+                fallSpeed: 12.0,
+                initialHeight: 18,
+                isSupplySkill: true
+            });
+            looting.airdropDrops.push(airdropDrop);
+        }
+
         sounds.play('pickupAmmo', { volume: 0.95 });
         sounds.playMedkit();
-        this.particles?.createImpactSparks?.(dropPos, new THREE.Vector3(0, 1, 0), 0x10b981, 28);
+        this.particles?.createImpactSparks?.(dropPos, new THREE.Vector3(0, 1, 0), 0x10b981, 30);
 
         setTimeout(() => {
             this.scene.remove(beamMesh);
+            this.scene.remove(flareDecal);
             beamGeo.dispose();
             beamMat.dispose();
-        }, 1200);
+            flareDecal.geometry?.dispose();
+            flareDecal.material?.dispose();
+        }, 1600);
     }
 
-    // 10. Vận động viên cơ động: Lốc xoáy bão cát hút quái
+    // 10. Vận động viên cơ động: Lốc xoáy bão cát 3D đa tầng hút quái
     triggerSandVortex(duration = 5.0) {
         const forward = new THREE.Vector3(Math.sin(this.aimYaw), 0, Math.cos(this.aimYaw)).normalize();
         const pos = this.position.clone().add(forward.multiplyScalar(5.5));
@@ -1564,25 +1696,22 @@ export class PlayerController {
         const group = new THREE.Group();
         group.position.copy(pos);
 
-        // Vòng ranh giới bão cát mỏng sát sàn đấu (CỐ ĐỊNH, KHÔNG XOAY)
-        const boundaryGeo = new THREE.RingGeometry(8.4, 8.5, 64);
-        boundaryGeo.rotateX(-Math.PI / 2);
-        const boundaryMat = new THREE.MeshBasicMaterial({
-            color: 0xd97706,
-            transparent: true,
-            opacity: 0.65,
-            side: THREE.DoubleSide
-        });
-        const boundaryMesh = new THREE.Mesh(boundaryGeo, boundaryMat);
-        group.add(boundaryMesh);
+        // 1. Vòng xoáy bụi cát chân bão dán sàn đấu (twirl_02.png + dirt_01.png)
+        const twirlDecal = createGroundParticleDecal(pos, 8.8, 'assets/particles/twirl_02.png', 0xd97706, 0.88, THREE.AdditiveBlending);
+        twirlDecal.position.y = 0.04;
+        group.add(twirlDecal);
 
-        // Cột Phễu Lốc Xoáy Bão Cát 3D (Volumetric 3D Dust Twister)
-        const twisterGeo = new THREE.CylinderGeometry(4.2, 0.9, 3.6, 16, 4, true);
-        twisterGeo.translate(0, 1.8, 0);
+        const dirtRingDecal = createGroundParticleDecal(pos, 7.5, 'assets/particles/dirt_01.png', 0xb45309, 0.75, THREE.AdditiveBlending);
+        dirtRingDecal.position.y = 0.05;
+        group.add(dirtRingDecal);
+
+        // 2. Cột Lốc Xoáy Bão Cát 3D (Volumetric 3D Dust Twister cao 4.2m)
+        const twisterGeo = new THREE.CylinderGeometry(4.4, 0.9, 4.2, 16, 4, true);
+        twisterGeo.translate(0, 2.1, 0);
         const twisterMat = new THREE.MeshBasicMaterial({
             color: 0xd97706,
             transparent: true,
-            opacity: 0.38,
+            opacity: 0.42,
             side: THREE.DoubleSide,
             blending: THREE.AdditiveBlending,
             depthWrite: false
@@ -1590,13 +1719,13 @@ export class PlayerController {
         const twisterMesh = new THREE.Mesh(twisterGeo, twisterMat);
         group.add(twisterMesh);
 
-        // Lõi xoáy bên trong
-        const innerGeo = new THREE.CylinderGeometry(2.4, 0.5, 3.2, 12, 1, true);
-        innerGeo.translate(0, 1.6, 0);
+        // 3. Lõi lốc xoáy bão cát bên trong xoay ngược chiều
+        const innerGeo = new THREE.CylinderGeometry(2.6, 0.6, 3.8, 12, 1, true);
+        innerGeo.translate(0, 1.9, 0);
         const innerMat = new THREE.MeshBasicMaterial({
             color: 0xf59e0b,
             transparent: true,
-            opacity: 0.45,
+            opacity: 0.55,
             side: THREE.DoubleSide,
             blending: THREE.AdditiveBlending,
             depthWrite: false
@@ -1609,11 +1738,14 @@ export class PlayerController {
             group,
             twisterMesh,
             innerMesh,
+            twirlDecal,
+            dirtRingDecal,
             position: pos,
             timer: duration,
-            radius: 8.5,
+            radius: 8.8,
             tickTimer: 0
         });
+        sounds.play('jump', { volume: 0.9, rate: 0.8 });
     }
 
     // 11. Chiến binh Cyber: Tia sét giật lan truyền qua 12 zombie (dame 150)
@@ -1668,7 +1800,16 @@ export class PlayerController {
             points.push(tPos);
 
             // Bắn chùm hồ quang điện nổ tung tại mỗi zombie bị giật điện
-            this.particles?.createImpactSparks?.(tPos, new THREE.Vector3(0, 1, 0), 0x00f0ff, 22);
+            this.particles?.createImpactSparks?.(tPos, new THREE.Vector3(0, 1, 0), 0x00f0ff, 26);
+
+            // Vết sém điện hồ quang plasma dưới chân quái vật (scorch_01.png màu neon)
+            const scorch = createGroundParticleDecal(target.position, 2.2, 'assets/particles/scorch_01.png', 0x00f0ff, 0.85, THREE.AdditiveBlending);
+            this.scene.add(scorch);
+            setTimeout(() => {
+                this.scene.remove(scorch);
+                scorch.geometry?.dispose();
+                scorch.material?.dispose();
+            }, 1200);
 
             // Quầng sáng chớp điện hồ quang lóa mắt (Lightning Flare Glow từ light_03.png)
             const flashMat = new THREE.SpriteMaterial({
@@ -1681,7 +1822,7 @@ export class PlayerController {
             });
             const flashSprite = new THREE.Sprite(flashMat);
             flashSprite.position.copy(tPos);
-            flashSprite.scale.set(2.4, 2.4, 1);
+            flashSprite.scale.set(2.8, 2.8, 1);
             this.scene.add(flashSprite);
             setTimeout(() => {
                 this.scene.remove(flashSprite);
@@ -1690,12 +1831,52 @@ export class PlayerController {
         }
 
         if (points.length > 1) this.createLightningEntity(points);
+        sounds.play('enemyDestroy', { volume: 0.85, rate: 1.6, pitchVariation: 0.3 });
     }
 
     createLightningEntity(points) {
-        const mesh = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({color: 0x00f0ff}));
+        // Tạo đường tia sét zigzag phân nhánh năng lượng cao
+        const zigzagPoints = [];
+        for (let i = 0; i < points.length - 1; i++) {
+            const p1 = points[i];
+            const p2 = points[i + 1];
+            zigzagPoints.push(p1);
+            const segDist = p1.distanceTo(p2);
+            const steps = Math.max(3, Math.floor(segDist / 1.5));
+            for (let s = 1; s < steps; s++) {
+                const frac = s / steps;
+                const mid = new THREE.Vector3().lerpVectors(p1, p2, frac);
+                // Độ lệch ngẫu nhiên zigzag vuông góc
+                mid.x += (Math.random() - 0.5) * 0.75;
+                mid.y += (Math.random() - 0.5) * 0.65;
+                mid.z += (Math.random() - 0.5) * 0.75;
+                zigzagPoints.push(mid);
+            }
+        }
+        zigzagPoints.push(points[points.length - 1]);
+
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(zigzagPoints);
+        const lineMat = new THREE.LineBasicMaterial({
+            color: 0x00f0ff,
+            linewidth: 3,
+            transparent: true,
+            opacity: 0.95,
+            blending: THREE.AdditiveBlending
+        });
+        const mesh = new THREE.Line(lineGeo, lineMat);
         this.scene.add(mesh);
-        (this.activeLightning ||= []).push({mesh, points, timer: 0.3});
+
+        // Lớp tia sét phụ thứ 2 mỏng màu trắng tinh để tạo lõi năng lượng
+        const coreMat = new THREE.LineBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending
+        });
+        const coreMesh = new THREE.Line(lineGeo, coreMat);
+        this.scene.add(coreMesh);
+
+        (this.activeLightning ||= []).push({ mesh, coreMesh, points, timer: 0.35 });
     }
 
     // 12. Sát thủ bóng đêm: Tàng hình và đòn đánh kế tiếp chí mạng x4
@@ -1708,18 +1889,29 @@ export class PlayerController {
         this.assassinCritReady = true;
         this.shadowVeilCritMult = 4;
 
-        // Chuyển model người chơi sang dạng bóng ma bán trong suốt (phantom mode)
+        // Bùng nổ quả bom khói bóng đêm đen tím mù mịt (smoke_01.png + magic_05.png)
+        const smokeDecal = createGroundParticleDecal(this.position, 5.5, 'assets/particles/smoke_01.png', 0x8b5cf6, 0.92, THREE.AdditiveBlending);
+        smokeDecal.position.y = 0.05;
+        this.scene.add(smokeDecal);
+        setTimeout(() => {
+            this.scene.remove(smokeDecal);
+            smokeDecal.geometry?.dispose();
+            smokeDecal.material?.dispose();
+        }, 1200);
+
+        // Chuyển model người chơi sang dạng bóng ma bán trong suốt màu tím
         if (this.model) {
             this.model.traverse(c => {
                 if (c.isMesh && c.material) {
                     c.material.transparent = true;
-                    c.material.opacity = 0.35;
+                    c.material.opacity = 0.32;
                 }
             });
         }
 
-        // Bắn chùm hạt khói bóng đêm tức thời
-        this.particles?.createImpactSparks?.(this.position, new THREE.Vector3(0, 1, 0), 0x8b5cf6, 28);
+        // Bắn chùm hạt khói bóng đêm tức thời bốc cao
+        this.particles?.createImpactSparks?.(this.position.clone().add(new THREE.Vector3(0, 0.8, 0)), new THREE.Vector3(0, 1, 0), 0x8b5cf6, 38);
+        sounds.play('jump', { volume: 0.8, rate: 0.7 });
     }
 
     // Cập nhật vòng lặp các thực thể kỹ năng độc đáo
@@ -1795,6 +1987,17 @@ export class PlayerController {
         // Cập nhật Cuồng xả đạn vô hạn
         if (this.bulletFrenzyTimer > 0) {
             this.bulletFrenzyTimer -= delta;
+            if (this.frenzyAuraSprite) {
+                this.frenzyAuraSprite.material.rotation = (this.frenzyAuraSprite.material.rotation || 0) + delta * 3.5;
+            }
+            if (this.bulletFrenzyTimer <= 0) {
+                if (this.frenzyAuraSprite) {
+                    this.model?.remove(this.frenzyAuraSprite);
+                    this.frenzyAuraMat?.dispose();
+                    this.frenzyAuraSprite = null;
+                    this.frenzyAuraMat = null;
+                }
+            }
         }
 
         // Cập nhật Tàng hình bóng ma (Shadow Veil)
@@ -1802,6 +2005,21 @@ export class PlayerController {
             this.shadowVeilTimer -= delta;
             this.isInSmoke = true;
             this.isStealthed = true;
+
+            // Tạo tàn ảnh bóng ma (Phantom footprints / trails) khi di chuyển
+            this.shadowTrailTimer = (this.shadowTrailTimer || 0) + delta;
+            const isMoving = (this.velocity && this.velocity.lengthSq() > 0.15) || (this.inputVector && this.inputVector.lengthSq() > 0.15);
+            if (this.shadowTrailTimer >= 0.12 && isMoving) {
+                this.shadowTrailTimer = 0;
+                const trailDecal = createGroundParticleDecal(this.position, 1.8, 'assets/particles/smoke_08.png', 0x8b5cf6, 0.65, THREE.AdditiveBlending);
+                trailDecal.position.y = 0.04;
+                this.scene.add(trailDecal);
+                setTimeout(() => {
+                    this.scene.remove(trailDecal);
+                    trailDecal.geometry?.dispose();
+                    trailDecal.material?.dispose();
+                }, 400);
+            }
 
             if (this.shadowVeilTimer <= 0) {
                 this.isInSmoke = false;
@@ -1824,28 +2042,68 @@ export class PlayerController {
             g.mesh.position.addScaledVector(g.velocity, delta);
             g.velocity.y -= 22 * delta;
             g.timer -= delta;
+
+            if (g.rotSpeed) {
+                g.mesh.rotation.x += g.rotSpeed.x * delta;
+                g.mesh.rotation.y += g.rotSpeed.y * delta;
+                g.mesh.rotation.z += g.rotSpeed.z * delta;
+            }
+
             if (g.timer <= 0 || g.mesh.position.y <= 0.2) {
+                const explPos = g.mesh.position.clone();
+                explPos.y = 0.05;
+
                 const game = globalThis.window?.game;
                 if (game?.network?.active && game.network.host) {
-                    (game.networkEvents ||= []).push({type:'bomb_explosion',position:g.mesh.position.toArray(),color:0x38bdf8,radius:g.radius});
+                    (game.networkEvents ||= []).push({type:'bomb_explosion',position:explPos.toArray(),color:0x38bdf8,radius:g.radius});
                 }
-                this.particles?.createExplosion?.(g.mesh.position, 0x38bdf8, 25);
+
+                // Vết nứt sém đất nhỏ tại điểm nổ
+                const scorch = createGroundParticleDecal(explPos, 3.4, 'assets/particles/scorch_01.png', 0x0284c7, 0.85, THREE.NormalBlending);
+                this.scene.add(scorch);
+                setTimeout(() => {
+                    this.scene.remove(scorch);
+                    scorch.geometry?.dispose();
+                    scorch.material?.dispose();
+                }, 3500);
+
+                // Quầng sáng chớp nổ bùng cháy tức thời (light_02.png)
+                const flashMat = new THREE.SpriteMaterial({
+                    map: getSkillTexture('assets/particles/light_02.png'),
+                    color: 0x38bdf8,
+                    transparent: true,
+                    opacity: 0.95,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                });
+                const flashSprite = new THREE.Sprite(flashMat);
+                flashSprite.position.copy(explPos);
+                flashSprite.scale.set(4.8, 4.8, 1);
+                this.scene.add(flashSprite);
+                setTimeout(() => {
+                    this.scene.remove(flashSprite);
+                    flashMat.dispose();
+                }, 220);
+
+                this.particles?.createExplosion?.(explPos, 0x38bdf8, 28, 4.2);
                 sounds.play('enemyDestroy', { volume: 0.85 });
-                this.applyExplosionShock(g.mesh.position, 20, 0.70);
+                this.applyExplosionShock(explPos, 16, 0.45);
 
                 for (const enemy of enemies) {
                     if (!enemy || enemy.isDead) continue;
-                    const d = g.mesh.position.distanceTo(enemy.position);
+                    const d = explPos.distanceTo(enemy.position);
                     if (d <= g.radius) {
-                        const pushDir = new THREE.Vector3().subVectors(enemy.position, g.mesh.position).normalize();
+                        const pushDir = new THREE.Vector3().subVectors(enemy.position, explPos).normalize();
                         pushDir.y = 0.4;
                         enemy.takeDamage(g.damage, 3, true, pushDir);
                         if (enemy.knockbackVelocity) enemy.knockbackVelocity.addScaledVector(pushDir, 30);
                     }
                 }
                 this.scene.remove(g.mesh);
-                g.mesh.geometry?.dispose();
-                g.mesh.material?.dispose();
+                g.mesh.traverse?.(c => {
+                    if (c.geometry) c.geometry.dispose();
+                    if (c.material) c.material.dispose();
+                });
                 this.activeGrenades.splice(i, 1);
             }
         }
@@ -1934,7 +2192,7 @@ export class PlayerController {
             }
         }
 
-        // Cập nhật Tháp súng mini tự động
+        // Cập nhật Tháp súng mini tự động nòng kép có tia laser ngắm
         for (let i = this.activeTurrets.length - 1; i >= 0; i--) {
             const t = this.activeTurrets[i];
             t.timer -= delta;
@@ -1954,16 +2212,45 @@ export class PlayerController {
             if (closest) {
                 const toEnemy = new THREE.Vector3().subVectors(closest.position, t.position);
                 t.headGroup.rotation.y = Math.atan2(toEnemy.x, toEnemy.z);
+
+                // Cập nhật tia laser định vị mục tiêu chiếu tới quái
+                if (t.laserLine) {
+                    t.laserLine.visible = true;
+                    const localTarget = t.headGroup.worldToLocal(closest.position.clone().add(new THREE.Vector3(0, 0.8, 0)));
+                    t.laserLine.geometry.setFromPoints([new THREE.Vector3(0, 0, 0.35), localTarget]);
+                }
+
                 if (t.fireCooldown <= 0) {
                     t.fireCooldown = t.fireRate;
                     closest.takeDamage(t.damage, 2, false, null);
-                    sounds.play('pistol', { volume: 0.45, pitchVariation: 0.2 });
-                    this.particles?.createImpactSparks?.(closest.position, new THREE.Vector3(0, 1, 0), 0xfb923c, 6);
+                    sounds.play('pistol', { volume: 0.5, pitchVariation: 0.2 });
+
+                    // Bắn chớp lửa đầu nòng màu cam (muzzle_01.png)
+                    const muzzleMat = new THREE.SpriteMaterial({
+                        map: getSkillTexture('assets/particles/muzzle_01.png'),
+                        color: 0xffaa00,
+                        transparent: true,
+                        opacity: 0.95,
+                        blending: THREE.AdditiveBlending,
+                        depthWrite: false
+                    });
+                    const muzzleSprite = new THREE.Sprite(muzzleMat);
+                    muzzleSprite.position.set(0, 0, 0.55);
+                    muzzleSprite.scale.set(0.65, 0.65, 1);
+                    t.headGroup.add(muzzleSprite);
+                    setTimeout(() => {
+                        t.headGroup.remove(muzzleSprite);
+                        muzzleMat.dispose();
+                    }, 65);
+
+                    this.particles?.createImpactSparks?.(closest.position, new THREE.Vector3(0, 1, 0), 0xfb923c, 8);
                     const game = globalThis.window?.game;
                     if (game?.network?.active && game.network.host) {
                         (game.networkEvents ||= []).push({type:'turret_hit',position:closest.position.toArray()});
                     }
                 }
+            } else {
+                if (t.laserLine) t.laserLine.visible = false;
             }
 
             if (t.timer <= 0) {
@@ -1976,13 +2263,15 @@ export class PlayerController {
             }
         }
 
-        // Cập nhật Lốc xoáy bão cát
+        // Cập nhật Lốc xoáy bão cát 3D đa tầng
         for (let i = this.activeVortexes.length - 1; i >= 0; i--) {
             const v = this.activeVortexes[i];
             v.timer -= delta;
             v.tickTimer += delta;
 
-            // Xoay cột lốc xoáy 3D quanh trục đứng
+            // Xoay 2 đĩa bụi cát chân bão và 2 cột lốc xoáy
+            if (v.twirlDecal) v.twirlDecal.rotation.z += delta * 4.5;
+            if (v.dirtRingDecal) v.dirtRingDecal.rotation.z -= delta * 3.5;
             if (v.twisterMesh) v.twisterMesh.rotation.y += delta * 6.0;
             if (v.innerMesh) v.innerMesh.rotation.y -= delta * 8.0;
 
@@ -1990,10 +2279,11 @@ export class PlayerController {
                 if (!enemy || enemy.isDead || !enemy.active) continue;
                 const d = v.position.distanceTo(enemy.position);
                 if (d <= v.radius) {
-                    enemy.position.lerp(v.position, delta * 3.2);
-                    enemy.speed = Math.min(enemy.speed || 3.5, 1.6);
+                    enemy.position.lerp(v.position, delta * 3.4);
+                    enemy.speed = Math.min(enemy.speed || 3.5, 1.4);
                     if (v.tickTimer >= 0.5) {
-                        enemy.takeDamage(18, 2, false, null);
+                        enemy.takeDamage(20, 2, false, null);
+                        this.particles?.createImpactSparks?.(enemy.position, new THREE.Vector3(0, 1, 0), 0xd97706, 4);
                     }
                 }
             }

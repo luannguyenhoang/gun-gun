@@ -708,14 +708,14 @@ export class Zombie {
             return;
         }
 
-        if (player.isDead || player.isDowned) {
+        if (player && (player.isDead || player.isDowned)) {
             this.playAnimation('idle');
             return;
         }
 
         // Màn khói mù mịt (Smoke Grenade) hoặc Tàng hình (Shadow Veil): quái mất dấu mục tiêu
         const isZombieInSmoke = this.weapons?.isPositionInSmoke?.(this.position) || window.game?.weapons?.isPositionInSmoke?.(this.position);
-        const isPlayerHidden = player.isInSmoke || player.isStealthed || ((player.shadowVeilTimer || 0) > 0);
+        const isPlayerHidden = !player || player.isInSmoke || player.isStealthed || ((player.shadowVeilTimer || 0) > 0);
         if (isPlayerHidden || isZombieInSmoke) {
             this.combatState = ZombieCombatState.CHASE;
             this.spitCharge = 0;
@@ -1323,14 +1323,9 @@ export class WaveManager {
             // Nếu tất cả đều tàng hình: quái rơi vào trạng thái mất mục tiêu và đi lang thang ngơ ngác.
             const target = visibleTargets.length > 0
                 ? visibleTargets.reduce((nearest, p) => !nearest || p.position.distanceToSquared(zombie.position) < nearest.position.distanceToSquared(zombie.position) ? p : nearest, null)
-                : (targets.length > 0 ? targets[0] : null);
+                : null;
 
-            if (target) {
-                zombie.update(delta, target, arena, this.enemies, this.navigationBudget);
-            } else {
-                zombie.spitCharge = 0;
-                zombie.playAnimation('idle');
-            }
+            zombie.update(delta, target, arena, this.enemies, this.navigationBudget);
 
             if (zombie.isDead) {
                 if (onEnemyKilled) {

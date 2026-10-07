@@ -3211,6 +3211,30 @@ export class WeaponSystem {
                             p.owner.isInSmoke = false;
                             p.owner.isStealthed = false;
                             sounds.play('enemyDestroy', { volume: 1.0, pitchVariation: 0.2 });
+
+                            // Vệt chém bóng ma tím khổng lồ phá tàng hình (slash_01.png)
+                            const slashTex = new THREE.TextureLoader().load('assets/particles/slash_01.png');
+                            if (THREE.SRGBColorSpace) slashTex.colorSpace = THREE.SRGBColorSpace;
+                            const slashMat = new THREE.SpriteMaterial({
+                                map: slashTex,
+                                color: 0x8b5cf6,
+                                transparent: true,
+                                opacity: 0.95,
+                                blending: THREE.AdditiveBlending,
+                                depthWrite: false
+                            });
+                            const slashSprite = new THREE.Sprite(slashMat);
+                            slashSprite.position.copy(hitInfo.point);
+                            slashSprite.scale.set(4.5, 4.5, 1);
+                            this.scene.add(slashSprite);
+                            setTimeout(() => {
+                                this.scene.remove(slashSprite);
+                                slashMat.dispose();
+                                slashTex.dispose();
+                            }, 280);
+
+                            this.particles?.createExplosion?.(hitInfo.point, 0x8b5cf6, 26, 3.8);
+                            p.owner.applyExplosionShock?.(hitInfo.point, 16, 0.45);
                         }
                         const finalDamage = Math.round(currentBaseDmg * critMult);
 
