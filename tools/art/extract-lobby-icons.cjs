@@ -1,9 +1,10 @@
-// Extract the supplied atlas into transparent 4096px masters and small UI PNGs.
+// Export small UI PNGs by default. Pass --4k only when large master exports are needed.
 // Run with NODE_PATH pointing to the bundled runtime's node_modules.
 const sharp = require('sharp');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const root = path.resolve(__dirname, '../../assets/ui/lobby');
+const exportMasters = process.argv.includes('--4k');
 const regions = [
  ['friends-button',32,25,208,95],['profile-frame',258,11,114,122],['settings-button',390,25,89,95],
  ['heart',638,24,96,92],['diamond',770,26,98,88],['coin',899,22,98,98],
@@ -22,11 +23,13 @@ const regions = [
 ];
 async function saveIcon(name, buffer) {
  const cropped = await sharp(buffer).trim({threshold:8}).png().toBuffer();
- await sharp(cropped).resize(4096,4096,{fit:'contain',background:'#00000000',kernel:'lanczos3'}).png().toFile(path.join(root,'4k',name+'.png'));
+ if (exportMasters) await sharp(cropped).resize(4096,4096,{fit:'contain',background:'#00000000',kernel:'lanczos3'}).png().toFile(path.join(root,'4k',name+'.png'));
  await sharp(cropped).resize(512,512,{fit:'inside',kernel:'lanczos3'}).png({palette:true,colours:256,dither:0,compressionLevel:9}).toFile(path.join(root,'runtime',name+'.png'));
 }
 (async()=>{
- const source = process.argv[2] || path.join(root,'transparent-sheet.png');
+ await fs.mkdir(path.join(root,'runtime'),{recursive:true});
+ if (exportMasters) await fs.mkdir(path.join(root,'4k'),{recursive:true});
+ const source = process.argv.slice(2).find(arg=>!arg.startsWith('--')) || path.join(root,'transparent-sheet.png');
  const meta = await sharp(source).metadata();
  const sx=meta.width/1024, sy=meta.height/572;
  for(const [name,x,y,w,h] of regions) {
@@ -42,6 +45,6 @@ async function saveIcon(name, buffer) {
  await saveIcon('friends-chat',await sharp(data,{raw:info}).png().toBuffer());
  // User-supplied replacement pistol; keep this shape when regenerating the pack.
  await saveIcon('weapon',await fs.readFile(path.join(root,'weapon-transparent.png')));
- await fs.writeFile(path.join(root,'manifest.json'),JSON.stringify({masterSize:[4096,4096],runtimeMaxEdge:512,note:'Upscaled extractions from a 1024x572 reference; not native 4K detail.',icons:[...regions.map(r=>({name:r[0],sourceRect:r.slice(1)})),{name:'friends-chat'},{name:'weapon',source:'weapon-reference.png'}]},null,2)+'\n');
+ await fs.writeFile(path.join(root,'manifest.json'),JSON.stringify({masterSize:exportMasters ? [4096,4096] : null,runtimeMaxEdge:512,note:'Upscaled extractions from a 1024x572 reference; not native 4K detail.',icons:[...regions.map(r=>({name:r[0],sourceRect:r.slice(1)})),{name:'friends-chat'},{name:'weapon',source:'weapon-reference.png'}]},null,2)+'\n');
  console.log('Exported '+(regions.length+2)+' icons.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

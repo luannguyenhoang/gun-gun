@@ -1,6 +1,6 @@
 # Lobby PNG icon pack
 
-- `4k/`: 46 individual transparent PNG masters, 4096 × 4096 pixels each.
+- Large `4k/` exports were removed (about 333 MiB). They are recoverable from Git commit `d8c6e84`.
 - `runtime/`: tightly cropped PNGs, maximum edge 512 pixels, used by the game.
 - `manifest.json`: icon names and original-sheet crop coordinates.
 - `source-sheet.png`: the supplied 1024 × 572 reference.
@@ -10,7 +10,7 @@ These are upscaled assets, not native 4K source detail. The original sheet conta
 
 The HTML keeps accessible text and existing button handlers. Profile photos, account names, coin amounts, room state, and the multiplayer start label remain dynamic. The solo play button uses the supplied baked-in CHƠI artwork.
 
-Regenerate using `node tools/art/extract-lobby-icons.cjs` with `sharp` available in NODE_PATH. This saves both master and runtime PNGs from the transparent sheet.
+Regenerate using `node tools/art/extract-lobby-icons.cjs` with `sharp` available in NODE_PATH. This saves runtime PNGs only. Add `--4k` explicitly to recreate 4096px masters; these add about 333 MiB and are not loaded by the game.
 
 ## Built-in imagegen prompt
 

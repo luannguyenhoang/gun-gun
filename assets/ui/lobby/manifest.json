@@ -1,10 +1,7 @@
 {
-  "masterSize": [
-    4096,
-    4096
-  ],
+  "masterSize": null,
   "runtimeMaxEdge": 512,
-  "note": "Upscaled extractions from a 1024x572 reference; not native 4K detail.",
+  "note": "Runtime PNGs only. Large 4K exports removed to reduce project size; recoverable from Git commit d8c6e84 or regenerate explicitly with --4k.",
   "icons": [
     {
       "name": "friends-button",
