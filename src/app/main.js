@@ -3,12 +3,12 @@ import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js?v=58';
 import { ParticleSystem } from '../rendering/particles.js?v=58';
 import { Arena } from '../world/arena.js?v=22';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=58';
-import { PlayerController } from '../gameplay/player/player.js?v=58';
-import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=40';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=59';
+import { PlayerController } from '../gameplay/player/player.js?v=59';
+import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=41';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
 import { UIManager } from '../ui/ui.js?v=40';
-import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=34';
+import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=35';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=36';
 import { HomeMenu } from '../ui/home.js?v=56';
@@ -1351,7 +1351,7 @@ class CyberArenaGame {
                 this.waveManager.bombs.update(delta, [], false);
                 // Predicted shots are cosmetic. Only the host resolves hits and world damage.
                 this.weapons.enemyTargets = [];
-                this.weapons.update(delta, this.arena, [], this.player, () => {});
+                this.weapons.update(delta, this.arena, this.waveManager.enemies, this.player, () => {});
                 for (const [id, projectile] of this.remoteProjectiles) {
                     projectile.mesh.position.addScaledVector(projectile.direction, projectile.speed * delta);
                     if (projectile.life !== undefined) {

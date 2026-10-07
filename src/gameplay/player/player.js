@@ -1399,13 +1399,28 @@ export class PlayerController {
     }
 
     checkHit(startPos, endPos, ray) {
-        _tempBoxMin.set(this.position.x - this.radius, this.position.y, this.position.z - this.radius);
-        _tempBoxMax.set(this.position.x + this.radius, this.position.y + this.height, this.position.z + this.radius);
+        const bulletRadius = 0.18;
+        const effRadius = (this.radius || 0.55) + bulletRadius;
+        const effHeight = (this.height || 1.6) + bulletRadius;
+        _tempBoxMin.set(this.position.x - effRadius, this.position.y, this.position.z - effRadius);
+        _tempBoxMax.set(this.position.x + effRadius, this.position.y + effHeight, this.position.z + effRadius);
         _tempPlayerBox.min.copy(_tempBoxMin);
         _tempPlayerBox.max.copy(_tempBoxMax);
 
+        // Trường hợp 1: Điểm bắt đầu của đạn nằm ngay trong HitBox người chơi (bắn dí sát hoặc đạn frame trước đã lọt vào)
+        if (_tempPlayerBox.containsPoint(startPos)) {
+            return { hit: true, point: startPos.clone() };
+        }
+
+        // Trường hợp 2: Điểm kết thúc của đạn trong frame này lọt vào trong HitBox người chơi
+        if (_tempPlayerBox.containsPoint(endPos)) {
+            return { hit: true, point: endPos.clone() };
+        }
+
+        // Trường hợp 3: Tia đạn đâm xuyên qua HitBox trong bước bay này
         const hit = ray.intersectBox(_tempPlayerBox, _tempPlayerHitPoint);
-        if (hit && startPos.distanceTo(_tempPlayerHitPoint) <= startPos.distanceTo(endPos)) {
+        const stepDist = startPos.distanceTo(endPos);
+        if (hit && startPos.distanceTo(_tempPlayerHitPoint) <= stepDist + 0.15) {
             return { hit: true, point: _tempPlayerHitPoint.clone() };
         }
         return { hit: false };

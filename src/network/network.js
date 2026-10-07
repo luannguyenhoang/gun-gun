@@ -483,10 +483,17 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
         },
         checkHit(start, end, ray) {
             if (this.isDead || this.isDowned) return { hit: false };
-            const box = new THREE.Box3(this.position.clone().add(new THREE.Vector3(-.55, 0, -.55)), this.position.clone().add(new THREE.Vector3(.55, 1.6, .55)));
+            const bulletRadius = 0.18;
+            const effRadius = 0.55 + bulletRadius;
+            const box = new THREE.Box3(
+                this.position.clone().add(new THREE.Vector3(-effRadius, 0, -effRadius)),
+                this.position.clone().add(new THREE.Vector3(effRadius, 1.6 + bulletRadius, effRadius))
+            );
+            if (box.containsPoint(start)) return { hit: true, point: start.clone() };
+            if (box.containsPoint(end)) return { hit: true, point: end.clone() };
             const point = ray.intersectBox(box, new THREE.Vector3());
-            // Test only the distance travelled this frame, just like PlayerController.
-            return point && start.distanceToSquared(point) <= start.distanceToSquared(end)
+            const stepDist = start.distanceTo(end);
+            return point && start.distanceTo(point) <= stepDist + 0.15
                 ? { hit: true, point } : { hit: false };
         },
         takeDamage(amount) {

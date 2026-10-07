@@ -617,20 +617,35 @@ export class Zombie {
         const posY = this.mesh ? this.mesh.position.y : this.position.y;
         const posZ = this.mesh ? this.mesh.position.z : this.position.z;
         
-        // Dung Bounding Box hinh tru thay vi hinh cau de cover toan bo chieu cao
-        const boxMin = new THREE.Vector3(posX - this.radius, posY, posZ - this.radius);
-        const boxMax = new THREE.Vector3(posX + this.radius, posY + height, posZ + this.radius);
+        // Dung Bounding Box co bu tru ban kinh dan (0.18m) de bao quat ca vat the dan bay qua
+        const bulletRadius = 0.18;
+        const effRadius = this.radius + bulletRadius;
+        const boxMin = new THREE.Vector3(posX - effRadius, posY, posZ - effRadius);
+        const boxMax = new THREE.Vector3(posX + effRadius, posY + height + bulletRadius, posZ + effRadius);
         
         // Dùng biến tạm để tránh rác bộ nhớ (Zero GC)
         if (!this._hitBox) this._hitBox = new THREE.Box3();
         this._hitBox.min.copy(boxMin);
         this._hitBox.max.copy(boxMax);
 
-        const hit = ray.intersectBox(this._hitBox, _tempHitPoint);
+        // Trường hợp 1: Điểm bắt đầu của đạn nằm ngay bên trong cơ thể mục tiêu (bắn dí sát Point-Blank hoặc đạn frame trước đã lọt vào trong)
+        if (this._hitBox.containsPoint(startPos)) {
+            const isCrit = (startPos.y > posY + height * 0.78);
+            return { hit: true, point: startPos.clone(), isCrit: isCrit };
+        }
 
-        if (hit && startPos.distanceTo(_tempHitPoint) <= startPos.distanceTo(endPos)) {
-            // Headshot nam o 20% phan dau tren cung
-            const isCrit = (_tempHitPoint.y > this.position.y + height * 0.8);
+        // Trường hợp 2: Điểm đích của đạn trong frame này nằm bên trong cơ thể mục tiêu
+        if (this._hitBox.containsPoint(endPos)) {
+            const isCrit = (endPos.y > posY + height * 0.78);
+            return { hit: true, point: endPos.clone(), isCrit: isCrit };
+        }
+
+        // Trường hợp 3: Tia đạn giao cắt với Bounding Box trong bước di chuyển của frame này
+        const hit = ray.intersectBox(this._hitBox, _tempHitPoint);
+        const stepDist = startPos.distanceTo(endPos);
+        if (hit && startPos.distanceTo(_tempHitPoint) <= stepDist + 0.15) {
+            // Headshot nam o phan dau tren cung
+            const isCrit = (_tempHitPoint.y > posY + height * 0.78);
             return { hit: true, point: _tempHitPoint.clone(), isCrit: isCrit };
         }
 

@@ -623,6 +623,7 @@ export const WEAPON_CONFIGS = [
         fireRate: 1.35,
         damage: 110,
         penPower: 2,
+        pierceCount: 2, // Súng bắn tỉa hạng nặng có thể xuyên qua tối đa 2 mục tiêu
         critMultiplier: 2.4,
         magSize: 5,
         reloadTime: 2.0,
@@ -2179,9 +2180,10 @@ export class WeaponSystem {
             entry.mesh.position.copy(origin);
             entry.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), _tempAimDir);
 
-            // Tinh toan he so xuyen thau va bao kich tu trang bi kem chi so noi tai nhan vat
-            const charExtraPen = playerRef?.penetrationBonus || 0;
-            const pierceCount = (effective.hasLegendary ? 3 : (w.penPower || 1)) + charExtraPen;
+            // penPower là chỉ số xuyên thủng giáp (Armor Penetration) của quái vật, không phải số mục tiêu xuyên cơ thể.
+            // Chỉ những vũ khí có thuộc tính pierceCount riêng hoặc đạt cấp 5 Huyền Thoại (Tier 5) mới xuyên người.
+            const basePierce = w.pierceCount || (effective.hasLegendary ? 3 : 1);
+            const pierceCount = Math.max(1, basePierce);
             const charCritBonus = playerRef?.critChanceBonus || 0;
             const isGuaranteedCrit = playerRef?.activeSkillEffect === 'guaranteed_crit';
             const finalCritChance = isGuaranteedCrit ? 1.0 : Math.min(1.0, 0.12 + (effective.extraCritChance || 0) + charCritBonus);
