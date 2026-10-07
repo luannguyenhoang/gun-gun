@@ -9,6 +9,18 @@ const _tempBoxMin = new THREE.Vector3();
 const _tempBoxMax = new THREE.Vector3();
 const _tempPlayerHitPoint = new THREE.Vector3();
 
+// Biến tạm dùng chung để triệt tiêu rác bộ nhớ (Zero Allocation GC)
+const _aimRaycaster = new THREE.Raycaster();
+const _aimPlane = new THREE.Plane();
+const _aimPlaneNormal = new THREE.Vector3(0, 1, 0);
+const _aimTarget = new THREE.Vector3();
+const _aimColliderHit = new THREE.Vector3();
+const _aimEnemyCenter = new THREE.Vector3();
+const _aimEnemySphere = new THREE.Sphere();
+const _aimEnemyHit = new THREE.Vector3();
+const _cameraTarget = new THREE.Vector3();
+const _tempAimVec = new THREE.Vector3();
+
 // Bộ nạp và cache texture hiệu ứng hạt từ Kenney Particle Pack (bao gồm thư mục Rotated/)
 const _skillTextureLoader = new THREE.TextureLoader();
 const _skillTextureCache = new Map();
@@ -2641,25 +2653,31 @@ export class PlayerController {
     }
 
     updateAim(enemies = []) {
-        const raycaster = new THREE.Raycaster();
-        raycaster.setFromCamera(this.pointer, this.camera);
+        _aimRaycaster.setFromCamera(this.pointer, this.camera);
         // Aim at torso height for empty space; directly pointing at a zombie
         // uses its actual hit volume, including larger mutants and headshots.
-        const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -(this.position.y + 0.85));
-        const target = raycaster.ray.intersectPlane(plane, new THREE.Vector3());
+        _aimPlane.set(_aimPlaneNormal, -(this.position.y + 0.85));
+        const target = _aimRaycaster.ray.intersectPlane(_aimPlane, _aimTarget);
         if (!target) return;
-        for (const collider of this.arena.colliders) {
-            const hit = raycaster.ray.intersectBox(collider, new THREE.Vector3());
-            if (hit && raycaster.ray.origin.distanceTo(hit) < raycaster.ray.origin.distanceTo(target)) target.copy(hit);
+        for (let i = 0; i < this.arena.colliders.length; i++) {
+            const collider = this.arena.colliders[i];
+            const hit = _aimRaycaster.ray.intersectBox(collider, _aimColliderHit);
+            if (hit && _aimRaycaster.ray.origin.distanceTo(hit) < _aimRaycaster.ray.origin.distanceTo(target)) {
+                target.copy(hit);
+            }
         }
-        for (const enemy of enemies) {
+        for (let i = 0; i < enemies.length; i++) {
+            const enemy = enemies[i];
             if (enemy.isDead || !enemy.mesh) continue;
-            const center = enemy.position.clone().add(new THREE.Vector3(0, enemy.scale * 0.45, 0));
-            const hit = raycaster.ray.intersectSphere(new THREE.Sphere(center, enemy.radius), new THREE.Vector3());
-            if (hit && raycaster.ray.origin.distanceTo(hit) < raycaster.ray.origin.distanceTo(target)) {
+            _aimEnemyCenter.copy(enemy.position);
+            _aimEnemyCenter.y += enemy.scale * 0.45;
+            _aimEnemySphere.center.copy(_aimEnemyCenter);
+            _aimEnemySphere.radius = enemy.radius;
+            const hit = _aimRaycaster.ray.intersectSphere(_aimEnemySphere, _aimEnemyHit);
+            if (hit && _aimRaycaster.ray.origin.distanceTo(hit) < _aimRaycaster.ray.origin.distanceTo(target)) {
                 // Aim just inside the body so overhead selection does not send
                 // the muzzle ray grazing tangentially along the hit sphere.
-                target.copy(hit).lerp(center, 0.25);
+                target.copy(hit).lerp(_aimEnemyCenter, 0.25);
             }
         }
         this.aimPoint.copy(target);
@@ -2723,7 +2741,7 @@ export class PlayerController {
     }
 
     updateCamera(delta) {
-        let target = new THREE.Vector3(this.position.x, 0.7, this.position.z);
+        const target = _cameraTarget.set(this.position.x, 0.7, this.position.z);
         let targetFov = 50; // Default FOV
 
         // Chế độ quan sát đồng đội khi nhân vật đã chết (Spectator Mode)
@@ -2756,15 +2774,15 @@ export class PlayerController {
                 ui?.hideSpectatorHUD?.();
             }
             if (this.isADS) {
-                const aimVec = new THREE.Vector3().subVectors(this.aimPoint, this.position);
-                aimVec.y = 0;
-                aimVec.clampLength(0, 4.2);
-                target.addScaledVector(aimVec, 0.45); // Dịch 45% về phía con trỏ chuột
+                _tempAimVec.subVectors(this.aimPoint, this.position);
+                _tempAimVec.y = 0;
+                _tempAimVec.clampLength(0, 4.2);
+                target.addScaledVector(_tempAimVec, 0.45); // Dịch 45% về phía con trỏ chuột
                 targetFov = 30; // Zoom in for ADS
             }
         }
 
-        const lerpSpeed = this.isDead ? 6 : 12;
+        const lerpSpeed = this.isDead ? 6 : 24;
         this.cameraFocus.lerp(target, 1 - Math.exp(-lerpSpeed * Math.max(0, delta)));
         this.camera.position.copy(this.cameraFocus).add(this.cameraOffset);
 

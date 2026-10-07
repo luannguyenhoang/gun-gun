@@ -209,6 +209,10 @@ export class UIManager {
         this.bannerTimeout = null;
         this.pickupTimeout = null;
 
+        // Cache kich thuoc Canvas de loai bo Forced Synchronous Layout Reflow (60 FPS)
+        this._canvasRect = null;
+        window.addEventListener('resize', () => { this._canvasRect = null; });
+
         // Cache dirty check để tối ưu 60 FPS, không gây layout reflow / GC rác
         this._lastPosX = -9999;
         this._lastPosY = -9999;
@@ -284,7 +288,7 @@ export class UIManager {
 
     updateOverheadVitals(player, camera, canvas, teammates = []) {
         if (!this.overheadVitals) return;
-        const rect = canvas.getBoundingClientRect();
+        const rect = this._canvasRect || (this._canvasRect = canvas.getBoundingClientRect());
         const ids = new Set(teammates.map(mate => mate.id));
         for (const [id, meter] of this.teammateVitals) {
             if (!ids.has(id)) { meter.remove(); this.teammateVitals.delete(id); }
@@ -1161,13 +1165,10 @@ export class UIManager {
             const py = toY(port.position.z);
             const color = i % 2 === 0 ? '#b026ff' : '#ff0055';
             ctx.fillStyle = color;
-            ctx.shadowColor = color;
-            ctx.shadowBlur = 5;
             ctx.beginPath();
             ctx.moveTo(px, py - 4); ctx.lineTo(px + 3, py);
             ctx.lineTo(px, py + 4); ctx.lineTo(px - 3, py);
             ctx.closePath(); ctx.fill();
-            ctx.shadowBlur = 0;
         }
 
         // 7. Pickup
@@ -1186,7 +1187,6 @@ export class UIManager {
             const pulse = Math.sin(Date.now() * 0.008) * 0.4 + 0.6;
             ctx.strokeStyle = `rgba(255,30,60,${pulse})`;
             ctx.lineWidth = 1.5;
-            ctx.shadowColor = '#ff1e3c'; ctx.shadowBlur = 6;
             ctx.beginPath(); ctx.arc(px, py, Math.max(4, toR(airdropZone.radius || 4.5)), 0, Math.PI * 2); ctx.stroke();
             ctx.fillStyle = '#ff1e3c';
             ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI * 2); ctx.fill();
@@ -1203,9 +1203,8 @@ export class UIManager {
             else if (enemy.type === 'tank' || enemy.type === 'giant') { color = '#ff8800'; r = 3.5; }
             else if (enemy.type === 'spitter') { color = '#99ff22'; r = 2.5; }
             else if (enemy.type === 'sprinter') { color = '#ffff00'; r = 2; }
-            ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 4;
+            ctx.fillStyle = color;
             ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
-            ctx.shadowBlur = 0;
         }
 
         // 10. Dong doi
@@ -1217,9 +1216,7 @@ export class UIManager {
                 const py = toY(matePos.z);
                 const charColor = CHARACTER_COLORS[mate.characterId] || '#00f0ff';
                 ctx.fillStyle = mate.isDowned ? '#ff1744' : charColor;
-                ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 6;
                 ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fill();
-                ctx.shadowBlur = 0;
                 if (mate.isDowned) {
                     ctx.fillStyle = '#fff'; ctx.font = 'bold 7px sans-serif';
                     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1234,9 +1231,8 @@ export class UIManager {
         ctx.save();
         ctx.translate(pPx, pPy);
         ctx.rotate(Math.PI - player.aimYaw);
-        ctx.fillStyle = '#00f0ff'; ctx.shadowColor = '#00f0ff'; ctx.shadowBlur = 8;
+        ctx.fillStyle = '#00f0ff';
         ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(-3.5, 4); ctx.lineTo(3.5, 4); ctx.closePath(); ctx.fill();
-        ctx.shadowBlur = 0;
         ctx.restore();
 
         // 12. Vien canvas
