@@ -79,6 +79,7 @@ export class Zombie {
         this.mixer = null;
         this.animations = {};
         this.currentAction = null;
+        this.animationSeq = 0;
         this.healthBar = null;
         this.mutationParts = [];
         this.stompRing = null;
@@ -418,6 +419,7 @@ export class Zombie {
             this.mesh.position.copy(this.position);
             this.mesh.visible = true;
             this.setEmissiveColor(0x000000, 0);
+            this.playAnimation(this.type === 'sprinter' && this.animations.sprint ? 'sprint' : 'walk', 0, true);
         }
         if (this.healthBar) {
             this.healthBar.update(this.position, this.health, this.maxHealth, true);
@@ -433,20 +435,54 @@ export class Zombie {
         if (this.healthBar) this.healthBar.update(this.position, 0, this.maxHealth, false);
     }
 
-    playAnimation(name, duration = 0.15) {
+    playAnimation(name, duration = 0.15, restart = false) {
+        // Mini-character models call their hand strike attack-melee-right.
+        if (name === 'attack' && !this.animations.attack) {
+            name = this.animations['attack-melee-right'] ? 'attack-melee-right' : 'idle';
+        }
         this.animationName = name;
         if (!this.mixer || !this.animations[name]) return;
         const newAction = this.animations[name];
-        if (this.currentAction === newAction) return;
+        if (this.currentAction === newAction && !restart) return;
+        const attack = name === 'attack' || name.startsWith('attack-');
 
-        if (this.currentAction) {
+        if (attack || duration === 0) {
+            // Stop every locomotion layer, including an unfinished fade from sprint.
+            this.mixer.stopAllAction();
+        } else if (this.currentAction) {
             this.currentAction.fadeOut(duration);
         }
 
         newAction.reset();
+        newAction.setEffectiveTimeScale(1);
+        newAction.setEffectiveWeight(1);
+        newAction.setLoop(attack ? THREE.LoopOnce : THREE.LoopRepeat, attack ? 1 : Infinity);
+        newAction.clampWhenFinished = attack;
         newAction.fadeIn(duration);
         newAction.play();
         this.currentAction = newAction;
+        this.animationSeq++;
+    }
+
+    startMeleeAttack(windup = this.windupDuration) {
+        this.combatState = ZombieCombatState.WINDUP;
+        this.combatTimer = windup;
+        this.playAnimation('attack', 0, true);
+        // The strike reaches forward halfway through the clip, at damage time.
+        if (this.currentAction && this.animationName !== 'idle') this.currentAction.setDuration(windup * 2);
+    }
+
+    applyAnimationSnapshot(state) {
+        if (!state.animation) return;
+        const restart = Number.isSafeInteger(state.animationSeq) && state.animationSeq !== this.netAnimationSeq;
+        this.playAnimation(state.animation, 0, restart);
+        this.netAnimationSeq = state.animationSeq;
+        const action = this.currentAction;
+        if (!action || this.animationName !== action.getClip().name) return;
+        if (Number.isFinite(state.animationTime)) action.time = Math.max(0, Math.min(state.animationTime, action.getClip().duration));
+        if (Number.isFinite(state.animationRate)) action.setEffectiveTimeScale(state.animationRate);
+        if (typeof state.animationPaused === 'boolean') action.paused = state.animationPaused;
+        this.mixer.update(0);
     }
 
     setEmissiveColor(colorHex, intensity = 0.5) {
@@ -509,6 +545,7 @@ export class Zombie {
             this.combatState = ZombieCombatState.STUNNED;
             this.combatTimer = this.stunDuration;
         }
+        if (this.combatState === ZombieCombatState.STUNNED) this.playAnimation('idle', 0);
 
         // Tính toán lực đẩy lùi knockback ngược hướng đạn bay (chuẩn hóa vector hướng và kẹp trần vận tốc)
         if (hitDir && this.type !== 'boss') {
@@ -551,6 +588,11 @@ export class Zombie {
 
     disposeVisuals() {
         this.deactivate();
+        this.mixer?.stopAllAction();
+        if (this.mesh) this.mixer?.uncacheRoot(this.mesh);
+        this.mixer = null;
+        this.currentAction = null;
+        this.animations = {};
         this.healthBar?.dispose();
         this.healthBar = null;
         if (this.stompRing) {
@@ -807,9 +849,13 @@ export class Zombie {
             // Trạng thái CHASE: San duoi va ap sat
             if (dist <= this.attackRange) {
                 // Buoc vao tam danh -> Chuyen sang Pha Tu luc (Wind-up)
-                this.combatState = ZombieCombatState.WINDUP;
-                this.combatTimer = this.windupDuration;
+                this.mesh.rotation.y = Math.atan2(_tempToPlayer.x, _tempToPlayer.z);
+                this.startMeleeAttack();
             } else {
+                // Let a boss's ranged hand strike finish before returning to locomotion.
+                if (!(this.currentAction?.loop === THREE.LoopOnce && this.currentAction.isRunning())) {
+                    this.playAnimation(this.type === 'sprinter' && this.animations.sprint ? 'sprint' : 'walk');
+                }
                 // Di chuyen truc dien toi nguoi choi ket hop ne vat can
                 _tempMoveVel.set(0, 0, 0);
                 _tempDesiredDir.copy(_tempToPlayer);
@@ -893,8 +939,7 @@ export class Zombie {
                     }
                 } else {
                     // Skill 3: Ground Slam
-                    this.combatState = ZombieCombatState.WINDUP;
-                    this.combatTimer = 0.8; // Long windup
+                    this.startMeleeAttack(0.8);
                     this.setEmissiveColor(0xffaa00, 1.0);
                     this.isGroundSlamming = true; // Flag for executeImpact
                 }

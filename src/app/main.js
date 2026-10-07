@@ -5,7 +5,7 @@ import { ParticleSystem } from '../rendering/particles.js?v=22';
 import { Arena } from '../world/arena.js?v=22';
 import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=46';
 import { PlayerController } from '../gameplay/player/player.js?v=22';
-import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=39';
+import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=40';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
 import { UIManager } from '../ui/ui.js?v=40';
 import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=34';
@@ -1088,7 +1088,7 @@ class CyberArenaGame {
             looting: this.lootingSystem?.snapshot ? this.lootingSystem.snapshot() : null,
             projectiles: this.coopPlayers.flatMap(player => (player.weapons?.projectiles || []).filter(p => p.mesh).map(p => ({ id: `${player.id || this.network.playerId}:${p.id}`, owner: player.id || this.network.playerId, position: p.mesh.position.toArray(), direction: p.direction.toArray(), speed: p.speed, color: p.color }))),
             players: this.coopPlayers.map(player => ({ id: player.id || this.network.playerId, name: player.name || 'Bạn', character: player.characterId || this.characterId, position: player.position.toArray(), health: player.health, shield: player.shield, maxHealth: player.maxHealth, maxShield: player.maxShield, isDead: player.isDead, isDowned: player.isDowned, isInSmoke: !!player.isInSmoke, bleedOutTimer: player.bleedOutTimer, reviveProgress: player.reviveProgress || 0, isBeingRevived: !!player.isBeingRevived, invulnerability: player.invulnerability || 0, lootInventory: (player === this.player ? this.lootingSystem?.inventory : player.lootInventory)?.slots, aim: player.aimYaw, ads: !!player.isADS, moving: player === this.player ? player.velocity.lengthSq() > 0.1 : player.moving, weapons: player.weapons?.getNetworkState(), processedSeq: player.processedSeq || 0 })),
-            enemies: this.waveManager.enemies.filter(enemy => !enemy.isDead).map(enemy => ({ id: enemy.id, type: enemy.type, position: enemy.position.toArray(), health: enemy.health, maxHealth: enemy.maxHealth, armor: enemy.armor, animation: enemy.animationName, yaw: enemy.mesh?.rotation.y || 0 })),
+            enemies: this.waveManager.enemies.filter(enemy => !enemy.isDead).map(enemy => ({ id: enemy.id, type: enemy.type, position: enemy.position.toArray(), health: enemy.health, maxHealth: enemy.maxHealth, armor: enemy.armor, animation: enemy.animationName, animationSeq: enemy.animationSeq, animationTime: enemy.currentAction?.time, animationRate: enemy.currentAction?.getEffectiveTimeScale(), animationPaused: enemy.currentAction?.paused, yaw: enemy.mesh?.rotation.y || 0 })),
             pickups: this.pickups.pickups.map(pickup => ({ id: pickup.id, type: pickup.type, position: pickup.mesh.position.toArray(), weaponSlot: pickup.weaponSlot, life: pickup.life }))
         };
     }
@@ -1215,7 +1215,7 @@ class CyberArenaGame {
             enemy.position.copy(nextPosition); enemy.health = state.health;
             enemy.maxHealth = state.maxHealth;
             enemy.armor = state.armor ?? enemy.armor;
-            if (state.animation) enemy.playAnimation(state.animation);
+            enemy.applyAnimationSnapshot(state);
             if (!enemy.mesh) enemy.setupVisuals(this.waveManager.models);
             if (enemy.mesh && Number.isFinite(state.yaw)) enemy.mesh.rotation.y = state.yaw;
         }

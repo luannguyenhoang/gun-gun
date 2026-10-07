@@ -76,6 +76,46 @@ const assert = require('node:assert/strict');
         });
         await guest.evaluate(() => { game.player.position.set(0, 0, 8); game.player.developerMode = false; window.developerMode = false; });
         await guest.waitForFunction(() => game.waveManager.enemies.length === 0);
+        const strike = await host.evaluate(() => {
+            for (const model of Object.values(game.waveManager.models)) {
+                if (!model.animations.some(a => a.name === 'attack-melee-right')) throw Error('Zombie model has no hand strike');
+            }
+            game.waveManager.spawnSingleEnemy(game.player, 0, 'walker');
+            const z = game.waveManager.enemies.at(-1);
+            z.position.set(1, 0, 8); z.mesh.position.copy(z.position);
+            z.mesh.rotation.y = -Math.PI / 2;
+            z.update = () => {}; // Sample a reproducible pose using the real GLB.
+            z.startMeleeAttack(); z.mixer.update(0);
+            const arm = z.mesh.getObjectByName('arm-right');
+            const before = arm.quaternion.clone();
+            z.mixer.update(.2);
+            if (before.angleTo(arm.quaternion) < .2) throw Error('Strike does not move the arm');
+            if (z.animations.walk.isRunning()) throw Error('Walking still runs during strike');
+            z.currentAction.paused = true;
+            return { id: z.id, arm: arm.quaternion.toArray(), time: z.currentAction.time };
+        });
+        await guest.waitForFunction(({ id, time }) => {
+            const z = game.waveManager.enemies.find(e => e.id === id);
+            return z?.animationName === 'attack-melee-right' && z.currentAction.paused && Math.abs(z.currentAction.time - time) < .001;
+        }, strike);
+        const guestArm = await guest.evaluate(id => {
+            const z = game.waveManager.enemies.find(e => e.id === id);
+            if (z.animations.walk.isRunning()) throw Error('Guest still walks during strike');
+            return z.mesh.getObjectByName('arm-right').quaternion.toArray();
+        }, strike.id);
+        assert.ok(guestArm.every((v, i) => Math.abs(v - strike.arm[i]) < .001));
+        const repeatedStrikeTime = await host.evaluate(id => {
+            const z = game.waveManager.enemies.find(e => e.id === id);
+            z.startMeleeAttack(); z.mixer.update(.08); z.currentAction.paused = true;
+            return z.currentAction.time;
+        }, strike.id);
+        await guest.waitForFunction(({ id, time }) => {
+            const z = game.waveManager.enemies.find(e => e.id === id);
+            return z.currentAction.paused && Math.abs(z.currentAction.time - time) < .001;
+        }, { id: strike.id, time: repeatedStrikeTime });
+        console.log('PASS: real zombie arm swings, walking stops, and repeated hand strikes match on the guest');
+        await host.evaluate(() => game.waveManager.clear());
+        await guest.waitForFunction(() => game.waveManager.enemies.length === 0);
         const guestPlayerId = await guest.evaluate(() => game.network.playerId);
         await host.evaluate(id => {
             game.player.position.set(-3,0,8);
