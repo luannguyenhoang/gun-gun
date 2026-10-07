@@ -1353,8 +1353,8 @@ export class AirdropDropEntity {
         this.group.add(boxMesh, chuteMesh, linesMesh);
 
         // 4. Đèn tín hiệu cứu hộ phát quang (Airdrop Beacon Light từ light_01.png)
-        const beaconTex = new THREE.TextureLoader().load('assets/particles/light_01.png');
-        if (THREE.SRGBColorSpace) beaconTex.colorSpace = THREE.SRGBColorSpace;
+        const beaconTex = (typeof document !== 'undefined') ? new THREE.TextureLoader().load('assets/particles/light_01.png') : null;
+        if (beaconTex && THREE.SRGBColorSpace) beaconTex.colorSpace = THREE.SRGBColorSpace;
         const beaconMat = new THREE.SpriteMaterial({
             map: beaconTex,
             color: this.beaconColor,

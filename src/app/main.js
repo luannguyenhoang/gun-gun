@@ -90,6 +90,10 @@ class CyberArenaGame {
         });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderQuality = new RenderQuality(window.devicePixelRatio);
+        if (this.perfSettings.mode === 'optimized') {
+            this.renderQuality.maxRatio = 1.0;
+            this.renderQuality.ratio = 1.0;
+        }
         this.renderer.setPixelRatio(this.renderQuality.ratio);
         this.renderer.shadowMap.enabled = !!this.perfSettings.shadows;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -339,6 +343,20 @@ class CyberArenaGame {
             localStorage.setItem('arena_perf_settings', JSON.stringify(this.perfSettings));
         } catch { }
 
+        if (this.perfSettings.mode === 'optimized') {
+            if (this.renderQuality) {
+                this.renderQuality.maxRatio = 1.0;
+                this.renderQuality.ratio = Math.min(this.renderQuality.ratio, 1.0);
+            }
+            if (this.renderer) {
+                this.renderer.setPixelRatio(this.renderQuality.ratio);
+            }
+        } else if (this.perfSettings.mode === 'full') {
+            if (this.renderQuality) {
+                this.renderQuality.maxRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+            }
+        }
+
         if (this.particles) {
             this.particles.setQuality(this.perfSettings);
         }
@@ -431,6 +449,9 @@ class CyberArenaGame {
 
         updateLoading(40, 'Building Arena & Portals...');
         this.arena.buildArena();
+        if (this.arena?.sunLight) {
+            this.arena.sunLight.castShadow = !!this.perfSettings.shadows;
+        }
 
         updateLoading(65, 'Loading Weapon Systems...');
         await this.weapons.init();
@@ -530,8 +551,8 @@ class CyberArenaGame {
         this.player.setInputEnabled(false);
         this.ui.clearTeammateIndicators();
         this.homeMenu?.syncAudio();
-        this.syncPerformanceUI();
-        const pWave = document.getElementById('pause-wave-badge');
+        this.syncPerformanceUI?.();
+        const pWave = (typeof document !== 'undefined') ? document.getElementById('pause-wave-badge') : null;
         if (pWave) pWave.textContent = `ĐỢT ${this.currentWave || 1}`;
         if (this.screenPause) this.screenPause.style.display = 'flex';
     }
@@ -1467,7 +1488,7 @@ class CyberArenaGame {
         if (this.state === 'PLAYING') {
             if (render && this.renderQuality.sample(frameDelta)) this.renderer.setPixelRatio(this.renderQuality.ratio);
             // Shadow bounds follow the player to avoid clipping in large maps
-            if (this.arena.sunLight && this.player) {
+            if (this.perfSettings.shadows && this.arena.sunLight && this.player) {
                 this.arena.sunLight.position.set(this.player.position.x + 25, this.player.position.y + 38, this.player.position.z + 20);
                 this.arena.sunLight.target.position.copy(this.player.position);
             }
