@@ -15,39 +15,48 @@ export class RoomLobby {
         this.camera.position.set(0, 4.7, 13.5);
         this.camera.lookAt(0, 1, 0);
         this.scene.add(new THREE.HemisphereLight(0xfff7df, 0x735338, 2.8));
-        const light = new THREE.DirectionalLight(0xffffff, 3);
-        light.position.set(-4, 8, 6);
+        const light = new THREE.DirectionalLight(0xffffff, 3.2);
+        light.position.set(-4, 9, 6);
         this.scene.add(light);
+
+        // Ánh sáng Spotlight chiếu thẳng từ trên cao xuống bục
+        const spotLight = new THREE.SpotLight(0xfff5e6, 2.2);
+        spotLight.position.set(0, 9, 3);
+        spotLight.target.position.set(0, 0, 0);
+        spotLight.angle = Math.PI / 3.5;
+        spotLight.penumbra = 0.5;
+        this.scene.add(spotLight);
+        this.scene.add(spotLight.target);
 
         // Bục tròn 3D phát sáng cao cấp theo ảnh mẫu (Glowing Stage Pedestal)
         this.pedestalGroup = new THREE.Group();
 
-        // 1. Tầng đế dưới (Base cylinder)
-        const baseGeo = new THREE.CylinderGeometry(2.35, 2.45, 0.22, 64);
+        // 1. Tầng đế dưới (Base cylinder: màu be hồng nhạt có viền nổi)
+        const baseGeo = new THREE.CylinderGeometry(2.4, 2.5, 0.22, 64);
         const baseMat = new THREE.MeshStandardMaterial({
-            color: 0xdec2af,
-            roughness: 0.55,
-            metalness: 0.05
+            color: 0xead3c3,
+            roughness: 0.45,
+            metalness: 0.08
         });
         const baseMesh = new THREE.Mesh(baseGeo, baseMat);
         baseMesh.position.y = -0.22;
         this.pedestalGroup.add(baseMesh);
 
-        // 2. Tầng bục trên (Top cylinder)
-        const topGeo = new THREE.CylinderGeometry(2.1, 2.2, 0.16, 64);
+        // 2. Tầng bục trên (Top cylinder: màu kem sáng bóng)
+        const topGeo = new THREE.CylinderGeometry(2.15, 2.25, 0.16, 64);
         const topMat = new THREE.MeshStandardMaterial({
-            color: 0xf6dfd0,
-            roughness: 0.45,
+            color: 0xfcf4eb,
+            roughness: 0.35,
             metalness: 0.05
         });
         const topMesh = new THREE.Mesh(topGeo, topMat);
         topMesh.position.y = -0.06;
         this.pedestalGroup.add(topMesh);
 
-        // 3. Vòng neon phát sáng tròn (Glow Light Ring trên mặt bục)
-        const ringGeo = new THREE.TorusGeometry(1.92, 0.045, 16, 64);
+        // 3. Vòng neon phát sáng tròn (Glow Light Ring trên mặt bục rực rỡ)
+        const ringGeo = new THREE.TorusGeometry(1.95, 0.055, 16, 64);
         const ringMat = new THREE.MeshBasicMaterial({
-            color: 0xfff3db
+            color: 0xfffae8
         });
         const ringMesh = new THREE.Mesh(ringGeo, ringMat);
         ringMesh.rotation.x = Math.PI / 2;
@@ -55,9 +64,9 @@ export class RoomLobby {
         this.pedestalGroup.add(ringMesh);
 
         // 4. Vòng viền đế phụ (Sub-glow ring)
-        const subRingGeo = new THREE.TorusGeometry(2.32, 0.025, 16, 64);
+        const subRingGeo = new THREE.TorusGeometry(2.38, 0.03, 16, 64);
         const subRingMat = new THREE.MeshBasicMaterial({
-            color: 0xffedd5
+            color: 0xfff0db
         });
         const subRingMesh = new THREE.Mesh(subRingGeo, subRingMat);
         subRingMesh.rotation.x = Math.PI / 2;
@@ -204,8 +213,15 @@ export class RoomLobby {
             this.camera.aspect = width / height;
             this.camera.updateProjectionMatrix();
         }
-        this.camera.position.set(0, this.solo ? 3.2 : 4.7, this.solo ? Math.max(7.8, 5.5 / this.camera.aspect) : Math.max(13.5, 17 / this.camera.aspect));
-        this.camera.lookAt(0, this.solo ? 2.1 : 1, 0);
+        if (this.solo) {
+            // Đặt góc camera nghiêng nhìn xuống nhẹ để bục tròn nở elip 3D rõ nét và nằm chính giữa màn hình
+            const dist = Math.max(8.4, 5.8 / this.camera.aspect);
+            this.camera.position.set(0, 3.6, dist);
+            this.camera.lookAt(0, 1.25, 0);
+        } else {
+            this.camera.position.set(0, 4.7, Math.max(13.5, 17 / this.camera.aspect));
+            this.camera.lookAt(0, 1, 0);
+        }
         this.camera.updateMatrixWorld();
         for (const member of this.members.values()) {
             this.position(member);
