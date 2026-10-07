@@ -79,18 +79,34 @@ test('Peer transport delivers host enemies and guest movement in a shared snapsh
    g.showRoomState=()=>{};g.startGame=()=>{g.state='PLAYING';g.waveManager.enemies=[];};
    g.makeCoopSnapshot=()=>Game.prototype.makeCoopSnapshot.call(g);
    g.applyCoopSnapshot=(s,id)=>Game.prototype.applyCoopSnapshot.call(g,s,id);
-   g.network=new NetworkRoom(g);return g;
+   g.network=new NetworkRoom(g);g.network.startTicker=()=>{};return g;
   }
-  const host=endpoint(),guest=endpoint();
+  const host=endpoint(),guest=endpoint(),observer=endpoint();
   await host.network.create('Host');await host.network.start();
   await guest.network.join(host.network.code,'Guest');
+  await observer.network.join(host.network.code,'Observer');
   host.waveManager.enemies.push(new Zombie(host.scene,'walker',new THREE.Vector3(5,0,5),host.waveManager.models,null));
   host.network.update(.04);
   assert.equal(guest.state,'PLAYING');assert.equal(guest.waveManager.enemies.length,1);
   guest.player.position.set(9,0,7);guest.network.update(.04);host.network.update(.04);
   assert.deepEqual(host.remotePlayers.get(guest.network.playerId).position.toArray(),[9,0,7]);
+  assert.deepEqual(observer.remotePlayers.get(guest.network.playerId).position.toArray(),[9,0,7]);
+  // Delayed input must not move a player backwards on any screen.
+  guest.network.conn.send({type:'sync',epoch:guest.network.startedEpoch,inputSeq:1,input:{position:[-9,0,-7]}});
+  host.network.update(.04);
+  assert.deepEqual(host.remotePlayers.get(guest.network.playerId).position.toArray(),[9,0,7]);
+  assert.deepEqual(observer.remotePlayers.get(guest.network.playerId).position.toArray(),[9,0,7]);
   host.player.position.set(2,0,3);host.network.update(.04);
   assert.deepEqual(guest.remotePlayers.get('host').position.toArray(),[2,0,3]);
+  const stale=host.makeCoopSnapshot();
+  host.player.position.set(4,0,6);host.network.update(.04);
+  const connection=host.network.connections.find(c=>c.id===guest.network.playerId).conn;
+  connection.send({type:'snapshot',started:true,epoch:host.network.epoch,snapshotSeq:1,snapshot:stale});
+  assert.deepEqual(guest.remotePlayers.get('host').position.toArray(),[4,0,6]);
+  const oldEpoch=host.network.epoch;
+  await host.network.start();host.network.update(.04);
+  connection.send({type:'snapshot',started:true,epoch:oldEpoch,snapshotSeq:999,snapshot:stale});
+  assert.equal(guest.network.startedEpoch,host.network.epoch);
  } finally { globalThis.window=previousWindow; }
 });
 

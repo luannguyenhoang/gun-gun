@@ -3,6 +3,7 @@ import * as SkeletonUtils from '../../vendor/SkeletonUtils.js';
 import { HealthBar3D } from '../rendering/healthbar.js';
 import { CHARACTER_CONFIGS, normalizeCharacter } from '../gameplay/player/characters.js';
 import { getStartingWeapon } from '../gameplay/combat/weapons.js';
+import { createRoomTicker } from './room-ticker.js';
 
 // Cấu hình STUN Server của Google giúp đục lỗ NAT khi chơi qua mạng Internet (4G, Wifi khác nhà)
 const PEER_CONFIG = {
@@ -16,6 +17,7 @@ const PEER_CONFIG = {
 };
 
 const MAX_ROOM_PLAYERS = 4;
+const PROTOCOL_VERSION = 2;
 
 export class NetworkRoom {
     constructor(game) {
@@ -34,6 +36,20 @@ export class NetworkRoom {
         this.connections = [];
         this.players = [];
         this.startedEpoch = null;
+        this.inputSeq = 0;
+        this.snapshotSeq = 0;
+        this.lastSnapshotSeq = 0;
+        this.stopTicker = null;
+    }
+
+    startTicker() {
+        this.stopTicker?.();
+        this.pollTimer = 0;
+        this.stopTicker = createRoomTicker(delta => {
+            if (!this.active) return;
+            this.game.updateRoomBackground?.(delta);
+            this.update(delta);
+        });
     }
 
     async create(name, character = 'police') {
@@ -46,6 +62,7 @@ export class NetworkRoom {
                 this.host = true;
                 this.code = code;
                 this.playerId = 'host';
+                this.startedEpoch = null;
                 this.epoch = Date.now();
                 this.connections = [];
                 this.players = [{ id: 'host', name, character, weapon: this.game.weapons.startingWeaponId }];
@@ -55,6 +72,7 @@ export class NetworkRoom {
                 this.game.weapons.onCommand = null;
                 const roomData = { code, host: 'host', you: 'host', players: this.players, isHost: true };
                 this.game.showRoomState(roomData);
+                this.startTicker();
                 resolve(roomData);
             });
 
@@ -71,6 +89,12 @@ export class NetworkRoom {
                 
                 conn.on('data', (data) => {
                     if (data.type === 'join') {
+                        if (data.protocol !== PROTOCOL_VERSION) {
+                            conn.send({ type: 'reject', reason: 'Khác phiên bản game. Hãy tải lại trang trên tất cả máy rồi tạo phòng mới.' });
+                            setTimeout(() => { try { conn.close(); } catch {} }, 500);
+                            return;
+                        }
+                        if (this.players.some(p => p.id === pId)) return;
                         if (this.players.length >= MAX_ROOM_PLAYERS) {
                             conn.send({ type: 'reject', reason: `Phòng đã đầy (tối đa ${MAX_ROOM_PLAYERS} người)!` });
                             setTimeout(() => { try { conn.close(); } catch {} }, 500);
@@ -79,7 +103,8 @@ export class NetworkRoom {
                         pName = data.name;
                         pChar = data.character;
                         this.players.push({ id: pId, name: pName, character: pChar, weapon: getStartingWeapon(data.weapon).id, loadout: data.loadout });
-                        conn.send({ type: 'accept', you: pId, epoch: this.epoch, players: this.players, host: 'host' });
+                        clientState.joined = true;
+                        conn.send({ type: 'accept', protocol: PROTOCOL_VERSION, you: pId, epoch: this.epoch, players: this.players, host: 'host' });
                         this.broadcastRoster();
                     } else if (data.type === 'character') {
                         const p = this.players.find(pl => pl.id === pId);
@@ -92,7 +117,12 @@ export class NetworkRoom {
                         if (p) { p.weapon = getStartingWeapon(data.weapon).id; p.loadout = data.loadout; this.broadcastRoster(); }
                     } else if (data.type === 'sync') {
                         if (data.epoch !== this.startedEpoch) return;
+                        if (!this.players.some(p => p.id === pId)) return;
+                        if (!Number.isSafeInteger(data.inputSeq) || data.inputSeq <= (clientState.inputSeq || 0)) return;
+                        clientState.inputSeq = data.inputSeq;
                         clientState.input = data.input;
+                        // Apply immediately, even if the host is not rendering.
+                        this.applyInputs({ [pId]: data.input });
                         if (data.commands && data.commands.length > 0) {
                             this.applyCommands([{ player: pId, commands: data.commands }]);
                         }
@@ -110,7 +140,7 @@ export class NetworkRoom {
 
     broadcastRoster() {
         const data = { type: 'roster', players: this.players, host: 'host' };
-        for (const c of this.connections) c.conn.send(data);
+        for (const c of this.connections) if (c.joined && c.conn.open) c.conn.send(data);
         this.updateRoster(this.players);
         this.game.showRoomState({ code: this.code, host: 'host', you: 'host', players: this.players, isHost: true });
     }
@@ -121,10 +151,10 @@ export class NetworkRoom {
             this.peer = new window.Peer(PEER_CONFIG);
             
             this.peer.on('open', (id) => {
-                this.conn = this.peer.connect('gungun-room-' + code);
+                this.conn = this.peer.connect('gungun-room-' + code, { reliable: true });
                 
                 this.conn.on('open', () => {
-                    this.conn.send({ type: 'join', name, character, weapon: this.game.weapons.startingWeaponId, loadout: this.game.getLoadout?.() });
+                    this.conn.send({ type: 'join', protocol: PROTOCOL_VERSION, name, character, weapon: this.game.weapons.startingWeaponId, loadout: this.game.getLoadout?.() });
                 });
                 
                 this.conn.on('data', (data) => {
@@ -134,10 +164,19 @@ export class NetworkRoom {
                         return;
                     }
                     if (data.type === 'accept') {
+                        if (data.protocol !== PROTOCOL_VERSION) {
+                            const reason = 'Khác phiên bản game. Hãy tải lại trang trên tất cả máy rồi tạo phòng mới.';
+                            this.game.showRoomError(reason);
+                            reject(new Error(reason));
+                            this.conn.close();
+                            this.peer.destroy();
+                            return;
+                        }
                         this.active = true;
                         this.host = false;
                         this.code = code;
                         this.playerId = data.you;
+                        this.startedEpoch = null;
                         this.epoch = data.epoch;
                         
                         this.game.player.setCharacter(character);
@@ -147,6 +186,7 @@ export class NetworkRoom {
                         this.updateRoster(data.players || []);
                         const roomData = { code, host: data.host || 'host', you: data.you, players: data.players || [], isHost: false };
                         this.game.showRoomState(roomData);
+                        this.startTicker();
                         resolve(roomData);
                     } else if (data.type === 'roster') {
                         this.updateRoster(data.players || []);
@@ -155,7 +195,9 @@ export class NetworkRoom {
                         this.beginMatch(data.epoch);
                     } else if (data.type === 'snapshot') {
                         if (!data.started || !data.snapshot) return;
-                        this.beginMatch(data.epoch);
+                        if (!this.beginMatch(data.epoch)) return;
+                        if (!Number.isSafeInteger(data.snapshotSeq) || data.snapshotSeq <= this.lastSnapshotSeq) return;
+                        this.lastSnapshotSeq = data.snapshotSeq;
                         this.game.applyCoopSnapshot(data.snapshot, this.playerId);
                         if (data.ack) {
                             this.pendingCommands = this.pendingCommands.filter(c => c.seq > data.ack);
@@ -165,6 +207,8 @@ export class NetworkRoom {
                 
                 this.conn.on('close', () => {
                     this.active = false;
+                    this.stopTicker?.();
+                    this.stopTicker = null;
                     this.game.showRoomError('Mất kết nối với Host.');
                 });
                 
@@ -175,21 +219,27 @@ export class NetworkRoom {
     }
 
     beginMatch(epoch) {
-        if (this.startedEpoch === epoch) return;
+        if (!Number.isSafeInteger(epoch) || (this.startedEpoch !== null && epoch < this.startedEpoch)) return false;
+        if (this.startedEpoch === epoch) return true;
         this.epoch = epoch;
         this.startedEpoch = epoch;
         this.pendingCommands = [];
         this.seq = 0;
+        this.inputSeq = 0;
+        this.snapshotSeq = 0;
+        this.lastSnapshotSeq = 0;
+        this.pollTimer = 0;
         this.game.startGame(true);
+        return true;
     }
 
     async start() {
         if (!this.host) return;
         this.beginMatch(Math.max(Date.now(), (this.epoch || 0) + 1));
-        for (const c of this.connections) { c.input = {}; c.ack = 0; }
+        for (const c of this.connections) { c.input = {}; c.ack = 0; c.inputSeq = 0; }
         this.game.showRoomState({ code: this.code, host: 'host', you: 'host', players: this.players, isHost: true, started: true });
         const data = { type: 'start', epoch: this.epoch };
-        for (const c of this.connections) c.conn.send(data);
+        for (const c of this.connections) if (c.joined && c.conn.open) c.conn.send(data);
     }
 
     sendCommand(command) {
@@ -204,7 +254,7 @@ export class NetworkRoom {
         if (this.pollTimer > 0) return;
         
         // Polling rate of 33ms (30fps) for syncing
-        this.pollTimer = 0.033;
+        this.pollTimer = Math.max(0, this.pollTimer + 0.033);
         
         if (this.host) {
             const inputs = {};
@@ -216,15 +266,18 @@ export class NetworkRoom {
             const started = this.game.state === 'PLAYING' || this.game.state === 'GAMEOVER';
             if (!started) return;
             const snapshot = this.game.makeCoopSnapshot();
+            const snapshotSeq = ++this.snapshotSeq;
             for (const c of this.connections) {
-                if (c.conn.open) c.conn.send({ type: 'snapshot', snapshot, started, epoch: this.epoch, ack: c.ack });
+                if (c.joined && c.conn.open) c.conn.send({ type: 'snapshot', snapshot, snapshotSeq, started, epoch: this.epoch, ack: c.ack });
             }
         } else {
             if (!this.conn || !this.conn.open) return;
+            if (this.startedEpoch === null) return;
             const local = this.game.player;
             const body = {
                 type: 'sync',
                 epoch: this.startedEpoch,
+                inputSeq: ++this.inputSeq,
                 input: {
                     position: local.position.toArray(),
                     aim: local.aimYaw,
@@ -246,7 +299,7 @@ export class NetworkRoom {
             const player = this.game.getCoopPlayer(id);
             if (!player || !Array.isArray(input?.position)) continue;
             if (!player.isDead && input.position.length === 3 && input.position.every(Number.isFinite)) player.position.fromArray(input.position);
-            player.aimYaw = input.aim;
+            if (Number.isFinite(input.aim)) player.aimYaw = input.aim;
             player.isADS = !!input.ads;
             player.isDodging = !!input.isDodging;
             player.moving = !!input.moving;
@@ -357,6 +410,8 @@ export class NetworkRoom {
     }
 
     leave() {
+        this.stopTicker?.();
+        this.stopTicker = null;
         if (!this.active) return;
         this.active = false;
         this.startedEpoch = null;

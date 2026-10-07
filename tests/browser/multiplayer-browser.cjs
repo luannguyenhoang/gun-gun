@@ -21,13 +21,13 @@ const assert = require('node:assert/strict');
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     let browser;
     const errors = [];
-    const timeout = setTimeout(() => { console.error('Multiplayer browser test timed out'); process.exit(1); }, 120000);
+    const timeout = setTimeout(() => { console.error('Multiplayer browser test timed out'); browser?.close(); }, 120000);
     try {
         browser = await chromium.launch({ channel: 'chrome', headless: true, args: [
             '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
             '--disable-background-timer-throttling', '--disable-renderer-backgrounding'
         ] });
-        const context = await browser.newContext();
+        const context = await browser.newContext({ viewport: { width: 640, height: 360 }, deviceScaleFactor: 1 });
         if (process.env.MULTIPLAYER_LOCAL_TRANSPORT) {
             await context.route('https://**/*', route => route.abort());
             await context.addInitScript(require('./local-peer.cjs'));

@@ -52,6 +52,8 @@ Remove-Item Env:MULTIPLAYER_LOCAL_TRANSPORT
 
 Bài này kiểm tra đồng bộ thế giới, nhặt/vứt súng lặp, cứu người gục/chết, menu Esc và kết thúc trận. Transport nội bộ không thay thế kiểm thử WebRTC qua Internet. Trong multiplayer, chủ phòng quyết định sát thương, vật phẩm và cứu người; mỗi khẩu súng có `instanceId` riêng. Esc mở menu nhưng trận đấu vẫn tiếp tục. Các máy trong phòng cần tải cùng phiên bản game.
 
+`npm run test:multiplayer:timing` chạy ba phiên game với transport nội bộ, kiểm tra cả sáu chiều đồng bộ vị trí/model, vào phòng giữa trận, chủ phòng/khách ngừng nhận animation frame và khởi động lại trận. Nhịp mạng dùng Worker riêng; chủ phòng tiếp tục mô phỏng khi tab ẩn. Trình duyệt hoặc hệ điều hành đóng băng hoàn toàn trang vẫn có thể làm phòng tạm ngừng. Sau cập nhật giao thức multiplayer, tất cả người chơi cần tải lại trang và tạo phòng mới; phòng sẽ báo lỗi nếu hai máy dùng khác phiên bản giao thức.
+
 `npm install` cài công cụ kiểm thử. Có thể dùng `npm run check`, `npm run test:browser` và `npm run test:multiplayer` thay cho các lệnh dài tương ứng. Game không phụ thuộc `node_modules` khi chạy hoặc triển khai.
 
 Các test cũ về đạn hữu hạn, pity drop và một số luật combat đã lỗi trước lần tổ chức thư mục này; xem `docs/maintenance.md`. Không sửa luật game chỉ để làm những test cũ đó xanh.

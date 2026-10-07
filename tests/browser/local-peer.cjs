@@ -12,6 +12,8 @@ module.exports = function installLocalPeer() {
     }
     window.Peer = class extends Emitter {
         constructor(id = crypto.randomUUID()) {
+            // PeerJS accepts options as its first argument for anonymous peers.
+            if (typeof id !== 'string') id = crypto.randomUUID();
             super(); this.id = id; this.connections = new Map();
             this.channel = new BroadcastChannel('multiplayer-regression');
             this.channel.onmessage = ({ data: message }) => {

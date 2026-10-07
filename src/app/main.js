@@ -8,7 +8,7 @@ import { PlayerController } from '../gameplay/player/player.js?v=22';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=39';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
 import { UIManager } from '../ui/ui.js?v=40';
-import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=33';
+import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=34';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=35';
 import { HomeMenu } from '../ui/home.js?v=48';
@@ -231,7 +231,7 @@ class CyberArenaGame {
         });
 
         window.addEventListener('blur', () => {
-            if (this.state === 'PLAYING') this.pauseGame();
+            if (this.state === 'PLAYING' && !this.network.active) this.pauseGame();
         });
 
         // Sound toggles in pause menu
@@ -1244,15 +1244,30 @@ class CyberArenaGame {
 
     animate() {
         requestAnimationFrame(this.animate);
-
         const frameDelta = this.clock.getDelta();
+        // The room ticker owns hidden-tab simulation; never advance it twice.
+        if (document.hidden) { this.renderQuality.reset(); return; }
+        this.updateFrame(frameDelta);
+    }
+
+    updateRoomBackground(delta) {
+        if (!document.hidden || !this.network.active) return;
+        // Small simulation steps keep collisions/timers stable after a delayed tick.
+        let remaining = Math.min(delta, 0.25);
+        while (remaining > 0) {
+            const step = Math.min(remaining, 0.05);
+            this.updateFrame(step, false);
+            remaining -= step;
+        }
+        // Consume hidden time so returning to the tab does not simulate it again.
+        this.clock.getDelta();
+    }
+
+    updateFrame(frameDelta, render = true) {
         const delta = Math.min(frameDelta, 0.05);
-        // Room polling continues while a teammate waits in the lobby.
-        this.network.update(delta);
-        if (document.hidden && !this.network.active) { this.renderQuality.reset(); return; }
 
         if (this.state === 'PLAYING') {
-            if (this.renderQuality.sample(frameDelta)) this.renderer.setPixelRatio(this.renderQuality.ratio);
+            if (render && this.renderQuality.sample(frameDelta)) this.renderer.setPixelRatio(this.renderQuality.ratio);
             // Shadow bounds follow the player to avoid clipping in large maps
             if (this.arena.sunLight && this.player) {
                 this.arena.sunLight.position.set(this.player.position.x + 25, this.player.position.y + 38, this.player.position.z + 20);
@@ -1381,6 +1396,7 @@ class CyberArenaGame {
         }
 
         // Render 3D Scene
+        if (!render) return;
         if (this.state === 'MENU') {
             if (this.homeMenu?.showroom.dialog.open) this.homeMenu.showroom.render(delta);
             else this.roomLobby?.render(delta);
