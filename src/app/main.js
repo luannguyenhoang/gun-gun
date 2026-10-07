@@ -3,7 +3,7 @@ import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js?v=58';
 import { ParticleSystem } from '../rendering/particles.js?v=60';
 import { Arena } from '../world/arena.js?v=22';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=61';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=62';
 import { PlayerController } from '../gameplay/player/player.js?v=59';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=41';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
@@ -387,26 +387,33 @@ class CyberArenaGame {
         const pausePerf = document.getElementById('pause-toggle-perf');
         if (pausePerf) {
             pausePerf.textContent = `CHẾ ĐỘ MƯỢT MÀ (TỐI ƯU FPS): ${isOpt ? 'BẬT' : 'TẮT'}`;
-            pausePerf.style.background = isOpt ? 'rgba(0,180,216,0.5)' : 'rgba(30,41,59,0.8)';
-            pausePerf.style.borderColor = isOpt ? '#38bdf8' : 'rgba(255,255,255,0.2)';
+            pausePerf.style.background = isOpt ? 'rgba(14, 165, 233, 0.25)' : 'rgba(30, 41, 59, 0.7)';
+            pausePerf.style.borderColor = isOpt ? '#38bdf8' : 'rgba(255, 255, 255, 0.12)';
+            pausePerf.style.color = isOpt ? '#38bdf8' : '#e2e8f0';
         }
 
         const pauseMuzzle = document.getElementById('pause-toggle-muzzle');
         if (pauseMuzzle) {
             pauseMuzzle.textContent = `LỬA NÒNG: ${p.muzzleFlash ? 'BẬT' : 'TẮT'}`;
-            pauseMuzzle.style.opacity = p.muzzleFlash ? '1' : '0.65';
+            pauseMuzzle.style.background = p.muzzleFlash ? 'rgba(14, 165, 233, 0.2)' : 'rgba(15, 23, 42, 0.7)';
+            pauseMuzzle.style.borderColor = p.muzzleFlash ? 'rgba(56, 189, 248, 0.5)' : 'rgba(255, 255, 255, 0.08)';
+            pauseMuzzle.style.color = p.muzzleFlash ? '#38bdf8' : '#64748b';
         }
 
         const pauseSparks = document.getElementById('pause-toggle-sparks');
         if (pauseSparks) {
             pauseSparks.textContent = `TIA LỬA: ${p.bulletSparks ? 'BẬT' : 'TẮT'}`;
-            pauseSparks.style.opacity = p.bulletSparks ? '1' : '0.65';
+            pauseSparks.style.background = p.bulletSparks ? 'rgba(14, 165, 233, 0.2)' : 'rgba(15, 23, 42, 0.7)';
+            pauseSparks.style.borderColor = p.bulletSparks ? 'rgba(56, 189, 248, 0.5)' : 'rgba(255, 255, 255, 0.08)';
+            pauseSparks.style.color = p.bulletSparks ? '#38bdf8' : '#64748b';
         }
 
         const pauseShadows = document.getElementById('pause-toggle-shadows');
         if (pauseShadows) {
             pauseShadows.textContent = `ĐỔ BÓNG: ${p.shadows ? 'BẬT' : 'TẮT'}`;
-            pauseShadows.style.opacity = p.shadows ? '1' : '0.65';
+            pauseShadows.style.background = p.shadows ? 'rgba(14, 165, 233, 0.2)' : 'rgba(15, 23, 42, 0.7)';
+            pauseShadows.style.borderColor = p.shadows ? 'rgba(56, 189, 248, 0.5)' : 'rgba(255, 255, 255, 0.08)';
+            pauseShadows.style.color = p.shadows ? '#38bdf8' : '#64748b';
         }
     }
 
@@ -522,6 +529,8 @@ class CyberArenaGame {
         this.ui.clearTeammateIndicators();
         this.homeMenu?.syncAudio();
         this.syncPerformanceUI();
+        const pWave = document.getElementById('pause-wave-badge');
+        if (pWave) pWave.textContent = `ĐỢT ${this.currentWave || 1}`;
         if (this.screenPause) this.screenPause.style.display = 'flex';
     }
 

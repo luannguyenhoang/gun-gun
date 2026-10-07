@@ -10,7 +10,7 @@
     <link rel="preload" href="assets/fonts/Nunito-Variable.ttf" as="font" type="font/ttf" crossorigin>
     <link rel="stylesheet" href="styles/style.css">
     <link rel="stylesheet" href="styles/zappets.css?v=2"><link rel="stylesheet" href="styles/combat.css?v=44"><link rel="stylesheet" href="styles/showroom.css?v=47">
-    <link rel="stylesheet" href="styles/ux.css?v=2">
+    <link rel="stylesheet" href="styles/ux.css?v=3">
     <link rel="stylesheet" href="styles/home-polish.css?v=1">
     <link rel="stylesheet" href="styles/home-reference.css?v=13">
     <style>
@@ -1407,33 +1407,61 @@
       </div>
     </dialog>
     <!-- Screen 3: Pause Menu -->
-    <div id="screen-pause" class="screen-overlay" style="display: none;">
-        <div class="menu-box">
-            <h2 class="menu-heading">TẠM DỪNG</h2>
-            <div class="menu-buttons">
-                <button id="btn-resume" class="btn-action">TIẾP TỤC</button>
-                <button id="btn-restart-pause" class="btn-action secondary">CHƠI LẠI</button>
-                <button class="btn-action secondary" data-return-home>KẾT THÚC & VỀ SẢNH</button>
-                <button id="btn-toggle-bot" class="btn-toggle">ĐỒNG ĐỘI BOT: BẬT (PHÍM P)</button>
-                <div class="pause-slider-box">
-                  <div class="pause-slider-item">
-                    <div class="pause-slider-info"><span>NHẠC:</span><b id="pause-music-badge">40%</b></div>
-                    <input type="range" id="pause-music-slider" class="range-slider mini" min="0" max="100" value="40" aria-label="Âm lượng nhạc">
-                  </div>
-                  <div class="pause-slider-item">
-                    <div class="pause-slider-info"><span>HIỆU ỨNG:</span><b id="pause-sfx-badge">80%</b></div>
-                    <input type="range" id="pause-sfx-slider" class="range-slider mini" min="0" max="100" value="80" aria-label="Âm lượng hiệu ứng">
-                  </div>
+    <div id="screen-pause" class="screen-overlay pause-overlay" style="display: none;">
+        <div class="pause-card">
+            <!-- Header -->
+            <div class="pause-header">
+                <span class="pause-tag">HỆ THỐNG TÁC CHIẾN</span>
+                <h2 class="pause-title">TẠM DỪNG</h2>
+                <span class="pause-sub">Nhấn <b>[ESC]</b> để tiếp tục chiến đấu</span>
+            </div>
+
+            <!-- Thanh trạng thái nhanh -->
+            <div class="pause-status-row">
+                <div class="pause-status-item">
+                    <span class="status-lbl">TIẾN TRÌNH:</span>
+                    <strong class="status-val" id="pause-wave-badge">ĐỢT 1</strong>
                 </div>
-                <button id="pause-toggle-perf" class="btn-toggle" style="background:#1e293b; border-color:#38bdf8;">CHẾ ĐỘ MƯỢT MÀ: BẬT</button>
-                <div class="toggle-row" style="gap:6px;">
-                    <button id="pause-toggle-muzzle" class="btn-toggle">LỬA NÒNG: TẮT</button>
-                    <button id="pause-toggle-sparks" class="btn-toggle">TIA LỬA: TẮT</button>
+                <div class="pause-status-divider"></div>
+                <div class="pause-status-item">
+                    <button id="btn-toggle-bot" class="pause-bot-btn">ĐỒNG ĐỘI BOT: BẬT (P)</button>
                 </div>
-                <button id="pause-toggle-shadows" class="btn-toggle">ĐỔ BÓNG: TẮT</button>
-                <div class="toggle-row">
-                    <button id="toggle-sound" class="btn-toggle">SOUND: ON</button>
-                    <button id="toggle-music" class="btn-toggle">MUSIC: ON</button>
+            </div>
+
+            <!-- Các nút thao tác trận đấu -->
+            <div class="pause-actions">
+                <button id="btn-resume" class="pause-btn-primary">TIẾP TỤC CHIẾN ĐẤU</button>
+                <div class="pause-action-subrow">
+                    <button id="btn-restart-pause" class="pause-btn-secondary">CHƠI LẠI</button>
+                    <button class="pause-btn-danger" data-return-home>VỀ SẢNH</button>
+                </div>
+            </div>
+
+            <!-- Tùy chỉnh âm thanh -->
+            <div class="pause-section">
+                <div class="pause-section-title">ÂM THANH</div>
+                <div class="pause-sliders-grid">
+                    <div class="pause-slider-row">
+                        <span class="slider-name">NHẠC NỀN</span>
+                        <input type="range" id="pause-music-slider" class="range-slider mini" min="0" max="100" value="40" aria-label="Âm lượng nhạc">
+                        <b id="pause-music-badge" class="slider-val">40%</b>
+                    </div>
+                    <div class="pause-slider-row">
+                        <span class="slider-name">HIỆU ỨNG (SFX)</span>
+                        <input type="range" id="pause-sfx-slider" class="range-slider mini" min="0" max="100" value="80" aria-label="Âm lượng hiệu ứng">
+                        <b id="pause-sfx-badge" class="slider-val">80%</b>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tối ưu hiệu năng & đồ họa -->
+            <div class="pause-section">
+                <div class="pause-section-title">ĐỒ HỌA & HIỆU NĂNG</div>
+                <button id="pause-toggle-perf" class="pause-perf-main-btn">CHẾ ĐỘ MƯỢT MÀ (TỐI ƯU FPS): TẮT</button>
+                <div class="pause-toggles-row">
+                    <button id="pause-toggle-muzzle" class="pause-toggle-chip">LỬA NÒNG: BẬT</button>
+                    <button id="pause-toggle-sparks" class="pause-toggle-chip">TIA LỬA: BẬT</button>
+                    <button id="pause-toggle-shadows" class="pause-toggle-chip">ĐỔ BÓNG: BẬT</button>
                 </div>
             </div>
         </div>
@@ -1484,6 +1512,6 @@
     </div>
 
     <!-- Main Game Script -->
-    <script src="vendor/qrcode.min.js"></script><script type="module" src="src/app/main.js?v=61"></script>
+    <script src="vendor/qrcode.min.js"></script><script type="module" src="src/app/main.js?v=62"></script>
 </body>
 </html>

@@ -2457,74 +2457,173 @@ export class WeaponSystem {
                     // 1. BOM KHÓI: Cụm sương mù khói 3D bồng bềnh
                     this.createSmokeZone(blastPos, radius, bCfg.duration || 10.0);
                 } else if (bCfg.bombType === 'fire') {
-                    // 2. BOM LỬA: Vũng lửa 3D đa tầng bùng cháy dữ dội trên mặt đất trong 10 giây
+                    // 2. BOM LỬA MOLOTOV: Vũng lửa cháy loang hữu cơ 3D, ngọn lửa bập bùng Additive Blending và khói cuộn
                     const fireGroup = new THREE.Group();
                     fireGroup.position.copy(blastPos);
 
-                    // Lớp 1: Vũng dung nham đỏ rực trên mặt đất
-                    const outerRingGeo = new THREE.CircleGeometry(radius, 32);
-                    outerRingGeo.rotateX(-Math.PI / 2);
-                    const outerRingMat = new THREE.MeshBasicMaterial({
-                        color: 0xd9381e,
+                    // Mảng lưu trữ các vật liệu để fade out khi tàn
+                    const groundMaterials = [];
+
+                    // Lớp 1: Nền than cháy xém đen viền đỏ sẫm (Scorched Earth - hình dạng hữu cơ bất đối xứng)
+                    const baseScorchGeo = new THREE.CircleGeometry(radius * 1.05, 24);
+                    baseScorchGeo.rotateX(-Math.PI / 2);
+                    const baseScorchMat = new THREE.MeshBasicMaterial({
+                        color: 0x180905,
+                        transparent: true,
+                        opacity: 0.82,
+                        depthWrite: false
+                    });
+                    const baseScorchMesh = new THREE.Mesh(baseScorchGeo, baseScorchMat);
+                    baseScorchMesh.position.y = 0.02;
+                    fireGroup.add(baseScorchMesh);
+                    groundMaterials.push(baseScorchMat);
+
+                    // Các vệt cháy loang lổ vệ tinh tạo hình dáng vũng xăng đổ tự nhiên
+                    const satelliteOffsets = [
+                        { x: radius * 0.45, z: radius * 0.35, r: radius * 0.55 },
+                        { x: -radius * 0.5, z: radius * 0.2, r: radius * 0.48 },
+                        { x: radius * 0.2, z: -radius * 0.55, r: radius * 0.52 },
+                        { x: -radius * 0.35, z: -radius * 0.4, r: radius * 0.45 }
+                    ];
+                    for (const sat of satelliteOffsets) {
+                        const satGeo = new THREE.CircleGeometry(sat.r, 16);
+                        satGeo.rotateX(-Math.PI / 2);
+                        const satMesh = new THREE.Mesh(satGeo, baseScorchMat);
+                        satMesh.position.set(sat.x, 0.022, sat.z);
+                        fireGroup.add(satMesh);
+                    }
+
+                    // Lớp 2: Vùng dung nham đỏ cam bốc cháy rực rỡ (Napalm Flame Bed)
+                    const magmaGeo = new THREE.CircleGeometry(radius * 0.85, 24);
+                    magmaGeo.rotateX(-Math.PI / 2);
+                    const magmaMat = new THREE.MeshBasicMaterial({
+                        color: 0xe03131,
                         transparent: true,
                         opacity: 0.65,
-                        side: THREE.DoubleSide
+                        depthWrite: false,
+                        blending: THREE.AdditiveBlending
                     });
-                    const outerMesh = new THREE.Mesh(outerRingGeo, outerRingMat);
-                    outerMesh.position.y = 0.05;
-                    fireGroup.add(outerMesh);
+                    const magmaMesh = new THREE.Mesh(magmaGeo, magmaMat);
+                    magmaMesh.position.y = 0.035;
+                    fireGroup.add(magmaMesh);
+                    groundMaterials.push(magmaMat);
 
-                    // Lớp 2: Lõi lửa vàng cam phát sáng rực rỡ
-                    const coreGeo = new THREE.CircleGeometry(radius * 0.65, 24);
+                    // Lớp 3: Lõi nhiệt vàng cam chói lọi (Hot Core)
+                    const coreGeo = new THREE.CircleGeometry(radius * 0.5, 20);
                     coreGeo.rotateX(-Math.PI / 2);
                     const coreMat = new THREE.MeshBasicMaterial({
-                        color: 0xffaa00,
+                        color: 0xfb923c,
                         transparent: true,
                         opacity: 0.85,
-                        side: THREE.DoubleSide
+                        depthWrite: false,
+                        blending: THREE.AdditiveBlending
                     });
                     const coreMesh = new THREE.Mesh(coreGeo, coreMat);
-                    coreMesh.position.y = 0.06;
+                    coreMesh.position.y = 0.045;
                     fireGroup.add(coreMesh);
+                    groundMaterials.push(coreMat);
 
-                    // Lớp 3: Viền lửa tàn tro ngoài rìa
-                    const ringBorderGeo = new THREE.RingGeometry(radius * 0.94, radius, 32);
-                    ringBorderGeo.rotateX(-Math.PI / 2);
-                    const ringBorderMat = new THREE.MeshBasicMaterial({
-                        color: 0xff4400,
+                    // Lớp 4: Tâm vàng sáng rực (White-Yellow Intense Center)
+                    const intenseGeo = new THREE.CircleGeometry(radius * 0.22, 16);
+                    intenseGeo.rotateX(-Math.PI / 2);
+                    const intenseMat = new THREE.MeshBasicMaterial({
+                        color: 0xfef08a,
                         transparent: true,
-                        opacity: 0.75,
-                        side: THREE.DoubleSide
+                        opacity: 0.95,
+                        depthWrite: false,
+                        blending: THREE.AdditiveBlending
                     });
-                    const ringBorderMesh = new THREE.Mesh(ringBorderGeo, ringBorderMat);
-                    ringBorderMesh.position.y = 0.07;
-                    fireGroup.add(ringBorderMesh);
+                    const intenseMesh = new THREE.Mesh(intenseGeo, intenseMat);
+                    intenseMesh.position.y = 0.055;
+                    fireGroup.add(intenseMesh);
+                    groundMaterials.push(intenseMat);
 
-                    // Lớp 4: Cụm các cột lửa 3D bập bùng (Flickering Flame Cones)
+                    // Lớp 5: Các cụm lưỡi lửa bập bùng sống động (Dynamic Flame Tongues)
                     const flames = [];
-                    const flameGeo = new THREE.ConeGeometry(0.35, 1.35, 6);
-                    const flameCount = 7;
-                    for (let f = 0; f < flameCount; f++) {
-                        const angle = (f / flameCount) * Math.PI * 2;
-                        const dist = (f === 0) ? 0 : radius * (0.32 + (f % 3) * 0.16);
-                        const flameMat = new THREE.MeshBasicMaterial({
-                            color: (f % 2 === 0) ? 0xff5500 : 0xffaa00,
+                    const flameMaterials = [];
+                    const totalFlames = 16;
+                    for (let f = 0; f < totalFlames; f++) {
+                        let dist, baseH, baseW, col;
+                        if (f === 0) {
+                            // Ngọn lửa mẹ ở trung tâm vũng lửa
+                            dist = 0;
+                            baseH = 1.9;
+                            baseW = 0.55;
+                            col = 0xfef08a;
+                        } else if (f <= 6) {
+                            // Cụm lửa tầng trung (vàng cam rực rỡ)
+                            const angle = ((f - 1) / 6) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+                            dist = radius * (0.28 + Math.random() * 0.25);
+                            baseH = 1.25 + Math.random() * 0.45;
+                            baseW = 0.35 + Math.random() * 0.15;
+                            col = Math.random() < 0.5 ? 0xfbbf24 : 0xf97316;
+                        } else {
+                            // Cụm lửa tầng ngoài (đỏ cam bùng cháy)
+                            const angle = ((f - 7) / (totalFlames - 7)) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+                            dist = radius * (0.55 + Math.random() * 0.32);
+                            baseH = 0.75 + Math.random() * 0.4;
+                            baseW = 0.25 + Math.random() * 0.12;
+                            col = Math.random() < 0.6 ? 0xe03131 : 0xf97316;
+                        }
+
+                        const angle = f === 0 ? 0 : (f / totalFlames) * Math.PI * 2 + (f * 1.618);
+                        const posX = Math.cos(angle) * dist;
+                        const posZ = Math.sin(angle) * dist;
+
+                        const flMat = new THREE.MeshBasicMaterial({
+                            color: col,
                             transparent: true,
                             opacity: 0.85,
-                            depthWrite: false
+                            depthWrite: false,
+                            blending: THREE.AdditiveBlending
                         });
-                        const flameMesh = new THREE.Mesh(flameGeo, flameMat);
-                        flameMesh.position.set(
-                            Math.cos(angle) * dist,
-                            0.68,
-                            Math.sin(angle) * dist
-                        );
-                        fireGroup.add(flameMesh);
+                        flameMaterials.push(flMat);
+
+                        // Dùng chóp 4 cạnh sắc nét, chân bám sát mặt đất
+                        const flGeo = new THREE.ConeGeometry(baseW, baseH, 4);
+                        const flMesh = new THREE.Mesh(flGeo, flMat);
+                        flMesh.position.set(posX, baseH * 0.5, posZ);
+                        flMesh.rotation.y = Math.random() * Math.PI;
+                        fireGroup.add(flMesh);
+
                         flames.push({
-                            mesh: flameMesh,
-                            mat: flameMat,
-                            baseScaleY: 1.0,
-                            offset: f * 1.2
+                            mesh: flMesh,
+                            mat: flMat,
+                            baseX: posX,
+                            baseZ: posZ,
+                            baseHeight: baseH,
+                            baseScaleW: baseW,
+                            phase: f * 1.35 + Math.random() * 2,
+                            flickerSpeed: 11.0 + Math.random() * 8.0,
+                            swaySpeed: 3.5 + Math.random() * 3.0
+                        });
+                    }
+
+                    // Lớp 6: Các đám khói xám bốc lên cuộn cuộn (Rising Smoke Wisps)
+                    const smokePuffs = [];
+                    const smokeGeo = new THREE.DodecahedronGeometry(0.38, 0);
+                    const smokeMat = new THREE.MeshBasicMaterial({
+                        color: 0x1f2937,
+                        transparent: true,
+                        opacity: 0.32,
+                        depthWrite: false
+                    });
+                    groundMaterials.push(smokeMat);
+
+                    for (let s = 0; s < 5; s++) {
+                        const sMesh = new THREE.Mesh(smokeGeo, smokeMat);
+                        const sAngle = Math.random() * Math.PI * 2;
+                        const sDist = Math.random() * radius * 0.6;
+                        sMesh.position.set(Math.cos(sAngle) * sDist, 0.4 + s * 0.45, Math.sin(sAngle) * sDist);
+                        fireGroup.add(sMesh);
+                        smokePuffs.push({
+                            mesh: sMesh,
+                            baseX: sMesh.position.x,
+                            baseZ: sMesh.position.z,
+                            y: sMesh.position.y,
+                            speed: 0.8 + Math.random() * 0.5,
+                            scale: 0.8 + Math.random() * 0.5,
+                            maxHeight: 2.8 + Math.random() * 0.6
                         });
                     }
 
@@ -2538,11 +2637,14 @@ export class WeaponSystem {
                         maxLife: bCfg.duration || 10.0,
                         burnDps: bCfg.burnDps || 25,
                         tickTimer: 0,
+                        sparkTimer: 0,
                         group: fireGroup,
                         flames: flames,
-                        outerMat: outerRingMat,
-                        coreMat: coreMat,
-                        ringMat: ringBorderMat
+                        smokePuffs: smokePuffs,
+                        groundMats: groundMaterials,
+                        flameMats: flameMaterials,
+                        coreMesh: coreMesh,
+                        intenseMesh: intenseMesh
                     });
 
                     // Sát thương nổ ban đầu
@@ -2664,34 +2766,67 @@ export class WeaponSystem {
                         }
                     }
 
-                    // Xoay nhẹ nhàng theo trục Y thẳng đứng (giữ phẳng với mặt đất, không bị nghiêng cắm đất)
-                    if (zone.group) {
-                        zone.group.rotation.y += delta * 0.35;
-                    }
+                    const fade = Math.min(1.0, zone.life / 1.8);
 
-                    // Hiệu ứng ngọn lửa 3D nhấp nháy chiều cao bùng cháy
-                    const fade = Math.min(1.0, zone.life / 2.0);
+                    // Hiệu ứng ngọn lửa 3D bập bùng nhịp nhàng, chân ngọn lửa luôn bám mặt đất
                     if (zone.flames) {
                         for (let f = 0; f < zone.flames.length; f++) {
                             const fl = zone.flames[f];
-                            const flick = 0.75 + 0.35 * Math.sin(zone.life * 14.0 + fl.offset);
-                            fl.mesh.scale.set(flick, flick * fade, flick);
+                            const flick = 0.78 + 0.32 * Math.sin(zone.life * fl.flickerSpeed + fl.phase) + 0.12 * Math.cos(zone.life * (fl.flickerSpeed * 0.7) + fl.phase);
+                            const currentH = fl.baseHeight * Math.max(0.2, flick) * fade;
+                            const currentW = fl.baseScaleW * (0.85 + 0.25 * flick) * fade;
+                            fl.mesh.scale.set(currentW / fl.baseScaleW, currentH / fl.baseHeight, currentW / fl.baseScaleW);
+                            fl.mesh.position.y = currentH * 0.5; // Chân ngọn lửa luôn đứng vững trên mặt sàn
+                            fl.mesh.position.x = fl.baseX + Math.sin(zone.life * fl.swaySpeed + fl.phase) * 0.12;
+                            fl.mesh.position.z = fl.baseZ + Math.cos(zone.life * (fl.swaySpeed * 0.8) + fl.phase) * 0.12;
                             fl.mat.opacity = 0.85 * fade;
                         }
                     }
 
-                    if (zone.outerMat) zone.outerMat.opacity = 0.65 * fade;
-                    if (zone.coreMat) zone.coreMat.opacity = 0.85 * fade;
-                    if (zone.ringMat) zone.ringMat.opacity = 0.75 * fade;
+                    // Hiệu ứng các đám khói xám bốc dần lên cao và cuộn nhẹ
+                    if (zone.smokePuffs) {
+                        for (let s = 0; s < zone.smokePuffs.length; s++) {
+                            const sp = zone.smokePuffs[s];
+                            sp.y += delta * sp.speed;
+                            if (sp.y > sp.maxHeight) sp.y = 0.35;
+                            const progress = sp.y / sp.maxHeight;
+                            sp.mesh.position.y = sp.y;
+                            sp.mesh.position.x = sp.baseX + Math.sin(zone.life * 2.5 + sp.speed) * 0.25;
+                            sp.mesh.position.z = sp.baseZ + Math.cos(zone.life * 2.0 + sp.speed) * 0.25;
+                            const currentScale = sp.scale * (1.0 + progress * 1.6) * fade;
+                            sp.mesh.scale.setScalar(currentScale);
+                        }
+                    }
 
-                    // Thỉnh thoảng bốc hạt tàn lửa lên cao
-                    if (Math.random() < 0.25 && this.particles?.createImpactSparks) {
-                        const sparkPos = zone.pos.clone().add(new THREE.Vector3(
-                            (Math.random() - 0.5) * zone.radius * 1.2,
-                            0.2 + Math.random() * 0.8,
-                            (Math.random() - 0.5) * zone.radius * 1.2
-                        ));
-                        this.particles.createImpactSparks(sparkPos, new THREE.Vector3(0, 1, 0), 0xff6600, 3);
+                    // Xung nhịp nhiệt ở lõi dung nham (Heat Pulsing)
+                    if (zone.coreMesh) {
+                        const pulse = (1.0 + 0.05 * Math.sin(zone.life * 8.0)) * fade;
+                        zone.coreMesh.scale.set(pulse, 1, pulse);
+                    }
+                    if (zone.intenseMesh) {
+                        const pulse = (1.0 + 0.08 * Math.sin(zone.life * 12.0)) * fade;
+                        zone.intenseMesh.scale.set(pulse, 1, pulse);
+                    }
+
+                    // Độ mờ nhạt dần của các lớp nền mặt đất khi bom cháy hết
+                    if (zone.groundMats) {
+                        for (let m = 0; m < zone.groundMats.length; m++) {
+                            zone.groundMats[m].opacity = Math.min(1.0, 0.8 * fade);
+                        }
+                    }
+
+                    // Bắn các đốm than đỏ / tàn lửa bay bổng lên trời
+                    zone.sparkTimer = (zone.sparkTimer || 0) + delta;
+                    if (zone.sparkTimer >= 0.12) {
+                        zone.sparkTimer = 0;
+                        if (this.particles?.createImpactSparks) {
+                            const sparkPos = zone.pos.clone().add(new THREE.Vector3(
+                                (Math.random() - 0.5) * zone.radius * 1.1,
+                                0.15 + Math.random() * 0.4,
+                                (Math.random() - 0.5) * zone.radius * 1.1
+                            ));
+                            this.particles.createImpactSparks(sparkPos, new THREE.Vector3(0, 1.4, 0), Math.random() < 0.5 ? 0xff5500 : 0xffaa00, 3);
+                        }
                     }
                 }
 
