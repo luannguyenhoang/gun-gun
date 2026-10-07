@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { sounds } from '../../audio/audio.js';
+import { sounds } from '../../audio/audio.js?v=58';
 
 // Chuẩn hóa 5 Cấp bậc Độ hiếm (Rarity Tiers) áp dụng cho CẢ SÚNG VÀ PHỤ KIỆN
 export const RARITY_TIERS = {
@@ -1743,6 +1743,7 @@ export class WeaponSystem {
 
         if (this.onCommand) this.onCommand({ type: 'switch', slot: index });
         this.currentSlotIndex = index;
+        sounds.stopContinuousFire?.();
         this.cancelReload();
         this.fireCooldown = 0.18;
         sounds.play('switchWeapon', { volume: 0.7 });
@@ -2117,6 +2118,7 @@ export class WeaponSystem {
 
         // Kiểm tra hết băng đạn -> Tự động nạp đạn (trừ khi đang cuồng xả đạn vô hạn)
         if (!isBulletFrenzy && this.ammo[w.id] <= 0) {
+            sounds.stopContinuousFire?.();
             this.reload();
             return false;
         }

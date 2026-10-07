@@ -44,6 +44,57 @@ export class ParticleSystem {
         this.smokeGeo = new THREE.IcosahedronGeometry(0.5, 1);
         this.explosions = [];
         this.maxExplosions = 12;
+
+        // Texture lửa, khói và tia lửa nòng súng chất lượng cao (Kenney Particle Pack)
+        this.textures = { fire: [], smoke: [], muzzle: [] };
+        this.initTextures();
+    }
+
+    initTextures() {
+        if (typeof window === 'undefined' || typeof document === 'undefined') return;
+        try {
+            const loader = new THREE.TextureLoader();
+            const firePaths = [
+                'assets/textures/particles/fire_01.png',
+                'assets/textures/particles/fire_02.png',
+                'assets/textures/particles/flame_01.png',
+                'assets/textures/particles/flame_02.png',
+                'assets/textures/particles/flame_03.png'
+            ];
+            const smokePaths = [
+                'assets/textures/particles/smoke_01.png',
+                'assets/textures/particles/smoke_02.png',
+                'assets/textures/particles/smoke_03.png',
+                'assets/textures/particles/smoke_04.png'
+            ];
+            const muzzlePaths = [
+                'assets/textures/particles/muzzle_01.png',
+                'assets/textures/particles/muzzle_02.png',
+                'assets/textures/particles/muzzle_03.png',
+                'assets/textures/particles/muzzle_04.png'
+            ];
+
+            firePaths.forEach(path => {
+                loader.load(path, (tex) => {
+                    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+                    this.textures.fire.push(tex);
+                }, undefined, () => {});
+            });
+
+            smokePaths.forEach(path => {
+                loader.load(path, (tex) => {
+                    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+                    this.textures.smoke.push(tex);
+                }, undefined, () => {});
+            });
+
+            muzzlePaths.forEach(path => {
+                loader.load(path, (tex) => {
+                    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+                    this.textures.muzzle.push(tex);
+                }, undefined, () => {});
+            });
+        } catch {}
     }
 
     createMuzzleFlash(position, direction, color = 0x00f0ff) {
@@ -51,19 +102,79 @@ export class ParticleSystem {
         const flashGroup = new THREE.Group();
         flashGroup.position.copy(position);
 
-        const geo = new THREE.SphereGeometry(0.15, 8, 8);
-        const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 });
-        const mesh = new THREE.Mesh(geo, mat);
-        flashGroup.add(mesh);
+        if (this.textures?.muzzle?.length > 0) {
+            // Tia lửa nòng súng 2D Billboard Sprite chuyên nghiệp từ Kenney Particle Pack
+            const mTex = this.textures.muzzle[Math.floor(Math.random() * this.textures.muzzle.length)];
+            const mat = new THREE.SpriteMaterial({
+                map: mTex,
+                color: color || 0xffbb33,
+                transparent: true,
+                opacity: 0.95,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                rotation: Math.random() * Math.PI * 2
+            });
+            const sprite = new THREE.Sprite(mat);
+            sprite.scale.set(0.48, 0.48, 1);
+            flashGroup.add(sprite);
 
-        this.scene.add(flashGroup);
-        this.muzzleFlashes.push({
-            obj: flashGroup,
-            lightColor: color,
-            mat: mat,
-            life: 0.06,
-            maxLife: 0.06
-        });
+            // Khói nòng súng nhỏ thoảng qua bay ra theo hướng đạn
+            let smokeSprite = null;
+            let smokeMat = null;
+            if (this.textures?.smoke?.length > 0) {
+                const sTex = this.textures.smoke[0];
+                smokeMat = new THREE.SpriteMaterial({
+                    map: sTex,
+                    color: 0x9999aa,
+                    transparent: true,
+                    opacity: 0.35,
+                    blending: THREE.NormalBlending,
+                    depthWrite: false,
+                    rotation: Math.random() * Math.PI * 2
+                });
+                smokeSprite = new THREE.Sprite(smokeMat);
+                smokeSprite.scale.set(0.25, 0.25, 1);
+                if (direction) {
+                    smokeSprite.position.copy(direction).multiplyScalar(0.15);
+                }
+                flashGroup.add(smokeSprite);
+            }
+
+            this.scene.add(flashGroup);
+            this.muzzleFlashes.push({
+                obj: flashGroup,
+                lightColor: color,
+                mat: mat,
+                extraMat: smokeMat,
+                life: 0.08,
+                maxLife: 0.08,
+                onUpdate: (delta, progress) => {
+                    const s = 0.48 * (1 - progress * 0.4);
+                    sprite.scale.set(s, s, 1);
+                    mat.opacity = Math.max(0, 0.95 * (1 - progress));
+                    if (smokeSprite && smokeMat) {
+                        const ss = 0.25 + progress * 0.25;
+                        smokeSprite.scale.set(ss, ss, 1);
+                        smokeMat.opacity = Math.max(0, 0.35 * (1 - progress));
+                    }
+                }
+            });
+        } else {
+            // Fallback nếu chưa tải xong texture
+            const geo = new THREE.SphereGeometry(0.15, 8, 8);
+            const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 });
+            const mesh = new THREE.Mesh(geo, mat);
+            flashGroup.add(mesh);
+
+            this.scene.add(flashGroup);
+            this.muzzleFlashes.push({
+                obj: flashGroup,
+                lightColor: color,
+                mat: mat,
+                life: 0.06,
+                maxLife: 0.06
+            });
+        }
     }
 
     createKnifeSlash(position, direction, color = 0x99e6ff, range = 1.1) {
@@ -170,111 +281,239 @@ export class ParticleSystem {
             this.effectLight.position.copy(position);
         }
 
-        // Tạo cụm hiệu ứng thị giác nổ 3D (Fireball + Shockwave ring + Smoke billows)
+        // Tạo cụm hiệu ứng thị giác nổ (Texture Sprite từ Kenney Particle Pack hoặc Fallback Mesh)
         if (this.explosions.length < this.maxExplosions) {
             const expGroup = new THREE.Group();
             expGroup.position.copy(position);
 
-            // 1. Quả cầu lửa lõi sáng trắng chớp tắt nhanh
-            const coreMat = new THREE.MeshBasicMaterial({
-                color: 0xffffff,
-                transparent: true,
-                opacity: 1.0,
-                blending: THREE.AdditiveBlending
-            });
-            const coreMesh = new THREE.Mesh(this.fireballGeo, coreMat);
-            coreMesh.scale.setScalar(0.4);
-            expGroup.add(coreMesh);
+            const hasFire = this.textures.fire && this.textures.fire.length > 0;
+            const hasSmoke = this.textures.smoke && this.textures.smoke.length > 0;
+            const hasTextures = hasFire || hasSmoke;
 
-            // 2. Quả cầu lửa bùng nổ chính
-            const fireMat = new THREE.MeshBasicMaterial({
-                color: color || 0xff5500,
-                transparent: true,
-                opacity: 0.95,
-                blending: THREE.AdditiveBlending
-            });
-            const fireMesh = new THREE.Mesh(this.fireballGeo, fireMat);
-            fireMesh.scale.setScalar(0.6);
-            expGroup.add(fireMesh);
+            if (hasTextures) {
+                // SỬ DỤNG SPRITE TEXTURE CHẤT LƯỢNG CAO TỪ KENNEY PARTICLE PACK
+                const fireList = hasFire ? this.textures.fire : this.textures.smoke;
+                const smokeList = hasSmoke ? this.textures.smoke : this.textures.fire;
 
-            // 3. Các khối lửa phụ cuộn quanh tạo chùm nổ tự nhiên
-            const billows = [];
-            for (let b = 0; b < 3; b++) {
-                const bMat = new THREE.MeshBasicMaterial({
-                    color: color || 0xff6600,
+                // 1. Quả cầu lửa lõi trắng bùng nổ cực nhanh
+                const coreTex = fireList[0];
+                const coreMat = new THREE.SpriteMaterial({
+                    map: coreTex,
+                    color: 0xffffff,
                     transparent: true,
-                    opacity: 0.8,
+                    opacity: 1.0,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false,
+                    rotation: Math.random() * Math.PI * 2
+                });
+                const coreSprite = new THREE.Sprite(coreMat);
+                coreSprite.scale.set(0.6, 0.6, 1);
+                expGroup.add(coreSprite);
+
+                // 2. Quả cầu lửa chính rực sáng
+                const fireTex = fireList[Math.floor(Math.random() * fireList.length)];
+                const fireMat = new THREE.SpriteMaterial({
+                    map: fireTex,
+                    color: color || 0xff6611,
+                    transparent: true,
+                    opacity: 0.95,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false,
+                    rotation: Math.random() * Math.PI * 2
+                });
+                const fireSprite = new THREE.Sprite(fireMat);
+                fireSprite.scale.set(0.9, 0.9, 1);
+                expGroup.add(fireSprite);
+
+                // 3. Các khối lửa phụ cuộn quanh tạo chùm nổ tự nhiên
+                const billows = [];
+                for (let b = 0; b < 3; b++) {
+                    const bTex = fireList[Math.floor(Math.random() * fireList.length)];
+                    const bMat = new THREE.SpriteMaterial({
+                        map: bTex,
+                        color: color || 0xff7722,
+                        transparent: true,
+                        opacity: 0.85,
+                        blending: THREE.AdditiveBlending,
+                        depthWrite: false,
+                        rotation: Math.random() * Math.PI * 2
+                    });
+                    const bSprite = new THREE.Sprite(bMat);
+                    bSprite.position.set(
+                        (Math.random() - 0.5) * 0.7,
+                        Math.random() * 0.5,
+                        (Math.random() - 0.5) * 0.7
+                    );
+                    bSprite.scale.set(0.6, 0.6, 1);
+                    expGroup.add(bSprite);
+                    billows.push({ sprite: bSprite, mat: bMat, rotVel: (Math.random() - 0.5) * 3.5 });
+                }
+
+                // 4. Vòng sóng xung kích lan tỏa trên mặt đất (Ground Shockwave Ring)
+                const ringMat = new THREE.MeshBasicMaterial({
+                    color: color || 0xff7722,
+                    transparent: true,
+                    opacity: 0.85,
+                    blending: THREE.AdditiveBlending,
+                    side: THREE.DoubleSide,
+                    depthWrite: false
+                });
+                const ringMesh = new THREE.Mesh(this.shockwaveGeo, ringMat);
+                ringMesh.position.y = 0.05 - position.y;
+                ringMesh.scale.setScalar(0.5);
+                expGroup.add(ringMesh);
+
+                // 5. Cụm khói đen/xám bốc lên cuồn cuộn
+                const smokePuffs = [];
+                for (let s = 0; s < 6; s++) {
+                    const sTex = smokeList[Math.floor(Math.random() * smokeList.length)];
+                    const sMat = new THREE.SpriteMaterial({
+                        map: sTex,
+                        color: 0x333338,
+                        transparent: true,
+                        opacity: 0.68,
+                        blending: THREE.NormalBlending,
+                        depthWrite: false,
+                        rotation: Math.random() * Math.PI * 2
+                    });
+                    const sSprite = new THREE.Sprite(sMat);
+                    sSprite.position.set(
+                        (Math.random() - 0.5) * 0.9,
+                        0.2 + Math.random() * 0.4,
+                        (Math.random() - 0.5) * 0.9
+                    );
+                    sSprite.scale.set(0.6, 0.6, 1);
+                    const sVel = new THREE.Vector3(
+                        (Math.random() - 0.5) * 1.6,
+                        1.4 + Math.random() * 1.8,
+                        (Math.random() - 0.5) * 1.6
+                    );
+                    expGroup.add(sSprite);
+                    smokePuffs.push({
+                        sprite: sSprite,
+                        mat: sMat,
+                        velocity: sVel,
+                        rotVel: (Math.random() - 0.5) * 2.8
+                    });
+                }
+
+                this.scene.add(expGroup);
+
+                this.explosions.push({
+                    isSprite: true,
+                    group: expGroup,
+                    coreSprite,
+                    coreMat,
+                    fireSprite,
+                    fireMat,
+                    fireRotVel: (Math.random() - 0.5) * 3.0,
+                    billows,
+                    ringMesh,
+                    ringMat,
+                    smokePuffs,
+                    age: 0,
+                    maxLife: 0.9,
+                    targetRadius: radius || 4.0
+                });
+            } else {
+                // FALLBACK MESH CHO MÔI TRƯỜNG TEST HOẶC CHƯA KỊP NẠP TEXTURE
+                const coreMat = new THREE.MeshBasicMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 1.0,
                     blending: THREE.AdditiveBlending
                 });
-                const bMesh = new THREE.Mesh(this.fireballGeo, bMat);
-                bMesh.position.set(
-                    (Math.random() - 0.5) * 0.6,
-                    Math.random() * 0.4,
-                    (Math.random() - 0.5) * 0.6
-                );
-                bMesh.scale.setScalar(0.35 + Math.random() * 0.25);
-                expGroup.add(bMesh);
-                billows.push({ mesh: bMesh, mat: bMat });
-            }
+                const coreMesh = new THREE.Mesh(this.fireballGeo, coreMat);
+                coreMesh.scale.setScalar(0.4);
+                expGroup.add(coreMesh);
 
-            // 4. Vòng sóng xung kích lan tỏa trên mặt đất (Ground Shockwave Ring)
-            const ringMat = new THREE.MeshBasicMaterial({
-                color: color || 0xff7722,
-                transparent: true,
-                opacity: 0.85,
-                blending: THREE.AdditiveBlending,
-                side: THREE.DoubleSide,
-                depthWrite: false
-            });
-            const ringMesh = new THREE.Mesh(this.shockwaveGeo, ringMat);
-            ringMesh.position.y = 0.05 - position.y; // Căn sát mặt đất world y ~ 0.05
-            ringMesh.scale.setScalar(0.5);
-            expGroup.add(ringMesh);
-
-            // 5. Cụm khói đen/xám bốc lên cuồn cuộn
-            const smokePuffs = [];
-            for (let s = 0; s < 5; s++) {
-                const sMat = new THREE.MeshBasicMaterial({
-                    color: 0x222226,
+                const fireMat = new THREE.MeshBasicMaterial({
+                    color: color || 0xff5500,
                     transparent: true,
-                    opacity: 0.55
+                    opacity: 0.95,
+                    blending: THREE.AdditiveBlending
                 });
-                const sMesh = new THREE.Mesh(this.smokeGeo, sMat);
-                sMesh.position.set(
-                    (Math.random() - 0.5) * 0.8,
-                    Math.random() * 0.5,
-                    (Math.random() - 0.5) * 0.8
-                );
-                const sVel = new THREE.Vector3(
-                    (Math.random() - 0.5) * 1.5,
-                    1.2 + Math.random() * 1.8,
-                    (Math.random() - 0.5) * 1.5
-                );
-                expGroup.add(sMesh);
-                smokePuffs.push({
-                    mesh: sMesh,
-                    mat: sMat,
-                    velocity: sVel,
-                    rotVel: (Math.random() - 0.5) * 4
+                const fireMesh = new THREE.Mesh(this.fireballGeo, fireMat);
+                fireMesh.scale.setScalar(0.6);
+                expGroup.add(fireMesh);
+
+                const billows = [];
+                for (let b = 0; b < 3; b++) {
+                    const bMat = new THREE.MeshBasicMaterial({
+                        color: color || 0xff6600,
+                        transparent: true,
+                        opacity: 0.8,
+                        blending: THREE.AdditiveBlending
+                    });
+                    const bMesh = new THREE.Mesh(this.fireballGeo, bMat);
+                    bMesh.position.set(
+                        (Math.random() - 0.5) * 0.6,
+                        Math.random() * 0.4,
+                        (Math.random() - 0.5) * 0.6
+                    );
+                    bMesh.scale.setScalar(0.35 + Math.random() * 0.25);
+                    expGroup.add(bMesh);
+                    billows.push({ mesh: bMesh, mat: bMat });
+                }
+
+                const ringMat = new THREE.MeshBasicMaterial({
+                    color: color || 0xff7722,
+                    transparent: true,
+                    opacity: 0.85,
+                    blending: THREE.AdditiveBlending,
+                    side: THREE.DoubleSide,
+                    depthWrite: false
+                });
+                const ringMesh = new THREE.Mesh(this.shockwaveGeo, ringMat);
+                ringMesh.position.y = 0.05 - position.y;
+                ringMesh.scale.setScalar(0.5);
+                expGroup.add(ringMesh);
+
+                const smokePuffs = [];
+                for (let s = 0; s < 5; s++) {
+                    const sMat = new THREE.MeshBasicMaterial({
+                        color: 0x222226,
+                        transparent: true,
+                        opacity: 0.55
+                    });
+                    const sMesh = new THREE.Mesh(this.smokeGeo, sMat);
+                    sMesh.position.set(
+                        (Math.random() - 0.5) * 0.8,
+                        Math.random() * 0.5,
+                        (Math.random() - 0.5) * 0.8
+                    );
+                    const sVel = new THREE.Vector3(
+                        (Math.random() - 0.5) * 1.5,
+                        1.2 + Math.random() * 1.8,
+                        (Math.random() - 0.5) * 1.5
+                    );
+                    expGroup.add(sMesh);
+                    smokePuffs.push({
+                        mesh: sMesh,
+                        mat: sMat,
+                        velocity: sVel,
+                        rotVel: (Math.random() - 0.5) * 4
+                    });
+                }
+
+                this.scene.add(expGroup);
+
+                this.explosions.push({
+                    isSprite: false,
+                    group: expGroup,
+                    coreMesh,
+                    coreMat,
+                    fireMesh,
+                    fireMat,
+                    billows,
+                    ringMesh,
+                    ringMat,
+                    smokePuffs,
+                    age: 0,
+                    maxLife: 0.85,
+                    targetRadius: radius || 4.0
                 });
             }
-
-            this.scene.add(expGroup);
-
-            this.explosions.push({
-                group: expGroup,
-                coreMesh,
-                coreMat,
-                fireMesh,
-                fireMat,
-                billows,
-                ringMesh,
-                ringMat,
-                smokePuffs,
-                age: 0,
-                maxLife: 0.85,
-                targetRadius: radius || 4.0
-            });
         }
 
         // Sparks
@@ -423,63 +662,125 @@ export class ParticleSystem {
                 continue;
             }
 
-            // Lõi trắng nở cực nhanh và tắt trong 0.2s
-            if (exp.coreMesh && exp.coreMat) {
-                if (exp.age < 0.2) {
-                    const coreT = exp.age / 0.2;
-                    const scale = 0.4 + (exp.targetRadius * 0.6) * (1 - Math.pow(1 - coreT, 2));
-                    exp.coreMesh.scale.setScalar(scale);
-                    exp.coreMat.opacity = 1 - coreT;
-                } else {
-                    exp.coreMesh.visible = false;
+            if (exp.isSprite) {
+                // XỬ LÝ ANIMATION CHO SPRITE KHÓI LỬA
+                // Lõi trắng nở cực nhanh và tắt trong 0.2s
+                if (exp.coreSprite && exp.coreMat) {
+                    if (exp.age < 0.2) {
+                        const coreT = exp.age / 0.2;
+                        const scale = 0.5 + (exp.targetRadius * 0.75) * (1 - Math.pow(1 - coreT, 2));
+                        exp.coreSprite.scale.set(scale, scale, 1);
+                        exp.coreMat.opacity = 1 - coreT;
+                    } else {
+                        exp.coreSprite.visible = false;
+                    }
                 }
-            }
 
-            // Quả cầu lửa chính nở to và mờ dần trong 0.45s
-            if (exp.fireMesh && exp.fireMat) {
-                if (exp.age < 0.45) {
-                    const fireT = exp.age / 0.45;
-                    const scale = 0.6 + (exp.targetRadius * 0.85) * (1 - Math.pow(1 - fireT, 3));
-                    exp.fireMesh.scale.setScalar(scale);
-                    exp.fireMat.opacity = Math.max(0, 0.95 * (1 - fireT));
-                } else {
-                    exp.fireMesh.visible = false;
+                // Cầu lửa chính nở to rực sáng và mờ dần trong 0.45s
+                if (exp.fireSprite && exp.fireMat) {
+                    if (exp.age < 0.45) {
+                        const fireT = exp.age / 0.45;
+                        const scale = 0.8 + (exp.targetRadius * 1.15) * (1 - Math.pow(1 - fireT, 3));
+                        exp.fireSprite.scale.set(scale, scale, 1);
+                        exp.fireMat.opacity = Math.max(0, 0.95 * (1 - fireT));
+                        exp.fireMat.rotation += exp.fireRotVel * delta;
+                    } else {
+                        exp.fireSprite.visible = false;
+                    }
                 }
-            }
 
-            // Các khối lửa billow cuộn xoay nhẹ
-            for (const b of exp.billows) {
-                if (exp.age < 0.45) {
-                    const fireT = exp.age / 0.45;
-                    b.mesh.scale.setScalar((0.5 + exp.targetRadius * 0.6) * (1 - Math.pow(1 - fireT, 2.5)));
-                    b.mat.opacity = Math.max(0, 0.8 * (1 - fireT));
-                    b.mesh.rotation.y += delta * 2.0;
-                } else {
-                    b.mesh.visible = false;
+                // Các khối lửa phụ cuộn xoay nhẹ
+                for (const b of exp.billows) {
+                    if (exp.age < 0.45) {
+                        const fireT = exp.age / 0.45;
+                        const scale = (0.6 + exp.targetRadius * 0.8) * (1 - Math.pow(1 - fireT, 2.5));
+                        b.sprite.scale.set(scale, scale, 1);
+                        b.mat.opacity = Math.max(0, 0.85 * (1 - fireT));
+                        b.mat.rotation += b.rotVel * delta;
+                    } else {
+                        b.sprite.visible = false;
+                    }
                 }
-            }
 
-            // Vòng sóng xung kích lan tỏa trên mặt đất trong 0.38s
-            if (exp.ringMesh && exp.ringMat) {
-                if (exp.age < 0.38) {
-                    const ringT = exp.age / 0.38;
-                    const ringScale = 0.5 + (exp.targetRadius * 1.5) * (1 - Math.pow(1 - ringT, 2));
-                    exp.ringMesh.scale.setScalar(ringScale);
-                    exp.ringMat.opacity = Math.max(0, 0.85 * (1 - ringT * ringT));
-                } else {
-                    exp.ringMesh.visible = false;
+                // Vòng sóng xung kích lan tỏa trên mặt đất trong 0.38s
+                if (exp.ringMesh && exp.ringMat) {
+                    if (exp.age < 0.38) {
+                        const ringT = exp.age / 0.38;
+                        const ringScale = 0.5 + (exp.targetRadius * 1.5) * (1 - Math.pow(1 - ringT, 2));
+                        exp.ringMesh.scale.setScalar(ringScale);
+                        exp.ringMat.opacity = Math.max(0, 0.85 * (1 - ringT * ringT));
+                    } else {
+                        exp.ringMesh.visible = false;
+                    }
                 }
-            }
 
-            // Khói bốc lên cuồn cuộn và tan dần
-            for (const s of exp.smokePuffs) {
-                s.mesh.position.addScaledVector(s.velocity, delta);
-                s.velocity.y += delta * 0.5;
-                s.mesh.rotation.y += s.rotVel * delta;
-                const smokeT = exp.age / exp.maxLife;
-                const sScale = 0.6 + (exp.targetRadius * 0.4) * (0.5 + smokeT * 1.5);
-                s.mesh.scale.setScalar(sScale);
-                s.mat.opacity = Math.max(0, 0.55 * (1 - smokeT));
+                // Khói bốc lên cuồn cuộn, nở to và tan biến mềm mại
+                for (const s of exp.smokePuffs) {
+                    s.sprite.position.addScaledVector(s.velocity, delta);
+                    s.velocity.y += delta * 0.4;
+                    s.velocity.x *= 0.98;
+                    s.velocity.z *= 0.98;
+                    s.mat.rotation += s.rotVel * delta;
+                    const smokeT = exp.age / exp.maxLife;
+                    const sScale = 0.8 + (exp.targetRadius * 0.5) * (0.6 + smokeT * 1.8);
+                    s.sprite.scale.set(sScale, sScale, 1);
+                    s.mat.opacity = Math.max(0, 0.68 * (1 - smokeT));
+                }
+            } else {
+                // FALLBACK MESH NẾU CHƯA CÓ TEXTURE
+                if (exp.coreMesh && exp.coreMat) {
+                    if (exp.age < 0.2) {
+                        const coreT = exp.age / 0.2;
+                        const scale = 0.4 + (exp.targetRadius * 0.6) * (1 - Math.pow(1 - coreT, 2));
+                        exp.coreMesh.scale.setScalar(scale);
+                        exp.coreMat.opacity = 1 - coreT;
+                    } else {
+                        exp.coreMesh.visible = false;
+                    }
+                }
+
+                if (exp.fireMesh && exp.fireMat) {
+                    if (exp.age < 0.45) {
+                        const fireT = exp.age / 0.45;
+                        const scale = 0.6 + (exp.targetRadius * 0.85) * (1 - Math.pow(1 - fireT, 3));
+                        exp.fireMesh.scale.setScalar(scale);
+                        exp.fireMat.opacity = Math.max(0, 0.95 * (1 - fireT));
+                    } else {
+                        exp.fireMesh.visible = false;
+                    }
+                }
+
+                for (const b of exp.billows) {
+                    if (exp.age < 0.45) {
+                        const fireT = exp.age / 0.45;
+                        b.mesh.scale.setScalar((0.5 + exp.targetRadius * 0.6) * (1 - Math.pow(1 - fireT, 2.5)));
+                        b.mat.opacity = Math.max(0, 0.8 * (1 - fireT));
+                        b.mesh.rotation.y += delta * 2.0;
+                    } else {
+                        b.mesh.visible = false;
+                    }
+                }
+
+                if (exp.ringMesh && exp.ringMat) {
+                    if (exp.age < 0.38) {
+                        const ringT = exp.age / 0.38;
+                        const ringScale = 0.5 + (exp.targetRadius * 1.5) * (1 - Math.pow(1 - ringT, 2));
+                        exp.ringMesh.scale.setScalar(ringScale);
+                        exp.ringMat.opacity = Math.max(0, 0.85 * (1 - ringT * ringT));
+                    } else {
+                        exp.ringMesh.visible = false;
+                    }
+                }
+
+                for (const s of exp.smokePuffs) {
+                    s.mesh.position.addScaledVector(s.velocity, delta);
+                    s.velocity.y += delta * 0.5;
+                    s.mesh.rotation.y += s.rotVel * delta;
+                    const smokeT = exp.age / exp.maxLife;
+                    const sScale = 0.6 + (exp.targetRadius * 0.4) * (0.5 + smokeT * 1.5);
+                    s.mesh.scale.setScalar(sScale);
+                    s.mat.opacity = Math.max(0, 0.55 * (1 - smokeT));
+                }
             }
         }
     }

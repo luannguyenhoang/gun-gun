@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { sounds } from '../../audio/audio.js';
+import { sounds } from '../../audio/audio.js?v=58';
 import { HealthBar3D } from '../../rendering/healthbar.js';
 import { CHARACTER_CONFIGS, normalizeCharacter } from './characters.js';
 
@@ -337,6 +337,7 @@ export class PlayerController {
             }
             if (e.button === 0) {
                 this.mouseButtons.left = false;
+                sounds.stopContinuousFire?.();
                 // Nếu đang giữ chuột ngắm ném bom -> Tiến hành ném bom khi nhả chuột
                 if (this.isAimingBomb) {
                     this.isAimingBomb = false;
@@ -1756,6 +1757,10 @@ export class PlayerController {
 
             const dmgMult = (this.damageMult || 1.0) * (this.activeSkillEffect === 'overdrive' ? 1.25 : 1.0);
             this.weapons.shoot(muzzlePos, this.aimPoint, this.isADS, true, dmgMult, this);
+        } else {
+            if (!this.mouseButtons.left && sounds?.stopContinuousFire) {
+                sounds.stopContinuousFire();
+            }
         }
     }
 

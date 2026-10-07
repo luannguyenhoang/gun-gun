@@ -1,7 +1,7 @@
 import { SkyBombs } from './skybombs.js';
 import * as THREE from 'three';
 import * as SkeletonUtils from '../../../vendor/SkeletonUtils.js';
-import { sounds } from '../../audio/audio.js';
+import { sounds } from '../../audio/audio.js?v=52';
 import { HealthBar3D } from '../../rendering/healthbar.js';
 
 // Ban kinh va cham vat ly theo loai quai

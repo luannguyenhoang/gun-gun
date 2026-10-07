@@ -10,7 +10,16 @@ class SoundManager {
         this.enabled = true;
         this.musicEnabled = true;
         this.masterVolume = 0.8;
-        this.musicVolume = 0.35;
+        this.musicVolume = 0.4;
+        this.sfxVolume = 0.8;
+        if (typeof localStorage !== 'undefined') {
+            try {
+                const savedM = localStorage.getItem('arena_music_volume');
+                if (savedM !== null) this.musicVolume = Math.max(0, Math.min(1, parseFloat(savedM)));
+                const savedS = localStorage.getItem('arena_sfx_volume');
+                if (savedS !== null) this.sfxVolume = Math.max(0, Math.min(1, parseFloat(savedS)));
+            } catch {}
+        }
         this.sounds = {
             blaster: 'assets/sounds/blaster.ogg',
             repeater: 'assets/sounds/blaster_repeater.ogg',
@@ -20,16 +29,31 @@ class SoundManager {
             jump: 'assets/sounds/jump_a.ogg',
             land: 'assets/sounds/land.ogg',
             step: 'assets/sounds/walking.ogg',
-            switchWeapon: 'assets/sounds/weapon_change.ogg'
+            switchWeapon: 'assets/sounds/weapon_change.ogg',
+            // Âm thanh và nhạc nền chiến đấu mới bổ sung
+            bgmBattle: 'assets/sounds/freesound_community-battle-march-action-loop-6935.mp3',
+            gunM249: 'assets/sounds/freesound_community-069321_light-machine-gun-m249-39814.mp3',
+            gunBurst: 'assets/sounds/freesound_community-clean-machine-gun-burst-98224.mp3',
+            gunDistance: 'assets/sounds/freesound_community-gun-shots-from-a-distance-8-39860.mp3'
         };
         this.isMusicPlaying = false;
         this.musicInterval = null;
+        this.bgmSource = null;
+        this.sfxGain = null;
         this.lastHitMarkerTime = 0;
         this.lastEnemyHurtTime = 0;
         this.lastEnemyDeathTime = 0;
+        this.shotOffsets = {};
+        this.activeShotVoice = null;
+        this.continuousFireVoice = null;
+        this.continuousFireTimer = null;
         if (typeof window !== 'undefined') {
             window.__gameSoundManager = this;
         }
+    }
+
+    get sfxDestination() {
+        return this.sfxGain || this.masterGain;
     }
 
     init() {
@@ -48,8 +72,12 @@ class SoundManager {
         this.masterGain.connect(this.ctx.destination);
 
         this.musicGain = this.ctx.createGain();
-        this.musicGain.gain.value = this.musicVolume;
+        this.musicGain.gain.value = (this.musicEnabled && this.enabled) ? this.musicVolume : 0;
         this.musicGain.connect(this.masterGain);
+
+        this.sfxGain = this.ctx.createGain();
+        this.sfxGain.gain.value = this.enabled ? this.sfxVolume : 0;
+        this.sfxGain.connect(this.masterGain);
 
         // Mở khóa tự động Web Audio khi có tương tác đầu tiên của người dùng
         const unlock = () => {
@@ -76,6 +104,41 @@ class SoundManager {
         }
     }
 
+    detectTransients(audioBuffer, minGapSec = 0.11) {
+        if (!audioBuffer) return [0];
+        try {
+            const data = audioBuffer.getChannelData(0);
+            const sampleRate = audioBuffer.sampleRate;
+            const minSamples = Math.floor(minGapSec * sampleRate);
+            const windowSize = Math.floor(0.008 * sampleRate); // Cửa sổ ~8ms
+            
+            let maxEnergy = 0;
+            const energies = [];
+            for (let i = 0; i < data.length - windowSize; i += windowSize) {
+                let sum = 0;
+                for (let j = 0; j < windowSize; j++) {
+                    sum += Math.abs(data[i + j]);
+                }
+                const avg = sum / windowSize;
+                energies.push({ idx: i, energy: avg });
+                if (avg > maxEnergy) maxEnergy = avg;
+            }
+
+            const threshold = maxEnergy * 0.35;
+            const offsets = [];
+            let lastSampleIdx = -minSamples;
+            for (const e of energies) {
+                if (e.energy > threshold && (e.idx - lastSampleIdx) >= minSamples) {
+                    offsets.push(e.idx / sampleRate);
+                    lastSampleIdx = e.idx;
+                }
+            }
+            return offsets.length > 0 ? offsets : [0];
+        } catch {
+            return [0];
+        }
+    }
+
     async loadAllSounds() {
         for (const [key, path] of Object.entries(this.sounds)) {
             try {
@@ -83,6 +146,16 @@ class SoundManager {
                 const arrayBuffer = await response.arrayBuffer();
                 const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
                 this.buffers[key] = audioBuffer;
+
+                // Tự động phân tích các mốc phát súng đơn lẻ từ tệp âm thanh thực tế
+                if (key.startsWith('gun')) {
+                    this.shotOffsets[key] = this.detectTransients(audioBuffer, key === 'gunDistance' ? 0.35 : 0.12);
+                }
+
+                // Nếu tải xong nhạc nền Battle March và trạng thái nhạc đang bật thì kích hoạt phát
+                if (key === 'bgmBattle' && this.musicEnabled && this.isMusicPlaying && !this.bgmSource) {
+                    this.startMusic();
+                }
             } catch (err) {
                 console.warn(`Could not load audio [${key}] from ${path}:`, err);
             }
@@ -120,10 +193,85 @@ class SoundManager {
         source.playbackRate.value = Math.max(0.5, Math.min(2.0, rate));
 
         source.connect(gainNode);
-        gainNode.connect(this.masterGain);
+        gainNode.connect(this.sfxDestination);
 
         source.start(0);
         return source;
+    }
+
+    // Bắt đầu hoặc duy trì luồng âm thanh xả đạn liên thanh tự nhiên 100% nguyên bản từ tệp MP3
+    startContinuousFire(bufferKey = 'gunBurst', volume = 0.92, rate = 1.0) {
+        if (!this.enabled || !this.ctx) return;
+        this.resume();
+
+        const t = this.ctx.currentTime;
+        // Nếu luồng xả đạn đang chạy với cùng mẫu âm thanh: chỉ cần gia hạn timeout dừng
+        if (this.continuousFireVoice && this.continuousFireVoice.bufferKey === bufferKey) {
+            this.renewContinuousFireTimeout();
+            return;
+        }
+
+        // Nếu chuyển sang dòng súng khác, ngắt luồng trước đó ngay
+        this.stopContinuousFire(true);
+
+        const buffer = this.buffers[bufferKey] || this.buffers['gunBurst'] || this.buffers['gunM249'] || this.buffers['blaster'];
+        if (!buffer) return;
+
+        try {
+            const source = this.ctx.createBufferSource();
+            source.buffer = buffer;
+            source.loop = true; // Phát lặp mượt mà chuỗi đạn xả của tệp gốc
+            source.playbackRate.value = rate;
+
+            const gainNode = this.ctx.createGain();
+            gainNode.gain.setValueAtTime(volume, t);
+
+            source.connect(gainNode);
+            gainNode.connect(this.sfxDestination);
+            source.start(t);
+
+            this.continuousFireVoice = { source, gainNode, bufferKey, volume };
+            this.renewContinuousFireTimeout();
+        } catch (err) {
+            console.warn('Lỗi khi phát luồng âm thanh xả đạn:', err);
+        }
+    }
+
+    renewContinuousFireTimeout(timeoutMs = 260) {
+        if (this.continuousFireTimer) {
+            clearTimeout(this.continuousFireTimer);
+        }
+        // Nếu sau 260ms không có lệnh bắn tiếp theo (người chơi nhả chuột), tự động fade-out và dừng luồng
+        this.continuousFireTimer = setTimeout(() => {
+            this.stopContinuousFire();
+        }, timeoutMs);
+    }
+
+    stopContinuousFire(immediate = false) {
+        if (this.continuousFireTimer) {
+            clearTimeout(this.continuousFireTimer);
+            this.continuousFireTimer = null;
+        }
+        if (this.continuousFireVoice) {
+            const { source, gainNode, volume } = this.continuousFireVoice;
+            this.continuousFireVoice = null;
+            if (this.ctx) {
+                const t = this.ctx.currentTime;
+                // Đuôi fade-out âm vang tiếng súng tự nhiên (0.28s) khi ngừng bắn
+                const fadeTime = immediate ? 0.02 : 0.28;
+                try {
+                    const curGain = gainNode.gain.value || volume || 0.9;
+                    gainNode.gain.cancelScheduledValues(t);
+                    gainNode.gain.setValueAtTime(curGain, t);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, t + fadeTime);
+                    source.stop(t + fadeTime);
+                } catch {}
+            }
+        }
+    }
+
+    stopShot() {
+        this.stopContinuousFire();
     }
 
     playShot(weaponType = 'blaster') {
@@ -135,136 +283,36 @@ class SoundManager {
         const t = this.ctx.currentTime;
         const type = (weaponType || 'blaster').toLowerCase();
 
-        // Cấu hình âm thanh chuyên biệt theo từng dòng súng: trầm ấm, uy lực, triệt tiêu dải treble chói tai
-        let config = {
-            bassStart: 130,
-            bassEnd: 38,
-            bassDuration: 0.12,
-            bassVolume: 0.46,
-            noiseFreq: 920,
-            noiseBandwidth: 1.8,
-            noiseDuration: 0.08,
-            noiseVolume: 0.26,
-            sampleRate: 0.68,
-            sampleVolume: 0.32,
-            lowpassCutoff: 1800
-        };
-
-        if (type.includes('repeater') || type.includes('storm') || type.includes('ak47') || type.includes('rifle')) {
-            // Súng trường / súng liên thanh: tiếng đầm, nhịp nổ dứt khoát, bass chắc, bắn liên thanh không bị mỏi tai
-            config = {
-                bassStart: 115,
-                bassEnd: 40,
-                bassDuration: 0.09,
-                bassVolume: 0.42,
-                noiseFreq: 820,
-                noiseBandwidth: 2.0,
-                noiseDuration: 0.065,
-                noiseVolume: 0.22,
-                sampleRate: 0.70,
-                sampleVolume: 0.28,
-                lowpassCutoff: 1550
-            };
-        } else if (type.includes('scatter') || type.includes('nova') || type.includes('shotgun')) {
-            // Shotgun: tiếng nổ bùng cực kỳ uy lực, sub-bass dày sâu rung chuyển
-            config = {
-                bassStart: 105,
-                bassEnd: 28,
-                bassDuration: 0.22,
-                bassVolume: 0.62,
-                noiseFreq: 700,
-                noiseBandwidth: 2.2,
-                noiseDuration: 0.13,
-                noiseVolume: 0.38,
-                sampleRate: 0.56,
-                sampleVolume: 0.36,
-                lowpassCutoff: 1350
-            };
-        } else if (type.includes('sniper') || type.includes('railgun')) {
-            // Súng ngắm: tiếng nổ vang trầm dội, lực đập mạnh mẽ
-            config = {
-                bassStart: 145,
-                bassEnd: 26,
-                bassDuration: 0.28,
-                bassVolume: 0.68,
-                noiseFreq: 880,
-                noiseBandwidth: 1.6,
-                noiseDuration: 0.15,
-                noiseVolume: 0.42,
-                sampleRate: 0.52,
-                sampleVolume: 0.42,
-                lowpassCutoff: 1450
-            };
-        }
-
-        // TẦNG 1: SUB-BASS THUMP (Cú đấm trầm ấm - loại bỏ hoàn toàn cảm giác chói tai, tạo độ nặng vật lý)
-        try {
-            const osc = this.ctx.createOscillator();
-            const oscGain = this.ctx.createGain();
-            osc.type = 'sine';
-            const pitchShift = (Math.random() - 0.5) * 6;
-            osc.frequency.setValueAtTime(config.bassStart + pitchShift, t);
-            osc.frequency.exponentialRampToValueAtTime(config.bassEnd, t + config.bassDuration);
-
-            oscGain.gain.setValueAtTime(config.bassVolume, t);
-            oscGain.gain.exponentialRampToValueAtTime(0.001, t + config.bassDuration);
-
-            osc.connect(oscGain);
-            oscGain.connect(this.masterGain);
-            osc.start(t);
-            osc.stop(t + config.bassDuration);
-        } catch {}
-
-        // TẦNG 2: MECHANICAL NOISE CRACK (Tiếng nổ đanh cơ học qua bộ lọc Bandpass cắt sạch dải treble the thé)
-        try {
-            const bufferSize = Math.floor(this.ctx.sampleRate * config.noiseDuration);
-            const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-            const noiseData = noiseBuffer.getChannelData(0);
-            for (let i = 0; i < bufferSize; i++) {
-                noiseData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
-            }
-            const noiseSource = this.ctx.createBufferSource();
-            noiseSource.buffer = noiseBuffer;
-
-            const noiseFilter = this.ctx.createBiquadFilter();
-            noiseFilter.type = 'bandpass';
-            noiseFilter.frequency.setValueAtTime(config.noiseFreq, t);
-            noiseFilter.Q.setValueAtTime(config.noiseBandwidth, t);
-
-            const noiseGain = this.ctx.createGain();
-            noiseGain.gain.setValueAtTime(config.noiseVolume, t);
-            noiseGain.gain.exponentialRampToValueAtTime(0.001, t + config.noiseDuration);
-
-            noiseSource.connect(noiseFilter);
-            noiseFilter.connect(noiseGain);
-            noiseGain.connect(this.masterGain);
-            noiseSource.start(t);
-        } catch {}
-
-        // TẦNG 3: SAMPLE LAYER QUA BỘ LỌC LOWPASS (Hạ pitch sâu và cắt hoàn toàn tần số cao >1.8kHz)
-        const bufferName = (type.includes('repeater') || type.includes('storm')) ? 'repeater' : 'blaster';
-        const sampleBuffer = this.buffers[bufferName];
-        if (sampleBuffer) {
+        // 1. SÚNG NGẮM SNIPER (bắn phát một uy lực cao): phát độc lập âm vang dội sấm sét
+        const isSniper = type.includes('sniper') || type.includes('railgun') || type.includes('blaster_i') || type.includes('sharpshooter');
+        if (isSniper) {
+            const buffer = this.buffers['gunDistance'] || this.buffers['gunBurst'];
+            if (!buffer) return;
             try {
-                const sampleSource = this.ctx.createBufferSource();
-                sampleSource.buffer = sampleBuffer;
-                sampleSource.playbackRate.value = config.sampleRate + (Math.random() - 0.5) * 0.04;
+                const source = this.ctx.createBufferSource();
+                source.buffer = buffer;
+                source.playbackRate.value = 0.98;
 
-                const lpFilter = this.ctx.createBiquadFilter();
-                lpFilter.type = 'lowpass';
-                lpFilter.frequency.setValueAtTime(config.lowpassCutoff, t);
+                const gainNode = this.ctx.createGain();
+                gainNode.gain.setValueAtTime(0.98, t);
+                gainNode.gain.setValueAtTime(0.98, t + 0.85);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
 
-                const sampleGain = this.ctx.createGain();
-                sampleGain.gain.setValueAtTime(config.sampleVolume, t);
-                sampleGain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
-
-                sampleSource.connect(lpFilter);
-                lpFilter.connect(sampleGain);
-                sampleGain.connect(this.masterGain);
-                sampleSource.start(t);
-                sampleSource.stop(t + 0.14);
+                source.connect(gainNode);
+                gainNode.connect(this.sfxDestination);
+                source.start(t);
+                source.stop(t + 1.4);
             } catch {}
+            return;
         }
+
+        // 2. TẤT CẢ CÁC KHẨU SÚNG CÒN LẠI (kể cả blaster mặc định, blaster-a, b, c, d, e, rifle, m249...):
+        // Áp dụng CƠ CHẾ XẢ ĐẠN NGUYÊN BẢN TỆP MP3, NGỪNG BẮN LÀ FADE OUT ÂM VANG DỪNG LẠI!
+        const isHeavy = type.includes('m249') || type.includes('machinegun') || type.includes('repeater') || type.includes('blaster_e');
+        const bufferKey = isHeavy ? 'gunM249' : 'gunBurst';
+        const rate = (type.includes('scatter') || type.includes('shotgun') || type.includes('blaster_f') || type.includes('blaster_g')) ? 0.88 : 1.0;
+
+        this.startContinuousFire(bufferKey, 0.92, rate);
     }
 
     playHitMarker(isCrit = false) {
@@ -292,7 +340,7 @@ class SoundManager {
                 subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
 
                 subOsc.connect(subGain);
-                subGain.connect(this.masterGain);
+                subGain.connect(this.sfxDestination);
                 subOsc.start(t);
                 subOsc.stop(t + 0.07);
 
@@ -309,7 +357,7 @@ class SoundManager {
                     bellGain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
 
                     bellOsc.connect(bellGain);
-                    bellGain.connect(this.masterGain);
+                    bellGain.connect(this.sfxDestination);
                     bellOsc.start(t);
                     bellOsc.stop(t + 0.08);
                 });
@@ -329,7 +377,7 @@ class SoundManager {
                 thudGain.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
 
                 thudOsc.connect(thudGain);
-                thudGain.connect(this.masterGain);
+                thudGain.connect(this.sfxDestination);
                 thudOsc.start(t);
                 thudOsc.stop(t + 0.045);
 
@@ -354,7 +402,7 @@ class SoundManager {
 
                 noiseSrc.connect(bpFilter);
                 bpFilter.connect(noiseGain);
-                noiseGain.connect(this.masterGain);
+                noiseGain.connect(this.sfxDestination);
                 noiseSrc.start(t);
             } catch {}
         }
@@ -395,7 +443,7 @@ class SoundManager {
 
             osc.connect(filter);
             filter.connect(gain);
-            gain.connect(this.masterGain);
+            gain.connect(this.sfxDestination);
 
             osc.start(t);
             osc.stop(t + 0.13);
@@ -432,7 +480,7 @@ class SoundManager {
             gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
 
             osc.connect(gain);
-            gain.connect(this.masterGain);
+            gain.connect(this.sfxDestination);
             osc.start(t);
             osc.stop(t + duration);
         } catch {}
@@ -459,7 +507,7 @@ class SoundManager {
 
             noiseSrc.connect(lpFilter);
             lpFilter.connect(noiseGain);
-            noiseGain.connect(this.masterGain);
+            noiseGain.connect(this.sfxDestination);
             noiseSrc.start(t);
         } catch {}
 
@@ -475,7 +523,7 @@ class SoundManager {
             popGain.gain.exponentialRampToValueAtTime(0.001, t + 0.055);
 
             popOsc.connect(popGain);
-            popGain.connect(this.masterGain);
+            popGain.connect(this.sfxDestination);
             popOsc.start(t);
             popOsc.stop(t + 0.055);
         } catch {}
@@ -495,7 +543,7 @@ class SoundManager {
         gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
 
         osc.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxDestination);
         osc.start();
         osc.stop(this.ctx.currentTime + 0.15);
     }
@@ -515,7 +563,7 @@ class SoundManager {
         gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
 
         osc.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxDestination);
         osc.start();
         osc.stop(this.ctx.currentTime + 0.15);
     }
@@ -536,7 +584,7 @@ class SoundManager {
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
 
         osc.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxDestination);
         osc.start(t);
         osc.stop(t + 0.04);
     }
@@ -558,7 +606,7 @@ class SoundManager {
             gain.gain.exponentialRampToValueAtTime(0.001, t + offset + 0.07);
 
             osc.connect(gain);
-            gain.connect(this.masterGain);
+            gain.connect(this.sfxDestination);
             osc.start(t + offset);
             osc.stop(t + offset + 0.07);
         });
@@ -583,7 +631,7 @@ class SoundManager {
             gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
 
             osc.connect(gain);
-            gain.connect(this.masterGain);
+            gain.connect(this.sfxDestination);
             osc.start(t);
             osc.stop(t + 0.07);
 
@@ -598,7 +646,7 @@ class SoundManager {
             clinkGain.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
 
             clinkOsc.connect(clinkGain);
-            clinkGain.connect(this.masterGain);
+            clinkGain.connect(this.sfxDestination);
             clinkOsc.start(t);
             clinkOsc.stop(t + 0.035);
         } catch {}
@@ -620,7 +668,7 @@ class SoundManager {
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
 
         osc.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxDestination);
         osc.start(t);
         osc.stop(t + 0.35);
     }
@@ -641,7 +689,7 @@ class SoundManager {
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
 
         osc.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxDestination);
         osc.start(t);
         osc.stop(t + 0.32);
     }
@@ -673,7 +721,7 @@ class SoundManager {
 
         noise.connect(filter);
         filter.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxDestination);
         noise.start(t);
     }
 
@@ -693,7 +741,7 @@ class SoundManager {
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
 
         osc.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxDestination);
         osc.start(t);
         osc.stop(t + 0.22);
     }
@@ -714,7 +762,7 @@ class SoundManager {
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
 
         osc.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxDestination);
         osc.start(t);
         osc.stop(t + 0.09);
     }
@@ -762,113 +810,55 @@ class SoundManager {
         } else {
             filter.connect(gain);
         }
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxDestination);
 
         osc.start(t);
         osc.stop(t + duration);
     }
 
-    // Procedural Cyberpunk Bass & Synth Music Track
+    // Nhạc nền chiến đấu Battle March Action Loop chất lượng cao
     startMusic() {
-        if (!this.musicEnabled || this.isMusicPlaying || !this.ctx) return;
+        if (!this.musicEnabled || !this.ctx) return;
         this.resume();
         this.isMusicPlaying = true;
 
-        const bpm = 124;
-        const stepTime = (60 / bpm) / 4; // 16th note
-        let step = 0;
+        if (this.musicInterval) {
+            clearInterval(this.musicInterval);
+            this.musicInterval = null;
+        }
 
-        const bassNotes = [36, 36, 48, 36, 41, 36, 44, 43]; // MIDI notes (C2, etc.)
-        const leadNotes = [60, 63, 67, 70, 72, 70, 67, 63];
+        // Dừng nguồn phát nhạc cũ nếu đang chạy
+        if (this.bgmSource) {
+            try {
+                this.bgmSource.stop();
+                this.bgmSource.disconnect();
+            } catch {}
+            this.bgmSource = null;
+        }
 
-        const midiToFreq = (m) => 440 * Math.pow(2, (m - 69) / 12);
-
-        this.musicInterval = setInterval(() => {
-            if (!this.musicEnabled || !this.ctx) return;
-            const t = this.ctx.currentTime;
-
-            // Kick drum on beats 0, 4, 8, 12
-            if (step % 4 === 0) {
-                const kickOsc = this.ctx.createOscillator();
-                const kickGain = this.ctx.createGain();
-                kickOsc.type = 'sine';
-                kickOsc.frequency.setValueAtTime(130, t);
-                kickOsc.frequency.exponentialRampToValueAtTime(35, t + 0.1);
-                kickGain.gain.setValueAtTime(0.4, t);
-                kickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
-                kickOsc.connect(kickGain);
-                kickGain.connect(this.musicGain);
-                kickOsc.start(t);
-                kickOsc.stop(t + 0.15);
+        const bgmBuffer = this.buffers['bgmBattle'];
+        if (bgmBuffer) {
+            try {
+                const source = this.ctx.createBufferSource();
+                source.buffer = bgmBuffer;
+                source.loop = true;
+                source.connect(this.musicGain);
+                source.start(0);
+                this.bgmSource = source;
+            } catch (err) {
+                console.warn('Lỗi khi phát nhạc nền Battle March:', err);
             }
-
-            // Hi-hat on every off-beat
-            if (step % 2 === 1) {
-                const bSize = this.ctx.sampleRate * 0.03;
-                const buffer = this.ctx.createBuffer(1, bSize, this.ctx.sampleRate);
-                const data = buffer.getChannelData(0);
-                for (let i = 0; i < bSize; i++) {
-                    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bSize * 0.3));
-                }
-                const noise = this.ctx.createBufferSource();
-                noise.buffer = buffer;
-                const noiseFilter = this.ctx.createBiquadFilter();
-                noiseFilter.type = 'highpass';
-                noiseFilter.frequency.value = 7000;
-                const hGain = this.ctx.createGain();
-                hGain.gain.value = 0.08;
-                noise.connect(noiseFilter);
-                noiseFilter.connect(hGain);
-                hGain.connect(this.musicGain);
-                noise.start(t);
-            }
-
-            // Bass pulse
-            if (step % 2 === 0) {
-                const noteIdx = Math.floor(step / 2) % bassNotes.length;
-                const freq = midiToFreq(bassNotes[noteIdx]);
-                const bOsc = this.ctx.createOscillator();
-                const bFilter = this.ctx.createBiquadFilter();
-                const bGain = this.ctx.createGain();
-
-                bOsc.type = 'sawtooth';
-                bOsc.frequency.setValueAtTime(freq, t);
-
-                bFilter.type = 'lowpass';
-                bFilter.frequency.setValueAtTime(600, t);
-                bFilter.frequency.exponentialRampToValueAtTime(200, t + 0.12);
-
-                bGain.gain.setValueAtTime(0.22, t);
-                bGain.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
-
-                bOsc.connect(bFilter);
-                bFilter.connect(bGain);
-                bGain.connect(this.musicGain);
-                bOsc.start(t);
-                bOsc.stop(t + 0.14);
-            }
-
-            // Arpeggio synth lead
-            if (step % 4 === 2) {
-                const lIdx = Math.floor(step / 4) % leadNotes.length;
-                const freq = midiToFreq(leadNotes[lIdx]);
-                const lOsc = this.ctx.createOscillator();
-                const lGain = this.ctx.createGain();
-                lOsc.type = 'square';
-                lOsc.frequency.setValueAtTime(freq, t);
-                lGain.gain.setValueAtTime(0.07, t);
-                lGain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-                lOsc.connect(lGain);
-                lGain.connect(this.musicGain);
-                lOsc.start(t);
-                lOsc.stop(t + 0.2);
-            }
-
-            step = (step + 1) % 32;
-        }, stepTime * 1000);
+        }
     }
 
     stopMusic() {
+        if (this.bgmSource) {
+            try {
+                this.bgmSource.stop();
+                this.bgmSource.disconnect();
+            } catch {}
+            this.bgmSource = null;
+        }
         if (this.musicInterval) {
             clearInterval(this.musicInterval);
             this.musicInterval = null;
@@ -876,8 +866,34 @@ class SoundManager {
         this.isMusicPlaying = false;
     }
 
+    setMusicVolume(val) {
+        this.musicVolume = Math.max(0, Math.min(1, parseFloat(val)));
+        if (typeof localStorage !== 'undefined') {
+            try { localStorage.setItem('arena_music_volume', this.musicVolume.toString()); } catch {}
+        }
+        if (this.musicGain && this.ctx) {
+            this.musicGain.gain.setValueAtTime((this.musicEnabled && this.enabled) ? this.musicVolume : 0, this.ctx.currentTime);
+        }
+        if (this.musicVolume > 0 && this.musicEnabled && this.enabled && !this.bgmSource) {
+            this.startMusic();
+        }
+    }
+
+    setSfxVolume(val) {
+        this.sfxVolume = Math.max(0, Math.min(1, parseFloat(val)));
+        if (typeof localStorage !== 'undefined') {
+            try { localStorage.setItem('arena_sfx_volume', this.sfxVolume.toString()); } catch {}
+        }
+        if (this.sfxGain && this.ctx) {
+            this.sfxGain.gain.setValueAtTime(this.enabled ? this.sfxVolume : 0, this.ctx.currentTime);
+        }
+    }
+
     toggleMusic() {
         this.musicEnabled = !this.musicEnabled;
+        if (this.musicGain && this.ctx) {
+            this.musicGain.gain.setValueAtTime((this.musicEnabled && this.enabled) ? this.musicVolume : 0, this.ctx.currentTime);
+        }
         if (!this.musicEnabled) {
             this.stopMusic();
         } else {
@@ -888,6 +904,12 @@ class SoundManager {
 
     toggleAudio() {
         this.enabled = !this.enabled;
+        if (this.sfxGain && this.ctx) {
+            this.sfxGain.gain.setValueAtTime(this.enabled ? this.sfxVolume : 0, this.ctx.currentTime);
+        }
+        if (this.musicGain && this.ctx) {
+            this.musicGain.gain.setValueAtTime((this.musicEnabled && this.enabled) ? this.musicVolume : 0, this.ctx.currentTime);
+        }
         if (!this.enabled) {
             this.stopMusic();
         } else if (this.musicEnabled) {
@@ -911,7 +933,7 @@ class SoundManager {
         gain1.gain.setValueAtTime(0.4, t);
         gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
         osc1.connect(gain1);
-        gain1.connect(this.masterGain);
+        gain1.connect(this.sfxDestination);
         osc1.start(t);
         osc1.stop(t + 0.05);
 
@@ -923,7 +945,7 @@ class SoundManager {
         gain2.gain.setValueAtTime(0.45, t + 0.05);
         gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
         osc2.connect(gain2);
-        gain2.connect(this.masterGain);
+        gain2.connect(this.sfxDestination);
         osc2.start(t + 0.05);
         osc2.stop(t + 0.12);
     }
@@ -942,7 +964,7 @@ class SoundManager {
         gain.gain.setValueAtTime(0.35, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
         osc.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxDestination);
         osc.start(t);
         osc.stop(t + 0.09);
     }
@@ -975,7 +997,7 @@ class SoundManager {
 
         noise.connect(filter);
         filter.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxDestination);
         noise.start(t);
     }
 
@@ -993,7 +1015,7 @@ class SoundManager {
         gain.gain.setValueAtTime(0.2, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
         osc.connect(gain);
-        gain.connect(this.masterGain);
+        gain.connect(this.sfxDestination);
         osc.start(t);
         osc.stop(t + 0.05);
     }

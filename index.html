@@ -1026,7 +1026,32 @@
               </div>
             </section>
             <section data-panel="help" hidden><div class="help-row"><kbd>W A S D</kbd><span>Di chuyển</span></div><div class="help-row"><kbd>CHUỘT</kbd><span>Trái: bắn · Phải: ngắm kỹ</span></div><div class="help-row"><kbd>SPACE / Q / R</kbd><span>Lướt né / Kỹ năng / Nạp đạn</span></div><div class="help-row"><kbd>1 / 2 / V</kbd><span>Súng chính / Súng phụ / Dao</span></div><div class="help-row"><kbd>5 / B / F</kbd><span>Sơ cứu / Balô / Nhặt đồ</span></div><div class="help-row"><kbd>E / P</kbd><span>Cứu đồng đội / Bật tắt bot</span></div><div class="help-row"><kbd>ESC</kbd><span>Mở menu · Chơi cùng bạn vẫn tiếp tục</span></div><p>Nhặt đạn và nâng cấp từ zombie. Hết đạn? Chuyển sang dao để tiếp tục sống sót!</p></section>
-            <section data-panel="settings" hidden><button id="home-sound" class="toy-button blue wide-button">ÂM THANH: BẬT</button><button id="home-music" class="toy-button purple wide-button">NHẠC: BẬT</button><button id="home-devmode" class="toy-button orange wide-button">CHẾ ĐỘ DEVELOPER: TẮT</button><p>Cài đặt được áp dụng ngay trong trận đấu.</p></section>
+            <section data-panel="settings" hidden>
+              <div class="settings-audio-card">
+                <div class="settings-audio-header">
+                  <span class="settings-audio-title">NHẠC NỀN CHIẾN ĐẤU</span>
+                  <span id="music-vol-badge" class="settings-vol-badge">40%</span>
+                </div>
+                <div class="settings-slider-control">
+                  <input type="range" id="setting-music-slider" class="range-slider" min="0" max="100" value="40" aria-label="Âm lượng nhạc nền">
+                </div>
+                <button id="home-music" class="toy-button purple wide-button">NHẠC: BẬT</button>
+              </div>
+
+              <div class="settings-audio-card">
+                <div class="settings-audio-header">
+                  <span class="settings-audio-title">HIỆU ỨNG ÂM THANH (SFX)</span>
+                  <span id="sfx-vol-badge" class="settings-vol-badge">80%</span>
+                </div>
+                <div class="settings-slider-control">
+                  <input type="range" id="setting-sfx-slider" class="range-slider" min="0" max="100" value="80" aria-label="Âm lượng hiệu ứng âm thanh">
+                </div>
+                <button id="home-sound" class="toy-button blue wide-button">ÂM THANH: BẬT</button>
+              </div>
+
+              <button id="home-devmode" class="toy-button orange wide-button">CHẾ ĐỘ DEVELOPER: TẮT</button>
+              <p>Cài đặt được áp dụng và lưu tự động ngay trong trận đấu.</p>
+            </section>
             <section data-panel="records" hidden><p class="eyebrow">ĐIỂM CAO NHẤT TRÊN THIẾT BỊ NÀY</p><div class="record-value">★ <span id="record-score">0</span></div><p>Chiến đấu, sống sót và phá kỷ lục của chính bạn.</p></section>
           </div>
         </dialog>
@@ -1366,7 +1391,16 @@
                 <button id="btn-restart-pause" class="btn-action secondary">CHƠI LẠI</button>
                 <button class="btn-action secondary" data-return-home>KẾT THÚC & VỀ SẢNH</button>
                 <button id="btn-toggle-bot" class="btn-toggle">ĐỒNG ĐỘI BOT: BẬT (PHÍM P)</button>
-                <button id="btn-toggle-devmode" class="btn-toggle">CHẾ ĐỘ DEVELOPER: TẮT</button>
+                <div class="pause-slider-box">
+                  <div class="pause-slider-item">
+                    <div class="pause-slider-info"><span>NHẠC:</span><b id="pause-music-badge">40%</b></div>
+                    <input type="range" id="pause-music-slider" class="range-slider mini" min="0" max="100" value="40" aria-label="Âm lượng nhạc">
+                  </div>
+                  <div class="pause-slider-item">
+                    <div class="pause-slider-info"><span>HIỆU ỨNG:</span><b id="pause-sfx-badge">80%</b></div>
+                    <input type="range" id="pause-sfx-slider" class="range-slider mini" min="0" max="100" value="80" aria-label="Âm lượng hiệu ứng">
+                  </div>
+                </div>
                 <div class="toggle-row">
                     <button id="toggle-sound" class="btn-toggle">SOUND: ON</button>
                     <button id="toggle-music" class="btn-toggle">MUSIC: ON</button>
@@ -1420,6 +1454,6 @@
     </div>
 
     <!-- Main Game Script -->
-    <script src="vendor/qrcode.min.js"></script><script type="module" src="src/app/main.js?v=50"></script>
+    <script src="vendor/qrcode.min.js"></script><script type="module" src="src/app/main.js?v=58"></script>
 </body>
 </html>

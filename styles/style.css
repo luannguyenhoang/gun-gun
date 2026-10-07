@@ -2143,3 +2143,132 @@ body, html {
     opacity: 1;
     transition: opacity 0.4s ease-out;
 }
+
+/* ============================================================
+   BỘ ĐIỀU KHIỂN ÂM LƯỢNG NHẠC NỀN & HIỆU ỨNG (AUDIO SETTINGS UI)
+   ============================================================ */
+.settings-audio-card {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.settings-audio-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.settings-audio-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    letter-spacing: 0.5px;
+}
+
+.settings-vol-badge {
+    font-family: 'Rajdhani', monospace;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.15);
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.settings-slider-control {
+    width: 100%;
+    display: flex;
+    align-items: center;
+}
+
+.range-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    background: #1e293b;
+    outline: none;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.range-slider:hover {
+    background: #334155;
+}
+
+.range-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #38bdf8;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+    border: 2px solid #ffffff;
+    transition: transform 0.1s, box-shadow 0.2s;
+}
+
+.range-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.18);
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.95);
+}
+
+.range-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #38bdf8;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.7);
+    border: 2px solid #ffffff;
+}
+
+/* Pause menu volume sliders */
+.pause-slider-box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 4px 0 6px 0;
+}
+
+.pause-slider-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pause-slider-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: #cbd5e1;
+    font-weight: 600;
+}
+
+.pause-slider-info b {
+    color: #38bdf8;
+}
+
+.range-slider.mini {
+    height: 6px;
+}
+
+.range-slider.mini::-webkit-slider-thumb {
+    width: 16px;
+    height: 16px;
+}

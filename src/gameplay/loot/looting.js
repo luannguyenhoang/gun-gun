@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../../../vendor/loaders/GLTFLoader.js';
-import { sounds } from '../../audio/audio.js';
+import { sounds } from '../../audio/audio.js?v=52';
 import { WEAPON_CONFIGS, RARE_WEAPON_CONFIGS, ATTACHMENT_DEFS, getBombConfig, BOMB_CONFIGS, MEDICAL_CONFIGS } from '../combat/weapons.js';
 
 const _gltfLoader = new GLTFLoader();

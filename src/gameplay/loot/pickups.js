@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../../../vendor/loaders/GLTFLoader.js';
-import { sounds } from '../../audio/audio.js';
+import { sounds } from '../../audio/audio.js?v=52';
 import { RARE_WEAPON_CONFIGS, ATTACHMENT_DEFS, RARITY_TIERS } from '../combat/weapons.js';
 import { LOOT_ITEMS } from './looting.js';
 

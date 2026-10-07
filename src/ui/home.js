@@ -1,4 +1,4 @@
-import { sounds } from '../audio/audio.js';
+import { sounds } from '../audio/audio.js?v=52';
 import { CharacterShowroom } from './showroom.js?v=48';
 import { CHARACTER_CONFIGS, isCharacterUnlocked } from '../gameplay/player/characters.js';
 import { getStartingWeapon } from '../gameplay/combat/weapons.js?v=32';
@@ -644,6 +644,23 @@ export class HomeMenu {
         // Khởi động kiểm tra session hiện có
         initAuth();
 
+        // Xử lý thanh trượt điều chỉnh âm lượng Nhạc nền và SFX
+        const musicSlider = document.getElementById('setting-music-slider');
+        const sfxSlider = document.getElementById('setting-sfx-slider');
+        if (musicSlider) {
+            musicSlider.addEventListener('input', (e) => {
+                sounds.setMusicVolume(e.target.value / 100);
+                this.syncAudio();
+            });
+        }
+        if (sfxSlider) {
+            sfxSlider.addEventListener('input', (e) => {
+                sounds.setSfxVolume(e.target.value / 100);
+                this.syncAudio();
+                sounds.play('switchWeapon', { volume: 0.4 });
+            });
+        }
+
         document.getElementById('home-sound').addEventListener('click', () => { sounds.toggleAudio(); this.syncAudio(); });
         document.getElementById('home-music').addEventListener('click', () => { sounds.toggleMusic(); this.syncAudio(); });
         document.getElementById('home-devmode')?.addEventListener('click', () => { this.game.toggleDeveloperMode(); });
@@ -670,10 +687,41 @@ export class HomeMenu {
     }
 
     syncAudio() {
-        document.getElementById('home-sound').textContent = `ÂM THANH: ${sounds.enabled ? 'BẬT' : 'TẮT'}`;
-        document.getElementById('home-music').textContent = `NHẠC: ${sounds.musicEnabled ? 'BẬT' : 'TẮT'}`;
-        document.getElementById('toggle-sound').textContent = `SOUND: ${sounds.enabled ? 'ON' : 'OFF'}`;
-        document.getElementById('toggle-music').textContent = `MUSIC: ${sounds.musicEnabled ? 'ON' : 'OFF'}`;
+        const musicPct = Math.round(sounds.musicVolume * 100);
+        const sfxPct = Math.round(sounds.sfxVolume * 100);
+
+        // Nút toggle nhanh
+        const homeSound = document.getElementById('home-sound');
+        const homeMusic = document.getElementById('home-music');
+        if (homeSound) homeSound.textContent = `ÂM THANH: ${sounds.enabled ? 'BẬT' : 'TẮT'}`;
+        if (homeMusic) homeMusic.textContent = `NHẠC: ${sounds.musicEnabled ? 'BẬT' : 'TẮT'}`;
+        const toggleSound = document.getElementById('toggle-sound');
+        const toggleMusic = document.getElementById('toggle-music');
+        if (toggleSound) toggleSound.textContent = `SOUND: ${sounds.enabled ? 'ON' : 'OFF'}`;
+        if (toggleMusic) toggleMusic.textContent = `MUSIC: ${sounds.musicEnabled ? 'ON' : 'OFF'}`;
+
+        // Cập nhật thanh trượt & badge trong Settings
+        const musicSlider = document.getElementById('setting-music-slider');
+        const musicBadge = document.getElementById('music-vol-badge');
+        if (musicSlider) musicSlider.value = musicPct;
+        if (musicBadge) musicBadge.textContent = `${sounds.musicEnabled && sounds.enabled ? musicPct : 0}%`;
+
+        const sfxSlider = document.getElementById('setting-sfx-slider');
+        const sfxBadge = document.getElementById('sfx-vol-badge');
+        if (sfxSlider) sfxSlider.value = sfxPct;
+        if (sfxBadge) sfxBadge.textContent = `${sounds.enabled ? sfxPct : 0}%`;
+
+        // Cập nhật thanh trượt & badge trong Pause Menu
+        const pauseMusicSlider = document.getElementById('pause-music-slider');
+        const pauseMusicBadge = document.getElementById('pause-music-badge');
+        if (pauseMusicSlider) pauseMusicSlider.value = musicPct;
+        if (pauseMusicBadge) pauseMusicBadge.textContent = `${sounds.musicEnabled && sounds.enabled ? musicPct : 0}%`;
+
+        const pauseSfxSlider = document.getElementById('pause-sfx-slider');
+        const pauseSfxBadge = document.getElementById('pause-sfx-badge');
+        if (pauseSfxSlider) pauseSfxSlider.value = sfxPct;
+        if (pauseSfxBadge) pauseSfxBadge.textContent = `${sounds.enabled ? sfxPct : 0}%`;
+
         this.game.syncDeveloperModeUI?.();
     }
 

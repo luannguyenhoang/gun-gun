@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { LOOT_ITEMS, LOOT_TIERS } from '../gameplay/loot/looting.js?v=22';
-import { sounds } from '../audio/audio.js';
+import { sounds } from '../audio/audio.js?v=52';
 import { ATTACHMENT_DEFS } from '../gameplay/combat/weapons.js?v=22';
 import { CHARACTER_CONFIGS } from '../gameplay/player/characters.js';
 

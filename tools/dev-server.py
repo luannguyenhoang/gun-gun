@@ -21,6 +21,10 @@ class GameHandler(http.server.SimpleHTTPRequestHandler):
             return 'model/gltf-binary'
         if path.endswith('.ogg'):
             return 'audio/ogg'
+        if path.endswith('.mp3'):
+            return 'audio/mpeg'
+        if path.endswith('.png'):
+            return 'image/png'
         if path.endswith('.js'):
             return 'application/javascript'
         if path.endswith('.css'):

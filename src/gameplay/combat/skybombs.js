@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { sounds } from '../../audio/audio.js';
+import { sounds } from '../../audio/audio.js?v=52';
 
 // Host owns damage; guests only render the replicated warning and falling bomb.
 export class SkyBombs {
