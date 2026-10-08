@@ -708,18 +708,18 @@ export class PlayerController {
     }
 
     tryActiveSkill() {
-        const network = globalThis.window?.game?.network;
-        if (network?.active && !network.host) {
-            if (this.isDead || this.isDowned || this.activeSkillCooldownTimer > 0) return false;
-            network.sendCommand({type: 'active_skill'});
-            return true;
-        }
         if (this.isDead || this.isDowned) return false;
         if (this.activeSkillCooldownTimer > 0) return false;
 
         const cfg = CHARACTER_CONFIGS[this.characterId] || CHARACTER_CONFIGS.police;
         const skill = cfg.activeSkill;
         if (!skill) return false;
+
+        const network = globalThis.window?.game?.network;
+        if (network?.active && !network.host) {
+            // Dự đoán cục bộ để HUD đếm ngược và có hiệu ứng ngay lập tức
+            network.sendCommand({type: 'active_skill'});
+        }
 
         this.activeSkillCooldownTimer = skill.cooldown;
         this.activeSkillMaxCooldown = skill.cooldown;
@@ -1277,10 +1277,8 @@ export class PlayerController {
     }
 
     // 6. Điệp viên áo đen: Không kích vệ tinh oanh tạc quỹ đạo
-    triggerOrbitalStrike() {
-        const forward = new THREE.Vector3(Math.sin(this.aimYaw), 0, Math.cos(this.aimYaw)).normalize();
-        const targetPos = this.position.clone().add(forward.multiplyScalar(7.5));
-        targetPos.y = 0.05;
+    showOrbitalStrikeVisual(targetPos) {
+        if (!this.scene) return;
 
         // Vòng ngắm Laser Chiến Thuật 3D (Tactical Laser Reticle)
         const reticleGroup = new THREE.Group();
@@ -1419,22 +1417,6 @@ export class PlayerController {
             this.applyExplosionShock(targetPos, 30, 1.0);
             window.triggerExplosionScreenShake?.(targetPos, 30, 1.0);
 
-            // 8. Sát thương oanh tạc hủy diệt (350 sát thương + hất tung)
-            const blastRadius = 6.8;
-            const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
-            for (const enemy of enemies) {
-                if (!enemy || enemy.isDead || !enemy.active) continue;
-                const dist = targetPos.distanceTo(enemy.position);
-                if (dist <= blastRadius) {
-                    const pushDir = new THREE.Vector3().subVectors(enemy.position, targetPos).normalize();
-                    pushDir.y = 0.55;
-                    enemy.takeDamage(350, 5, true, pushDir);
-                    if (enemy.knockbackVelocity) enemy.knockbackVelocity.addScaledVector(pushDir, 42);
-                    enemy.burnTimer = 4.0;
-                    enemy.burnDamage = 35;
-                }
-            }
-
             // Animation cột laser rọi xuống trong 0.45s rồi tan biến mượt mà
             const strikeStart = performance.now();
             const strikeAnim = () => {
@@ -1480,10 +1462,43 @@ export class PlayerController {
         }, 850);
     }
 
+    triggerOrbitalStrike() {
+        const forward = new THREE.Vector3(Math.sin(this.aimYaw), 0, Math.cos(this.aimYaw)).normalize();
+        const targetPos = this.position.clone().add(forward.multiplyScalar(7.5));
+        targetPos.y = 0.05;
+
+        this.showOrbitalStrikeVisual(targetPos);
+
+        const game = globalThis.window?.game;
+        if (game?.network?.active && game.network.host) {
+            (game.networkEvents ||= []).push({ type: 'orbital_strike', position: targetPos.toArray() });
+        }
+
+        const isClient = Boolean(game?.network?.active && !game.network.host);
+        if (!isClient) {
+            setTimeout(() => {
+                const blastRadius = 6.8;
+                const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
+                for (const enemy of enemies) {
+                    if (!enemy || enemy.isDead || !enemy.active) continue;
+                    const dist = targetPos.distanceTo(enemy.position);
+                    if (dist <= blastRadius) {
+                        const pushDir = new THREE.Vector3().subVectors(enemy.position, targetPos).normalize();
+                        pushDir.y = 0.55;
+                        enemy.takeDamage(350, 5, true, pushDir);
+                        if (enemy.knockbackVelocity) enemy.knockbackVelocity.addScaledVector(pushDir, 42);
+                        enemy.burnTimer = 4.0;
+                        enemy.burnDamage = 35;
+                    }
+                }
+            }, 850);
+        }
+    }
+
 
     // 7. Đấu sĩ dũng mãnh: Dộng đất hất tung quái và làm choáng 3s (dame 130, radius 11)
-    triggerGroundSmash() {
-        const startPos = this.position.clone();
+    showGroundSmashVisual(startPos) {
+        if (!this.scene) return;
 
         // 1. Vết nứt địa chấn nứt vỡ nham thạch khổng lồ dán sàn (CỐ ĐỊNH, KHÔNG XOAY)
         const scorchDecal = createGroundParticleDecal(startPos, 10.5, 'assets/particles/scorch_03.png', 0xea580c, 0.95, THREE.NormalBlending);
@@ -1525,22 +1540,6 @@ export class PlayerController {
         geyserMesh.position.copy(startPos);
         geyserMesh.position.y += 2.1;
         this.scene.add(geyserMesh);
-
-        const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
-        for (const enemy of enemies) {
-            if (!enemy || enemy.isDead) continue;
-            const dist = startPos.distanceTo(enemy.position);
-            if (dist <= 11.5) {
-                const pushDir = new THREE.Vector3().subVectors(enemy.position, startPos).normalize();
-                pushDir.y = 0.9;
-                enemy.takeDamage(130, 3, true, pushDir);
-                if (enemy.knockbackVelocity) {
-                    enemy.knockbackVelocity.set(pushDir.x * 26, 15, pushDir.z * 26);
-                }
-                enemy.combatState = 'STUNNED';
-                enemy.combatTimer = 3.0;
-            }
-        }
 
         this.particles?.createExplosion?.(startPos, 0xea580c, 50, 7.0);
         this.particles?.createImpactSparks?.(startPos.clone().add(new THREE.Vector3(0, 0.8, 0)), new THREE.Vector3(0, 1, 0), 0xfb923c, 35);
@@ -1592,6 +1591,35 @@ export class PlayerController {
             };
             requestAnimationFrame(fAnim);
         }, 2500);
+    }
+
+    triggerGroundSmash() {
+        const startPos = this.position.clone();
+        this.showGroundSmashVisual(startPos);
+
+        const game = globalThis.window?.game;
+        if (game?.network?.active && game.network.host) {
+            (game.networkEvents ||= []).push({ type: 'ground_smash', position: startPos.toArray() });
+        }
+
+        const isClient = Boolean(game?.network?.active && !game.network.host);
+        if (!isClient) {
+            const enemies = this.latestEnemies || window.game?.waveManager?.enemies || [];
+            for (const enemy of enemies) {
+                if (!enemy || enemy.isDead) continue;
+                const dist = startPos.distanceTo(enemy.position);
+                if (dist <= 11.5) {
+                    const pushDir = new THREE.Vector3().subVectors(enemy.position, startPos).normalize();
+                    pushDir.y = 0.9;
+                    enemy.takeDamage(130, 3, true, pushDir);
+                    if (enemy.knockbackVelocity) {
+                        enemy.knockbackVelocity.set(pushDir.x * 26, 15, pushDir.z * 26);
+                    }
+                    enemy.combatState = 'STUNNED';
+                    enemy.combatTimer = 3.0;
+                }
+            }
+        }
     }
 
     // 8. Tiểu thư nổi loạn: Cuồng xả đạn vô hạn trong 5s (Hào quang rực lửa bao quanh)
@@ -1803,10 +1831,13 @@ export class PlayerController {
         }
 
         const points = [this.position.clone().add(new THREE.Vector3(0, 1.0, 0))];
+        const isClient = Boolean(globalThis.window?.game?.network?.active && !window.game.network.host);
         for (const target of chain) {
-            target.takeDamage(150, 3, true, null);
-            target.combatState = 'STUNNED';
-            target.combatTimer = 2.5;
+            if (!isClient) {
+                target.takeDamage(150, 3, true, null);
+                target.combatState = 'STUNNED';
+                target.combatTimer = 2.5;
+            }
             target.setEmissiveColor?.(0x00f0ff, 1.0);
             const tPos = target.position.clone().add(new THREE.Vector3(0, 1.0, 0));
             points.push(tPos);
@@ -1842,7 +1873,13 @@ export class PlayerController {
             }, 380);
         }
 
-        if (points.length > 1) this.createLightningEntity(points);
+        if (points.length > 1) {
+            this.createLightningEntity(points);
+            const game = globalThis.window?.game;
+            if (game?.network?.active && game.network.host) {
+                (game.networkEvents ||= []).push({ type: 'chain_lightning', points: points.map(p => p.toArray()) });
+            }
+        }
         sounds.play('enemyDestroy', { volume: 0.85, rate: 1.6, pitchVariation: 0.3 });
     }
 
@@ -1926,9 +1963,8 @@ export class PlayerController {
         sounds.play('jump', { volume: 0.8, rate: 0.7 });
     }
 
-    // Cập nhật vòng lặp các thực thể kỹ năng độc đáo
     updateActiveSkills(delta, arena, enemies = []) {
-        if (globalThis.window?.game?.network?.active && !window.game.network.host) return;
+        const isClient = globalThis.window?.game?.network?.active && !window.game.network.host;
         this.activeSkillCooldownTimer = Math.max(0, (this.activeSkillCooldownTimer || 0) - delta);
         this.activeSkillDurationTimer = Math.max(0, (this.activeSkillDurationTimer || 0) - delta);
         if (!this.activeSkillDurationTimer) this.activeSkillEffect = null;
@@ -1939,10 +1975,12 @@ export class PlayerController {
                 if (kind === 'activeStrikes' && e.timer <= 0.35 && !e.fired) {
                     e.fired = true;
                     this.showStrikeBeam(e);
-                    for (const enemy of enemies) {
-                        if (enemy.isDead || enemy.position.distanceTo(e.position) > 7) continue;
-                        enemy.takeDamage(350, 4, true, new THREE.Vector3().subVectors(enemy.position, e.position).normalize());
-                        enemy.burnTimer = 3.5; enemy.burnDamage = 16;
+                    if (!isClient) {
+                        for (const enemy of enemies) {
+                            if (enemy.isDead || enemy.position.distanceTo(e.position) > 7) continue;
+                            enemy.takeDamage(350, 4, true, new THREE.Vector3().subVectors(enemy.position, e.position).normalize());
+                            enemy.burnTimer = 3.5; enemy.burnDamage = 16;
+                        }
                     }
                     this.particles?.createExplosion?.(e.position, 0xff2244, 40);
                 }
@@ -1974,15 +2012,17 @@ export class PlayerController {
                 }, 220);
             }
 
-            for (const enemy of enemies) {
-                if (!enemy || enemy.isDead || !enemy.active) continue;
-                const d = this.position.distanceTo(enemy.position);
-                if (d < 2.4) {
-                    const pushDir = new THREE.Vector3().subVectors(enemy.position, this.position).normalize();
-                    pushDir.y = 0.25;
-                    enemy.takeDamage(70, 3, true, pushDir);
-                    if (enemy.knockbackVelocity) enemy.knockbackVelocity.addScaledVector(pushDir, 38);
-                    this.particles?.createImpactSparks?.(enemy.position, pushDir, 0x00f0ff, 12);
+            if (!isClient) {
+                for (const enemy of enemies) {
+                    if (!enemy || enemy.isDead || !enemy.active) continue;
+                    const d = this.position.distanceTo(enemy.position);
+                    if (d < 2.4) {
+                        const pushDir = new THREE.Vector3().subVectors(enemy.position, this.position).normalize();
+                        pushDir.y = 0.25;
+                        enemy.takeDamage(70, 3, true, pushDir);
+                        if (enemy.knockbackVelocity) enemy.knockbackVelocity.addScaledVector(pushDir, 38);
+                        this.particles?.createImpactSparks?.(enemy.position, pushDir, 0x00f0ff, 12);
+                    }
                 }
             }
 
@@ -2101,14 +2141,16 @@ export class PlayerController {
                 sounds.play('enemyDestroy', { volume: 0.85 });
                 this.applyExplosionShock(explPos, 16, 0.45);
 
-                for (const enemy of enemies) {
-                    if (!enemy || enemy.isDead) continue;
-                    const d = explPos.distanceTo(enemy.position);
-                    if (d <= g.radius) {
-                        const pushDir = new THREE.Vector3().subVectors(enemy.position, explPos).normalize();
-                        pushDir.y = 0.4;
-                        enemy.takeDamage(g.damage, 3, true, pushDir);
-                        if (enemy.knockbackVelocity) enemy.knockbackVelocity.addScaledVector(pushDir, 30);
+                if (!isClient) {
+                    for (const enemy of enemies) {
+                        if (!enemy || enemy.isDead) continue;
+                        const d = explPos.distanceTo(enemy.position);
+                        if (d <= g.radius) {
+                            const pushDir = new THREE.Vector3().subVectors(enemy.position, explPos).normalize();
+                            pushDir.y = 0.4;
+                            enemy.takeDamage(g.damage, 3, true, pushDir);
+                            if (enemy.knockbackVelocity) enemy.knockbackVelocity.addScaledVector(pushDir, 30);
+                        }
                     }
                 }
                 this.scene.remove(g.mesh);
@@ -2234,7 +2276,7 @@ export class PlayerController {
 
                 if (t.fireCooldown <= 0) {
                     t.fireCooldown = t.fireRate;
-                    closest.takeDamage(t.damage, 2, false, null);
+                    if (!isClient) closest.takeDamage(t.damage, 2, false, null);
                     sounds.play('pistol', { volume: 0.5, pitchVariation: 0.2 });
 
                     // Bắn chớp lửa đầu nòng màu cam (muzzle_01.png)
@@ -2294,7 +2336,7 @@ export class PlayerController {
                     enemy.position.lerp(v.position, delta * 3.4);
                     enemy.speed = Math.min(enemy.speed || 3.5, 1.4);
                     if (v.tickTimer >= 0.5) {
-                        enemy.takeDamage(20, 2, false, null);
+                        if (!isClient) enemy.takeDamage(20, 2, false, null);
                         this.particles?.createImpactSparks?.(enemy.position, new THREE.Vector3(0, 1, 0), 0xd97706, 4);
                     }
                 }

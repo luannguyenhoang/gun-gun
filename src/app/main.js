@@ -3,16 +3,16 @@ import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js?v=58';
 import { ParticleSystem } from '../rendering/particles.js?v=67';
 import { Arena } from '../world/arena.js?v=22';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=69';
-import { PlayerController } from '../gameplay/player/player.js?v=69';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=70';
+import { PlayerController } from '../gameplay/player/player.js?v=70';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=69';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
 import { UIManager } from '../ui/ui.js?v=40';
-import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=36';
+import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=70';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=37';
 import { HomeMenu } from '../ui/home.js?v=57';
-import { LootingSystem } from '../gameplay/loot/looting.js?v=69';
+import { LootingSystem } from '../gameplay/loot/looting.js?v=70';
 import { RenderQuality } from '../rendering/performance.js';
 import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=49';
 
@@ -796,7 +796,7 @@ class CyberArenaGame {
         const remote = makeRemotePlayer(this.scene, this.gltfLoader, id, name, character);
         remote.scene = this.scene; remote.particles = this.particles;
         for (const key of Object.getOwnPropertyNames(PlayerController.prototype)) {
-            if (/^(trigger|tryActiveSkill|createSkillVisualEffect|createLightningEntity|showStrikeBeam|removeSkillEntity|clearSharedSkills|getSharedSkillState|applySharedSkillState|updateActiveSkills|applyCharacterStats|applyExplosionShock|applyScreenShake)$/.test(key) || key.startsWith('trigger')) remote[key] = PlayerController.prototype[key];
+            if (/^(trigger|tryActiveSkill|createSkillVisualEffect|createLightningEntity|showStrikeBeam|showOrbitalStrikeVisual|showGroundSmashVisual|removeSkillEntity|clearSharedSkills|getSharedSkillState|applySharedSkillState|updateActiveSkills|applyCharacterStats|applyExplosionShock|applyScreenShake)$/.test(key) || key.startsWith('trigger')) remote[key] = PlayerController.prototype[key];
         }
         remote.clearSharedSkills(); remote.applyCharacterStats();
         remote.weapons = new WeaponSystem(this.scene, this.gltfLoader, this.particles);
@@ -1311,6 +1311,7 @@ class CyberArenaGame {
                 this.particles?.createExplosion?.(pos, ev.color, 40, ev.radius);
                 this.particles?.createImpactSparks?.(pos, new THREE.Vector3(0,1,0), ev.color, 25);
                 sounds.play('enemyExplode', {volume: 1});
+                this.player.applyExplosionShock?.(pos, 22, 0.75);
             }
             if (ev.type === 'hit' && ev.id > (this.lastHitEventId || 0)) {
                 this.lastHitEventId = ev.id;
@@ -1330,13 +1331,22 @@ class CyberArenaGame {
                     sounds.play(weapon.fireSound, { volume: 0.65, pitchVariation: 0.08 });
                 }
 
-            } else if (ev.type === 'throw_bomb' && !snapshot.worldEffects && ev.throwerId !== localId) {
+            } else if (ev.type === 'throw_bomb' && ev.throwerId !== localId) {
                 const origin = new THREE.Vector3().fromArray(ev.origin);
                 const target = new THREE.Vector3().fromArray(ev.target);
                 const bombCfg = getBombConfig(ev.weaponId);
                 if (bombCfg) {
                     this.weapons.spawnVisualBomb(origin, target, bombCfg);
                 }
+            } else if (ev.type === 'orbital_strike') {
+                const pos = new THREE.Vector3().fromArray(ev.position);
+                this.player.showOrbitalStrikeVisual?.(pos);
+            } else if (ev.type === 'ground_smash') {
+                const pos = new THREE.Vector3().fromArray(ev.position);
+                this.player.showGroundSmashVisual?.(pos);
+            } else if (ev.type === 'chain_lightning' && Array.isArray(ev.points)) {
+                const points = ev.points.map(p => new THREE.Vector3().fromArray(p));
+                this.player.createLightningEntity?.(points);
             } else if (ev.type === 'smoke_zone' && !snapshot.worldEffects) {
                 const pos = new THREE.Vector3().fromArray(ev.position);
                 this.weapons.createSmokeZone(pos, ev.radius || 6.0, ev.duration || 10.0);
@@ -1384,7 +1394,11 @@ class CyberArenaGame {
                 this.player.health = state.health; this.player.shield = state.shield;
                 this.player.isDead = state.isDead; this.player.isDowned = state.isDowned;
                 this.player.isInSmoke = !!state.isInSmoke;
-                if (state.processedSeq >= this.network.seq) this.weapons.applyNetworkState(state.weapons);
+                // Áp dụng trạng thái vũ khí, đạn, phụ kiện và bom từ Host
+                if (state.weapons) {
+                    this.weapons.applyNetworkState(state.weapons);
+                    this.ui?.updateTacticalDock?.(this.weapons, this.player);
+                }
                 continue;
             }
             const remote = this.ensureCoopPlayer(state.id, state.name, state.character);

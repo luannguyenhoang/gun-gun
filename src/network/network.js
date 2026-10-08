@@ -371,22 +371,56 @@ export class NetworkRoom {
             else if (command.type === 'cancel_medkit') weapons.cancelMedkitUse();
             else if (command.type === 'revive') this.game.reviveNearest(player);
             else if (command.type === 'shoot' && validVector(command.target)) {
+                // Tự động chuyển đúng súng mà client đang bắn nếu lệch slot
                 const current = weapons.getCurrentWeapon();
-                if (command.weaponId && current?.id !== command.weaponId) continue;
+                if (command.weaponId && current?.id !== command.weaponId) {
+                    const slotIdx = weapons.weaponSlots.findIndex(w => w && w.id === command.weaponId);
+                    if (slotIdx !== -1) weapons.switchWeapon(slotIdx, player);
+                }
+                const activeWeapon = weapons.getCurrentWeapon();
                 const origin = weapons.getMuzzlePosition?.() || player.position.clone().add(new THREE.Vector3(0, 1.2, 0));
                 const target = new THREE.Vector3().fromArray(command.target);
                 player.isADS = !!command.ads;
                 if (weapons.shoot(origin, target, player.isADS, true, 1, player)) {
-                    (this.game.networkEvents ||= []).push({ type: 'shot', shooterId: player.id,
-                        origin: origin.toArray(), target: target.toArray(), weaponId: current.id, ads: player.isADS });
+                    (this.game.networkEvents ||= []).push({
+                        type: 'shot',
+                        shooterId: player.id,
+                        origin: origin.toArray(),
+                        target: target.toArray(),
+                        weaponId: activeWeapon?.id || command.weaponId,
+                        ads: player.isADS
+                    });
                 }
             } else if (command.type === 'throw_bomb' && validVector(command.target)) {
-                const current = weapons.getCurrentWeapon();
-                if (command.weaponId !== current?.id) continue;
+                // Tìm đúng slot bom tương ứng của người chơi từ xa
+                let bombSlot = -1;
+                for (let i = 2; i <= 3; i++) {
+                    if (weapons.weaponSlots[i] && weapons.weaponSlots[i].id === command.weaponId && (weapons.weaponSlots[i].count || 0) > 0) {
+                        bombSlot = i;
+                        break;
+                    }
+                }
+                if (bombSlot !== -1) {
+                    weapons.switchWeapon(bombSlot, player);
+                } else if (!weapons.getCurrentWeapon()?.isBomb) {
+                    // Nếu chưa chọn slot bom, nạp cấu hình bom hợp lệ để ném
+                    const bombCfg = getBombConfig(command.weaponId);
+                    if (bombCfg) {
+                        weapons.weaponSlots[2] = { ...bombCfg, count: Math.max(1, weapons.weaponSlots[2]?.count || 1) };
+                        weapons.switchWeapon(2, player);
+                    }
+                }
                 const origin = player.position.clone().add(new THREE.Vector3(0, 1.2, 0));
-                if (weapons.throwBomb(origin, new THREE.Vector3().fromArray(command.target), player, this.game.waveManager.enemies)) {
-                    (this.game.networkEvents ||= []).push({ type: 'throw_bomb', throwerId: player.id,
-                        origin: origin.toArray(), target: command.target, weaponId: current.id });
+                const targetVec = new THREE.Vector3().fromArray(command.target);
+                const currentBomb = weapons.getCurrentWeapon();
+                if (weapons.throwBomb(origin, targetVec, player, this.game.waveManager.enemies)) {
+                    (this.game.networkEvents ||= []).push({
+                        type: 'throw_bomb',
+                        throwerId: player.id,
+                        origin: origin.toArray(),
+                        target: command.target,
+                        weaponId: currentBomb?.id || command.weaponId
+                    });
                 }
             } else if (command.type === 'drop_weapon') {
                 const gun = weapons.weaponSlots[command.slot];
@@ -681,6 +715,8 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
     const remote = { id, name, characterId: normalizeCharacter(characterId), position: new THREE.Vector3(0, 0, 8), velocity: new THREE.Vector3(), netTarget: null, netVelocity: new THREE.Vector3(), netSampleTime: 0, aimYaw: Math.PI, isADS: false,
         isDead: false, isDowned: false, bleedOutTimer: 30.0, health: 100, maxHealth: 100, shield: 100, maxShield: 100,
         radius: 0.55, height: 1.6, mesh: group, healthBar,
+        activeTurrets: [], activeVortexes: [], activeGrenades: [], activeBeacons: [],
+        activeSkillCooldownTimer: 0, activeSkillDurationTimer: 0, activeSkillMaxCooldown: 0,
         updateSimulation(delta) {
             this.speedBoostTimer = Math.max(0, (this.speedBoostTimer || 0) - delta);
             this.radarScanTimer = Math.max(0, (this.radarScanTimer || 0) - delta);
@@ -694,6 +730,8 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
                     this.isDowned = false;
                 }
             }
+            // Cập nhật hoạt động các kỹ năng chủ động của người chơi từ xa trên Host
+            this.updateActiveSkills?.(delta);
         },
         updateVisual(delta = 1 / 60) {
             const blend = 1 - Math.exp(-12 * delta);
@@ -793,6 +831,7 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
                 });
                 body.visible = false;
                 group.add(characterModel);
+                remote.model = characterModel;
                 mixer = new THREE.AnimationMixer(characterModel);
                 actions = {}; action = null;
                 for (const source of gltf.animations || []) {
@@ -806,7 +845,7 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
                 if (hand) remote.weapons?.attachToArm(hand);
             }, undefined, () => { if (loadingCharacter === next) loadingCharacter = null; });
         },
-        dispose() { disposed = true; mixer?.stopAllAction(); this.weapons?.clear(); group.removeFromParent(); healthBar.dispose(); }
+        dispose() { disposed = true; mixer?.stopAllAction(); this.weapons?.clear(); remote.model = null; group.removeFromParent(); healthBar.dispose(); }
     };
     remote.setCharacter(characterId);
     return remote;

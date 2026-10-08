@@ -1700,8 +1700,12 @@ export class WeaponSystem {
         }
         this.weaponSlots[4] = KNIFE_CONFIG;
         this.secondaryWeapon = this.weaponSlots[1];
-        this.currentSlotIndex = Math.min(4, Math.max(0, state.slot || 0));
-        if (!this.weaponSlots[this.currentSlotIndex]) this.currentSlotIndex = 4;
+        // Chỉ cập nhật slot từ Host nếu người chơi cục bộ không vừa tự đổi slot trong 350ms
+        const now = performance.now();
+        if (!this.lastLocalSwitchTime || now - this.lastLocalSwitchTime > 350) {
+            this.currentSlotIndex = Math.min(4, Math.max(0, state.slot || 0));
+            if (!this.weaponSlots[this.currentSlotIndex]) this.currentSlotIndex = 4;
+        }
         if (state.primaryAttachments) this.primaryAttachments = { ...state.primaryAttachments };
         if (state.secondaryAttachments) this.secondaryAttachments = { ...state.secondaryAttachments };
         this.ammo = { ...state.ammo };
@@ -1788,6 +1792,7 @@ export class WeaponSystem {
 
         if (index === this.currentSlotIndex) return;
 
+        this.lastLocalSwitchTime = performance.now();
         if (this.onCommand) this.onCommand({ type: 'switch', slot: index });
         this.currentSlotIndex = index;
         sounds.stopContinuousFire?.();
@@ -1830,8 +1835,19 @@ export class WeaponSystem {
     // Cơ chế Channeling sơ cứu vết thương hoặc uống nước tăng lực
     startMedkitUse(player, itemType = null) {
         if (!player || player.isDead || player.isDowned) return false;
-        if (this.onCommand) { this.onCommand({ type: 'medkit', itemType }); return true; }
         if (this.isUsingMedkit) return false;
+
+        if (this.onCommand) {
+            this.onCommand({ type: 'medkit', itemType });
+            const medCfg = (itemType ? MEDICAL_CONFIGS.find(m => m.id === itemType) : null) || MEDICAL_CONFIGS[1];
+            this.currentMedicalItem = medCfg;
+            this.isUsingMedkit = true;
+            this.medkitTotalTime = medCfg?.useTime || 4.0;
+            this.medkitTimer = this.medkitTotalTime;
+            this.medkitPlayerRef = player;
+            sounds.playMedkit?.();
+            return true;
+        }
 
         // Tự động chọn loại vật phẩm phù hợp nhất nếu không chỉ định
         if (!itemType) {

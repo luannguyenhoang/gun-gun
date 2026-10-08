@@ -1178,7 +1178,8 @@ export class LootContainer {
                     generated.push({
                         itemId: entry.itemId,
                         count: count,
-                        revealed: true
+                        revealed: true,
+                        lootId: THREE.MathUtils.generateUUID()
                     });
                 }
             }
@@ -1188,7 +1189,7 @@ export class LootContainer {
         if (generated.length === 0 && table.length > 0) {
             const fallback = table[0];
             const count = fallback.min ? Math.floor(Math.random() * (fallback.max - fallback.min + 1)) + fallback.min : 1;
-            generated.push({ itemId: fallback.itemId, count, revealed: true });
+            generated.push({ itemId: fallback.itemId, count, revealed: true, lootId: THREE.MathUtils.generateUUID() });
         }
 
         // Tự động sắp xếp ưu tiên: Cấp bậc cao nhất nằm TRÊN CÙNG
@@ -1208,6 +1209,7 @@ export class LootContainer {
         });
         const result = new Array(capacity).fill(null);
         for (let i = 0; i < Math.min(capacity, items.length); i++) {
+            if (items[i]) items[i].lootId ||= THREE.MathUtils.generateUUID();
             result[i] = items[i];
         }
         return result;
@@ -2133,7 +2135,8 @@ export class LootingSystem {
                 const replacedAttachment = {
                     itemId: oldModId,
                     count: 1,
-                    revealed: true
+                    revealed: true,
+                    lootId: THREE.MathUtils.generateUUID()
                 };
                 container.slots[selected.slotIndex] = replacedAttachment;
                 this.notifyLootAction(container.id, selected.slotIndex, replacedAttachment);
@@ -2166,7 +2169,8 @@ export class LootingSystem {
                     container.slots[selected.slotIndex] = {
                         itemId: oldModId,
                         count: 1,
-                        revealed: true
+                        revealed: true,
+                        lootId: THREE.MathUtils.generateUUID()
                     };
                     sounds.play('switchWeapon', { volume: 0.95, rate: 1.4 });
                     this.ui?.showPickupAlert(`NÂNG CẤP CHO SÚNG PHỤ: [${def.name.toUpperCase()}]`);
@@ -2820,6 +2824,7 @@ export class LootingSystem {
     requestLoot(container, slotIndex, mode) {
         const slot = container.slots[slotIndex];
         if (!slot) return false;
+        slot.lootId ||= THREE.MathUtils.generateUUID();
         return this.requestCommand({ type: 'loot_slot', containerId: container.id, slotIndex, lootId: slot.lootId, mode });
     }
 
@@ -2847,11 +2852,11 @@ export class LootingSystem {
             if (command.containerId && (!container || player.position.distanceTo(container.position) > 6.5)) return false;
             const slots = container ? container.slots : context.inventory.slots;
             const slot = slots[command.slotIndex];
-            if (!slot || (container && slot.lootId !== command.lootId)) return false;
+            if (!slot || (container && slot.lootId && command.lootId && slot.lootId !== command.lootId)) return false;
             const def = LOOT_ITEMS[slot.itemId];
             if (def?.category !== 'attachment' || def.slot !== command.attachmentSlot) return false;
             const previous = player.weapons.attachMod(def.slot, slot.itemId, command.gunSlot);
-            slots[command.slotIndex] = previous ? { itemId: previous, count: 1, revealed: true } : null;
+            slots[command.slotIndex] = previous ? { itemId: previous, count: 1, revealed: true, lootId: THREE.MathUtils.generateUUID() } : null;
             if (container) this.checkAndRemoveEmptyContainer(container);
             return true;
         }
@@ -2864,7 +2869,8 @@ export class LootingSystem {
         context.activeContainer = container;
         if (command.type === 'store_item') return context.transferItem('player', command.slotIndex);
         const slot = container.slots[command.slotIndex];
-        if (command.type !== 'loot_slot' || !slot || !slot.lootId || slot.lootId !== command.lootId) return false;
+        if (command.type !== 'loot_slot' || !slot) return false;
+        if (slot.lootId && command.lootId && slot.lootId !== command.lootId) return false;
         if (command.mode === 'backpack') return context.lootNearbyItem({ container, slotIndex: command.slotIndex });
         const wasOpen = container.isOpen;
         container.isOpen = true;
