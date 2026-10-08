@@ -1533,10 +1533,11 @@ export class UIManager {
                 const bleedLeft = Math.ceil(mate.bleedOutTimer ?? 30);
                 if (mate.isBeingRevived || (mate.reviveProgress && mate.reviveProgress > 0)) {
                     const pct = Math.round((mate.reviveProgress || 0) * 100);
-                    marker.distSpan.textContent = `ĐANG CỨU: ${pct}%`;
+                    const remSec = Math.max(0, (1.0 - (mate.reviveProgress || 0)) * 5.0).toFixed(1);
+                    marker.distSpan.textContent = `ĐANG CỨU: ${pct}% (${remSec}s)`;
                     marker.distSpan.classList.add('can-revive');
-                } else if (dist <= 2.5) {
-                    marker.distSpan.textContent = `TRONG VÒNG CỨU (${bleedLeft}s)`;
+                } else if (dist <= 3.0) {
+                    marker.distSpan.textContent = `TRONG VÒNG CỨU (5s)`;
                     marker.distSpan.classList.add('can-revive');
                 } else {
                     marker.distSpan.textContent = `BỊ GỤC · ${bleedLeft}s · ${Math.round(dist)}m`;

@@ -828,13 +828,15 @@ class CyberArenaGame {
 
     reviveTeammate(teammate, reviver = this.player) {
         if (this.network.active && !this.network.host) return false;
-        if (!reviver || reviver === teammate || reviver.isDead || reviver.isDowned || !teammate || teammate.position.distanceTo(reviver.position) > 2.5) return false;
+        if (!reviver || reviver === teammate || reviver.isDead || reviver.isDowned || !teammate || teammate.position.distanceTo(reviver.position) > 3.0) return false;
         if (!teammate?.isDowned && !teammate?.isDead) return false;
         const revived = teammate.revive();
         if (revived) {
             this.particles.createExplosion(teammate.position, 0x10b981, 16, 2.5);
             sounds.play('powerup', { volume: 1.0 });
-            this.ui.showPickupAlert(`ĐÃ CỨU SỐNG THÀNH CÔNG ${teammate.name || 'ĐỒNG ĐỘI'}!`);
+            this.ui?.showPickupAlert(`ĐÃ CỨU SỐNG THÀNH CÔNG ${teammate.name || 'ĐỒNG ĐỘI'}!`);
+            this.ui?.hideSearchProgress?.();
+            this._activeReviveTarget = null;
             const pId = teammate.id || 'player';
             const zone = this.reviveZoneMeshes.get(pId);
             if (zone) {
@@ -846,14 +848,15 @@ class CyberArenaGame {
     }
 
     reviveNearest(reviver) {
-        const teammate = this.coopPlayers.find(player => player !== reviver && (player.isDowned || player.isDead) && player.position.distanceTo(reviver.position) <= 2.5);
-        return this.reviveTeammate(teammate, reviver);
+        // Đã chuyển đổi sang cơ chế đứng trong vòng cứu 3.0m tích lũy 5 giây; không còn hồi sinh tức thì qua phím E
+        return false;
     }
 
-    // Quản lý các vòng cứu người 3D (Revive Zones) và tự động tích lũy tiến trình cứu khi đứng trong vòng 2.5m
+    // Quản lý các vòng cứu người 3D (Revive Zones): tự động tích lũy tiến trình cứu trong 5 giây khi đứng trong vòng 3.0m
     updateReviveZones(delta) {
         const activeDownedIds = new Set();
         const time = performance.now() * 0.003;
+        let localIsRevivingAny = false;
 
         for (const player of this.coopPlayers) {
             if (!player) continue;
@@ -866,8 +869,8 @@ class CyberArenaGame {
                 if (!zone) {
                     const group = new THREE.Group();
 
-                    // Vòng tròn hào quang cứu hộ ngoài (bán kính 2.5m)
-                    const ringGeo = new THREE.RingGeometry(2.38, 2.52, 48);
+                    // Vòng tròn hào quang cứu hộ ngoài (bán kính 3.0m tương tự hòm đồ)
+                    const ringGeo = new THREE.RingGeometry(2.88, 3.04, 48);
                     ringGeo.rotateX(-Math.PI / 2);
                     const ringMat = new THREE.MeshBasicMaterial({
                         color: 0x10b981,
@@ -877,8 +880,8 @@ class CyberArenaGame {
                     });
                     const ringMesh = new THREE.Mesh(ringGeo, ringMat);
 
-                    // Đĩa năng lượng mờ bên trong
-                    const discGeo = new THREE.CircleGeometry(2.38, 36);
+                    // Đĩa năng lượng mờ bên trong bán kính 2.88m
+                    const discGeo = new THREE.CircleGeometry(2.88, 36);
                     discGeo.rotateX(-Math.PI / 2);
                     const discMat = new THREE.MeshBasicMaterial({
                         color: 0x10b981,
@@ -888,8 +891,8 @@ class CyberArenaGame {
                     });
                     const discMesh = new THREE.Mesh(discGeo, discMat);
 
-                    // Vòng tiến trình cứu (Progress Ring)
-                    const progGeo = new THREE.RingGeometry(2.15, 2.32, 40);
+                    // Vòng tiến trình cứu (Progress Ring) xoay mở rộng
+                    const progGeo = new THREE.RingGeometry(2.65, 2.84, 40);
                     progGeo.rotateX(-Math.PI / 2);
                     const progMat = new THREE.MeshBasicMaterial({
                         color: 0x34d399,
@@ -914,21 +917,34 @@ class CyberArenaGame {
                 zone.ring.scale.set(1 + pulse, 1, 1 + pulse);
                 zone.disc.opacity = 0.10 + Math.sin(time * 5) * 0.05;
 
-                // Cập nhật tiến trình hiển thị trên vòng
+                // Cập nhật tiến trình hiển thị trên vòng 3D
                 const progRatio = Math.max(0.01, player.reviveProgress || 0);
                 zone.prog.scale.set(progRatio, 1, progRatio);
                 zone.prog.visible = progRatio > 0.02;
 
-                // Kiểm tra xem có đồng đội nào đang đứng trong vòng cứu (<= 2.5m)
+                // Kiểm tra xem có đồng đội nào đang đứng trong vòng cứu (<= 3.0m)
                 if (this.network.active && !this.network.host) continue;
                 const reviver = this.coopPlayers.find(other => {
                     if (!other || other === player || other.isDowned || other.isDead) return false;
-                    return other.position.distanceTo(player.position) <= 2.5;
+                    return other.position.distanceTo(player.position) <= 3.0;
                 });
 
                 if (reviver) {
                     player.isBeingRevived = true;
-                    player.reviveProgress = Math.min(1.0, (player.reviveProgress || 0) + delta / (player.reviveTimeRequired || 3.5));
+                    // Chuẩn hóa thời gian cứu: 5.0 giây (có tính hệ số reviveSpeedMult của nhân vật nếu có)
+                    const baseReviveTime = 5.0;
+                    const speedMult = reviver.reviveSpeedMult || 1.0;
+                    const requiredTime = baseReviveTime / speedMult;
+                    player.reviveProgress = Math.min(1.0, (player.reviveProgress || 0) + delta / requiredTime);
+
+                    // Nếu người cứu là người chơi chính: cập nhật thanh tiến trình giao diện (Progress Bar UI)
+                    if (reviver === this.player) {
+                        localIsRevivingAny = true;
+                        this._activeReviveTarget = player;
+                        const remaining = Math.max(0, (1.0 - player.reviveProgress) * requiredTime);
+                        this.ui?.showSearchProgress?.(requiredTime, `CỨU ${player.name || 'ĐỒNG ĐỘI'}`);
+                        this.ui?.updateSearchProgress?.(player.reviveProgress, remaining);
+                    }
 
                     // Hiệu ứng hạt ánh sáng xanh bốc lên khi đang được cứu
                     if (Math.random() < 0.25) {
@@ -940,14 +956,26 @@ class CyberArenaGame {
                         );
                     }
 
+                    // Hoàn tất đủ 5 giây tiến trình
                     if (player.reviveProgress >= 1.0) {
+                        if (reviver === this.player) {
+                            this.ui?.hideSearchProgress?.();
+                            this._activeReviveTarget = null;
+                        }
                         this.reviveTeammate(player, reviver);
                     }
                 } else {
                     player.isBeingRevived = false;
-                    player.reviveProgress = Math.max(0, (player.reviveProgress || 0) - delta * 0.35);
+                    // Rời khỏi vòng: tiến trình tụt dần
+                    player.reviveProgress = Math.max(0, (player.reviveProgress || 0) - delta * 0.40);
                 }
             }
+        }
+
+        // Nếu người chơi chính vừa bước ra khỏi vòng cứu: ẩn thanh tiến trình
+        if (!localIsRevivingAny && this._activeReviveTarget) {
+            this.ui?.hideSearchProgress?.();
+            this._activeReviveTarget = null;
         }
 
         // Dọn dẹp các vòng cứu đã hoàn tất hoặc không còn người gục

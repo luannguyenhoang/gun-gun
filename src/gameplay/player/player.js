@@ -236,7 +236,7 @@ export class PlayerController {
         this.bleedOutTimer = 30.0;
         this.maxBleedOutTime = 30.0;
         this.reviveProgress = 0.0;
-        this.reviveTimeRequired = 3.5;
+        this.reviveTimeRequired = 5.0; // Thời gian cứu đồng đội chuẩn 5.0 giây
         this.isBeingRevived = false;
 
         // Trạng thái hiệu ứng chiến trường (Khói tàng hình & Tăng tốc)
@@ -404,12 +404,12 @@ export class PlayerController {
             if (e.code === 'Digit5') this.weapons.startMedkitUse(this);
             if (e.code === 'KeyV') this.weapons.switchWeapon(4, this);
 
-            // Kích hoạt Kỹ năng chủ động (chỉ phím Q) và Cứu đồng đội khi đứng gần (phím E)
+            // Kích hoạt Kỹ năng chủ động (phím Q)
             if (e.code === 'KeyQ') this.tryActiveSkill();
             if (e.code === 'KeyE') {
-                const hasDownedNearby = window.game?.coopPlayers?.some(p => p !== this && p.isDowned && p.position.distanceTo(this.position) < 3.5);
+                const hasDownedNearby = window.game?.coopPlayers?.some(p => p !== this && (p.isDowned || p.isDead) && p.position.distanceTo(this.position) <= 3.0);
                 if (hasDownedNearby) {
-                    this.reviveRequested = true;
+                    window.game?.ui?.showPickupAlert?.('DUY TRÌ VỊ TRÍ TRONG VÒNG CỨU 5S ĐỂ CỨU ĐỒNG ĐỘI!');
                 }
             }
             if (e.code === 'KeyP') this.toggleBotRequested = true;

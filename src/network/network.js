@@ -332,7 +332,7 @@ export class NetworkRoom {
             player.isADS = !!input.ads;
             player.isDodging = !!input.isDodging;
             player.moving = !!input.moving;
-            if (input.revive) { this.game.reviveNearest(player); input.revive = false; }
+            if (input.revive) { input.revive = false; }
         }
     }
 
@@ -369,7 +369,6 @@ export class NetworkRoom {
             else if (command.type === 'switch') weapons.switchWeapon(command.slot, player);
             else if (command.type === 'medkit') weapons.startMedkitUse(player, command.itemType);
             else if (command.type === 'cancel_medkit') weapons.cancelMedkitUse();
-            else if (command.type === 'revive') this.game.reviveNearest(player);
             else if (command.type === 'shoot' && validVector(command.target)) {
                 // Tự động chuyển đúng súng mà client đang bắn nếu lệch slot
                 const current = weapons.getCurrentWeapon();
