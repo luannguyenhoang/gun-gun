@@ -508,22 +508,23 @@ export class UIManager {
         }
 
         // 4. Hàng ô Buff RPG - Dirty check
+        const upgrades = player.upgrades || {};
         const hasShield = player.shield > 0;
         const isShieldFull = player.shield >= player.maxShield;
-        const upgradesKey = `${upgrades.damage}_${upgrades.rapid}_${upgrades.multishot}_${hasShield}_${isShieldFull}_${curWeapon.critMultiplier}_${curWeapon.id}`;
+        const upgradesKey = `${upgrades.damage || 0}_${upgrades.rapid || 0}_${upgrades.multishot || 0}_${hasShield}_${isShieldFull}_${curWeapon?.critMultiplier || 2}_${curWeapon?.id || ''}`;
         if (upgradesKey !== this._lastUpgradesKey) {
             this._lastUpgradesKey = upgradesKey;
             if (this.buffDamage) {
-                this.buffDamage.classList.toggle('active', upgrades.damage > 0);
-                if (this.buffDamageVal) this.buffDamageVal.textContent = `×${player.weapons.damageBoost.toFixed(1)}`;
+                this.buffDamage.classList.toggle('active', (upgrades.damage || 0) > 0);
+                if (this.buffDamageVal) this.buffDamageVal.textContent = `×${(player.weapons?.damageBoost || 1).toFixed(1)}`;
             }
             if (this.buffRapid) {
-                this.buffRapid.classList.toggle('active', upgrades.rapid > 0);
-                if (this.buffRapidVal) this.buffRapidVal.textContent = `×${player.weapons.fireRateBoost.toFixed(2)}`;
+                this.buffRapid.classList.toggle('active', (upgrades.rapid || 0) > 0);
+                if (this.buffRapidVal) this.buffRapidVal.textContent = `×${(player.weapons?.fireRateBoost || 1).toFixed(2)}`;
             }
             if (this.buffMulti) {
-                this.buffMulti.classList.toggle('active', upgrades.multishot > 0);
-                if (this.buffMultiVal) this.buffMultiVal.textContent = `${player.weapons.beamCount} TIA`;
+                this.buffMulti.classList.toggle('active', (upgrades.multishot || 0) > 0);
+                if (this.buffMultiVal) this.buffMultiVal.textContent = `${player.weapons?.beamCount || 1} TIA`;
             }
             if (this.buffShield) {
                 this.buffShield.classList.toggle('active', hasShield);
@@ -531,7 +532,7 @@ export class UIManager {
             }
             if (this.buffCrit) {
                 this.buffCrit.classList.toggle('active', true);
-                if (this.buffCritVal) this.buffCritVal.textContent = `×${(curWeapon.critMultiplier || 2.0).toFixed(1)}`;
+                if (this.buffCritVal) this.buffCritVal.textContent = `×${(curWeapon?.critMultiplier || 2.0).toFixed(1)}`;
             }
         }
 
@@ -553,11 +554,11 @@ export class UIManager {
             this._lastScore = score;
             if (this.scoreVal) this.scoreVal.textContent = score.toLocaleString();
         }
-        if (waveManager.currentPhase !== this._lastPhase) {
+        if (waveManager?.currentPhase !== undefined && waveManager.currentPhase !== this._lastPhase) {
             this._lastPhase = waveManager.currentPhase;
             if (this.waveVal) this.waveVal.textContent = waveManager.currentPhase;
         }
-        const remEnemies = waveManager.getRemainingEnemiesCount();
+        const remEnemies = waveManager?.getRemainingEnemiesCount ? waveManager.getRemainingEnemiesCount() : 0;
         if (remEnemies !== this._lastEnemies) {
             this._lastEnemies = remEnemies;
             if (this.enemiesVal) this.enemiesVal.textContent = remEnemies;
@@ -750,7 +751,7 @@ export class UIManager {
         }
 
         // Boss Health Bar - Dirty check
-        const boss = waveManager.getBoss();
+        const boss = waveManager?.getBoss ? waveManager.getBoss() : null;
         const bossActive = !!(boss && !boss.isDead);
         if (bossActive !== this._lastBossVisible) {
             this._lastBossVisible = bossActive;

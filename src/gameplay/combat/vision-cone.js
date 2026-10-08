@@ -208,8 +208,8 @@ export class VisionConeOverlay {
         // 1. Xóa khung hình cũ
         ctx.clearRect(0, 0, width, height);
 
-        // 2. Phủ lớp bóng tối mờ quân sự toàn màn hình (Darkness Fog)
-        ctx.fillStyle = 'rgba(6, 9, 14, 0.92)';
+        // 2. Phủ lớp bóng tối mờ nhẹ toàn màn hình (Fog of War mờ 40% để vẫn nhìn rõ vật thể và địa hình)
+        ctx.fillStyle = 'rgba(8, 14, 24, 0.40)';
         ctx.fillRect(0, 0, width, height);
 
         // 3. Tính tọa độ màn hình của người chơi

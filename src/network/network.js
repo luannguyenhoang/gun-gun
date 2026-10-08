@@ -743,7 +743,7 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
             else group.position.lerp(visualTarget, blend);
             const angle = Math.atan2(Math.sin(this.aimYaw - group.rotation.y), Math.cos(this.aimYaw - group.rotation.y));
             group.rotation.y += angle * blend;
-            group.visible = true;
+            group.visible = this.isVisibleToObserver !== false;
             if (this.isDowned || this.isDead) {
                 group.rotation.x = -Math.PI / 2.2;
             } else {

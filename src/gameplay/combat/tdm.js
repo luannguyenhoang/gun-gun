@@ -110,13 +110,9 @@ export class TDMBot {
         // Đếm ngược thời gian khiên bất tử
         if (this.remote.invulnerability > 0) {
             this.remote.invulnerability = Math.max(0, this.remote.invulnerability - delta);
-            // Nhấp nháy model khi bất tử
-            if (this.remote.mesh) {
+            // Nhấp nháy model khi bất tử (chỉ khi đang trong tầm nhìn)
+            if (this.remote.mesh && this.remote.isVisibleToObserver !== false) {
                 this.remote.mesh.visible = Math.floor(Date.now() / 120) % 2 === 0;
-            }
-        } else {
-            if (this.remote.mesh && !this.remote.mesh.visible && !this.remote._hiddenByCulling) {
-                this.remote.mesh.visible = true;
             }
         }
 

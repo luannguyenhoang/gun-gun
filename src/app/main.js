@@ -1615,14 +1615,6 @@ class CyberArenaGame {
                 // Chế độ Đối kháng 4v4 TDM
                 this.tdmManager?.update(delta);
                 this.visionCone?.update(this.player, delta);
-
-                // Loại trừ tầm nhìn (Visibility Culling) cho đối thủ khác phe
-                const opponents = this.player.team === 'blue' ? this.tdmManager.teamRed : this.tdmManager.teamBlue;
-                const currentWeapon = this.player.weapons?.currentGun;
-                const isADS = !!this.player.isADS;
-                const opticTier = this.player.weapons?.getOpticTier ? this.player.weapons.getOpticTier() : 1;
-                const visionConfig = getWeaponVisionConfig(currentWeapon, isADS, opticTier);
-                applyVisibilityCulling(this.player, opponents, visionConfig);
             } else {
                 if ((!this.network.active || this.network.host) && this.nextWaveTimer > 0) {
                     this.nextWaveTimer -= delta;
@@ -1757,10 +1749,11 @@ class CyberArenaGame {
             }
 
             // Update UI & Radar with 4 Portals, Teammates, and Tactical Airdrop Zone
-            const teammates = Array.from(this.remotePlayers.values());
-            if (this.gameMode !== 'TDM') {
-                this.ui.updateStats(this.player, this.waveManager, this.score);
-            }
+            const teammates = this.gameMode === 'TDM'
+                ? ((this.player.team === 'blue' ? this.tdmManager?.teamBlue : this.tdmManager?.teamRed) || []).filter(p => p !== this.player)
+                : Array.from(this.remotePlayers.values());
+
+            this.ui.updateStats(this.player, this.waveManager, this.score);
             this.ui.updateOverheadVitals(this.player, this.camera, this.renderer.domElement, teammates);
             this.ui.updateTeammateIndicators(teammates, this.player, this.camera);
             this.ui.updateTeamRoster(teammates, this.player);
@@ -1789,6 +1782,16 @@ class CyberArenaGame {
             else this.roomLobby?.render(delta);
             return; // The opaque menu only needs its character/lobby scene.
         }
+        if (this.state === 'PLAYING' && this.gameMode === 'TDM') {
+            // Áp dụng Culling tầm nhìn sương mù ngay trước render để không bị updateVisual của bot ghi đè
+            const opponents = (this.player.team === 'blue' ? this.tdmManager?.teamRed : this.tdmManager?.teamBlue) || [];
+            const currentWeapon = this.player.weapons?.currentGun;
+            const isADS = !!this.player.isADS;
+            const opticTier = this.player.weapons?.getOpticTier ? this.player.weapons.getOpticTier() : 1;
+            const visionConfig = getWeaponVisionConfig(currentWeapon, isADS, opticTier);
+            applyVisibilityCulling(this.player, opponents, visionConfig);
+        }
+
         this.renderer.render(this.scene, this.camera);
         if (this.state === 'PLAYING' && this.gameMode === 'TDM') {
             this.visionCone?.render(this.player, true);

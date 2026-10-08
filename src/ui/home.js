@@ -61,14 +61,88 @@ export class HomeMenu {
             }
         });
 
-        // Quản lý chọn Chế độ chơi (Mode Selector Dialog: SURVIVAL vs TDM)
+        // Quản lý chọn Chế độ chơi (Tabs nhanh + Mode Selector Dialog: SURVIVAL vs TDM)
         this.modeCard = document.querySelector('.mode-card');
         this.modeDialog = document.getElementById('mode-selector-dialog');
         this.modeTitleStrong = document.querySelector('.mode-titles strong');
         this.modeTitleSmall = document.querySelector('.mode-titles small');
+        this.tabModeSurvival = document.getElementById('mode-tab-survival');
+        this.tabModeTDM = document.getElementById('mode-tab-tdm');
+        this.quickTeamSection = document.getElementById('tdm-quick-team');
+        this.quickTeamBtns = document.querySelectorAll('.quick-team-btn');
+        this.btnStart = document.getElementById('btn-start');
         this.selectedMode = 'SURVIVAL';
         this.selectedTeam = 'blue';
 
+        const applyMode = (mode, team) => {
+            this.selectedMode = mode;
+            this.selectedTeam = team;
+            this.game.selectedGameMode = mode;
+            this.game.selectedTDMTeam = team;
+
+            // 1. Cập nhật trạng thái các Tab chọn nhanh
+            if (this.tabModeSurvival) this.tabModeSurvival.classList.toggle('active', mode === 'SURVIVAL');
+            if (this.tabModeTDM) this.tabModeTDM.classList.toggle('active', mode === 'TDM');
+
+            // 2. Ẩn/Hiện khu vực chọn phe nhanh
+            if (this.quickTeamSection) {
+                this.quickTeamSection.style.display = mode === 'TDM' ? 'flex' : 'none';
+            }
+
+            // 3. Cập nhật nút chọn phe nhanh
+            this.quickTeamBtns.forEach(btn => {
+                const btnTeam = btn.dataset.team || 'blue';
+                btn.classList.toggle('active', btnTeam === team);
+            });
+
+            // 4. Cập nhật các nút phe trong hộp thoại modal (nếu có mở)
+            const modalTeamBtns = this.modeDialog?.querySelectorAll('.team-btn');
+            modalTeamBtns?.forEach(btn => {
+                const btnTeam = btn.dataset.team || 'blue';
+                btn.classList.toggle('active', btnTeam === team);
+            });
+
+            // 5. Cập nhật hiển thị trên thẻ mode-card và nút bắt đầu
+            if (mode === 'TDM') {
+                if (this.modeTitleStrong) this.modeTitleStrong.textContent = 'ĐỐI KHÁNG 4V4';
+                if (this.modeTitleSmall) {
+                    this.modeTitleSmall.textContent = `Phe: ${team === 'blue' ? 'Đội Xanh' : 'Đội Đỏ'} · Fog of War`;
+                }
+                if (this.modeCard) {
+                    this.modeCard.classList.remove('tdm-blue', 'tdm-red');
+                    this.modeCard.classList.add(team === 'blue' ? 'tdm-blue' : 'tdm-red');
+                }
+                if (this.btnStart) {
+                    this.btnStart.textContent = 'VÀO TRẬN 4V4';
+                    this.btnStart.classList.add('tdm-start-btn');
+                    this.btnStart.classList.toggle('red-team-active', team === 'red');
+                }
+            } else {
+                if (this.modeTitleStrong) this.modeTitleStrong.textContent = 'VÔ TẬN';
+                if (this.modeTitleSmall) this.modeTitleSmall.textContent = 'Đấu trường Zombie';
+                if (this.modeCard) {
+                    this.modeCard.classList.remove('tdm-blue', 'tdm-red');
+                }
+                if (this.btnStart) {
+                    this.btnStart.textContent = 'CHƠI';
+                    this.btnStart.classList.remove('tdm-start-btn', 'red-team-active');
+                }
+            }
+        };
+
+        // Gắn sự kiện cho các tab chọn nhanh tại sảnh chính
+        this.tabModeSurvival?.addEventListener('click', () => applyMode('SURVIVAL', this.selectedTeam));
+        this.tabModeTDM?.addEventListener('click', () => applyMode('TDM', this.selectedTeam));
+
+        // Gắn sự kiện cho các nút chọn phe nhanh
+        this.quickTeamBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const team = btn.dataset.team || 'blue';
+                applyMode('TDM', team);
+            });
+        });
+
+        // Hộp thoại modal chi tiết
         if (this.modeCard && this.modeDialog) {
             this.modeCard.style.cursor = 'pointer';
             this.modeCard.addEventListener('click', () => {
@@ -83,37 +157,21 @@ export class HomeMenu {
                 if (event.target === this.modeDialog) this.modeDialog.close();
             });
 
-            // Chọn phe Blue / Red trong thẻ TDM
+            // Chọn phe trong hộp thoại modal
             const teamBtns = this.modeDialog.querySelectorAll('.team-btn');
             teamBtns.forEach(btn => {
                 btn.addEventListener('click', () => {
-                    teamBtns.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    this.selectedTeam = btn.dataset.team || 'blue';
-                    this.game.selectedTDMTeam = this.selectedTeam;
-                    if (this.selectedMode === 'TDM' && this.modeTitleSmall) {
-                        this.modeTitleSmall.textContent = `Phe: ${this.selectedTeam === 'blue' ? 'Đội Xanh' : 'Đội Đỏ'}`;
-                    }
+                    const team = btn.dataset.team || 'blue';
+                    applyMode('TDM', team);
                 });
             });
 
-            // Chọn chế độ SURVIVAL hoặc TDM
+            // Nút xác nhận chọn chế độ trong hộp thoại modal
             const selectModeBtns = this.modeDialog.querySelectorAll('[data-select-mode]');
             selectModeBtns.forEach(btn => {
                 btn.addEventListener('click', () => {
                     const mode = btn.dataset.selectMode;
-                    this.selectedMode = mode;
-                    this.game.selectedGameMode = mode;
-                    this.game.selectedTDMTeam = this.selectedTeam;
-
-                    if (mode === 'TDM') {
-                        if (this.modeTitleStrong) this.modeTitleStrong.textContent = 'ĐỐI KHÁNG 4V4';
-                        if (this.modeTitleSmall) this.modeTitleSmall.textContent = `Phe: ${this.selectedTeam === 'blue' ? 'Đội Xanh' : 'Đội Đỏ'}`;
-                    } else {
-                        if (this.modeTitleStrong) this.modeTitleStrong.textContent = 'VÔ TẬN';
-                        if (this.modeTitleSmall) this.modeTitleSmall.textContent = 'Đấu trường Zombie';
-                    }
-
+                    applyMode(mode, this.selectedTeam);
                     this.modeDialog.close();
                 });
             });
