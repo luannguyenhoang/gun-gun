@@ -119,6 +119,8 @@
 <body>
     <!-- 3D Canvas -->
     <canvas id="game-canvas"></canvas>
+    <!-- 2D Vision Cone Darkness Mask Canvas -->
+    <canvas id="vision-cone-canvas"></canvas>
 
     <!-- Damage Screen Vignette Effect -->
     <div id="damage-vignette"></div>
@@ -134,6 +136,42 @@
         <div class="overhead-shield"><div id="shield-fill"></div></div>
       </div>
       <section class="combat-wave combat-panel"><span class="combat-kicker">SINH TỒN VÔ TẬN</span><strong>ĐỢT <span id="wave-value">1</span></strong><span class="enemy-count">ZOMBIE CÒN LẠI <b id="enemies-value">0</b></span></section>
+
+      <!-- Giao diện Chế độ Đối kháng 4v4 TDM -->
+      <section id="tdm-scoreboard" class="tdm-scoreboard combat-panel" style="display:none;">
+        <div class="tdm-team tdm-team-blue">
+          <span class="tdm-team-name">ĐỘI XANH</span>
+          <span id="tdm-score-blue" class="tdm-score-num">0</span>
+        </div>
+        <div class="tdm-center-info">
+          <span class="tdm-target-label">MỤC TIÊU: <b id="tdm-target-kills">20</b></span>
+          <div class="tdm-progress-bar">
+            <div id="tdm-bar-blue" class="tdm-bar-fill blue" style="width:0%;"></div>
+            <div id="tdm-bar-red" class="tdm-bar-fill red" style="width:0%;"></div>
+          </div>
+        </div>
+        <div class="tdm-team tdm-team-red">
+          <span id="tdm-score-red" class="tdm-score-num">0</span>
+          <span class="tdm-team-name">ĐỘI ĐỎ</span>
+        </div>
+      </section>
+      <div id="tdm-killfeed" class="tdm-killfeed"></div>
+      <div id="tdm-respawn-modal" class="tdm-respawn-modal" style="display:none;">
+        <div class="tdm-respawn-card">
+          <div class="tdm-respawn-title">BẠN ĐÃ BỊ HẠ GỤC</div>
+          <div class="tdm-respawn-timer">HỒI SINH TRONG <span id="tdm-respawn-sec">3</span> GIÂY...</div>
+        </div>
+      </div>
+      <div id="tdm-result-modal" class="tdm-result-modal" style="display:none;">
+        <div class="tdm-result-card">
+          <h2 id="tdm-result-title" class="tdm-result-title">CHIẾN THẮNG!</h2>
+          <div id="tdm-result-score" class="tdm-result-score">20 - 14</div>
+          <div class="tdm-result-actions">
+            <button id="tdm-btn-restart" class="tdm-btn restart">ĐẤU LẠI</button>
+            <button id="tdm-btn-home" class="tdm-btn home">VỀ TRANG CHỦ</button>
+          </div>
+        </div>
+      </div>
       <section class="combat-radar combat-panel"><span class="combat-kicker">BẢN ĐỒ</span><canvas id="radar-canvas" width="140" height="140"></canvas><span class="radar-key">● BẠN <i>● ZOMBIE</i></span></section>
       <div id="boss-health-container" class="combat-boss" style="display:none"><span>TRÙM ĐỘT BIẾN</span><div class="combat-meter health-meter"><div id="boss-health-fill"></div></div></div>
       <div id="team-roster" class="team-roster-panel" style="display:none"></div>
@@ -886,7 +924,39 @@
           </button>
           <button class="dock-btn" data-open="friends" title="Cộng đồng"><img class="lobby-png" src="assets/ui/lobby/runtime/chat-brown.png" alt="" aria-hidden="true" draggable="false">
           </button>
-        </aside>
+        <dialog id="mode-selector-dialog" class="mode-selector-dialog" aria-labelledby="mode-dialog-title">
+          <div class="dialog-header">
+            <h2 id="mode-dialog-title">CHỌN CHẾ ĐỘ CHƠI</h2>
+            <button type="button" class="toy-button coral close-mode-dialog" aria-label="Đóng">×</button>
+          </div>
+          <div class="mode-options-grid">
+            <div class="mode-option-card active" data-mode="SURVIVAL">
+              <div class="mode-opt-header">
+                <span class="mode-opt-badge default">MẶC ĐỊNH</span>
+                <h3>SINH TỒN ZOMBIE</h3>
+              </div>
+              <p>Chiến đấu theo từng đợt quái, nhặt trang bị, nâng cấp súng và mở hòm tiếp tế vô tận.</p>
+              <button type="button" class="toy-button yellow select-mode-btn" data-select-mode="SURVIVAL">CHỌN CHẾ ĐỘ NÀY</button>
+            </div>
+
+            <div class="mode-option-card" data-mode="TDM">
+              <div class="mode-opt-header">
+                <span class="mode-opt-badge tdm">CHẾ ĐỘ MỚI</span>
+                <h3>ĐỐI KHÁNG 4V4 (TDM)</h3>
+              </div>
+              <p>Chia 2 đội Xanh vs Đỏ đấu súng chiến thuật. Có tầm nhìn hình quạt theo loại súng, tự hồi sinh sau 3s, chạm 20 mạng để thắng!</p>
+              <div class="team-picker">
+                <label>Chọn phe của bạn:</label>
+                <div class="team-btns">
+                  <button type="button" class="team-btn blue active" data-team="blue">ĐỘI XANH</button>
+                  <button type="button" class="team-btn red" data-team="red">ĐỘI ĐỎ</button>
+                </div>
+              </div>
+              <button type="button" class="toy-button yellow select-mode-btn" data-select-mode="TDM">CHỌN CHẾ ĐỘ NÀY</button>
+            </div>
+          </div>
+        </dialog>
+
         <dialog id="home-dialog" aria-labelledby="dialog-title">
           <div class="dialog-header"><h2 id="dialog-title"></h2><button class="toy-button coral close-dialog" aria-label="Đóng">×</button></div>
           <div class="dialog-body">

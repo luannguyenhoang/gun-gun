@@ -2558,8 +2558,9 @@ export class PlayerController {
         return input;
     }
 
-    takeDamage(amount, hitDir) {
+    takeDamage(amount, hitDir, attacker = null) {
         if (this.isDead || this.isDowned || this.isDodging || this.invulnerability > 0 || (window.game?.network?.active && !window.game.network.host)) return;
+        if (attacker) this.lastAttacker = attacker;
         // Kiem tra khien bat tu Nanite
         if (this.activeSkillEffect === 'nanite_barrier') return;
         // Kiem tra hang rao thep giam 50% sat thuong
@@ -2602,14 +2603,19 @@ export class PlayerController {
             }
         }
 
-        // Khóa nhận sát thương trong 0.8 giây (i-frame) giúp tránh bị bầy zombie dồn sát thương chết tức thì
+        // Khóa nhận sát thương trong 0.8 giây (i-frame) giúp tránh bị dồn sát thương chết tức thì
         if (this.health > 0) {
             this.invulnerability = Math.max(this.invulnerability || 0, 0.8);
         }
 
         if (this.health <= 0) {
             this.health = 0;
-            this.die();
+            if (window.game?.gameMode === 'TDM') {
+                window.game.tdmManager?.onEntityKilled(this, attacker || this.lastAttacker);
+                this.die(true);
+            } else {
+                this.die();
+            }
         }
     }
 
@@ -2627,8 +2633,9 @@ export class PlayerController {
         if (this.isDead) return;
         if (this.developerMode || window.developerMode) return;
 
-        // Kiểm tra nếu có đồng đội hoặc bot trong trận
-        const hasTeammates = this.cooperative || (window.game?.coopPlayers && window.game.coopPlayers.length > 1);
+        // Kiểm tra nếu có đồng đội hoặc bot trong trận (ngoại trừ chế độ TDM)
+        const isTDM = window.game?.gameMode === 'TDM';
+        const hasTeammates = !isTDM && (this.cooperative || (window.game?.coopPlayers && window.game.coopPlayers.length > 1));
         if (hasTeammates && !forceDead) {
             // Chuyển sang trạng thái gục (Downed), chờ đồng đội bước vào vòng cứu
             this.isDead = false;

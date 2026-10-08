@@ -3134,7 +3134,7 @@ export class WeaponSystem {
                         }
 
                         // Sát thương dao với Pen Power 2
-                        const hitResult = enemy.takeDamage(finalDamage, p.penPower, isCrit, _tempSlashForward);
+                        const hitResult = enemy.takeDamage(finalDamage, p.penPower, isCrit, _tempSlashForward, p.owner);
                         _tempHitPointSparks.copy(enemy.position);
                         _tempHitPointSparks.y += 1.0;
                         _tempSparkDir.copy(_tempSlashForward).negate();
@@ -3204,6 +3204,8 @@ export class WeaponSystem {
             if (p.isPlayer) {
                 for (const enemy of enemies) {
                     if (enemy.isDead || p.hitEnemies?.has(enemy)) continue;
+                    // Bỏ qua đồng đội cùng phe (Friendly Fire = OFF)
+                    if (enemy.team && p.owner?.team && enemy.team === p.owner.team) continue;
                     const hitInfo = enemy.checkHit(startPos, _tempNextPos, _tempRay);
                     if (hitInfo.hit) {
                         p.hitEnemies?.add(enemy);
@@ -3255,7 +3257,7 @@ export class WeaponSystem {
                         const finalDamage = Math.round(currentBaseDmg * critMult);
 
                         // Gọi takeDamage kèm penPower
-                        const hitResult = enemy.takeDamage(finalDamage, p.penPower, isCrit, p.direction);
+                        const hitResult = enemy.takeDamage(finalDamage, p.penPower, isCrit, p.direction, p.owner);
 
                         // Tia lửa phụ thuộc vào việc xuyên máu hay bị giáp cản
                         const sparkColor = hitResult?.isPenetrated ? (isCrit ? 0xff2255 : p.color) : 0xffffff;
@@ -3267,10 +3269,11 @@ export class WeaponSystem {
                             sounds.play('enemyDestroy', { volume: 1.0 });
                             for (const other of enemies) {
                                 if (other !== enemy && !other.isDead && other.position.distanceTo(hitInfo.point) <= p.splashRadius) {
+                                    if (other.team && p.owner?.team && other.team === p.owner.team) continue;
                                     const dist = other.position.distanceTo(hitInfo.point);
                                     const splashDmg = Math.round(finalDamage * (1 - (dist / p.splashRadius) * 0.45));
                                     const dir = other.position.clone().sub(hitInfo.point).normalize();
-                                    other.takeDamage(splashDmg, p.penPower, false, dir);
+                                    other.takeDamage(splashDmg, p.penPower, false, dir, p.owner);
                                 }
                             }
                         }
@@ -3296,13 +3299,15 @@ export class WeaponSystem {
                     }
                 }
             } else {
-                // 3. Đạn quái va chạm người chơi
+                // 3. Đạn quái / Bot va chạm người chơi
                 const targets = this.enemyTargets || (Array.isArray(player) ? player : [player]);
                 for (const target of targets) {
                     if (!target || target.isDead || target.isDowned) continue;
+                    // Bỏ qua đồng đội cùng phe (Friendly Fire = OFF)
+                    if (target.team && p.owner?.team && target.team === p.owner.team) continue;
                     const hitInfo = target.checkHit(startPos, _tempNextPos, _tempRay);
                     if (hitInfo.hit) {
-                        target.takeDamage(p.damage, p.direction);
+                        target.takeDamage(p.damage, p.direction, p.owner);
                         this.particles.createImpactSparks(hitInfo.point, p.direction.clone().negate(), p.color, 10);
                         this.removeProjectile(i);
                         hitFound = true;

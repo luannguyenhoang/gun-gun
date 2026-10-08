@@ -284,6 +284,109 @@ export class UIManager {
         this._dragData = null;
         this._tempContainerWorldPos = new THREE.Vector3();
         this._tempPromptNdc = new THREE.Vector3();
+
+        // Các phần tử giao diện Chế độ Đối kháng TDM
+        this.tdmScoreboard = document.getElementById('tdm-scoreboard');
+        this.tdmScoreBlue = document.getElementById('tdm-score-blue');
+        this.tdmScoreRed = document.getElementById('tdm-score-red');
+        this.tdmTargetKills = document.getElementById('tdm-target-kills');
+        this.tdmBarBlue = document.getElementById('tdm-bar-blue');
+        this.tdmBarRed = document.getElementById('tdm-bar-red');
+        this.tdmKillFeed = document.getElementById('tdm-killfeed');
+        this.tdmRespawnModal = document.getElementById('tdm-respawn-modal');
+        this.tdmRespawnSec = document.getElementById('tdm-respawn-sec');
+        this.tdmResultModal = document.getElementById('tdm-result-modal');
+        this.tdmResultTitle = document.getElementById('tdm-result-title');
+        this.tdmResultScore = document.getElementById('tdm-result-score');
+        this.tdmBtnRestart = document.getElementById('tdm-btn-restart');
+        this.tdmBtnHome = document.getElementById('tdm-btn-home');
+        this.combatWave = document.querySelector('.combat-wave');
+    }
+
+    showTDMScoreboard(scoreBlue = 0, scoreRed = 0, target = 20) {
+        if (this.combatWave) this.combatWave.style.display = 'none';
+        if (this.tdmScoreboard) this.tdmScoreboard.style.display = 'flex';
+        this.updateTDMScore(scoreBlue, scoreRed, target);
+    }
+
+    hideTDMScoreboard() {
+        if (this.tdmScoreboard) this.tdmScoreboard.style.display = 'none';
+        if (this.combatWave) this.combatWave.style.display = '';
+        if (this.tdmKillFeed) this.tdmKillFeed.innerHTML = '';
+    }
+
+    updateTDMScore(scoreBlue = 0, scoreRed = 0, target = 20) {
+        if (this.tdmScoreBlue) this.tdmScoreBlue.textContent = scoreBlue;
+        if (this.tdmScoreRed) this.tdmScoreRed.textContent = scoreRed;
+        if (this.tdmTargetKills) this.tdmTargetKills.textContent = target;
+        if (this.tdmBarBlue) {
+            const pct = Math.min(100, (scoreBlue / Math.max(1, target)) * 100);
+            this.tdmBarBlue.style.width = `${pct}%`;
+        }
+        if (this.tdmBarRed) {
+            const pct = Math.min(100, (scoreRed / Math.max(1, target)) * 100);
+            this.tdmBarRed.style.width = `${pct}%`;
+        }
+    }
+
+    addTDMKillFeed(killerName, victimName, isKillerFriendly = true) {
+        if (!this.tdmKillFeed) return;
+        const item = document.createElement('div');
+        item.className = `tdm-kill-item ${isKillerFriendly ? 'friendly-kill' : 'enemy-kill'}`;
+        item.textContent = `${killerName}  ⚔  ${victimName}`;
+        this.tdmKillFeed.appendChild(item);
+
+        while (this.tdmKillFeed.children.length > 5) {
+            this.tdmKillFeed.removeChild(this.tdmKillFeed.firstChild);
+        }
+
+        setTimeout(() => {
+            if (item.parentNode) {
+                item.style.opacity = '0';
+                item.style.transition = 'opacity 0.4s ease';
+                setTimeout(() => item.remove(), 400);
+            }
+        }, 3500);
+    }
+
+    showTDMRespawnCountdown(seconds) {
+        if (this.tdmRespawnModal) this.tdmRespawnModal.style.display = 'flex';
+        if (this.tdmRespawnSec) this.tdmRespawnSec.textContent = seconds;
+    }
+
+    hideTDMRespawnCountdown() {
+        if (this.tdmRespawnModal) this.tdmRespawnModal.style.display = 'none';
+    }
+
+    showTDMMatchResult(options = {}) {
+        if (!this.tdmResultModal) return;
+        const card = this.tdmResultModal.querySelector('.tdm-result-card');
+        if (card) {
+            card.classList.toggle('defeat', !options.isVictory);
+        }
+        if (this.tdmResultTitle) {
+            this.tdmResultTitle.textContent = options.isVictory ? 'CHIẾN THẮNG!' : 'THẤT BẠI!';
+        }
+        if (this.tdmResultScore) {
+            this.tdmResultScore.textContent = `${options.scoreBlue || 0} - ${options.scoreRed || 0}`;
+        }
+        if (this.tdmBtnRestart) {
+            this.tdmBtnRestart.onclick = () => {
+                this.hideTDMMatchResult();
+                options.onRestart?.();
+            };
+        }
+        if (this.tdmBtnHome) {
+            this.tdmBtnHome.onclick = () => {
+                this.hideTDMMatchResult();
+                options.onHome?.();
+            };
+        }
+        this.tdmResultModal.style.display = 'flex';
+    }
+
+    hideTDMMatchResult() {
+        if (this.tdmResultModal) this.tdmResultModal.style.display = 'none';
     }
 
     updateOverheadVitals(player, camera, canvas, teammates = []) {

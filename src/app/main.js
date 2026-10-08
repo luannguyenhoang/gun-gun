@@ -15,6 +15,8 @@ import { HomeMenu } from '../ui/home.js?v=57';
 import { LootingSystem } from '../gameplay/loot/looting.js?v=70';
 import { RenderQuality } from '../rendering/performance.js';
 import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=49';
+import { VisionConeOverlay, getWeaponVisionConfig, applyVisibilityCulling } from '../gameplay/combat/vision-cone.js';
+import { TDMManager } from '../gameplay/combat/tdm.js';
 
 class CyberArenaGame {
     constructor() {
@@ -24,6 +26,9 @@ class CyberArenaGame {
         this.score = 0;
         this.highScore = parseInt(localStorage.getItem('cyber_arena_highscore') || '0', 10);
         this.currentWave = 1; // Infinite Phase counter
+        this.gameMode = 'SURVIVAL'; // 'SURVIVAL' hoặc 'TDM'
+        this.selectedGameMode = 'SURVIVAL';
+        this.selectedTDMTeam = 'blue';
         this.characterId = normalizeCharacter(localStorage.getItem('cyber_arena_character') || 'police');
         this.nextWaveTimer = 0;
         this.clock = new THREE.Clock();
@@ -107,6 +112,7 @@ class CyberArenaGame {
             this.camera.right = this.viewHeight * aspect / 2;
             this.camera.updateProjectionMatrix();
             this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.visionCone?.initCanvasSize?.();
         });
 
         // GLTF Loader
@@ -129,6 +135,10 @@ class CyberArenaGame {
         this.lootingSystem = new LootingSystem(this.scene, this.particles, this.player, this.waveManager, this.ui);
         this.coopPlayers = [this.player];
         this.reviveZoneMeshes = new Map();
+
+        // Khởi tạo hệ thống Tầm nhìn hình quạt và Chế độ đối kháng TDM
+        this.visionCone = new VisionConeOverlay(document.getElementById('vision-cone-canvas'), this.camera);
+        this.tdmManager = new TDMManager(this);
 
         // Lắng nghe phát bắn của người chơi Host để broadcast cho đồng đội
         this.weapons.onShotFired = (info) => {
@@ -203,7 +213,13 @@ class CyberArenaGame {
 
         // Button listeners
         if (this.btnStart) {
-            this.btnStart.addEventListener('click', () => this.startGame());
+            this.btnStart.addEventListener('click', () => {
+                if (this.selectedGameMode === 'TDM') {
+                    this.startTDM(this.selectedTDMTeam || 'blue');
+                } else {
+                    this.startGame();
+                }
+            });
         }
         if (this.btnResume) {
             this.btnResume.addEventListener('click', () => this.resumeGame());
@@ -543,6 +559,51 @@ class CyberArenaGame {
         this.ui.showBanner('SỐNG SÓT · NHẶT ĐẠN · NÂNG CẤP');
     }
 
+    startTDM(playerTeam = 'blue') {
+        this.gameMode = 'TDM';
+        this.selectedTDMTeam = playerTeam;
+        this.homeMenu?.showroom.dialog.close();
+        this.homeMenu?.dialog.close();
+        sounds.init();
+        sounds.startMusic();
+
+        this.state = 'PLAYING';
+        this.pauseMenuOpen = false;
+        this.networkEvents = [];
+        this.hitEventSeq = 0;
+        this.lastHitEventId = 0;
+        if (this.screenMenu) this.screenMenu.style.display = 'none';
+        if (this.screenPause) this.screenPause.style.display = 'none';
+        if (this.screenGameOver) this.screenGameOver.style.display = 'none';
+        if (this.hud) this.hud.style.display = 'block';
+
+        this.score = 0;
+        this.currentWave = 1;
+        this.nextWaveTimer = 0;
+
+        const currentLoadout = this.getLoadout();
+        this.weapons.resetRun(currentLoadout.primary, currentLoadout.secondary, currentLoadout.bomb1, currentLoadout.bomb2);
+
+        this.player.reset();
+        this.player.team = playerTeam;
+        if (this.developerMode) {
+            this.player.developerMode = true;
+            this.player.health = this.player.maxHealth;
+            this.player.shield = this.player.maxShield;
+        }
+        this.pickups.clear();
+        this.particles.clear();
+        this.waveManager.clear();
+        this.lootingSystem?.clearAll?.();
+
+        this.player.setInputEnabled(true);
+        this.player.cooperative = false;
+        document.getElementById('hud-pause').disabled = false;
+
+        // Bắt đầu trận đấu đối kháng TDM
+        this.tdmManager?.startMatch(playerTeam, 4);
+    }
+
     pauseGame() {
         if (this.state !== 'PLAYING') return;
         this.pauseMenuOpen = true;
@@ -553,7 +614,7 @@ class CyberArenaGame {
         this.homeMenu?.syncAudio();
         this.syncPerformanceUI?.();
         const pWave = (typeof document !== 'undefined') ? document.getElementById('pause-wave-badge') : null;
-        if (pWave) pWave.textContent = `ĐỢT ${this.currentWave || 1}`;
+        if (pWave) pWave.textContent = this.gameMode === 'TDM' ? 'ĐỐI KHÁNG 4V4' : `ĐỢT ${this.currentWave || 1}`;
         if (this.screenPause) this.screenPause.style.display = 'flex';
     }
 
@@ -565,7 +626,11 @@ class CyberArenaGame {
     }
 
     restartGame() {
-        this.startGame();
+        if (this.gameMode === 'TDM') {
+            this.startTDM(this.selectedTDMTeam || 'blue');
+        } else {
+            this.startGame();
+        }
     }
 
     returnToMenu() {
@@ -581,6 +646,13 @@ class CyberArenaGame {
         this.pickups.clear();
         this.particles.clear();
         this.ui.clearTeammateIndicators();
+        if (this.tdmManager) {
+            this.tdmManager.cleanup();
+        }
+        if (this.visionCone) {
+            this.visionCone.clear();
+        }
+        this.gameMode = 'SURVIVAL';
         this.screenPause.style.display = 'none';
         this.screenGameOver.style.display = 'none';
         this.hud.style.display = 'none';
@@ -590,6 +662,7 @@ class CyberArenaGame {
     }
 
     gameOver() {
+        if (this.gameMode === 'TDM') return false;
         // A player's death never ends a cooperative match while somebody can still play.
         if (this.network.active && (!this.coopPlayers.length || this.coopPlayers.some(p => !p.isDead && !p.isDowned))) return false;
         this.pauseMenuOpen = false;
@@ -1537,20 +1610,35 @@ class CyberArenaGame {
 
             // Update arena portals and grass ambience.
             this.arena.update(delta);
-            if ((!this.network.active || this.network.host) && this.nextWaveTimer > 0) {
-                this.nextWaveTimer -= delta;
-                if (this.nextWaveTimer <= 0) {
-                    this.waveManager.startWave(this.currentWave);
-                    const message = this.currentWave % 5 === 0 ? 'CẢNH BÁO: MUTANT OVERLORD XUẤT HIỆN!'
-                        : this.currentWave === 2 ? `ĐỢT ${this.currentWave}: FAST ZOMBIE XUẤT HIỆN!`
-                        : this.currentWave === 3 ? `ĐỢT ${this.currentWave}: TANKER ZOMBIE GIÁP NẶNG!`
-                        : `ĐỢT ${this.currentWave}: ĐÀN ZOMBIE TẤN CÔNG!`;
-                    this.ui.showBanner(message);
+
+            if (this.gameMode === 'TDM') {
+                // Chế độ Đối kháng 4v4 TDM
+                this.tdmManager?.update(delta);
+                this.visionCone?.update(this.player, delta);
+
+                // Loại trừ tầm nhìn (Visibility Culling) cho đối thủ khác phe
+                const opponents = this.player.team === 'blue' ? this.tdmManager.teamRed : this.tdmManager.teamBlue;
+                const currentWeapon = this.player.weapons?.currentGun;
+                const isADS = !!this.player.isADS;
+                const opticTier = this.player.weapons?.getOpticTier ? this.player.weapons.getOpticTier() : 1;
+                const visionConfig = getWeaponVisionConfig(currentWeapon, isADS, opticTier);
+                applyVisibilityCulling(this.player, opponents, visionConfig);
+            } else {
+                if ((!this.network.active || this.network.host) && this.nextWaveTimer > 0) {
+                    this.nextWaveTimer -= delta;
+                    if (this.nextWaveTimer <= 0) {
+                        this.waveManager.startWave(this.currentWave);
+                        const message = this.currentWave % 5 === 0 ? 'CẢNH BÁO: MUTANT OVERLORD XUẤT HIỆN!'
+                            : this.currentWave === 2 ? `ĐỢT ${this.currentWave}: FAST ZOMBIE XUẤT HIỆN!`
+                            : this.currentWave === 3 ? `ĐỢT ${this.currentWave}: TANKER ZOMBIE GIÁP NẶNG!`
+                            : `ĐỢT ${this.currentWave}: ĐÀN ZOMBIE TẤN CÔNG!`;
+                        this.ui.showBanner(message);
+                    }
                 }
             }
 
             // Update Player
-            this.player.update(delta, this.arena, this.waveManager.enemies);
+            this.player.update(delta, this.arena, this.gameMode === 'TDM' ? (this.player.team === 'blue' ? this.tdmManager.teamRed : this.tdmManager.teamBlue) : this.waveManager.enemies);
             if (this.player.reviveRequested) {
                 if (this.network.active && !this.network.host) this.network.sendCommand({ type: 'revive' });
                 else this.reviveNearest(this.player);
@@ -1580,15 +1668,38 @@ class CyberArenaGame {
 
             // Update Weapons & Projectiles
             if (!this.network.active || this.network.host) {
-                this.weapons.enemyTargets = this.coopPlayers;
-                this.weapons.update(delta, this.arena, this.waveManager.enemies, this.player,
-                    (dmg, crit, pt, hitResult) => this.onHitEnemy(dmg, crit, pt, hitResult));
+                if (this.gameMode === 'TDM') {
+                    const opponentEntities = this.player.team === 'blue' ? this.tdmManager.teamRed : this.tdmManager.teamBlue;
+                    this.weapons.enemyTargets = opponentEntities;
+                    this.weapons.update(delta, this.arena, opponentEntities, this.player,
+                        (dmg, crit, pt, hitResult, target) => {
+                            if (target?.takeDamage) {
+                                target.takeDamage(dmg, 1, crit, null, this.player);
+                            }
+                            this.onHitEnemy(dmg, crit, pt, hitResult);
+                        });
+                } else {
+                    this.weapons.enemyTargets = this.coopPlayers;
+                    this.weapons.update(delta, this.arena, this.waveManager.enemies, this.player,
+                        (dmg, crit, pt, hitResult) => this.onHitEnemy(dmg, crit, pt, hitResult));
+                }
                 for (const remote of this.remotePlayers.values()) {
-                    remote.latestEnemies = this.waveManager.enemies;
-                    this.network.processCommands(remote);
-                    remote.updateActiveSkills?.(delta, this.arena, this.waveManager.enemies);
-                    remote.weapons.update(delta, this.arena, this.waveManager.enemies, remote,
-                        (dmg, crit, pt, hitResult) => this.onHitEnemy(dmg, crit, pt, hitResult, remote.id));
+                    if (this.gameMode === 'TDM') {
+                        const botOpponents = remote.team === 'blue' ? this.tdmManager?.teamRed : this.tdmManager?.teamBlue;
+                        remote.weapons.enemyTargets = botOpponents || [];
+                        remote.weapons.update(delta, this.arena, botOpponents || [], remote,
+                            (dmg, crit, pt, hitResult, target) => {
+                                if (target?.takeDamage) {
+                                    target.takeDamage(dmg, 1, crit, null, remote);
+                                }
+                            });
+                    } else {
+                        remote.latestEnemies = this.waveManager.enemies;
+                        this.network.processCommands(remote);
+                        remote.updateActiveSkills?.(delta, this.arena, this.waveManager.enemies);
+                        remote.weapons.update(delta, this.arena, this.waveManager.enemies, remote,
+                            (dmg, crit, pt, hitResult) => this.onHitEnemy(dmg, crit, pt, hitResult, remote.id));
+                    }
                 }
             } else {
                 this.waveManager.bombs.update(delta, [], false);
@@ -1618,18 +1729,20 @@ class CyberArenaGame {
                 }
             }
 
-            // Update Infinite Phases & Zombies
-            const waveFinished = (!this.network.active || this.network.host) && this.waveManager.update(
-                delta, this.coopPlayers, this.arena, (enemy) => this.onEnemyKilled(enemy));
+            // Update Infinite Phases & Zombies (Chỉ chạy ở chế độ Sinh Tồn)
+            if (this.gameMode !== 'TDM') {
+                const waveFinished = (!this.network.active || this.network.host) && this.waveManager.update(
+                    delta, this.coopPlayers, this.arena, (enemy) => this.onEnemyKilled(enemy));
 
-            if (waveFinished) {
-                this.currentWave++;
-                this.score += 300 * (this.currentWave - 1);
-                this.addCoins(100);
-                sounds.play('land', { volume: 0.8 });
-                this.ui.showBanner(`HOÀN THÀNH ĐỢT ${this.currentWave - 1}! NGHỈ NGƠI 10 GIÂY (MỞ HÒM & NẠP ĐẠN)`);
+                if (waveFinished) {
+                    this.currentWave++;
+                    this.score += 300 * (this.currentWave - 1);
+                    this.addCoins(100);
+                    sounds.play('land', { volume: 0.8 });
+                    this.ui.showBanner(`HOÀN THÀNH ĐỢT ${this.currentWave - 1}! NGHỈ NGƠI 10 GIÂY (MỞ HÒM & NẠP ĐẠN)`);
 
-                this.nextWaveTimer = 10.0;
+                    this.nextWaveTimer = 10.0;
+                }
             }
 
             // Update Pickups
@@ -1639,18 +1752,29 @@ class CyberArenaGame {
             this.particles.update(delta);
 
             // Update Looting & Airdrop Ecosystem
-            this.lootingSystem.update(delta);
+            if (this.gameMode !== 'TDM') {
+                this.lootingSystem.update(delta);
+            }
 
             // Update UI & Radar with 4 Portals, Teammates, and Tactical Airdrop Zone
             const teammates = Array.from(this.remotePlayers.values());
-            this.ui.updateStats(this.player, this.waveManager, this.score);
+            if (this.gameMode !== 'TDM') {
+                this.ui.updateStats(this.player, this.waveManager, this.score);
+            }
             this.ui.updateOverheadVitals(this.player, this.camera, this.renderer.domElement, teammates);
             this.ui.updateTeammateIndicators(teammates, this.player, this.camera);
             this.ui.updateTeamRoster(teammates, this.player);
             this.radarElapsed += delta;
             if (this.radarElapsed >= 0.05) {
                 this.radarElapsed %= 0.05;
-                this.ui.drawRadar(this.player, this.waveManager.enemies, this.pickups.pickups, this.arena.getPortals(), teammates, this.lootingSystem.activeAirdropZone);
+                const radarEnemies = this.gameMode === 'TDM'
+                    ? (this.player.team === 'blue' ? this.tdmManager?.teamRed : this.tdmManager?.teamBlue) || []
+                    : this.waveManager.enemies;
+                // Trong TDM, chỉ những đối thủ đang nhìn thấy mới hiện trên radar
+                const visibleRadarEnemies = this.gameMode === 'TDM'
+                    ? radarEnemies.filter(e => e && !e.isDead && e.isVisibleToObserver)
+                    : radarEnemies;
+                this.ui.drawRadar(this.player, visibleRadarEnemies, this.pickups.pickups, this.arena.getPortals(), teammates, this.lootingSystem.activeAirdropZone);
             }
         } else if (this.state === 'MENU' || this.state === 'LOADING') {
             this.renderQuality.reset();
@@ -1666,6 +1790,11 @@ class CyberArenaGame {
             return; // The opaque menu only needs its character/lobby scene.
         }
         this.renderer.render(this.scene, this.camera);
+        if (this.state === 'PLAYING' && this.gameMode === 'TDM') {
+            this.visionCone?.render(this.player, true);
+        } else {
+            this.visionCone?.clear();
+        }
     }
 }
 

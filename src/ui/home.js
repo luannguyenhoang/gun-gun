@@ -61,6 +61,64 @@ export class HomeMenu {
             }
         });
 
+        // Quản lý chọn Chế độ chơi (Mode Selector Dialog: SURVIVAL vs TDM)
+        this.modeCard = document.querySelector('.mode-card');
+        this.modeDialog = document.getElementById('mode-selector-dialog');
+        this.modeTitleStrong = document.querySelector('.mode-titles strong');
+        this.modeTitleSmall = document.querySelector('.mode-titles small');
+        this.selectedMode = 'SURVIVAL';
+        this.selectedTeam = 'blue';
+
+        if (this.modeCard && this.modeDialog) {
+            this.modeCard.style.cursor = 'pointer';
+            this.modeCard.addEventListener('click', () => {
+                this.modeDialog.showModal();
+            });
+
+            this.modeDialog.querySelector('.close-mode-dialog')?.addEventListener('click', () => {
+                this.modeDialog.close();
+            });
+
+            this.modeDialog.addEventListener('click', (event) => {
+                if (event.target === this.modeDialog) this.modeDialog.close();
+            });
+
+            // Chọn phe Blue / Red trong thẻ TDM
+            const teamBtns = this.modeDialog.querySelectorAll('.team-btn');
+            teamBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    teamBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    this.selectedTeam = btn.dataset.team || 'blue';
+                    this.game.selectedTDMTeam = this.selectedTeam;
+                    if (this.selectedMode === 'TDM' && this.modeTitleSmall) {
+                        this.modeTitleSmall.textContent = `Phe: ${this.selectedTeam === 'blue' ? 'Đội Xanh' : 'Đội Đỏ'}`;
+                    }
+                });
+            });
+
+            // Chọn chế độ SURVIVAL hoặc TDM
+            const selectModeBtns = this.modeDialog.querySelectorAll('[data-select-mode]');
+            selectModeBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const mode = btn.dataset.selectMode;
+                    this.selectedMode = mode;
+                    this.game.selectedGameMode = mode;
+                    this.game.selectedTDMTeam = this.selectedTeam;
+
+                    if (mode === 'TDM') {
+                        if (this.modeTitleStrong) this.modeTitleStrong.textContent = 'ĐỐI KHÁNG 4V4';
+                        if (this.modeTitleSmall) this.modeTitleSmall.textContent = `Phe: ${this.selectedTeam === 'blue' ? 'Đội Xanh' : 'Đội Đỏ'}`;
+                    } else {
+                        if (this.modeTitleStrong) this.modeTitleStrong.textContent = 'VÔ TẬN';
+                        if (this.modeTitleSmall) this.modeTitleSmall.textContent = 'Đấu trường Zombie';
+                    }
+
+                    this.modeDialog.close();
+                });
+            });
+        }
+
         // 2. Thiết lập giao diện xác thực Supabase Auth
         this.tabLogin = document.getElementById('tab-btn-login');
         this.tabSignup = document.getElementById('tab-btn-signup');
