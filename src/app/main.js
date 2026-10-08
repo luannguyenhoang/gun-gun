@@ -1757,6 +1757,14 @@ class CyberArenaGame {
             this.ui.updateOverheadVitals(this.player, this.camera, this.renderer.domElement, teammates);
             this.ui.updateTeammateIndicators(teammates, this.player, this.camera);
             this.ui.updateTeamRoster(teammates, this.player);
+
+            if (this.gameMode === 'TDM') {
+                // Áp dụng Culling tầm nhìn chia sẻ toàn đội (Team Shared Vision) trước khi vẽ radar
+                const teamMembers = (this.player.team === 'blue' ? this.tdmManager?.teamBlue : this.tdmManager?.teamRed) || [this.player];
+                const opponents = (this.player.team === 'blue' ? this.tdmManager?.teamRed : this.tdmManager?.teamBlue) || [];
+                applyVisibilityCulling(teamMembers, opponents);
+            }
+
             this.radarElapsed += delta;
             if (this.radarElapsed >= 0.05) {
                 this.radarElapsed %= 0.05;
@@ -1782,19 +1790,10 @@ class CyberArenaGame {
             else this.roomLobby?.render(delta);
             return; // The opaque menu only needs its character/lobby scene.
         }
-        if (this.state === 'PLAYING' && this.gameMode === 'TDM') {
-            // Áp dụng Culling tầm nhìn sương mù ngay trước render để không bị updateVisual của bot ghi đè
-            const opponents = (this.player.team === 'blue' ? this.tdmManager?.teamRed : this.tdmManager?.teamBlue) || [];
-            const currentWeapon = this.player.weapons?.currentGun;
-            const isADS = !!this.player.isADS;
-            const opticTier = this.player.weapons?.getOpticTier ? this.player.weapons.getOpticTier() : 1;
-            const visionConfig = getWeaponVisionConfig(currentWeapon, isADS, opticTier);
-            applyVisibilityCulling(this.player, opponents, visionConfig);
-        }
-
         this.renderer.render(this.scene, this.camera);
         if (this.state === 'PLAYING' && this.gameMode === 'TDM') {
-            this.visionCone?.render(this.player, true);
+            const myTeammates = ((this.player.team === 'blue' ? this.tdmManager?.teamBlue : this.tdmManager?.teamRed) || []).filter(p => p !== this.player);
+            this.visionCone?.render(this.player, true, myTeammates);
         } else {
             this.visionCone?.clear();
         }

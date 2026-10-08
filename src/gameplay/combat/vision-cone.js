@@ -107,19 +107,48 @@ export function checkEntityVisibility(observer, target, visionConfig) {
 }
 
 /**
- * Áp dụng ẩn/hiện model và thanh máu cho danh sách đối thủ
- * @param {object} observer - Người chơi chính
- * @param {Array} entities - Danh sách thực thể cần kiểm tra
- * @param {object} visionConfig - Cấu hình tầm nhìn hiện tại
+ * Áp dụng ẩn/hiện model và thanh máu cho danh sách đối thủ theo tầm nhìn toàn đội
+ * @param {object|Array} teamOrObserver - Người chơi chính hoặc danh sách thành viên cùng phe
+ * @param {Array} entities - Danh sách đối thủ cần kiểm tra
+ * @param {object} defaultVisionConfig - Cấu hình tầm nhìn mặc định (tùy chọn)
  */
-export function applyVisibilityCulling(observer, entities, visionConfig) {
+export function applyVisibilityCulling(teamOrObserver, entities, defaultVisionConfig = null) {
     if (!entities || !Array.isArray(entities)) return;
+
+    // Chuẩn hóa danh sách thành viên quan sát cùng phe
+    const observers = Array.isArray(teamOrObserver) ? teamOrObserver : [teamOrObserver];
+    const activeObservers = observers.filter(o => o && !o.isDead);
 
     for (let i = 0; i < entities.length; i++) {
         const entity = entities[i];
-        if (!entity || entity.isDead) continue;
+        if (!entity) continue;
 
-        const isVisible = checkEntityVisibility(observer, entity, visionConfig);
+        if (entity.isDead) {
+            entity.isVisibleToObserver = false;
+            if (entity.mesh) entity.mesh.visible = false;
+            if (entity.healthBarMesh) entity.healthBarMesh.visible = false;
+            if (entity.healthBar?.group) entity.healthBar.group.visible = false;
+            continue;
+        }
+
+        let isVisible = false;
+
+        // Kiểm tra xem có bất kỳ thành viên nào trong đội soi trúng đối thủ này không
+        for (let j = 0; j < activeObservers.length; j++) {
+            const obs = activeObservers[j];
+            const weapon = obs.weapons?.currentGun || obs.weapons?.getCurrentWeapon?.();
+            const isADS = !!obs.isADS;
+            const opticTier = obs.weapons?.getOpticTier ? obs.weapons.getOpticTier() : 1;
+            const cfg = (obs === teamOrObserver && defaultVisionConfig)
+                ? defaultVisionConfig
+                : getWeaponVisionConfig(weapon, isADS, opticTier);
+
+            if (checkEntityVisibility(obs, entity, cfg)) {
+                isVisible = true;
+                break;
+            }
+        }
+
         entity.isVisibleToObserver = isVisible;
 
         // Ẩn/hiện Model 3D
@@ -138,7 +167,7 @@ export function applyVisibilityCulling(observer, entities, visionConfig) {
 }
 
 /**
- * Lớp quản lý vẽ mặt nạ bóng tối 2D Canvas và khoét luồng sáng hình quạt
+ * Lớp quản lý vẽ mặt nạ bóng tối 2D Canvas và khoét luồng sáng hình quạt cho toàn đội
  */
 export class VisionConeOverlay {
     constructor(canvas, camera) {
@@ -147,12 +176,12 @@ export class VisionConeOverlay {
         this.camera = camera;
         this.enabled = false;
 
-        // Các thông số được nội suy (lerp) mượt mà khi chuyển trạng thái
+        // Các thông số được nội suy (lerp) mượt mà cho người chơi chính
         this.currentRange = 20.0;
         this.currentAngle = 75.0;
         this.currentProximity = 2.0;
 
-        // Vector tạm để tính toán chiếu tọa độ
+        // Vector tạm để tính toán chiếu tọa độ tránh Garbage Collection
         this._tempV1 = new THREE.Vector3();
         this._tempV2 = new THREE.Vector3();
         this._tempV3 = new THREE.Vector3();
@@ -175,7 +204,7 @@ export class VisionConeOverlay {
     }
 
     /**
-     * Cập nhật thông số tầm nhìn theo thời gian thực (nội suy mượt mà)
+     * Cập nhật thông số tầm nhìn theo thời gian thực (nội suy mượt mà) cho người chơi chính
      */
     update(player, delta) {
         if (!player) return;
@@ -193,63 +222,57 @@ export class VisionConeOverlay {
     }
 
     /**
-     * Vẽ lớp mặt nạ bóng tối và khoét lỗ hình quạt
+     * Hàm khoét lỗ hình quạt và quầng cận cảnh cho một chiến binh cụ thể
      */
-    render(player, isEnabled = true) {
-        if (!this.ctx || !this.canvas || !this.camera || !isEnabled || !player || player.isDead) {
-            this.clear();
-            return;
-        }
-
+    _renderSpotterCutout(spotter, rangeVal, angleVal, proxVal) {
         const width = this.canvas.width;
         const height = this.canvas.height;
         const ctx = this.ctx;
 
-        // 1. Xóa khung hình cũ
-        ctx.clearRect(0, 0, width, height);
-
-        // 2. Phủ lớp bóng tối mờ nhẹ toàn màn hình (Fog of War mờ 40% để vẫn nhìn rõ vật thể và địa hình)
-        ctx.fillStyle = 'rgba(8, 14, 24, 0.40)';
-        ctx.fillRect(0, 0, width, height);
-
-        // 3. Tính tọa độ màn hình của người chơi
-        this._tempV1.copy(player.position);
+        // 1. Tính tọa độ màn hình của chiến binh
+        this._tempV1.copy(spotter.position);
         this._tempV1.project(this.camera);
+
+        // Kiểm tra xem chiến binh có nằm quá xa khỏi khung hình không
+        if (this._tempV1.z > 1.0 || this._tempV1.x < -1.5 || this._tempV1.x > 1.5 || this._tempV1.y < -1.5 || this._tempV1.y > 1.5) {
+            return;
+        }
+
         const screenX = (this._tempV1.x * 0.5 + 0.5) * width;
         const screenY = (-(this._tempV1.y * 0.5) + 0.5) * height;
 
-        // 4. Tính góc xoay màn hình của hướng ngắm (aimYaw)
-        const yaw = player.aimYaw || 0;
+        // 2. Tính góc xoay màn hình theo hướng ngắm (aimYaw)
+        const yaw = spotter.aimYaw || 0;
         this._tempV2.set(
-            player.position.x + Math.sin(yaw) * 10,
-            player.position.y,
-            player.position.z + Math.cos(yaw) * 10
+            spotter.position.x + Math.sin(yaw) * 10,
+            spotter.position.y,
+            spotter.position.z + Math.cos(yaw) * 10
         );
         this._tempV2.project(this.camera);
         const fScreenX = (this._tempV2.x * 0.5 + 0.5) * width;
         const fScreenY = (-(this._tempV2.y * 0.5) + 0.5) * height;
         const screenAngle = Math.atan2(fScreenY - screenY, fScreenX - screenX);
 
-        // 5. Tính bán kính điểm ảnh tương ứng trên màn hình
-        this._tempV3.set(player.position.x + this.currentRange, player.position.y, player.position.z);
+        // 3. Tính bán kính điểm ảnh tương ứng trên màn hình
+        this._tempV3.set(spotter.position.x + rangeVal, spotter.position.y, spotter.position.z);
         this._tempV3.project(this.camera);
         const rScreenX = (this._tempV3.x * 0.5 + 0.5) * width;
         const screenRadius = Math.max(20, Math.abs(rScreenX - screenX));
 
-        this._tempV3.set(player.position.x + this.currentProximity, player.position.y, player.position.z);
+        this._tempV3.set(spotter.position.x + proxVal, spotter.position.y, spotter.position.z);
         this._tempV3.project(this.camera);
         const pScreenX = (this._tempV3.x * 0.5 + 0.5) * width;
         const screenProxRadius = Math.max(12, Math.abs(pScreenX - screenX));
 
-        // 6. Khoét thủng bóng tối bằng destination-out
+        // 4. Khoét thủng bóng tối bằng destination-out
         ctx.save();
         ctx.globalCompositeOperation = 'destination-out';
 
-        // 6a. Khoét hình quạt tầm nhìn phía trước
-        const halfAngleRad = ((this.currentAngle * Math.PI) / 180) / 2;
+        const halfAngleRad = ((angleVal * Math.PI) / 180) / 2;
         const startAngle = screenAngle - halfAngleRad;
         const endAngle = screenAngle + halfAngleRad;
 
+        // Khoét hình quạt tầm nhìn phía trước
         const fanGrad = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, screenRadius);
         fanGrad.addColorStop(0, 'rgba(0, 0, 0, 1.0)');
         fanGrad.addColorStop(0.78, 'rgba(0, 0, 0, 0.95)');
@@ -263,7 +286,7 @@ export class VisionConeOverlay {
         ctx.closePath();
         ctx.fill();
 
-        // 6b. Khoét quầng sáng cận cảnh xung quanh chân
+        // Khoét quầng sáng cận cảnh xung quanh chân
         const proxGrad = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, screenProxRadius);
         proxGrad.addColorStop(0, 'rgba(0, 0, 0, 1.0)');
         proxGrad.addColorStop(0.65, 'rgba(0, 0, 0, 0.85)');
@@ -276,7 +299,7 @@ export class VisionConeOverlay {
 
         ctx.restore();
 
-        // 7. Vẽ viền sáng phản quang nhẹ ở mép luồng sáng để tạo cảm giác đèn pin rọi vào sương mù
+        // 5. Vẽ viền sáng phản quang nhẹ ở mép luồng sáng để tạo cảm giác đèn pin rọi vào sương mù
         ctx.save();
         ctx.globalCompositeOperation = 'source-over';
         const rimGrad = ctx.createRadialGradient(screenX, screenY, screenProxRadius * 0.5, screenX, screenY, screenRadius);
@@ -291,5 +314,44 @@ export class VisionConeOverlay {
         ctx.closePath();
         ctx.fill();
         ctx.restore();
+    }
+
+    /**
+     * Vẽ lớp mặt nạ bóng tối và khoét lỗ hình quạt cho người chơi chính cùng toàn bộ đồng đội
+     */
+    render(player, isEnabled = true, teammates = []) {
+        if (!this.ctx || !this.canvas || !this.camera || !isEnabled || !player) {
+            this.clear();
+            return;
+        }
+
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+        const ctx = this.ctx;
+
+        // 1. Xóa khung hình cũ
+        ctx.clearRect(0, 0, width, height);
+
+        // 2. Phủ lớp bóng tối mờ nhẹ toàn màn hình (Fog of War mờ 40%)
+        ctx.fillStyle = 'rgba(8, 14, 24, 0.40)';
+        ctx.fillRect(0, 0, width, height);
+
+        // 3. Khoét luồng sáng cho người chơi chính (nếu còn sống)
+        if (!player.isDead) {
+            this._renderSpotterCutout(player, this.currentRange, this.currentAngle, this.currentProximity);
+        }
+
+        // 4. Khoét luồng sáng cho tất cả đồng đội cùng phe (nếu còn sống)
+        if (teammates && Array.isArray(teammates)) {
+            for (let i = 0; i < teammates.length; i++) {
+                const mate = teammates[i];
+                if (!mate || mate.isDead || mate === player) continue;
+                const weapon = mate.weapons?.currentGun || mate.weapons?.getCurrentWeapon?.();
+                const isADS = !!mate.isADS;
+                const opticTier = mate.weapons?.getOpticTier ? mate.weapons.getOpticTier() : 1;
+                const cfg = getWeaponVisionConfig(weapon, isADS, opticTier);
+                this._renderSpotterCutout(mate, cfg.visionRange, cfg.visionAngle, cfg.proximityRadius);
+            }
+        }
     }
 }
