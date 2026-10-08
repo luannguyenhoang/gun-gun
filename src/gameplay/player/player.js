@@ -179,7 +179,8 @@ export class PlayerController {
         this.damageRevision = 0;
         this.shieldRegenDelay = 4.0;
         this.shieldRegenTimer = 0;
-        this.shieldRegenRate = 25;
+        this.shieldRegenRate = 0; // Đã loại bỏ cơ chế tự động hồi giáp
+        this.shieldBatteryBoost = 1.0;
         this.developerMode = false;
 
         // Chi so ky nang nhan vat (Active Skill & Passives)
@@ -630,7 +631,8 @@ export class PlayerController {
         this.goldBonus = passives.goldBonus || 0;
         this.explosiveBonus = passives.explosiveBonus || 0;
         this.passiveRegenRate = passives.regenRate || 0;
-        this.shieldRegenRate = 25 * (passives.shieldRegenRate || 1.0);
+        this.shieldBatteryBoost = passives.shieldBatteryBoost || 1.0;
+        this.shieldRegenRate = 0; // Đã loại bỏ hồi giáp tự động
     }
 
 
@@ -2616,7 +2618,9 @@ export class PlayerController {
     }
 
     rechargeShield(amount) {
-        this.shield = Math.min(this.maxShield, this.shield + amount);
+        // Tính thêm hệ số cường hóa nạp giáp nếu có
+        const boost = this.shieldBatteryBoost || 1.0;
+        this.shield = Math.min(this.maxShield, this.shield + Math.round(amount * boost));
     }
 
     die(forceDead = false) {
@@ -2789,11 +2793,9 @@ export class PlayerController {
             return; // Đang bị gục không thể bắn súng hay lướt/nhảy
         }
 
-        // Shield auto-regeneration
+        // Đã loại bỏ cơ chế tự động hồi giáp; người chơi phải nạp pin hoặc nhặt giáp trên sân
         if (authoritative && this.shieldRegenTimer > 0) {
             this.shieldRegenTimer -= delta;
-        } else if (authoritative && this.shield < this.maxShield) {
-            this.shield = Math.min(this.maxShield, this.shield + this.shieldRegenRate * delta);
         }
 
         // Noi tai tu phuc hoi mau (Xac uop / Mummy)

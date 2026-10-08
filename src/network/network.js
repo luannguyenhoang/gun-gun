@@ -722,7 +722,7 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
             this.radarScanTimer = Math.max(0, (this.radarScanTimer || 0) - delta);
             this.invulnerability = Math.max(0, (this.invulnerability || 0) - delta);
             this.shieldRegenTimer = Math.max(0, (this.shieldRegenTimer || 0) - delta);
-            if (!this.isDead && !this.isDowned && !this.shieldRegenTimer) this.shield = Math.min(this.maxShield, this.shield + 25 * delta);
+            // Đã loại bỏ hồi giáp tự động trong mô phỏng người chơi
             if (this.isDowned && !this.isDead) {
                 this.bleedOutTimer = Math.max(0, (this.bleedOutTimer ?? 30.0) - delta);
                 if (this.bleedOutTimer <= 0) {

@@ -562,14 +562,30 @@ export class PickupManager {
         const weapons = player?.weapons;
         if (!weapons) return '+1 PHỤ KIỆN';
 
-        // Xác định Tier rơi theo tiến trình ngẫu nhiên
+        // Xác định Tier rơi theo tiến trình Wave hiện tại
         let tier = forcedTier;
         if (!tier) {
+            const wave = window.game?.currentWave || 1;
             const r = Math.random();
-            if (r < 0.45) tier = 1;
-            else if (r < 0.75) tier = 2;
-            else if (r < 0.93) tier = 3;
-            else tier = 4;
+            if (wave <= 3) {
+                // Wave 1-3: Chỉ rơi Tier 1 (70%) và Tier 2 (30%)
+                tier = r < 0.70 ? 1 : 2;
+            } else if (wave <= 6) {
+                // Wave 4-6: Rơi Tier 1 (25%), Tier 2 (55%), Tier 3 (20%)
+                if (r < 0.25) tier = 1;
+                else if (r < 0.80) tier = 2;
+                else tier = 3;
+            } else if (wave <= 9) {
+                // Wave 7-9: Rơi Tier 2 (30%), Tier 3 (50%), Tier 4 (20%)
+                if (r < 0.30) tier = 2;
+                else if (r < 0.80) tier = 3;
+                else tier = 4;
+            } else {
+                // Wave 10+: Rơi Tier 3 (35%), Tier 4 (45%), Tier 5 (20%)
+                if (r < 0.35) tier = 3;
+                else if (r < 0.80) tier = 4;
+                else tier = 5;
+            }
         }
 
         const itemId = `${attachSlot}_t${tier}`;
@@ -624,15 +640,16 @@ export class PickupManager {
             return this.th_autoEquipAttachment(pickup.type, player);
         }
 
-        // 2. Hòm tiếp tế Airdrop: Tặng phụ kiện Cấp 4/5 + Túi cứu thương + Hồi máu & giáp
+        // 2. Hòm tiếp tế Airdrop: Tặng phụ kiện scale theo wave + Túi cứu thương + Hồi máu & giáp
         if (pickup.type === 'airdrop') {
             player.heal(50);
             player.rechargeShield(50);
-            if (weapons.inventory.medkits < 10) weapons.inventory.medkits += 2;
+            if (weapons.inventory.medkits < 10) weapons.inventory.medkits += 1;
             const randomSlot = ATTACHMENT_SLOTS[Math.floor(Math.random() * ATTACHMENT_SLOTS.length)];
-            const highTier = Math.random() < 0.65 ? 4 : 5;
+            const curWave = window.game?.currentWave || 1;
+            const highTier = curWave <= 3 ? 2 : (curWave <= 6 ? 3 : (curWave <= 9 ? 4 : (Math.random() < 0.65 ? 4 : 5)));
             this.th_autoEquipAttachment(randomSlot, player, highTier);
-            return 'HÒM TIẾP TẾ: +PHỤ KIỆN CAO CẤP +2 TÚI CỨU THƯƠNG +HỒI PHỤC!';
+            return 'HÒM TIẾP TẾ: +PHỤ KIỆN CHIẾN LƯỢC +TÚI CỨU THƯƠNG +HỒI PHỤC!';
         }
 
         // 3. Hồi máu nhanh

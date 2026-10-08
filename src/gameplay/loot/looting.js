@@ -654,6 +654,14 @@ export function th_resolveLootItem(itemId) {
     return LOOT_ITEMS[resolvedId] || null;
 }
 
+// Xac dinh cap bac vat pham toi da duoc phep roi theo tien trinh Dot (Wave)
+export function th_getMaxLootTierForWave(wave = 1) {
+    if (wave <= 3) return 2; // Dot 1-3: Chi cho phep Cap 1 (Common) va Cap 2 (Uncommon)
+    if (wave <= 6) return 3; // Dot 4-6: Mo khoa Cap 3 (Rare)
+    if (wave <= 9) return 4; // Dot 7-9: Mo khoa Cap 4 (Epic)
+    return 5; // Dot 10+: Mo khoa Cap 5 (Legendary)
+}
+
 // =========================================================================
 // CẤU HÌNH HÒM ĐỒ TƯƠNG TÁC (LOOT DROP RATES CHUẨN HÓA)
 // - Hòm thường: Rớt Súng / Phụ kiện Cấp 1 -> Cấp 3
@@ -984,6 +992,7 @@ export class LootContainer {
     constructor(scene, type, position, options = {}) {
         this.scene = scene;
         this.type = type;
+        this.currentWave = options.wave || options.currentWave || (window.game?.currentWave ?? 1);
         this.config = CONTAINER_CONFIGS[type] || CONTAINER_CONFIGS.wooden_crate;
         this.name = options.customName || this.config.name;
         this.position = position.clone();
@@ -1137,43 +1146,61 @@ export class LootContainer {
     generateLoot() {
         const table = this.config.lootTable || [];
         const generated = [];
-        // Tăng số lượng vật phẩm tối đa mỗi hòm đồ để người chơi nhặt đã tay
-        const maxItems = Math.min(this.capacity, this.type === 'airdrop_crate' ? 5 : 4);
+        const wave = Math.max(1, this.currentWave || window.game?.currentWave || 1);
+        const maxTier = th_getMaxLootTierForWave(wave);
 
-        // 1. Hòm Thính Tiếp Tế (Airdrop): Chắc chắn có 1 đồ Cấp 4/5, 1 Túi cứu thương, và 1-2 slot bom mìn tối tân
+        // Số lượng vật phẩm trong hòm được kiểm soát hợp lý
+        const maxItems = Math.min(this.capacity, this.type === 'airdrop_crate' ? 4 : 3);
+
+        // 1. Hòm Thính Tiếp Tế (Airdrop): Cấp đồ scale theo tiến trình đợt
         if (this.type === 'airdrop_crate') {
-            const highTierItems = [
-                'barrel_t5', 'magazine_t5', 'optic_t5', 'grip_t5', 'gun_nova_t5',
-                'barrel_t4', 'magazine_t4', 'optic_t4', 'grip_t4', 'gun_plasma_t4', 'gun_storm_t4'
-            ];
-            const guaranteed = highTierItems[Math.floor(Math.random() * highTierItems.length)];
+            let pool = [];
+            if (wave <= 3) {
+                // Wave 1-3: Chỉ cấp đồ Cấp 2 hoặc Cấp 3
+                pool = ['barrel_t2', 'magazine_t2', 'optic_t2', 'grip_t2', 'gun_blaster_t2', 'gun_scatter_t2', 'gun_repeater_t3'];
+            } else if (wave <= 6) {
+                // Wave 4-6: Cấp đồ Cấp 3 hoặc Cấp 4
+                pool = ['barrel_t3', 'magazine_t3', 'optic_t3', 'grip_t3', 'gun_repeater_t3', 'gun_plasma_t4', 'gun_storm_t4'];
+            } else {
+                // Wave 7+: Mở khóa đồ Cấp 4 và Cấp 5 Huyền Thoại
+                pool = [
+                    'barrel_t4', 'magazine_t4', 'optic_t4', 'grip_t4', 'gun_plasma_t4', 'gun_storm_t4',
+                    'barrel_t5', 'magazine_t5', 'optic_t5', 'grip_t5', 'gun_nova_t5'
+                ];
+            }
+            const guaranteed = pool[Math.floor(Math.random() * pool.length)];
             generated.push({ itemId: guaranteed, count: 1, revealed: true });
-            generated.push({ itemId: 'medkit', count: 2, revealed: true });
+            generated.push({ itemId: 'medkit', count: 1, revealed: true });
 
-            // Chắc chắn cấp 1 hòm lựu đạn hỏa thiêu hoặc bom băng cực mạnh
-            const heavyBombs = ['grenade_fire', 'grenade_freeze', 'grenade_a'];
-            const guaranteedBomb = heavyBombs[Math.floor(Math.random() * heavyBombs.length)];
-            generated.push({ itemId: guaranteedBomb, count: Math.floor(Math.random() * 2) + 2, revealed: true });
+            // 1 slot bom chiến thuật phù hợp (1-2 quả)
+            const bombPool = wave <= 3 ? ['grenade_a', 'grenade_smoke'] : ['grenade_fire', 'grenade_freeze', 'grenade_a'];
+            const pickedBomb = bombPool[Math.floor(Math.random() * bombPool.length)];
+            generated.push({ itemId: pickedBomb, count: Math.floor(Math.random() * 2) + 1, revealed: true });
         } else {
-            // 2. Với các hòm đồ chiến trường thông thường: BẢO ĐẢM luôn có ít nhất 1 slot bom mìn
+            // 2. Các hòm đồ chiến trường thông thường: Tỷ lệ bom mìn vừa phải (1-2 quả)
             const bombEntries = table.filter(e => e.itemId && e.itemId.startsWith('grenade_'));
-            if (bombEntries.length > 0) {
+            if (bombEntries.length > 0 && Math.random() < 0.60) {
                 const picked = bombEntries[Math.floor(Math.random() * bombEntries.length)];
-                const min = picked.min || 1;
-                const max = picked.max || 2;
-                const count = Math.floor(Math.random() * (max - min + 1)) + min;
+                const count = Math.min(2, Math.floor(Math.random() * (picked.max || 2)) + (picked.min || 1));
                 generated.push({ itemId: picked.itemId, count, revealed: true });
             }
         }
 
-        // Lấy ngẫu nhiên từ bảng rớt đồ cho đến khi đạt giới hạn maxItems
-        const shuffled = [...table].sort(() => Math.random() - 0.5);
+        // Lọc bảng rớt đồ: KHÔNG cho phép rơi item có Tier vượt quá trần của Wave hiện tại
+        const filteredTable = table.filter(entry => {
+            const def = th_resolveLootItem(entry.itemId);
+            if (!def) return true;
+            return (def.tier || 1) <= maxTier;
+        });
+
+        // Xáo trộn và nhặt item hợp lệ
+        const shuffled = [...filteredTable].sort(() => Math.random() - 0.5);
         for (const entry of shuffled) {
             if (generated.length >= maxItems) break;
             if (Math.random() <= entry.chance) {
                 if (!generated.some(g => g.itemId === entry.itemId)) {
                     const min = entry.min || 1;
-                    const max = entry.max || 1;
+                    const max = Math.min(2, entry.max || 1);
                     const count = Math.floor(Math.random() * (max - min + 1)) + min;
                     generated.push({
                         itemId: entry.itemId,
@@ -1185,11 +1212,10 @@ export class LootContainer {
             }
         }
 
-        // Đảm bảo hòm không bao giờ bị rỗng
-        if (generated.length === 0 && table.length > 0) {
-            const fallback = table[0];
-            const count = fallback.min ? Math.floor(Math.random() * (fallback.max - fallback.min + 1)) + fallback.min : 1;
-            generated.push({ itemId: fallback.itemId, count, revealed: true, lootId: THREE.MathUtils.generateUUID() });
+        // Dự phòng: Đảm bảo hòm không bao giờ bị rỗng
+        if (generated.length === 0) {
+            const fallbackItem = wave <= 3 ? 'bandage_field' : 'medkit';
+            generated.push({ itemId: fallbackItem, count: 1, revealed: true, lootId: THREE.MathUtils.generateUUID() });
         }
 
         // Tự động sắp xếp ưu tiên: Cấp bậc cao nhất nằm TRÊN CÙNG
@@ -1803,17 +1829,19 @@ export class LootingSystem {
 
     // Sinh hòm đồ mới trong bản đồ
     spawnContainer(type, position, options = {}) {
+        if (!options.wave) {
+            options.wave = this.waveManager?.currentPhase || window.game?.currentWave || 1;
+        }
         const container = new LootContainer(this.scene, type, position, options);
         this.containers.push(container);
         return container;
     }
 
-    // Rải hòm đồ khi bắt đầu ván đấu để người chơi có trang bị và bom mìn chiến đấu ngay
+    // Rải hòm đồ khi bắt đầu ván đấu: 2 thùng gỗ dã chiến (không tạo két sắt titan ở Wave 1)
     spawnInitialContainers(arena) {
         this.clearAll();
-        // Đặt sẵn 2 hòm trang bị dã chiến và két sắt ở 2 góc sàn đấu
-        this.spawnContainer('wooden_crate', new THREE.Vector3(-10, 0, -8));
-        this.spawnContainer('military_safe', new THREE.Vector3(12, 0, 10));
+        this.spawnContainer('wooden_crate', new THREE.Vector3(-10, 0, -8), { wave: 1 });
+        this.spawnContainer('wooden_crate', new THREE.Vector3(12, 0, 10), { wave: 1 });
     }
 
     // Xử lý rơi hòm đồ khi tiêu diệt quái vật

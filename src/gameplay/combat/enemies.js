@@ -55,6 +55,8 @@ export class Zombie {
         this.active = true;
         this.isDead = false;
         this.id = 0;
+        this.level = 1;
+        this.isElite = false;
 
         // Vector day lui tich luy
         this.knockbackVelocity = new THREE.Vector3();
@@ -89,35 +91,34 @@ export class Zombie {
         this.setupVisuals(gltfModels);
     }
 
-    // Tinh toan chi so quai dua tren he so thoi gian va loai quai - Can bang mượt mà tu Round 1 den Round 10+
+    // Tinh toan chi so quai dua tren he so thoi gian va loai quai - Scale manh me theo tung Dot (Wave)
     applyStats(type, phaseNum = 1, survivalMinutes = 0, playerSpeed = 7.5) {
         this.type = type;
         this.radius = ZOMBIE_RADII[type] ?? ZOMBIE_RADII.walker;
+        const wave = Math.max(1, phaseNum);
 
-        // Tinh toan he so tang tien muot ma qua cac giai doan:
-        // Round 1-3: De tho de nguoi choi lam quen, tich luy tien va sung
-        // Round 4-7: Do kho tang dan vua phai
-        // Round 8-10+: Thu thach don dap
-        let phaseMult = 1.0;
-        let dmgMult = 1.0;
-        let speedOffset = 0;
+        // 1. He so tang tien Dame, Mau, Giap theo tung Dot:
+        // Wave 1 bat dau o muc chuan 100% (khong bi nerf xuong 48% nhu truoc)
+        // Mau tang 20% moi wave, Giap tang 25% moi wave, Dame tang 15% moi wave
+        const hpMult = 1.0 + (wave - 1) * 0.20;
+        const armorMult = 1.0 + (wave - 1) * 0.25;
+        const dmgMult = 1.0 + (wave - 1) * 0.15;
+        const speedOffset = Math.min(1.8, (wave - 1) * 0.14);
 
-        if (phaseNum <= 3) {
-            phaseMult = 0.65 + (phaseNum - 1) * 0.12;
-            dmgMult = 0.48 + (phaseNum - 1) * 0.12;
-            speedOffset = (phaseNum - 1) * 0.25;
-        } else if (phaseNum <= 7) {
-            phaseMult = 0.95 + (phaseNum - 4) * 0.16;
-            dmgMult = 0.78 + (phaseNum - 4) * 0.14;
-            speedOffset = 0.75 + (phaseNum - 4) * 0.25;
+        // Xac dinh cap do Zombie (Level)
+        if (type === 'boss') {
+            this.level = wave + 2;
+        } else if (['tank', 'orc_brawler', 'cyber_enforcer', 'giant'].includes(type)) {
+            this.level = wave + 1;
         } else {
-            phaseMult = 1.55 + (phaseNum - 7) * 0.24;
-            dmgMult = 1.30 + (phaseNum - 7) * 0.18;
-            speedOffset = 1.60 + (phaseNum - 7) * 0.20;
+            this.level = wave;
         }
 
-        // Tinh toan toc do toi da khong vuot qua 95% toc do Player
-        const maxAllowedSpeed = (playerSpeed || 7.5) * 0.95;
+        // Ty le xuat hien Zombie Tinh Anh (Elite Zombie) tu Wave 3 tro di
+        this.isElite = (wave >= 3 && type !== 'boss' && Math.random() < 0.15);
+
+        // Tinh toan toc do toi da khong vuot qua 92% toc do Player de nguoi choi van tha dieu (kiting) duoc
+        const maxAllowedSpeed = (playerSpeed || 7.5) * 0.92;
 
         if (type === 'orc_brawler') {
             this.baseHealth = 650;
@@ -260,9 +261,25 @@ export class Zombie {
             this.scoreValue = 150;
         }
 
-        this.maxHealth = Math.round(this.baseHealth * phaseMult);
+        // Quai o Wave 6+ tang them 1 bac lop giap bao ho
+        if (wave >= 6 && this.armorClass > 0) {
+            this.armorClass += 1;
+        }
+
+        this.maxHealth = Math.round(this.baseHealth * hpMult);
+        this.maxArmor = Math.round(this.baseArmor * armorMult);
+
+        // Bien the Tinh Anh: Vuot troi ve mau, giap va sat thuong
+        if (this.isElite) {
+            this.maxHealth = Math.round(this.maxHealth * 1.5);
+            this.maxArmor = Math.round(this.maxArmor * 1.6);
+            this.damage = Math.round(this.damage * 1.25);
+            this.scale *= 1.15;
+            this.scoreValue = Math.round((this.scoreValue || 150) * 2.5);
+            this.level += 1;
+        }
+
         this.health = this.maxHealth;
-        this.maxArmor = Math.round(this.baseArmor * phaseMult);
         this.armor = this.maxArmor;
     }
 
@@ -325,6 +342,12 @@ export class Zombie {
                     // Zombie Walker thường (màu da xanh tái)
                     child.material.color.setHex(0x668866);
                 }
+
+                // Hào quang vàng kim đặc trưng cho Zombie Tinh Anh
+                if (this.isElite) {
+                    child.material.emissive = new THREE.Color(0xf59e0b);
+                    child.material.emissiveIntensity = 0.55;
+                }
             }
         });
 
@@ -337,7 +360,7 @@ export class Zombie {
             offsetY: this.scale * 1.05,
             color: barColor
         });
-        this.healthBar.update(this.position, this.health, this.maxHealth, true);
+        this.healthBar.update(this.position, this.health, this.maxHealth, this.armor, this.maxArmor, true);
 
         if (base.animations && base.animations.length > 0) {
             this.mixer = new THREE.AnimationMixer(this.mesh);
@@ -422,7 +445,7 @@ export class Zombie {
             this.playAnimation(this.type === 'sprinter' && this.animations.sprint ? 'sprint' : 'walk', 0, true);
         }
         if (this.healthBar) {
-            this.healthBar.update(this.position, this.health, this.maxHealth, true);
+            this.healthBar.update(this.position, this.health, this.maxHealth, this.armor, this.maxArmor, true);
         }
     }
 
@@ -432,7 +455,7 @@ export class Zombie {
         this.isDead = true;
         if (this.mesh) this.mesh.visible = false;
         if (this.stompRing) this.stompRing.visible = false;
-        if (this.healthBar) this.healthBar.update(this.position, 0, this.maxHealth, false);
+        if (this.healthBar) this.healthBar.update(this.position, 0, this.maxHealth, 0, this.maxArmor, false);
     }
 
     playAnimation(name, duration = 0.15, restart = false) {
@@ -583,7 +606,7 @@ export class Zombie {
         // Releasing here skipped onEnemyKilled and could respawn the same object first.
         if (this.mesh) this.mesh.visible = false;
         if (this.stompRing) this.stompRing.visible = false;
-        this.healthBar?.update(this.position, 0, this.maxHealth, false);
+        this.healthBar?.update(this.position, 0, this.maxHealth, 0, this.maxArmor, false);
     }
 
     disposeVisuals() {
@@ -773,7 +796,7 @@ export class Zombie {
             }
 
             this.mesh.position.copy(this.position);
-            this.healthBar?.update(this.position, this.health, this.maxHealth, true);
+            this.healthBar?.update(this.position, this.health, this.maxHealth, this.armor, this.maxArmor, true);
             return;
         }
 
@@ -966,7 +989,7 @@ export class Zombie {
         if (this.combatState !== ZombieCombatState.WINDUP) {
             this.mesh.position.copy(this.position);
         }
-        this.healthBar?.update(this.position, this.health, this.maxHealth, true);
+        this.healthBar?.update(this.position, this.health, this.maxHealth, this.armor, this.maxArmor, true);
 
         // Cap nhat stomp ring cua quai Giant neu co
         if (this.stompRing) {

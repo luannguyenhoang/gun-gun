@@ -274,8 +274,8 @@ export const CHARACTER_CONFIGS = {
         description: 'Trang bị chip cấy ghép công nghệ cao, phóng xung điện từ hủy diệt diện rộng.',
         passives: {
             armorBonus: 40,
-            shieldRegenRate: 1.50,
-            passiveDesc: 'Tăng 40 Giáp tối đa và tốc độ phục hồi Giáp nhanh hơn 50%'
+            shieldBatteryBoost: 1.50,
+            passiveDesc: 'Tăng 40 Giáp tối đa và tăng 50% hiệu quả khi nạp pin Giáp'
         },
         activeSkill: {
             id: 'chain_lightning',

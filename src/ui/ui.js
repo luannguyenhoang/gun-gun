@@ -405,9 +405,9 @@ export class UIManager {
         }
 
         // 4. Hàng ô Buff RPG - Dirty check
-        const upgrades = player.weapons.upgrades;
-        const isRegening = player.shieldRegenTimer <= 0 && player.shield < player.maxShield;
-        const upgradesKey = `${upgrades.damage}_${upgrades.rapid}_${upgrades.multishot}_${isRegening}_${player.shield >= player.maxShield}_${curWeapon.critMultiplier}_${curWeapon.id}`;
+        const hasShield = player.shield > 0;
+        const isShieldFull = player.shield >= player.maxShield;
+        const upgradesKey = `${upgrades.damage}_${upgrades.rapid}_${upgrades.multishot}_${hasShield}_${isShieldFull}_${curWeapon.critMultiplier}_${curWeapon.id}`;
         if (upgradesKey !== this._lastUpgradesKey) {
             this._lastUpgradesKey = upgradesKey;
             if (this.buffDamage) {
@@ -423,8 +423,8 @@ export class UIManager {
                 if (this.buffMultiVal) this.buffMultiVal.textContent = `${player.weapons.beamCount} TIA`;
             }
             if (this.buffShield) {
-                this.buffShield.classList.toggle('active', isRegening || player.shield >= player.maxShield);
-                if (this.buffShieldVal) this.buffShieldVal.textContent = isRegening ? 'REGEN' : (player.shield >= player.maxShield ? 'FULL' : 'WAIT');
+                this.buffShield.classList.toggle('active', hasShield);
+                if (this.buffShieldVal) this.buffShieldVal.textContent = isShieldFull ? 'FULL' : (hasShield ? `${Math.ceil(player.shield)}` : 'EMPTY');
             }
             if (this.buffCrit) {
                 this.buffCrit.classList.toggle('active', true);
