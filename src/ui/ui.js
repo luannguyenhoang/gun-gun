@@ -898,6 +898,7 @@ export class UIManager {
                     }
                 }
             }
+        }
 
             // CỤM 2: Thông tin đạn và Silhouette cho cả Súng 1 và Súng 2 (Phong cách PUBG Mobile)
             const gun1 = player.weapons?.weaponSlots?.[0];
