@@ -294,10 +294,12 @@ export class VisionConeOverlay {
             this._coneRay.direction.copy(this._coneRayDir);
 
             let hitDist = rangeVal;
-            if (arena && arena.colliders) {
+            if (arena && typeof arena.raycastClosestDistance === 'function') {
+                hitDist = arena.raycastClosestDistance(this._coneRay, rangeVal, spotter.position.x, spotter.position.z);
+            } else if (arena && arena.colliders) {
                 for (let c = 0; c < arena.colliders.length; c++) {
                     const col = arena.colliders[c];
-                    // Bỏ qua các vật thể nằm hoàn toàn dưới sàn hoặc trên trần
+                    // Bo qua cac vat the nam hoan toan duoi san hoac tren tran
                     if (col.max.y <= 0.4 || col.min.y >= 3.0) continue;
                     const hit = this._coneRay.intersectBox(col, this._coneHit);
                     if (hit) {
@@ -334,7 +336,9 @@ export class VisionConeOverlay {
             this._coneRay.direction.copy(this._coneRayDir);
 
             let hitDist = proxVal;
-            if (arena && arena.colliders) {
+            if (arena && typeof arena.raycastClosestDistance === 'function') {
+                hitDist = arena.raycastClosestDistance(this._coneRay, proxVal, spotter.position.x, spotter.position.z);
+            } else if (arena && arena.colliders) {
                 for (let c = 0; c < arena.colliders.length; c++) {
                     const col = arena.colliders[c];
                     if (col.max.y <= 0.4 || col.min.y >= 3.0) continue;

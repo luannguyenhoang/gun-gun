@@ -7,16 +7,27 @@ const _navigationRay = new THREE.Ray();
 const _navigationBox = new THREE.Box3();
 const _navigationHit = new THREE.Vector3();
 const _movementProbe = new THREE.Vector3();
+const _tempNearbyColliders = [];
+const _tempSlideColliders = [];
 
 export class Arena {
     constructor(scene, gltfLoader) {
         this.scene = scene;
         this.loader = gltfLoader;
-        this.colliders = []; // Array of THREE.Box3 for obstacle collisions
+        this.colliders = []; // Mang cac THREE.Box3 va cham vat can
         this.portals = [];
         this.models = {};
         this.halfSize = 28;
         this.radius = 29;
+
+        // Cau hinh Luoi phan vung khong gian (Spatial Hash Grid)
+        this.gridCellSize = 4.0; // Kich thuoc 4m x 4m moi o luoi
+        this.gridMinX = -32;
+        this.gridMinZ = -32;
+        this.gridCols = 16;      // Bao phu tu -32m toi +32m
+        this.gridRows = 16;
+        this.gridCells = [];     // 256 o luu cac tham chieu Box3
+        this._queryStamp = 0;    // Dau dinh danh luot truy van tranh trung lap
     }
 
     async loadModels() {
@@ -60,6 +71,10 @@ export class Arena {
         this.buildTacticalCover();
         this.buildSpawnPortals();
         this.buildGrass();
+
+        // Toi uu hoa va cham: gop cac doan tuong thang hang va lap chi muc luoi khong gian
+        this.optimizeColliders();
+        this.buildSpatialGrid();
     }
 
     setupLighting() {
@@ -441,50 +456,300 @@ export class Arena {
         return null;
     }
 
+    optimizeColliders() {
+        // Gop cac khoi hop va cham thang hang, tiep giap nhau thanh mot khoi duy nhat
+        // Giup loai bo hoan toan cac go mep noi (ghost seams) gay khung nhan vat
+        let merged = true;
+        while (merged) {
+            merged = false;
+            for (let i = 0; i < this.colliders.length; i++) {
+                const a = this.colliders[i];
+                for (let j = i + 1; j < this.colliders.length; j++) {
+                    const b = this.colliders[j];
+
+                    // Kiem tra chieu cao Y tuong dong
+                    if (Math.abs(a.min.y - b.min.y) > 0.3 || Math.abs(a.max.y - b.max.y) > 0.3) continue;
+
+                    // 1. Gop doc theo truc X (be day Z tuong dong va tiep giap nhau theo X)
+                    if (Math.abs(a.min.z - b.min.z) < 0.25 && Math.abs(a.max.z - b.max.z) < 0.25) {
+                        const touchesX = (a.max.x >= b.min.x - 0.2) && (a.min.x <= b.max.x + 0.2);
+                        if (touchesX) {
+                            a.min.x = Math.min(a.min.x, b.min.x);
+                            a.max.x = Math.max(a.max.x, b.max.x);
+                            a.min.z = Math.min(a.min.z, b.min.z);
+                            a.max.z = Math.max(a.max.z, b.max.z);
+                            this.colliders.splice(j, 1);
+                            merged = true;
+                            break;
+                        }
+                    }
+
+                    // 2. Gop doc theo truc Z (be day X tuong dong va tiep giap nhau theo Z)
+                    if (Math.abs(a.min.x - b.min.x) < 0.25 && Math.abs(a.max.x - b.max.x) < 0.25) {
+                        const touchesZ = (a.max.z >= b.min.z - 0.2) && (a.min.z <= b.max.z + 0.2);
+                        if (touchesZ) {
+                            a.min.z = Math.min(a.min.z, b.min.z);
+                            a.max.z = Math.max(a.max.z, b.max.z);
+                            a.min.x = Math.min(a.min.x, b.min.x);
+                            a.max.x = Math.max(a.max.x, b.max.x);
+                            this.colliders.splice(j, 1);
+                            merged = true;
+                            break;
+                        }
+                    }
+                }
+                if (merged) break;
+            }
+        }
+    }
+
+    buildSpatialGrid() {
+        const totalCells = this.gridCols * this.gridRows;
+        this.gridCells = new Array(totalCells);
+        for (let i = 0; i < totalCells; i++) {
+            this.gridCells[i] = [];
+        }
+        const invCell = 1 / this.gridCellSize;
+        for (let b = 0; b < this.colliders.length; b++) {
+            const box = this.colliders[b];
+            box._colliderId = b;
+            box._queryStamp = 0;
+
+            const minCol = Math.max(0, Math.min(this.gridCols - 1, Math.floor((box.min.x - this.gridMinX) * invCell)));
+            const maxCol = Math.max(0, Math.min(this.gridCols - 1, Math.floor((box.max.x - this.gridMinX) * invCell)));
+            const minRow = Math.max(0, Math.min(this.gridRows - 1, Math.floor((box.min.z - this.gridMinZ) * invCell)));
+            const maxRow = Math.max(0, Math.min(this.gridRows - 1, Math.floor((box.max.z - this.gridMinZ) * invCell)));
+
+            for (let r = minRow; r <= maxRow; r++) {
+                const rowOffset = r * this.gridCols;
+                for (let c = minCol; c <= maxCol; c++) {
+                    this.gridCells[rowOffset + c].push(box);
+                }
+            }
+        }
+    }
+
+    getCollidersInRadius(x, z, radius, outList = []) {
+        outList.length = 0;
+        if (!this.gridCells || this.gridCells.length === 0) {
+            for (let i = 0; i < this.colliders.length; i++) outList.push(this.colliders[i]);
+            return outList;
+        }
+
+        this._queryStamp++;
+        const stamp = this._queryStamp;
+        const invCell = 1 / this.gridCellSize;
+
+        const minCol = Math.max(0, Math.min(this.gridCols - 1, Math.floor((x - radius - this.gridMinX) * invCell)));
+        const maxCol = Math.max(0, Math.min(this.gridCols - 1, Math.floor((x + radius - this.gridMinX) * invCell)));
+        const minRow = Math.max(0, Math.min(this.gridRows - 1, Math.floor((z - radius - this.gridMinZ) * invCell)));
+        const maxRow = Math.max(0, Math.min(this.gridRows - 1, Math.floor((z + radius - this.gridMinZ) * invCell)));
+
+        for (let r = minRow; r <= maxRow; r++) {
+            const rowOffset = r * this.gridCols;
+            for (let c = minCol; c <= maxCol; c++) {
+                const cell = this.gridCells[rowOffset + c];
+                for (let i = 0; i < cell.length; i++) {
+                    const box = cell[i];
+                    if (box._queryStamp !== stamp) {
+                        box._queryStamp = stamp;
+                        outList.push(box);
+                    }
+                }
+            }
+        }
+        return outList;
+    }
+
+    getCollidersInAABB(minX, minZ, maxX, maxZ, outList = []) {
+        outList.length = 0;
+        if (!this.gridCells || this.gridCells.length === 0) {
+            for (let i = 0; i < this.colliders.length; i++) outList.push(this.colliders[i]);
+            return outList;
+        }
+
+        this._queryStamp++;
+        const stamp = this._queryStamp;
+        const invCell = 1 / this.gridCellSize;
+
+        const minCol = Math.max(0, Math.min(this.gridCols - 1, Math.floor((minX - this.gridMinX) * invCell)));
+        const maxCol = Math.max(0, Math.min(this.gridCols - 1, Math.floor((maxX - this.gridMinX) * invCell)));
+        const minRow = Math.max(0, Math.min(this.gridRows - 1, Math.floor((minZ - this.gridMinZ) * invCell)));
+        const maxRow = Math.max(0, Math.min(this.gridRows - 1, Math.floor((maxZ - this.gridMinZ) * invCell)));
+
+        for (let r = minRow; r <= maxRow; r++) {
+            const rowOffset = r * this.gridCols;
+            for (let c = minCol; c <= maxCol; c++) {
+                const cell = this.gridCells[rowOffset + c];
+                for (let i = 0; i < cell.length; i++) {
+                    const box = cell[i];
+                    if (box._queryStamp !== stamp) {
+                        box._queryStamp = stamp;
+                        outList.push(box);
+                    }
+                }
+            }
+        }
+        return outList;
+    }
+
+    raycastClosestDistance(ray, maxDist, originX, originZ) {
+        // Do khoang cach giao cat gan nhat voi vat can doc theo tia ray
+        const dir = ray.direction;
+        const targetX = ray.origin.x + dir.x * maxDist;
+        const targetZ = ray.origin.z + dir.z * maxDist;
+        const minX = Math.min(ray.origin.x, targetX) - 0.5;
+        const maxX = Math.max(ray.origin.x, targetX) + 0.5;
+        const minZ = Math.min(ray.origin.z, targetZ) - 0.5;
+        const maxZ = Math.max(ray.origin.z, targetZ) + 0.5;
+
+        const candidates = this.getCollidersInAABB(minX, minZ, maxX, maxZ, _tempNearbyColliders);
+        let closestDist = maxDist;
+
+        for (let i = 0; i < candidates.length; i++) {
+            const col = candidates[i];
+            if (col.max.y <= 0.4 || col.min.y >= 3.0) continue;
+            const hit = ray.intersectBox(col, _tempLosHit);
+            if (hit) {
+                const d = Math.hypot(hit.x - originX, hit.z - originZ);
+                if (d < closestDist) {
+                    closestDist = Math.max(0.1, d - 0.05);
+                }
+            }
+        }
+        return closestDist;
+    }
+
     checkCollision(pos, radius = 0.5) {
-        for (const col of this.colliders) {
+        const candidates = this.getCollidersInRadius(pos.x, pos.z, radius, _tempNearbyColliders);
+        const radSq = radius * radius;
+        for (let i = 0; i < candidates.length; i++) {
+            const col = candidates[i];
             if (col.max.y <= pos.y + 0.1 || col.min.y >= pos.y + 1.9) continue;
             const x = Math.max(col.min.x, Math.min(pos.x, col.max.x));
             const z = Math.max(col.min.z, Math.min(pos.z, col.max.z));
-            if ((pos.x - x) ** 2 + (pos.z - z) ** 2 < radius * radius) return true;
+            if ((pos.x - x) ** 2 + (pos.z - z) ** 2 < radSq) return true;
         }
         return false;
     }
 
     moveCharacter(position, dx, dz, radius) {
-        // Resolve existing overlap first (spawn, knockback or a network correction).
-        for (let pass = 0; pass < 4; pass++) {
-            let corrected = false;
-            for (const box of this.colliders) {
+        // 1. Giai phong chong lan neu da bi lun tu truoc (Spawn, knockback, sai so toa do)
+        const nearby = this.getCollidersInRadius(position.x, position.z, radius + 0.2, _tempNearbyColliders);
+        for (let pass = 0; pass < 3; pass++) {
+            let hadOverlap = false;
+            for (let i = 0; i < nearby.length; i++) {
+                const box = nearby[i];
                 if (box.max.y <= position.y + 0.1 || box.min.y >= position.y + 1.9) continue;
-                const x = Math.max(box.min.x, Math.min(position.x, box.max.x));
-                const z = Math.max(box.min.z, Math.min(position.z, box.max.z));
-                const ox = position.x - x, oz = position.z - z;
-                const distance = Math.hypot(ox, oz);
-                if (distance >= radius) continue;
-                corrected = true;
-                if (distance > 0.00001) {
-                    position.x += ox / distance * (radius - distance + 0.001);
-                    position.z += oz / distance * (radius - distance + 0.001);
+                const cx = Math.max(box.min.x, Math.min(position.x, box.max.x));
+                const cz = Math.max(box.min.z, Math.min(position.z, box.max.z));
+                const ox = position.x - cx;
+                const oz = position.z - cz;
+                const distSq = ox * ox + oz * oz;
+                if (distSq >= radius * radius) continue;
+
+                hadOverlap = true;
+                const dist = Math.sqrt(distSq);
+                if (dist > 0.0001) {
+                    const pen = radius - dist;
+                    position.x += (ox / dist) * (pen + 0.002);
+                    position.z += (oz / dist) * (pen + 0.002);
                 } else {
-                    const sides = [
-                        [Math.abs(position.x - (box.min.x - radius)), 'x', box.min.x - radius - 0.001],
-                        [Math.abs(position.x - (box.max.x + radius)), 'x', box.max.x + radius + 0.001],
-                        [Math.abs(position.z - (box.min.z - radius)), 'z', box.min.z - radius - 0.001],
-                        [Math.abs(position.z - (box.max.z + radius)), 'z', box.max.z + radius + 0.001]
-                    ].sort((a, b) => a[0] - b[0]);
-                    position[sides[0][1]] = sides[0][2];
+                    // Trong tam nam lot hoan toan vao trong hop: day ra canh gan nhat
+                    const left = Math.abs(position.x - box.min.x);
+                    const right = Math.abs(box.max.x - position.x);
+                    const bottom = Math.abs(position.z - box.min.z);
+                    const top = Math.abs(box.max.z - position.z);
+                    const minDist = Math.min(left, right, bottom, top);
+                    if (minDist === left) position.x = box.min.x - radius - 0.002;
+                    else if (minDist === right) position.x = box.max.x + radius + 0.002;
+                    else if (minDist === bottom) position.z = box.min.z - radius - 0.002;
+                    else position.z = box.max.z + radius + 0.002;
                 }
             }
-            if (!corrected) break;
+            if (!hadOverlap) break;
         }
-        const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (radius * 0.45)));
-        const probe = _movementProbe;
-        for (let step = 0; step < steps; step++) {
-            probe.copy(position); probe.x += dx / steps;
-            if (!this.checkCollision(probe, radius)) position.x = probe.x;
-            probe.copy(position); probe.z += dz / steps;
-            if (!this.checkCollision(probe, radius)) position.z = probe.z;
+
+        // 2. Di chuyen theo buoc nho (Substeps) ket hop truot tiep tuyen chong ket (Tangent Slide)
+        const totalDist = Math.hypot(dx, dz);
+        if (totalDist < 0.00001) return;
+
+        // Gioi han do dai moi buoc con de chong xuyen thau (Anti-tunneling)
+        const maxStepSize = Math.min(radius * 0.45, 0.16);
+        const steps = Math.max(1, Math.ceil(totalDist / maxStepSize));
+        const subDx = dx / steps;
+        const subDz = dz / steps;
+
+        for (let s = 0; s < steps; s++) {
+            let curDx = subDx;
+            let curDz = subDz;
+
+            // Toi da 3 lan dieu chinh truot trong moi buoc con (vi du khi truot vao goc hep hai vach)
+            for (let slideIter = 0; slideIter < 3; slideIter++) {
+                const moveLen = Math.hypot(curDx, curDz);
+                if (moveLen < 0.0001) break;
+
+                const targetX = position.x + curDx;
+                const targetZ = position.z + curDz;
+
+                // Lay cac vat can quanh vi tri dich
+                const localColliders = this.getCollidersInRadius(targetX, targetZ, radius, _tempSlideColliders);
+                let hitBox = null;
+                let maxPen = 0;
+                let normX = 0, normZ = 0;
+
+                for (let i = 0; i < localColliders.length; i++) {
+                    const box = localColliders[i];
+                    if (box.max.y <= position.y + 0.1 || box.min.y >= position.y + 1.9) continue;
+                    const cx = Math.max(box.min.x, Math.min(targetX, box.max.x));
+                    const cz = Math.max(box.min.z, Math.min(targetZ, box.max.z));
+                    const ox = targetX - cx;
+                    const oz = targetZ - cz;
+                    const distSq = ox * ox + oz * oz;
+
+                    if (distSq < radius * radius) {
+                        const dist = Math.sqrt(distSq);
+                        const pen = radius - dist;
+                        if (pen > maxPen) {
+                            maxPen = pen;
+                            hitBox = box;
+                            if (dist > 0.0001) {
+                                normX = ox / dist;
+                                normZ = oz / dist;
+                            } else {
+                                const left = Math.abs(targetX - box.min.x);
+                                const right = Math.abs(box.max.x - targetX);
+                                const bottom = Math.abs(targetZ - box.min.z);
+                                const top = Math.abs(box.max.z - targetZ);
+                                const minD = Math.min(left, right, bottom, top);
+                                if (minD === left) { normX = -1; normZ = 0; }
+                                else if (minD === right) { normX = 1; normZ = 0; }
+                                else if (minD === bottom) { normX = 0; normZ = -1; }
+                                else { normX = 0; normZ = 1; }
+                            }
+                        }
+                    }
+                }
+
+                if (!hitBox) {
+                    position.x = targetX;
+                    position.z = targetZ;
+                    break;
+                }
+
+                // Co va cham: giu khoang cach an toan so voi vat can
+                position.x = targetX + normX * (maxPen + 0.002);
+                position.z = targetZ + normZ * (maxPen + 0.002);
+
+                // Triet tieu thanh phan van toc huong thang vao tuong, chi giu lai thanh phan truot song song
+                const dot = curDx * normX + curDz * normZ;
+                if (dot < 0) {
+                    curDx -= normX * dot;
+                    curDz -= normZ * dot;
+                } else {
+                    break;
+                }
+            }
         }
     }
 
@@ -496,7 +761,15 @@ export class Arena {
         const ray = _navigationRay;
         ray.origin.set(from.x, 1, from.z);
         const hit = _navigationHit;
-        for (const collider of this.colliders) {
+
+        const minX = Math.min(from.x, to.x) - radius - 0.5;
+        const maxX = Math.max(from.x, to.x) + radius + 0.5;
+        const minZ = Math.min(from.z, to.z) - radius - 0.5;
+        const maxZ = Math.max(from.z, to.z) + radius + 0.5;
+        const candidates = this.getCollidersInAABB(minX, minZ, maxX, maxZ, _tempNearbyColliders);
+
+        for (let i = 0; i < candidates.length; i++) {
+            const collider = candidates[i];
             if (collider.max.y <= 0.1 || collider.min.y >= 1.9) continue;
             const box = _navigationBox.copy(collider);
             box.min.x -= radius; box.max.x += radius;
@@ -512,10 +785,15 @@ export class Arena {
         if (this.navigationClear(from, to, radius)) return [to.clone()];
         const nodes = [from.clone(), to.clone()];
         const margin = radius + 0.16;
-        for (const box of this.colliders) {
+        const minX = Math.min(from.x, to.x) - 8;
+        const maxX = Math.max(from.x, to.x) + 8;
+        const minZ = Math.min(from.z, to.z) - 8;
+        const maxZ = Math.max(from.z, to.z) + 8;
+        const localBoxes = this.getCollidersInAABB(minX, minZ, maxX, maxZ, _tempNearbyColliders);
+
+        for (let i = 0; i < localBoxes.length; i++) {
+            const box = localBoxes[i];
             if (box.max.y <= 0.1 || box.min.y >= 1.9) continue;
-            if (box.max.x < Math.min(from.x, to.x) - 8 || box.min.x > Math.max(from.x, to.x) + 8 ||
-                box.max.z < Math.min(from.z, to.z) - 8 || box.min.z > Math.max(from.z, to.z) + 8) continue;
             for (const x of [box.min.x - margin, box.max.x + margin]) {
                 for (const z of [box.min.z - margin, box.max.z + margin]) {
                     const point = new THREE.Vector3(x, 0, z);
@@ -556,12 +834,19 @@ export class Arena {
         if (dist <= 0.0001) return true;
         _tempLosDir.multiplyScalar(1 / dist);
 
-        // Đặt tia kiểm tra ở độ cao ngực/tầm mắt (Y = 1.0)
+        // Dat tia kiem tra o do cao nguc/tam mat (Y = 1.0)
         _tempLosRay.origin.set(fromPos.x, 1.0, fromPos.z);
         _tempLosRay.direction.copy(_tempLosDir);
 
-        for (const col of this.colliders) {
-            // Bỏ qua các vật thể nằm hoàn toàn dưới sàn hoặc trên trần
+        const minX = Math.min(fromPos.x, toPos.x) - 0.5;
+        const maxX = Math.max(fromPos.x, toPos.x) + 0.5;
+        const minZ = Math.min(fromPos.z, toPos.z) - 0.5;
+        const maxZ = Math.max(fromPos.z, toPos.z) + 0.5;
+        const candidates = this.getCollidersInAABB(minX, minZ, maxX, maxZ, _tempNearbyColliders);
+
+        for (let i = 0; i < candidates.length; i++) {
+            const col = candidates[i];
+            // Bo qua cac vat the nam hoan toan duoi san hoac tren tran
             if (col.max.y <= 0.4 || col.min.y >= 3.0) continue;
             const hit = _tempLosRay.intersectBox(col, _tempLosHit);
             if (hit) {
