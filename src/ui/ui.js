@@ -1765,8 +1765,13 @@ export class UIManager {
             const tierStr = gunData.tier ? ` · CẤP ${gunData.tier}` : '';
             this.droppedPromptText.textContent = `${actionText} [${(gunData.name || 'SÚNG').toUpperCase()}${tierStr}]`;
         }
-        if (this.droppedPromptTimer && typeof timeLeft === 'number') {
-            this.droppedPromptTimer.textContent = `${Math.max(1, Math.ceil(timeLeft))}s`;
+        if (this.droppedPromptTimer) {
+            if (typeof timeLeft === 'number' && Number.isFinite(timeLeft) && timeLeft > 0) {
+                this.droppedPromptTimer.textContent = `${Math.max(1, Math.ceil(timeLeft))}s`;
+                this.droppedPromptTimer.style.display = '';
+            } else {
+                this.droppedPromptTimer.style.display = 'none';
+            }
         }
 
         if (position && camera) {
