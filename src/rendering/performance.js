@@ -13,6 +13,17 @@ export class RenderQuality {
         this.fastWindows = 0;
     }
 
+    configure(pixelRatio, width, height, mode = 'optimized') {
+        // Bound fragment work on 1440p/4K displays, even at devicePixelRatio 1.
+        const optimized = mode === 'optimized';
+        const pixelBudget = optimized ? 1920 * 1080 : 2560 * 1440;
+        const screenLimit = Math.sqrt(pixelBudget / Math.max(1, width * height));
+        this.maxRatio = Math.min(pixelRatio || 1, optimized ? 1 : 1.5, screenLimit);
+        this.minRatio = Math.min(this.maxRatio, optimized ? 0.5 : 0.75);
+        this.ratio = Math.max(this.minRatio, Math.min(this.ratio, this.maxRatio));
+        this.reset();
+    }
+
     sample(delta) {
         if (delta <= 0 || delta > 0.25) { this.reset(); return false; }
         this.elapsed += delta;

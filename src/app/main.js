@@ -1,21 +1,21 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js?v=58';
-import { ParticleSystem } from '../rendering/particles.js?v=67';
-import { Arena } from '../world/arena.js?v=23';
+import { ParticleSystem } from '../rendering/particles.js?v=68';
+import { Arena } from '../world/arena.js?v=24';
 import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=71';
 import { PlayerController } from '../gameplay/player/player.js?v=72';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=69';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
-import { UIManager } from '../ui/ui.js?v=40';
+import { UIManager } from '../ui/ui.js?v=41';
 import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=70';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=37';
 import { HomeMenu } from '../ui/home.js?v=57';
 import { LootingSystem } from '../gameplay/loot/looting.js?v=70';
-import { RenderQuality } from '../rendering/performance.js';
+import { RenderQuality } from '../rendering/performance.js?v=2';
 import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=49';
-import { VisionConeOverlay, getWeaponVisionConfig, applyVisibilityCulling } from '../gameplay/combat/vision-cone.js?v=71';
+import { VisionConeOverlay, getWeaponVisionConfig, applyVisibilityCulling } from '../gameplay/combat/vision-cone.js?v=72';
 import { TDMManager } from '../gameplay/combat/tdm.js';
 
 class CyberArenaGame {
@@ -90,15 +90,12 @@ class CyberArenaGame {
         // High-Performance WebGL Renderer
         this.renderer = new THREE.WebGLRenderer({
             canvas: this.canvas,
-            antialias: true,
+            antialias: this.perfSettings.mode !== 'optimized',
             powerPreference: 'high-performance'
         });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderQuality = new RenderQuality(window.devicePixelRatio);
-        if (this.perfSettings.mode === 'optimized') {
-            this.renderQuality.maxRatio = 1.0;
-            this.renderQuality.ratio = 1.0;
-        }
+        this.renderQuality.configure(window.devicePixelRatio, window.innerWidth, window.innerHeight, this.perfSettings.mode);
         this.renderer.setPixelRatio(this.renderQuality.ratio);
         this.renderer.shadowMap.enabled = !!this.perfSettings.shadows;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -111,6 +108,8 @@ class CyberArenaGame {
             this.camera.left = -this.viewHeight * aspect / 2;
             this.camera.right = this.viewHeight * aspect / 2;
             this.camera.updateProjectionMatrix();
+            this.renderQuality.configure(window.devicePixelRatio, window.innerWidth, window.innerHeight, this.perfSettings.mode);
+            this.renderer.setPixelRatio(this.renderQuality.ratio);
             this.renderer.setSize(window.innerWidth, window.innerHeight);
             this.visionCone?.initCanvasSize?.();
         });
@@ -359,19 +358,9 @@ class CyberArenaGame {
             localStorage.setItem('arena_perf_settings', JSON.stringify(this.perfSettings));
         } catch { }
 
-        if (this.perfSettings.mode === 'optimized') {
-            if (this.renderQuality) {
-                this.renderQuality.maxRatio = 1.0;
-                this.renderQuality.ratio = Math.min(this.renderQuality.ratio, 1.0);
-            }
-            if (this.renderer) {
-                this.renderer.setPixelRatio(this.renderQuality.ratio);
-            }
-        } else if (this.perfSettings.mode === 'full') {
-            if (this.renderQuality) {
-                this.renderQuality.maxRatio = Math.min(window.devicePixelRatio || 1, 1.5);
-            }
-        }
+        this.renderQuality?.configure(window.devicePixelRatio, window.innerWidth, window.innerHeight, this.perfSettings.mode);
+        if (this.renderer && this.renderQuality) this.renderer.setPixelRatio(this.renderQuality.ratio);
+        this.arena?.setQuality(this.perfSettings);
 
         if (this.particles) {
             this.particles.setQuality(this.perfSettings);
@@ -465,6 +454,7 @@ class CyberArenaGame {
 
         updateLoading(40, 'Building Arena & Portals...');
         this.arena.buildArena();
+        this.arena.setQuality(this.perfSettings);
         if (this.arena?.sunLight) {
             this.arena.sunLight.castShadow = !!this.perfSettings.shadows;
         }
@@ -1747,6 +1737,9 @@ class CyberArenaGame {
             if (this.gameMode !== 'TDM') {
                 this.lootingSystem.update(delta);
             }
+
+            // Background room ticks still simulate combat; the hidden HUD needs no painting.
+            if (!render) return;
 
             // Update UI & Radar with 4 Portals, Teammates, and Tactical Airdrop Zone
             const teammates = this.gameMode === 'TDM'

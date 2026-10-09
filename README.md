@@ -56,6 +56,10 @@ Bài này kiểm tra đồng bộ thế giới, nhặt/vứt súng lặp, cứu 
 
 `npm install` cài công cụ kiểm thử. Có thể dùng `npm run check`, `npm run test:browser` và `npm run test:multiplayer` thay cho các lệnh dài tương ứng. Game không phụ thuộc `node_modules` khi chạy hoặc triển khai.
 
+Kiểm tra tối ưu web: `node --test tests/unit/render-quality.test.mjs` và `node tests/browser/performance-smoke.cjs`. Bài trình duyệt kiểm tra Sinh tồn, TDM, bắn với 20 zombie, chuyển preset, HUD không ghi lại giá trị cũ và mô phỏng nền không cập nhật HUD. Thời gian đo bao gồm khởi tạo shader trên GPU giả lập, không dùng để suy ra FPS trên GPU thật.
+
+Chế độ Tối ưu FPS bỏ đèn điểm trang trí, giới hạn vùng render khoảng 2,07 triệu pixel và tự giảm tỷ lệ render xuống 0,5 khi tải cao. Giao diện vẫn ở độ phân giải màn hình. Khử răng cưa được chọn khi khởi tạo WebGL; sau khi đổi chế độ, tải lại trang để áp dụng phần này. Chế độ đầy đủ giữ đèn trang trí và bóng theo cài đặt.
+
 Các test cũ về đạn hữu hạn, pity drop và một số luật combat đã lỗi trước lần tổ chức thư mục này; xem `docs/maintenance.md`. Không sửa luật game chỉ để làm những test cũ đó xanh.
 
 ## Thêm tính năng

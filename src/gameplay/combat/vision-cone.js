@@ -189,6 +189,7 @@ export class VisionConeOverlay {
         this.ctx = canvas?.getContext('2d');
         this.camera = camera;
         this.enabled = false;
+        this._hasContent = false;
 
         // Các thông số được nội suy (lerp) mượt mà cho người chơi chính
         this.currentRange = 20.0;
@@ -217,11 +218,13 @@ export class VisionConeOverlay {
         this.height = Math.round(window.innerHeight * scale);
         this.canvas.width = this.width;
         this.canvas.height = this.height;
+        this._hasContent = false;
     }
 
     clear() {
-        if (!this.ctx || !this.canvas) return;
+        if (!this.ctx || !this.canvas || !this._hasContent) return;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this._hasContent = false;
     }
 
     /**
@@ -446,6 +449,7 @@ export class VisionConeOverlay {
         // 2. Phủ lớp bóng tối mờ nhẹ toàn màn hình (Fog of War mờ 40%)
         ctx.fillStyle = 'rgba(8, 14, 24, 0.40)';
         ctx.fillRect(0, 0, width, height);
+        this._hasContent = true;
 
         // 3. Khoét luồng sáng cho người chơi chính (nếu còn sống)
         if (!player.isDead) {

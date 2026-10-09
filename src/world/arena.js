@@ -17,6 +17,7 @@ export class Arena {
         this.colliders = []; // Mang cac THREE.Box3 va cham vat can
         this.portals = [];
         this.models = {};
+        this.tacticalLights = [];
         this.halfSize = 28;
         this.radius = 29;
 
@@ -115,7 +116,15 @@ export class Arena {
             const pl = new THREE.PointLight(tl.color, tl.intensity, tl.dist);
             pl.position.set(tl.pos[0], tl.pos[1], tl.pos[2]);
             this.scene.add(pl);
+            this.tacticalLights.push(pl);
         });
+    }
+
+    setQuality({ mode = 'optimized', shadows = false } = {}) {
+        // Visibility removes decorative lights from the shader's light loop.
+        // Change only with the preset, never during individual shots/frames.
+        for (const light of this.tacticalLights) light.visible = mode !== 'optimized';
+        if (this.sunLight) this.sunLight.castShadow = !!shadows;
     }
 
     placeInstance(modelName, position, rotationY = 0, scale = 1, addCollider = false) {

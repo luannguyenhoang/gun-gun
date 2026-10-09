@@ -64,6 +64,7 @@ export class ParticleSystem {
         this.sparksEnabled = !!bulletSparks;
         this.sparksCountMultiplier = bulletSparks ? 1.0 : 0;
         this.effectLightEnabled = !!effectLight;
+        this.effectLight.visible = this.effectLightEnabled;
         if (!this.effectLightEnabled && this.effectLight) {
             this.effectLight.intensity = 0;
         }
