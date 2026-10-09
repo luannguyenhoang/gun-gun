@@ -1783,7 +1783,7 @@ export class WeaponSystem {
         };
     }
 
-    switchWeapon(index, player = null) {
+    switchWeapon(index, player = null, force = false) {
         if (index < 0 || index >= this.weaponSlots.length) return;
 
         // Bất kỳ hành động đổi vũ khí nào cũng sẽ hủy tiến trình sơ cứu dở dang
@@ -1791,7 +1791,8 @@ export class WeaponSystem {
             this.cancelMedkitUse();
         }
 
-        if (index === this.currentSlotIndex) return;
+        const slotChanged = (index !== this.currentSlotIndex);
+        if (!slotChanged && !force) return;
 
         this.lastLocalSwitchTime = performance.now();
         if (this.onCommand) this.onCommand({ type: 'switch', slot: index });
@@ -1947,12 +1948,9 @@ export class WeaponSystem {
 
     attachToArm(handNode) {
         if (!handNode) return;
+        // Gỡ bỏ mesh cũ khỏi tay nhân vật (giữ nguyên material cache để tránh crash GPU và giật do biên dịch lại shader)
         for (const mesh of Object.values(this.weaponMeshes || {})) {
             mesh.removeFromParent();
-            if (mesh.userData.ownsMaterials) mesh.traverse(child => {
-                const materials = Array.isArray(child.material) ? child.material : [child.material];
-                for (const material of materials) material?.dispose();
-            });
         }
         this.handNode = handNode;
         this.weaponMeshes = {};
@@ -2117,9 +2115,15 @@ export class WeaponSystem {
             this.cancelMedkitUse();
         }
 
-        // Tự động chuyển dao nếu cả súng và đạn dự trữ đều hết
+        // Tự động chuyển dao hoặc súng phụ nếu cả súng và đạn dự trữ đều hết
         if (isPlayer && !current.isKnife && (this.ammo[current.id] <= 0) && !(this.reserve[current.id] > 0)) {
-            this.switchWeapon(1, playerRef);
+            const otherSlot = (this.currentSlotIndex === 0) ? 1 : 0;
+            const otherGun = this.weaponSlots[otherSlot];
+            if (otherGun && ((this.ammo[otherGun.id] || 0) > 0 || (this.reserve[otherGun.id] || 0) > 0)) {
+                if (this.currentSlotIndex !== otherSlot) this.switchWeapon(otherSlot, playerRef);
+            } else {
+                if (this.currentSlotIndex !== 4) this.switchWeapon(4, playerRef);
+            }
             return false;
         }
 

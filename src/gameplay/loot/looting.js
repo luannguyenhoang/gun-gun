@@ -1486,14 +1486,14 @@ export class AirdropDropEntity {
     }
 }
 
-// Thực thể Súng rơi ngoài mặt đất khi bị vứt hoặc hoán đổi (Tồn tại 30s)
+// Thực thể Súng rơi ngoài mặt đất khi bị vứt hoặc hoán đổi (Tồn tại vĩnh viễn đến khi được nhặt)
 export class DroppedWeaponEntity {
     constructor(scene, position, gunData, options = {}) {
         this.scene = scene;
         this.gunData = gunData;
         this.id = options.id || ('drop_gun_' + Math.random().toString(36).substring(2, 9));
-        this.life = typeof options.life === 'number' ? options.life : 30.0; // Tồn tại đúng 30 giây trước khi tự hủy
-        this.maxLife = 30.0;
+        this.life = typeof options.life === 'number' ? options.life : Infinity; // Không tự biến mất sau 30 giây
+        this.maxLife = this.life;
         this.interactionRadius = 2.4; // Bán kính bấm [F] tương tác
         this.group = new THREE.Group();
 
@@ -1577,8 +1577,10 @@ export class DroppedWeaponEntity {
     }
 
     update(delta) {
-        this.life -= delta;
-        if (this.life <= 0) return false;
+        if (Number.isFinite(this.life)) {
+            this.life -= delta;
+            if (this.life <= 0) return false;
+        }
 
         const elapsed = performance.now() * 0.002;
         if (this.weaponMesh) {
@@ -1591,7 +1593,7 @@ export class DroppedWeaponEntity {
         }
         if (this.outerRing) {
             this.outerRing.rotation.z += delta * 0.8;
-            if (this.life < 10) {
+            if (Number.isFinite(this.life) && this.life < 10) {
                 this.outerRing.material.opacity = (Math.sin(elapsed * 12) > 0) ? 0.7 : 0.15;
             }
         }
@@ -1684,7 +1686,7 @@ export class LootingSystem {
         });
     }
 
-    // Sinh khẩu súng rơi ngoài đất (tồn tại 1 phút = 60s)
+    // Sinh khẩu súng rơi ngoài đất (mặc định tồn tại vĩnh viễn cho đến khi được nhặt)
     spawnDroppedWeapon(position, gunData, customId = null, life = null) {
         if (!gunData) return null;
         gunData = { ...gunData, instanceId: gunData.instanceId || THREE.MathUtils.generateUUID() };
@@ -1702,7 +1704,10 @@ export class LootingSystem {
     pickupDroppedWeapon(droppedWeapon) {
         if (!droppedWeapon || !this.player || this.player.isDead || this.player.isDowned || !this.droppedWeapons.includes(droppedWeapon)) return false;
         if (this.player.position.distanceTo(droppedWeapon.group.position) > 4.5) return false;
-        if (this.requestCommand({ type: 'pickup_weapon', weaponDropId: droppedWeapon.id })) return true;
+
+        // Báo cho Host biết súng đã được nhặt (nếu đang là Client) mà không làm gián đoạn xử lý tức thì cục bộ
+        this.requestCommand({ type: 'pickup_weapon', weaponDropId: droppedWeapon.id });
+
         const weapons = this.player.weapons;
         if (!weapons) return false;
 
@@ -1746,8 +1751,9 @@ export class LootingSystem {
             targetMap.optic = null;
             targetMap.grip = null;
 
-            // Đặt khẩu súng cũ rơi ra ngay vị trí của khẩu súng vừa nhặt
-            const oldEntity = this.spawnDroppedWeapon(droppedWeapon.group.position.clone(), oldDroppedData);
+            // Đặt khẩu súng cũ rơi ra ngay vị trí của khẩu súng vừa nhặt với ID nhất quán
+            const dropEntityId = 'drop_' + currentGun.instanceId;
+            this.spawnDroppedWeapon(droppedWeapon.group.position.clone(), oldDroppedData, dropEntityId);
         }
 
         // Tạo instance súng mới từ gunData
@@ -1776,18 +1782,14 @@ export class LootingSystem {
             }
         }
 
-        // Chuyển ngay sang khẩu súng vừa nhặt
-        weapons.switchWeapon(targetSlot, this.player);
-
-        // Báo cho Host biết súng đã được nhặt
-        if (window.game?.network?.active && !window.game?.network?.host) {
-            window.game.network.sendCommand({
-                type: 'pickup_weapon',
-                weaponDropId: droppedWeapon.id
-            });
+        // Chuyển ngay sang khẩu súng vừa nhặt và gắn mesh lên tay tức thì không độ trễ
+        if (weapons.handNode) {
+            weapons.attachToArm(weapons.handNode);
         }
+        weapons.switchWeapon(targetSlot, this.player, true);
+        weapons.updateEquippedMesh();
 
-        // Xóa thực thể súng rơi khỏi danh sách và scene
+        // Xóa thực thể súng rơi khỏi danh sách và scene ngay lập tức
         const idx = this.droppedWeapons.indexOf(droppedWeapon);
         if (idx !== -1) {
             this.droppedWeapons.splice(idx, 1);
@@ -2261,8 +2263,9 @@ export class LootingSystem {
                 targetAttach.optic = null;
                 targetAttach.grip = null;
 
-                // Sinh súng rơi ngoài đất tại vị trí người chơi
-                this.spawnDroppedWeapon(this.player.position.clone(), droppedGunData);
+                // Sinh súng rơi ngoài đất tại vị trí người chơi với ID nhất quán
+                const dropEntityId = 'drop_' + currentGun.instanceId;
+                this.spawnDroppedWeapon(this.player.position.clone(), droppedGunData, dropEntityId);
             }
 
             // Trang bị súng mới
@@ -2270,7 +2273,13 @@ export class LootingSystem {
             weapons.ammo[newGun.id] = newGun.magSize;
             weapons.reserve[newGun.id] = Infinity;
             if (targetSlot === 1) weapons.secondaryWeapon = newGun;
-            weapons.switchWeapon(targetSlot, this.player);
+
+            // Gắn mô hình súng mới lên tay tức thì không độ trễ
+            if (weapons.handNode) {
+                weapons.attachToArm(weapons.handNode);
+            }
+            weapons.switchWeapon(targetSlot, this.player, true);
+            weapons.updateEquippedMesh();
 
             // Ô trong hòm được lấy đi (gán null), súng cũ đã rơi ra ngoài mặt đất
             container.slots[selected.slotIndex] = null;
@@ -2823,8 +2832,9 @@ export class LootingSystem {
         let nearestDropped = null;
         let minDroppedDist = Infinity;
         for (const dw of this.droppedWeapons) {
+            if (!dw || !dw.group || !this.player?.position) continue;
             const dist = this.player.position.distanceTo(dw.group.position);
-            if (dist <= dw.interactionRadius && dist < minDroppedDist) {
+            if (dist <= (dw.interactionRadius || 2.4) && dist < minDroppedDist) {
                 minDroppedDist = dist;
                 nearestDropped = dw;
             }
@@ -3018,9 +3028,9 @@ export class LootingSystem {
             let dw = byWeaponId.get(wSnap.id);
             if (!dw) {
                 const pos = new THREE.Vector3().fromArray(wSnap.position);
-                dw = this.spawnDroppedWeapon(pos, wSnap.gunData, wSnap.id, wSnap.life);
+                dw = this.spawnDroppedWeapon(pos, wSnap.gunData, wSnap.id, wSnap.life === -1 ? Infinity : wSnap.life);
             } else {
-                dw.life = wSnap.life === -1 ? 30.0 : wSnap.life;
+                dw.life = wSnap.life === -1 ? Infinity : wSnap.life;
                 if (Array.isArray(wSnap.position) && dw.group) {
                     dw.group.position.fromArray(wSnap.position);
                 }
