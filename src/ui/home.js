@@ -79,6 +79,7 @@ export class HomeMenu {
             this.selectedTeam = team;
             this.game.selectedGameMode = mode;
             this.game.selectedTDMTeam = team;
+            this.game.switchArena?.(mode);
 
             // 1. Cập nhật trạng thái các Tab chọn nhanh
             if (this.tabModeSurvival) this.tabModeSurvival.classList.toggle('active', mode === 'SURVIVAL');

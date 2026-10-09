@@ -401,11 +401,19 @@ export class PlayerController {
             if (e.code === 'Digit2') this.weapons.switchWeapon(1, this);
             if (e.code === 'Digit3') this.weapons.switchWeapon(2, this);
             if (e.code === 'Digit4') this.weapons.switchWeapon(3, this);
-            if (e.code === 'Digit5') this.weapons.startMedkitUse(this);
+            if (e.code === 'Digit5') {
+                if (window.game?.gameMode !== 'TDM') {
+                    this.weapons.startMedkitUse(this);
+                }
+            }
             if (e.code === 'KeyV') this.weapons.switchWeapon(4, this);
 
-            // Kích hoạt Kỹ năng chủ động (phím Q)
-            if (e.code === 'KeyQ') this.tryActiveSkill();
+            // Kích hoạt Kỹ năng chủ động (phím Q) - chỉ trong chế độ Zombie Survival
+            if (e.code === 'KeyQ') {
+                if (window.game?.gameMode !== 'TDM') {
+                    this.tryActiveSkill();
+                }
+            }
             if (e.code === 'KeyE') {
                 const hasDownedNearby = window.game?.coopPlayers?.some(p => p !== this && (p.isDowned || p.isDead) && p.position.distanceTo(this.position) <= 3.0);
                 if (hasDownedNearby) {
@@ -710,6 +718,8 @@ export class PlayerController {
     }
 
     tryActiveSkill() {
+        // Chế độ Đối kháng TDM là đấu súng chiến thuật thuần túy, không sử dụng kỹ năng zombie
+        if (globalThis.window?.game?.gameMode === 'TDM' || this.game?.gameMode === 'TDM') return false;
         if (this.isDead || this.isDowned) return false;
         if (this.activeSkillCooldownTimer > 0) return false;
 
@@ -1966,6 +1976,7 @@ export class PlayerController {
     }
 
     updateActiveSkills(delta, arena, enemies = []) {
+        if (globalThis.window?.game?.gameMode === 'TDM' || this.game?.gameMode === 'TDM') return;
         const isClient = globalThis.window?.game?.network?.active && !window.game.network.host;
         this.activeSkillCooldownTimer = Math.max(0, (this.activeSkillCooldownTimer || 0) - delta);
         this.activeSkillDurationTimer = Math.max(0, (this.activeSkillDurationTimer || 0) - delta);
@@ -2620,6 +2631,7 @@ export class PlayerController {
     }
 
     heal(amount) {
+        if (globalThis.window?.game?.gameMode === 'TDM' || this.game?.gameMode === 'TDM') return;
         this.health = Math.min(this.maxHealth, this.health + amount);
     }
 

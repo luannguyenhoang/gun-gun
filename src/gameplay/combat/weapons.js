@@ -1836,6 +1836,7 @@ export class WeaponSystem {
 
     // Cơ chế Channeling sơ cứu vết thương hoặc uống nước tăng lực
     startMedkitUse(player, itemType = null) {
+        if (globalThis.window?.game?.gameMode === 'TDM') return false;
         if (!player || player.isDead || player.isDowned) return false;
         if (this.isUsingMedkit) return false;
 

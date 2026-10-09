@@ -828,10 +828,14 @@ export class UIManager {
             }
 
             // Cập nhật Widget Kỹ năng chủ động Nhân vật (phím Q)
-            if (this.skillWidget && player) {
-                const cfg = CHARACTER_CONFIGS[player.characterId] || CHARACTER_CONFIGS.police;
-                const skill = cfg?.activeSkill;
-                if (skill) {
+            if (this.skillWidget) {
+                if (window.game?.gameMode === 'TDM') {
+                    this.skillWidget.style.display = 'none';
+                } else if (player) {
+                    this.skillWidget.style.display = 'flex';
+                    const cfg = CHARACTER_CONFIGS[player.characterId] || CHARACTER_CONFIGS.police;
+                    const skill = cfg?.activeSkill;
+                    if (skill) {
                     const effectType = skill.effectType || '';
 
                     // === Cập nhật màu sắc widget theo loại kỹ năng ===
@@ -1062,8 +1066,13 @@ export class UIManager {
             const medQty = Math.max(totalMeds, inv.medkits || 0);
             if (this.thQtyMedkit) this.thQtyMedkit.textContent = `x${medQty}`;
             if (this.thSlot3) {
-                this.thSlot3.style.opacity = (medQty > 0) ? '1' : '0.45';
-                this.thSlot3.classList.toggle('active', isUsingMed);
+                if (window.game?.gameMode === 'TDM') {
+                    this.thSlot3.style.display = 'none';
+                } else {
+                    this.thSlot3.style.display = 'flex';
+                    this.thSlot3.style.opacity = (medQty > 0) ? '1' : '0.45';
+                    this.thSlot3.classList.toggle('active', isUsingMed);
+                }
             }
 
             // Hiển thị thanh tiến trình sơ cứu y tế

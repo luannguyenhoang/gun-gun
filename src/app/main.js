@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js?v=58';
 import { ParticleSystem } from '../rendering/particles.js?v=68';
-import { Arena } from '../world/arena.js?v=24';
+import { Arena, SurvivalArena, SpaceArena } from '../world/arena.js?v=25';
 import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=71';
 import { PlayerController } from '../gameplay/player/player.js?v=72';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=69';
@@ -121,7 +121,9 @@ class CyberArenaGame {
     initSubsystems() {
         this.particles = new ParticleSystem(this.scene);
         this.particles.setQuality(this.perfSettings);
-        this.arena = new Arena(this.scene, this.gltfLoader);
+        this.survivalArena = new SurvivalArena(this.scene, this.gltfLoader);
+        this.spaceArena = new SpaceArena(this.scene, this.gltfLoader);
+        this.arena = this.survivalArena;
         this.weapons = new WeaponSystem(this.scene, this.gltfLoader, this.particles);
         const initialLoadout = this.getLoadout();
         this.weapons.startingWeaponId = initialLoadout.primary;
@@ -440,6 +442,31 @@ class CyberArenaGame {
         }
     }
 
+    switchArena(targetMode) {
+        const isTDM = targetMode === 'TDM';
+        const targetArena = isTDM ? this.spaceArena : this.survivalArena;
+        if (this.arena === targetArena && this.arena.colliders.length > 0) {
+            return;
+        }
+
+        // Dọn dẹp bản đồ đang dựng trên scene
+        if (this.arena) {
+            this.arena.clearScene();
+        }
+
+        this.arena = targetArena;
+        this.arena.buildArena();
+        this.arena.setQuality(this.perfSettings);
+        if (this.arena?.sunLight) {
+            this.arena.sunLight.castShadow = !!this.perfSettings.shadows;
+        }
+
+        // Cập nhật tham chiếu bản đồ mới vào các subsystem
+        if (this.player) this.player.arena = this.arena;
+        if (this.waveManager) this.waveManager.arena = this.arena;
+        if (this.tdmManager) this.tdmManager.arena = this.arena;
+    }
+
     async loadAssetsAndStart() {
         const loadingProgress = document.getElementById('loading-bar-fill');
         const loadingText = document.getElementById('loading-status-text');
@@ -450,14 +477,13 @@ class CyberArenaGame {
         };
 
         updateLoading(15, 'Loading Arena Modules & Portals...');
-        await this.arena.loadModels();
+        await Promise.all([
+            this.survivalArena.loadModels(),
+            this.spaceArena.loadModels()
+        ]);
 
         updateLoading(40, 'Building Arena & Portals...');
-        this.arena.buildArena();
-        this.arena.setQuality(this.perfSettings);
-        if (this.arena?.sunLight) {
-            this.arena.sunLight.castShadow = !!this.perfSettings.shadows;
-        }
+        this.switchArena(this.selectedGameMode || 'SURVIVAL');
 
         updateLoading(65, 'Loading Weapon Systems...');
         await this.weapons.init();
@@ -491,6 +517,8 @@ class CyberArenaGame {
             if (this.network.host) this.network.start();
             return;
         }
+        this.gameMode = 'SURVIVAL';
+        this.switchArena('SURVIVAL');
         this.homeMenu?.showroom.dialog.close();
         this.homeMenu?.dialog.close();
         sounds.init();
@@ -552,6 +580,7 @@ class CyberArenaGame {
     startTDM(playerTeam = 'blue') {
         this.gameMode = 'TDM';
         this.selectedTDMTeam = playerTeam;
+        this.switchArena('TDM');
         this.homeMenu?.showroom.dialog.close();
         this.homeMenu?.dialog.close();
         sounds.init();
@@ -642,7 +671,8 @@ class CyberArenaGame {
         if (this.visionCone) {
             this.visionCone.clear();
         }
-        this.gameMode = 'SURVIVAL';
+        this.gameMode = this.selectedGameMode || 'SURVIVAL';
+        this.switchArena(this.gameMode);
         this.screenPause.style.display = 'none';
         this.screenGameOver.style.display = 'none';
         this.hud.style.display = 'none';
