@@ -11,7 +11,7 @@ export function getWeaponVisionConfig(weapon, isADS = false, opticTier = 1) {
     if (!weapon) {
         return {
             visionRange: isADS ? 24.0 : 18.0,
-            visionAngle: isADS ? 60.0 : 80.0,
+            visionAngle: isADS ? 35.0 : 50.0,
             proximityRadius: isADS ? 1.5 : 2.2
         };
     }
@@ -19,12 +19,12 @@ export function getWeaponVisionConfig(weapon, isADS = false, opticTier = 1) {
     const cat = (weapon.category || '').toUpperCase();
     const id = (weapon.id || '').toLowerCase();
 
-    // 1. Nhóm Shotgun: Cận chiến bao quát cực rộng, tầm ngắn
+    // 1. Nhóm Shotgun: Cận chiến bao quát rộng hơn súng trường, tầm ngắn
     if (cat.includes('SHOTGUN') || cat.includes('SĂN') || id.includes('scatter') || id.includes('breacher') || (weapon.pellets && weapon.pellets > 1)) {
         if (isADS) {
-            return { visionRange: 16.0, visionAngle: 75.0, proximityRadius: 1.8 };
+            return { visionRange: 16.0, visionAngle: 50.0, proximityRadius: 1.8 };
         }
-        return { visionRange: 12.0, visionAngle: 110.0, proximityRadius: 2.5 };
+        return { visionRange: 12.0, visionAngle: 75.0, proximityRadius: 2.5 };
     }
 
     // 2. Nhóm Sniper / DMR / Railgun: Bắn tỉa cực xa, thu hẹp góc tối đa khi ngắm (Tunnel Vision)
@@ -36,30 +36,30 @@ export function getWeaponVisionConfig(weapon, isADS = false, opticTier = 1) {
             if (opticTier >= 4) {
                 return { visionRange: 50.0, visionAngle: 18.0, proximityRadius: 0.6 };
             }
-            return { visionRange: 38.0, visionAngle: 28.0, proximityRadius: 1.0 };
+            return { visionRange: 38.0, visionAngle: 25.0, proximityRadius: 1.0 };
         }
-        return { visionRange: 24.0, visionAngle: 60.0, proximityRadius: 1.8 };
+        return { visionRange: 24.0, visionAngle: 45.0, proximityRadius: 1.8 };
     }
 
-    // 3. Nhóm Súng lục & Tiểu liên (Pistol / SMG): Cơ động, tầm trung
+    // 3. Nhóm Súng lục & Tiểu liên (Pistol / SMG): Cơ động, tầm gần - trung
     if (cat.includes('LỤC') || cat.includes('NGẮN') || cat.includes('SMG') || id.includes('blaster') || id.includes('striker')) {
         if (isADS) {
-            return { visionRange: 22.0, visionAngle: 65.0, proximityRadius: 1.5 };
+            return { visionRange: 22.0, visionAngle: 40.0, proximityRadius: 1.5 };
         }
-        return { visionRange: 17.0, visionAngle: 85.0, proximityRadius: 2.2 };
+        return { visionRange: 17.0, visionAngle: 55.0, proximityRadius: 2.2 };
     }
 
-    // 4. Nhóm Súng trường (Assault Rifle / Carbine / Repeater): Cân bằng
+    // 4. Nhóm Súng trường (Assault Rifle / Carbine / Repeater): Chuẩn 50 độ
     if (isADS) {
         if (opticTier >= 4) {
-            return { visionRange: 42.0, visionAngle: 22.0, proximityRadius: 0.8 };
+            return { visionRange: 42.0, visionAngle: 20.0, proximityRadius: 0.8 };
         }
         if (opticTier >= 2) {
-            return { visionRange: 34.0, visionAngle: 35.0, proximityRadius: 1.2 };
+            return { visionRange: 34.0, visionAngle: 28.0, proximityRadius: 1.2 };
         }
-        return { visionRange: 26.0, visionAngle: 55.0, proximityRadius: 1.8 };
+        return { visionRange: 26.0, visionAngle: 38.0, proximityRadius: 1.8 };
     }
-    return { visionRange: 20.0, visionAngle: 75.0, proximityRadius: 2.0 };
+    return { visionRange: 20.0, visionAngle: 50.0, proximityRadius: 2.0 };
 }
 
 /**
@@ -67,9 +67,10 @@ export function getWeaponVisionConfig(weapon, isADS = false, opticTier = 1) {
  * @param {object} observer - Người chơi hoặc Bot quan sát (cần có position, aimYaw, team)
  * @param {object} target - Mục tiêu (cần có position, team)
  * @param {object} visionConfig - Cấu hình tầm nhìn { visionRange, visionAngle, proximityRadius }
+ * @param {object} arena - Bản đồ đấu trường để kiểm tra tia Line of Sight (tùy chọn)
  * @returns {boolean} true nếu nhìn thấy được, false nếu bị che khuất
  */
-export function checkEntityVisibility(observer, target, visionConfig) {
+export function checkEntityVisibility(observer, target, visionConfig, arena = null) {
     if (!observer || !target || !target.position) return true;
 
     // 1. Đồng đội cùng phe luôn nhìn thấy nhau để phối hợp
@@ -83,27 +84,39 @@ export function checkEntityVisibility(observer, target, visionConfig) {
     const dz = tgtPos.z - obsPos.z;
     const distSq = dx * dx + dz * dz;
 
-    // 2. Vùng cận cảnh xung quanh chân (Proximity)
-    const proxRadius = visionConfig.proximityRadius || 2.0;
-    if (distSq <= proxRadius * proxRadius) {
-        return true;
-    }
-
-    // 3. Vượt quá tầm chiếu xa tối đa
+    // 2. Vượt quá tầm chiếu xa tối đa
     const maxRange = visionConfig.visionRange || 20.0;
     if (distSq > maxRange * maxRange) {
         return false;
     }
 
-    // 4. Kiểm tra góc mở hình quạt trên mặt phẳng XZ
-    const angleToTarget = Math.atan2(dx, dz);
-    let angleDiff = Math.abs(angleToTarget - (observer.aimYaw || 0));
-    while (angleDiff > Math.PI) {
-        angleDiff = Math.abs(angleDiff - 2 * Math.PI);
+    // 3. Vùng cận cảnh (Proximity) hoặc góc mở hình quạt
+    const proxRadius = visionConfig.proximityRadius || 1.8;
+    const isProximity = distSq <= proxRadius * proxRadius;
+
+    if (!isProximity) {
+        // Kiểm tra góc mở hình quạt trên mặt phẳng XZ
+        const angleToTarget = Math.atan2(dx, dz);
+        let angleDiff = Math.abs(angleToTarget - (observer.aimYaw || 0));
+        while (angleDiff > Math.PI) {
+            angleDiff = Math.abs(angleDiff - 2 * Math.PI);
+        }
+
+        const halfConeRad = ((visionConfig.visionAngle || 50.0) * Math.PI / 180) / 2;
+        if (angleDiff > halfConeRad) {
+            return false;
+        }
     }
 
-    const halfConeRad = ((visionConfig.visionAngle || 75.0) * Math.PI / 180) / 2;
-    return angleDiff <= halfConeRad;
+    // 4. KIỂM TRA VẬT CẢN / BỊ TƯỜNG CHE KHUẤT (Line of Sight Raycast)
+    // Dù trong góc quạt hay đứng sát cận cảnh, nếu có vách tường ngăn giữa 2 bên thì KHÔNG nhìn thấy
+    if (arena && typeof arena.hasLineOfSight === 'function') {
+        if (!arena.hasLineOfSight(obsPos, tgtPos)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 /**
@@ -111,8 +124,9 @@ export function checkEntityVisibility(observer, target, visionConfig) {
  * @param {object|Array} teamOrObserver - Người chơi chính hoặc danh sách thành viên cùng phe
  * @param {Array} entities - Danh sách đối thủ cần kiểm tra
  * @param {object} defaultVisionConfig - Cấu hình tầm nhìn mặc định (tùy chọn)
+ * @param {object} arena - Bản đồ đấu trường để kiểm tra tia Line of Sight (tùy chọn)
  */
-export function applyVisibilityCulling(teamOrObserver, entities, defaultVisionConfig = null) {
+export function applyVisibilityCulling(teamOrObserver, entities, defaultVisionConfig = null, arena = null) {
     if (!entities || !Array.isArray(entities)) return;
 
     // Chuẩn hóa danh sách thành viên quan sát cùng phe
@@ -143,7 +157,7 @@ export function applyVisibilityCulling(teamOrObserver, entities, defaultVisionCo
                 ? defaultVisionConfig
                 : getWeaponVisionConfig(weapon, isADS, opticTier);
 
-            if (checkEntityVisibility(obs, entity, cfg)) {
+            if (checkEntityVisibility(obs, entity, cfg, arena)) {
                 isVisible = true;
                 break;
             }
@@ -178,13 +192,17 @@ export class VisionConeOverlay {
 
         // Các thông số được nội suy (lerp) mượt mà cho người chơi chính
         this.currentRange = 20.0;
-        this.currentAngle = 75.0;
+        this.currentAngle = 50.0;
         this.currentProximity = 2.0;
 
-        // Vector tạm để tính toán chiếu tọa độ tránh Garbage Collection
+        // Vector và Ray tạm để tính toán chiếu tọa độ và cắt tường tránh Garbage Collection
         this._tempV1 = new THREE.Vector3();
         this._tempV2 = new THREE.Vector3();
         this._tempV3 = new THREE.Vector3();
+        this._coneRay = new THREE.Ray();
+        this._coneHit = new THREE.Vector3();
+        this._coneRayDir = new THREE.Vector3();
+        this._rayTarget3D = new THREE.Vector3();
 
         this.initCanvasSize();
         window.addEventListener('resize', () => this.initCanvasSize());
@@ -222,9 +240,14 @@ export class VisionConeOverlay {
     }
 
     /**
-     * Hàm khoét lỗ hình quạt và quầng cận cảnh cho một chiến binh cụ thể
+     * Hàm khoét lỗ hình quạt và quầng cận cảnh cho một chiến binh cụ thể (bị chặn lại bởi vách tường 3D)
+     * @param {object} spotter - Người chơi hoặc bot quan sát
+     * @param {number} rangeVal - Tầm chiếu xa
+     * @param {number} angleVal - Góc mở hình quạt
+     * @param {number} proxVal - Bán kính cận cảnh
+     * @param {object} arena - Bản đồ đấu trường để kiểm tra va chạm tường
      */
-    _renderSpotterCutout(spotter, rangeVal, angleVal, proxVal) {
+    _renderSpotterCutout(spotter, rangeVal, angleVal, proxVal, arena = null) {
         const width = this.canvas.width;
         const height = this.canvas.height;
         const ctx = this.ctx;
@@ -241,19 +264,7 @@ export class VisionConeOverlay {
         const screenX = (this._tempV1.x * 0.5 + 0.5) * width;
         const screenY = (-(this._tempV1.y * 0.5) + 0.5) * height;
 
-        // 2. Tính góc xoay màn hình theo hướng ngắm (aimYaw)
-        const yaw = spotter.aimYaw || 0;
-        this._tempV2.set(
-            spotter.position.x + Math.sin(yaw) * 10,
-            spotter.position.y,
-            spotter.position.z + Math.cos(yaw) * 10
-        );
-        this._tempV2.project(this.camera);
-        const fScreenX = (this._tempV2.x * 0.5 + 0.5) * width;
-        const fScreenY = (-(this._tempV2.y * 0.5) + 0.5) * height;
-        const screenAngle = Math.atan2(fScreenY - screenY, fScreenX - screenX);
-
-        // 3. Tính bán kính điểm ảnh tương ứng trên màn hình
+        // 2. Tính bán kính điểm ảnh tương ứng trên màn hình cho gradient
         this._tempV3.set(spotter.position.x + rangeVal, spotter.position.y, spotter.position.z);
         this._tempV3.project(this.camera);
         const rScreenX = (this._tempV3.x * 0.5 + 0.5) * width;
@@ -264,15 +275,96 @@ export class VisionConeOverlay {
         const pScreenX = (this._tempV3.x * 0.5 + 0.5) * width;
         const screenProxRadius = Math.max(12, Math.abs(pScreenX - screenX));
 
+        const yaw = spotter.aimYaw || 0;
+        const halfAngleRad = ((angleVal * Math.PI) / 180) / 2;
+
+        // 3. BẮN TIA RAYCAST VÀO CÁC HỘP VA CHẠM TƯỜNG ĐỂ TẠO ĐA GIÁC TẦM NHÌN (Vision Polygon)
+        // Số tia lấy mẫu dọc theo góc nón
+        const numRays = 28;
+        const polyPoints = [];
+
+        for (let s = 0; s <= numRays; s++) {
+            const relAngle = -halfAngleRad + (s / numRays) * (halfAngleRad * 2);
+            const rayAngle = yaw + relAngle;
+            const dirX = Math.sin(rayAngle);
+            const dirZ = Math.cos(rayAngle);
+
+            this._coneRayDir.set(dirX, 0, dirZ);
+            this._coneRay.origin.set(spotter.position.x, 1.0, spotter.position.z);
+            this._coneRay.direction.copy(this._coneRayDir);
+
+            let hitDist = rangeVal;
+            if (arena && arena.colliders) {
+                for (let c = 0; c < arena.colliders.length; c++) {
+                    const col = arena.colliders[c];
+                    // Bỏ qua các vật thể nằm hoàn toàn dưới sàn hoặc trên trần
+                    if (col.max.y <= 0.4 || col.min.y >= 3.0) continue;
+                    const hit = this._coneRay.intersectBox(col, this._coneHit);
+                    if (hit) {
+                        const d = Math.hypot(hit.x - spotter.position.x, hit.z - spotter.position.z);
+                        if (d < hitDist) {
+                            hitDist = Math.max(0.1, d - 0.05);
+                        }
+                    }
+                }
+            }
+
+            this._rayTarget3D.set(
+                spotter.position.x + dirX * hitDist,
+                spotter.position.y,
+                spotter.position.z + dirZ * hitDist
+            );
+            this._rayTarget3D.project(this.camera);
+
+            const px = (this._rayTarget3D.x * 0.5 + 0.5) * width;
+            const py = (-(this._rayTarget3D.y * 0.5) + 0.5) * height;
+            polyPoints.push({ x: px, y: py });
+        }
+
+        // Bắn tia cho quầng cận cảnh quanh chân để không bị lọt qua vách tường sát bên
+        const proxRays = 16;
+        const proxPoints = [];
+        for (let s = 0; s < proxRays; s++) {
+            const circleAngle = (s / proxRays) * Math.PI * 2;
+            const dirX = Math.sin(circleAngle);
+            const dirZ = Math.cos(circleAngle);
+
+            this._coneRayDir.set(dirX, 0, dirZ);
+            this._coneRay.origin.set(spotter.position.x, 1.0, spotter.position.z);
+            this._coneRay.direction.copy(this._coneRayDir);
+
+            let hitDist = proxVal;
+            if (arena && arena.colliders) {
+                for (let c = 0; c < arena.colliders.length; c++) {
+                    const col = arena.colliders[c];
+                    if (col.max.y <= 0.4 || col.min.y >= 3.0) continue;
+                    const hit = this._coneRay.intersectBox(col, this._coneHit);
+                    if (hit) {
+                        const d = Math.hypot(hit.x - spotter.position.x, hit.z - spotter.position.z);
+                        if (d < hitDist) {
+                            hitDist = Math.max(0.1, d - 0.05);
+                        }
+                    }
+                }
+            }
+
+            this._rayTarget3D.set(
+                spotter.position.x + dirX * hitDist,
+                spotter.position.y,
+                spotter.position.z + dirZ * hitDist
+            );
+            this._rayTarget3D.project(this.camera);
+
+            const px = (this._rayTarget3D.x * 0.5 + 0.5) * width;
+            const py = (-(this._rayTarget3D.y * 0.5) + 0.5) * height;
+            proxPoints.push({ x: px, y: py });
+        }
+
         // 4. Khoét thủng bóng tối bằng destination-out
         ctx.save();
         ctx.globalCompositeOperation = 'destination-out';
 
-        const halfAngleRad = ((angleVal * Math.PI) / 180) / 2;
-        const startAngle = screenAngle - halfAngleRad;
-        const endAngle = screenAngle + halfAngleRad;
-
-        // Khoét hình quạt tầm nhìn phía trước
+        // Khoét hình quạt tầm nhìn phía trước bằng Đa Giác Tầm Nhìn
         const fanGrad = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, screenRadius);
         fanGrad.addColorStop(0, 'rgba(0, 0, 0, 1.0)');
         fanGrad.addColorStop(0.78, 'rgba(0, 0, 0, 0.95)');
@@ -282,7 +374,9 @@ export class VisionConeOverlay {
         ctx.fillStyle = fanGrad;
         ctx.beginPath();
         ctx.moveTo(screenX, screenY);
-        ctx.arc(screenX, screenY, screenRadius, startAngle, endAngle);
+        for (let i = 0; i < polyPoints.length; i++) {
+            ctx.lineTo(polyPoints[i].x, polyPoints[i].y);
+        }
         ctx.closePath();
         ctx.fill();
 
@@ -294,12 +388,18 @@ export class VisionConeOverlay {
 
         ctx.fillStyle = proxGrad;
         ctx.beginPath();
-        ctx.arc(screenX, screenY, screenProxRadius, 0, Math.PI * 2);
-        ctx.fill();
+        if (proxPoints.length > 0) {
+            ctx.moveTo(proxPoints[0].x, proxPoints[0].y);
+            for (let i = 1; i < proxPoints.length; i++) {
+                ctx.lineTo(proxPoints[i].x, proxPoints[i].y);
+            }
+            ctx.closePath();
+            ctx.fill();
+        }
 
         ctx.restore();
 
-        // 5. Vẽ viền sáng phản quang nhẹ ở mép luồng sáng để tạo cảm giác đèn pin rọi vào sương mù
+        // 5. Vẽ viền sáng phản quang nhẹ ở mép luồng sáng để tạo cảm giác đèn pin rọi vào bề mặt tường
         ctx.save();
         ctx.globalCompositeOperation = 'source-over';
         const rimGrad = ctx.createRadialGradient(screenX, screenY, screenProxRadius * 0.5, screenX, screenY, screenRadius);
@@ -310,7 +410,9 @@ export class VisionConeOverlay {
         ctx.fillStyle = rimGrad;
         ctx.beginPath();
         ctx.moveTo(screenX, screenY);
-        ctx.arc(screenX, screenY, screenRadius, startAngle, endAngle);
+        for (let i = 0; i < polyPoints.length; i++) {
+            ctx.lineTo(polyPoints[i].x, polyPoints[i].y);
+        }
         ctx.closePath();
         ctx.fill();
         ctx.restore();
@@ -319,7 +421,7 @@ export class VisionConeOverlay {
     /**
      * Vẽ lớp mặt nạ bóng tối và khoét lỗ hình quạt cho người chơi chính cùng toàn bộ đồng đội
      */
-    render(player, isEnabled = true, teammates = []) {
+    render(player, isEnabled = true, teammates = [], arena = null) {
         if (!this.ctx || !this.canvas || !this.camera || !isEnabled || !player) {
             this.clear();
             return;
@@ -338,7 +440,7 @@ export class VisionConeOverlay {
 
         // 3. Khoét luồng sáng cho người chơi chính (nếu còn sống)
         if (!player.isDead) {
-            this._renderSpotterCutout(player, this.currentRange, this.currentAngle, this.currentProximity);
+            this._renderSpotterCutout(player, this.currentRange, this.currentAngle, this.currentProximity, arena);
         }
 
         // 4. Khoét luồng sáng cho tất cả đồng đội cùng phe (nếu còn sống)
@@ -350,7 +452,7 @@ export class VisionConeOverlay {
                 const isADS = !!mate.isADS;
                 const opticTier = mate.weapons?.getOpticTier ? mate.weapons.getOpticTier() : 1;
                 const cfg = getWeaponVisionConfig(weapon, isADS, opticTier);
-                this._renderSpotterCutout(mate, cfg.visionRange, cfg.visionAngle, cfg.proximityRadius);
+                this._renderSpotterCutout(mate, cfg.visionRange, cfg.visionAngle, cfg.proximityRadius, arena);
             }
         }
     }

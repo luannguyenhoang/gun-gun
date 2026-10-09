@@ -15,15 +15,19 @@ export class Arena {
         this.colliders = []; // Array of THREE.Box3 for obstacle collisions
         this.portals = [];
         this.models = {};
-        this.halfSize = 25;
-        this.radius = 26;
+        this.halfSize = 28;
+        this.radius = 29;
     }
 
     async loadModels() {
         const modelNames = [
             'floor', 'floor-detail', 'wall', 'wall-corner', 'wall-high', 'wall-low', 'wall-gate',
             'column', 'column-damaged', 'tree', 'stairs', 'platform', 'platform-large-grass',
-            'banner', 'block', 'statue', 'trophy', 'weapon-rack'
+            'banner', 'block', 'statue', 'trophy', 'weapon-rack',
+            'space/template-floor', 'space/template-floor-detail', 'space/template-wall',
+            'space/template-wall-corner', 'space/template-wall-half', 'space/gate',
+            'space/gate-lasers', 'space/template-detail', 'space/template-floor-layer-raised',
+            'space/cables'
         ];
 
         const promises = modelNames.map(name => {
@@ -59,20 +63,22 @@ export class Arena {
     }
 
     setupLighting() {
-        const ambientLight = new THREE.AmbientLight(0xddeeff, 0.6);
+        // Ánh sáng môi trường trạm không gian chuyên dụng
+        const ambientLight = new THREE.AmbientLight(0x162438, 0.75);
         this.scene.add(ambientLight);
 
-        const hemiLight = new THREE.HemisphereLight(0x88ccff, 0x223344, 0.5);
+        const hemiLight = new THREE.HemisphereLight(0x4488bb, 0x111622, 0.6);
         this.scene.add(hemiLight);
 
-        const sun = new THREE.DirectionalLight(0xfff5e6, 1.6);
-        sun.position.set(20, 32, 18);
+        // Nguồn sáng định hướng giả lập ánh sáng vũ trụ rọi qua vòm trạm
+        const sun = new THREE.DirectionalLight(0xddeeff, 1.4);
+        sun.position.set(24, 35, 20);
         sun.castShadow = true;
         sun.shadow.mapSize.width = 1024;
         sun.shadow.mapSize.height = 1024;
         sun.shadow.camera.near = 1.0;
-        sun.shadow.camera.far = 70;
-        const d = 22;
+        sun.shadow.camera.far = 80;
+        const d = 30; // Bao phủ toàn bộ bản đồ 56m x 56m
         sun.shadow.camera.left = -d;
         sun.shadow.camera.right = d;
         sun.shadow.camera.top = d;
@@ -82,15 +88,18 @@ export class Arena {
         this.scene.add(sun);
         this.scene.add(sun.target);
 
-        // Đèn đường góc map - tạo cảm giác đô thị bỏ hoang leo lét
-        const streetLightPositions = [
-            [-20, 5, -20], [20, 5, -20],
-            [-20, 5,  20], [20, 5,  20]
+        // Đèn PointLight neon nhận diện các cứ điểm chiến thuật chính
+        const tacticalLights = [
+            { pos: [0, 5, 24], color: 0x00d0ff, intensity: 4.2, dist: 28 },   // Căn cứ Đội Xanh (Nam)
+            { pos: [0, 5, -24], color: 0xff3b30, intensity: 4.2, dist: 28 },  // Căn cứ Đội Đỏ (Bắc)
+            { pos: [0, 5, 0], color: 0xffeedd, intensity: 4.5, dist: 28 },    // Sảnh Mid (Trung tâm)
+            { pos: [-18, 5, 0], color: 0xaa33ff, intensity: 4.0, dist: 24 },  // Cứ điểm A (Reactor Alpha)
+            { pos: [18, 5, 0], color: 0xff9900, intensity: 4.0, dist: 24 },   // Cứ điểm B (Storage Beta)
         ];
-        streetLightPositions.forEach(([x, y, z]) => {
-            const sl = new THREE.PointLight(0xffa040, 3.5, 22);
-            sl.position.set(x, y, z);
-            this.scene.add(sl);
+        tacticalLights.forEach(tl => {
+            const pl = new THREE.PointLight(tl.color, tl.intensity, tl.dist);
+            pl.position.set(tl.pos[0], tl.pos[1], tl.pos[2]);
+            this.scene.add(pl);
         });
     }
 
@@ -113,124 +122,94 @@ export class Arena {
         return clone;
     }
 
+    getMeshProps(modelName) {
+        const base = this.models[modelName];
+        if (!base) return null;
+        let geo = null, mat = null;
+        base.traverse(c => {
+            if (c.isMesh && !geo) {
+                geo = c.geometry;
+                mat = c.material;
+            }
+        });
+        return { geo, mat };
+    }
+
     buildFloorAndWalls() {
-        const halfSize = this.halfSize; // Thu nhỏ map còn 50% (72x72 thay vì 146x146)
-        const tileSize = 2;
+        const halfSize = this.halfSize; // 28m
+        const tileSize = 4; // Lưới module 4m x 4m của Kenney Space Kit
 
-        // 1. High-Performance Instanced Floor
-        const floorBase = this.models['floor'];
-        let floorGeo = null;
-        let floorMat = null;
-        if (floorBase) {
-            floorBase.traverse(c => {
-                if (c.isMesh && !floorGeo) {
-                    floorGeo = c.geometry;
-                    floorMat = c.material;
-                }
-            });
-        }
+        // 1. Sàn Module không gian (Instanced Space Floor)
+        const floorProps = this.getMeshProps('space/template-floor') || this.getMeshProps('floor');
 
-        if (floorGeo && floorMat) {
-            const steps = Math.floor((halfSize * 2) / tileSize) + 1;
-            const totalTiles = steps * steps;
-            // Dùng material trắng, màu thực đặt qua instance color
-            const turfMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92 });
-            const instancedFloor = new THREE.InstancedMesh(floorGeo, turfMaterial, totalTiles);
-            instancedFloor.name = 'asphalt-ground';
+        if (floorProps && floorProps.geo && floorProps.mat) {
+            const steps = Math.floor((halfSize * 2) / tileSize); // 14 ô
+            const totalTiles = steps * steps; // 196 ô
+
+            const instancedFloor = new THREE.InstancedMesh(floorProps.geo, floorProps.mat, totalTiles);
+            instancedFloor.name = 'space-modular-floor';
             instancedFloor.receiveShadow = true;
             instancedFloor.castShadow = false;
 
             const dummy = new THREE.Object3D();
             let idx = 0;
-            for (let x = -halfSize; x <= halfSize; x += tileSize) {
-                for (let z = -halfSize; z <= halfSize; z += tileSize) {
+            for (let x = -halfSize + 2; x <= halfSize - 2; x += tileSize) {
+                for (let z = -halfSize + 2; z <= halfSize - 2; z += tileSize) {
                     dummy.position.set(x, 0, z);
                     dummy.rotation.set(0, 0, 0);
-                    dummy.scale.set(tileSize, tileSize, tileSize);
+                    dummy.scale.set(1, 1, 1);
                     dummy.updateMatrix();
-                    instancedFloor.setMatrixAt(idx, dummy.matrix);
-                    // Xám nhựa đường trung bình, biến thiên nhẹ
-                    const v = 0.28 + (Math.sin(x * 0.5 + z * 0.3) + 1) * 0.025;
-                    instancedFloor.setColorAt(idx++, new THREE.Color(v, v, v + 0.01));
+                    instancedFloor.setMatrixAt(idx++, dummy.matrix);
                 }
             }
+            instancedFloor.count = idx;
             instancedFloor.instanceMatrix.needsUpdate = true;
             this.scene.add(instancedFloor);
-
-            // Vạch đường phân làn đô thị
-            const laneLineMat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.3 });
-            const laneConfigs = [
-                { size: [0.3, 22], pos: [-12, 0.03, 0] },
-                { size: [0.3, 22], pos: [ 12, 0.03, 0] },
-                { size: [22, 0.3], pos: [ 0, 0.03, -12] },
-                { size: [22, 0.3], pos: [ 0, 0.03,  12] },
-            ];
-            laneConfigs.forEach(({ size, pos }) => {
-                const line = new THREE.Mesh(new THREE.PlaneGeometry(size[0], size[1]), laneLineMat);
-                line.rotation.x = -Math.PI / 2;
-                line.position.set(pos[0], pos[1], pos[2]);
-                this.scene.add(line);
-            });
         }
 
-        // 2. High-Performance Instanced Perimeter Walls
-        const wallBase = this.models['wall-high'];
-        let wallGeo = null;
-        let wallMat = null;
-        if (wallBase) {
-            wallBase.traverse(c => {
-                if (c.isMesh && !wallGeo) {
-                    wallGeo = c.geometry;
-                    wallMat = c.material;
-                }
-            });
-        }
-
-        if (wallGeo && wallMat) {
-            const wallStep = 2;
-            const wallScale = 2;
-            const stepsCount = Math.floor((halfSize * 2) / wallStep) + 1;
+        // 2. Tường bao chu vi ngoài cùng (Instanced Perimeter Walls)
+        const wallProps = this.getMeshProps('space/template-wall') || this.getMeshProps('wall-high');
+        if (wallProps && wallProps.geo && wallProps.mat) {
+            const wallStep = 4;
+            const stepsCount = Math.floor((halfSize * 2) / wallStep); // 14
             const totalWalls = stepsCount * 4;
 
-            const instancedWalls = new THREE.InstancedMesh(wallGeo, wallMat, totalWalls);
+            const instancedWalls = new THREE.InstancedMesh(wallProps.geo, wallProps.mat, totalWalls + 8);
+            instancedWalls.name = 'space-perimeter-walls';
             instancedWalls.castShadow = true;
             instancedWalls.receiveShadow = true;
 
             const dummy = new THREE.Object3D();
             let wIdx = 0;
-            // Để trống tại vị trí các cổng (x = ±10 và z = ±10, khớp với offset portal)
-            const isGateGap = (val) => Math.abs(Math.abs(val) - 10) < 2.5;
 
-            for (let x = -halfSize; x <= halfSize; x += wallStep) {
-                if (!isGateGap(x)) {
-                    dummy.position.set(x, 0, -halfSize - 1);
-                    dummy.rotation.set(0, 0, 0);
-                    dummy.scale.set(wallScale, wallScale, wallScale);
-                    dummy.updateMatrix();
-                    instancedWalls.setMatrixAt(wIdx++, dummy.matrix);
+            // Tường Bắc (Z = -halfSize) và Tường Nam (Z = halfSize)
+            for (let x = -halfSize + 2; x <= halfSize - 2; x += wallStep) {
+                dummy.position.set(x, 0, -halfSize);
+                dummy.rotation.set(0, 0, 0);
+                dummy.scale.set(1, 1, 1);
+                dummy.updateMatrix();
+                instancedWalls.setMatrixAt(wIdx++, dummy.matrix);
 
-                    dummy.position.set(x, 0, halfSize + 1);
-                    dummy.rotation.set(0, Math.PI, 0);
-                    dummy.scale.set(wallScale, wallScale, wallScale);
-                    dummy.updateMatrix();
-                    instancedWalls.setMatrixAt(wIdx++, dummy.matrix);
-                }
+                dummy.position.set(x, 0, halfSize);
+                dummy.rotation.set(0, Math.PI, 0);
+                dummy.scale.set(1, 1, 1);
+                dummy.updateMatrix();
+                instancedWalls.setMatrixAt(wIdx++, dummy.matrix);
             }
 
-            for (let z = -halfSize; z <= halfSize; z += wallStep) {
-                if (!isGateGap(z)) {
-                    dummy.position.set(-halfSize - 1, 0, z);
-                    dummy.rotation.set(0, Math.PI * 0.5, 0);
-                    dummy.scale.set(wallScale, wallScale, wallScale);
-                    dummy.updateMatrix();
-                    instancedWalls.setMatrixAt(wIdx++, dummy.matrix);
+            // Tường Tây (X = -halfSize) và Tường Đông (X = halfSize)
+            for (let z = -halfSize + 2; z <= halfSize - 2; z += wallStep) {
+                dummy.position.set(-halfSize, 0, z);
+                dummy.rotation.set(0, Math.PI * 0.5, 0);
+                dummy.scale.set(1, 1, 1);
+                dummy.updateMatrix();
+                instancedWalls.setMatrixAt(wIdx++, dummy.matrix);
 
-                    dummy.position.set(halfSize + 1, 0, z);
-                    dummy.rotation.set(0, -Math.PI * 0.5, 0);
-                    dummy.scale.set(wallScale, wallScale, wallScale);
-                    dummy.updateMatrix();
-                    instancedWalls.setMatrixAt(wIdx++, dummy.matrix);
-                }
+                dummy.position.set(halfSize, 0, z);
+                dummy.rotation.set(0, -Math.PI * 0.5, 0);
+                dummy.scale.set(1, 1, 1);
+                dummy.updateMatrix();
+                instancedWalls.setMatrixAt(wIdx++, dummy.matrix);
             }
 
             instancedWalls.count = wIdx;
@@ -238,8 +217,14 @@ export class Arena {
             this.scene.add(instancedWalls);
         }
 
-        // Perimeter Boundary Colliders
-        const wallHeight = 10;
+        // Đặt 4 góc tường chu vi (Wall Corners)
+        this.placeInstance('space/template-wall-corner', new THREE.Vector3(-halfSize, 0, -halfSize), 0, 1, false);
+        this.placeInstance('space/template-wall-corner', new THREE.Vector3(halfSize, 0, -halfSize), -Math.PI * 0.5, 1, false);
+        this.placeInstance('space/template-wall-corner', new THREE.Vector3(halfSize, 0, halfSize), Math.PI, 1, false);
+        this.placeInstance('space/template-wall-corner', new THREE.Vector3(-halfSize, 0, halfSize), Math.PI * 0.5, 1, false);
+
+        // Hộp va chạm biên chu vi bản đồ (Perimeter Boundary Colliders)
+        const wallHeight = 8;
         this.colliders.push(new THREE.Box3(
             new THREE.Vector3(-halfSize - 2, 0, -halfSize - 2),
             new THREE.Vector3(halfSize + 2, wallHeight, -halfSize)
@@ -259,11 +244,9 @@ export class Arena {
     }
 
     buildSpawnPortals() {
-        // 8 cổng spawn xung quanh biên map mới (halfSize = 25)
-        // portalDist = halfSize + 1 = 26 → gate nằm đúng tại vị trí tile tường
-        const portalDist = 26;
-
-        const offset = 10;
+        // 8 cổng xuất phát teleporter xung quanh biên trạm không gian (halfSize = 28)
+        const portalDist = this.halfSize;
+        const offset = 8;
         const portalDefs = [
             { name: 'Cổng Bắc 1', pos: new THREE.Vector3(-offset, 0, -portalDist), rot: 0, spawnDir: new THREE.Vector3(0, 0, 1) },
             { name: 'Cổng Bắc 2', pos: new THREE.Vector3(offset, 0, -portalDist), rot: 0, spawnDir: new THREE.Vector3(0, 0, 1) },
@@ -276,10 +259,8 @@ export class Arena {
         ];
 
         portalDefs.forEach((p, idx) => {
-            // Portal Archway Gate
-            const gate = this.placeInstance('wall-gate', p.pos, p.rot, 2.4, true);
-            // The arch uses a solid box collider. Spawn beyond its arena-facing
-            // surface, with the individual zombie's radius added at spawn time.
+            // Cổng vòm xuất phát công nghệ cao
+            const gate = this.placeInstance('space/gate', p.pos, p.rot, 1.2, true) || this.placeInstance('wall-gate', p.pos, p.rot, 2.4, true);
             let gateDepth = 0;
             if (gate) {
                 const bounds = new THREE.Box3().setFromObject(gate);
@@ -294,7 +275,7 @@ export class Arena {
             // Glowing Pulsating Vortex Disc
             const vortexGeo = new THREE.PlaneGeometry(1.6, 2.4);
             const vortexMat = new THREE.MeshBasicMaterial({
-                color: idx % 2 === 0 ? 0xb026ff : 0xff0055,
+                color: idx % 2 === 0 ? 0x00d0ff : 0xb026ff,
                 side: THREE.DoubleSide,
                 transparent: true,
                 opacity: 0.85
@@ -321,7 +302,7 @@ export class Arena {
             this.scene.add(ringMesh);
 
             // Dynamic Portal Light
-            const pLight = new THREE.PointLight(idx % 2 === 0 ? 0xb026ff : 0xff0055, 4, 10);
+            const pLight = new THREE.PointLight(idx % 2 === 0 ? 0x00d0ff : 0xb026ff, 4, 10);
             pLight.position.copy(p.pos);
             pLight.position.y = 1.4;
             pLight.position.addScaledVector(p.spawnDir, 0.8);
@@ -341,69 +322,89 @@ export class Arena {
     }
 
     buildCenterPlaza() {
-        // Giao lộ trung tâm bê tông - phong cách đô thị bỏ hoang
-        const plaza = new THREE.Mesh(new THREE.PlaneGeometry(10, 10),
-            new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.9 }));
-        plaza.rotation.x = -Math.PI / 2;
-        plaza.position.y = 0.025;
-        plaza.receiveShadow = true;
-        plaza.name = 'walkable-plaza';
-        this.scene.add(plaza);
+        // --- 1. Vách ngăn hai Căn cứ xuất phát (Base Partitions) ---
+        // Vách căn cứ Đội Xanh (Nam: Z = 18) - chừa lối ra Long A (X=-18), Mid (X=0) và B Tunnels (X=18)
+        const southDividers = [-14, -10, -6, 6, 10, 14];
+        southDividers.forEach(x => {
+            this.placeInstance('space/template-wall', new THREE.Vector3(x, 0, 18), Math.PI, 1, true);
+        });
 
-        // Vòng tròn giao lộ (roundabout marker - chỉ trực quan, không block path)
-        const roundabout = new THREE.Mesh(
-            new THREE.RingGeometry(3.2, 3.5, 32),
-            new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2 })
-        );
-        roundabout.rotation.x = -Math.PI / 2;
-        roundabout.position.y = 0.04;
-        this.scene.add(roundabout);
-        // Không đặt cột giữa trung tâm - giữ hành lang mở
+        // Vách căn cứ Đội Đỏ (Bắc: Z = -18) - đối xứng tương ứng
+        const northDividers = [-14, -10, -6, 6, 10, 14];
+        northDividers.forEach(x => {
+            this.placeInstance('space/template-wall', new THREE.Vector3(x, 0, -18), 0, 1, true);
+        });
+
+        // --- 2. Cổng vòm hai đầu trục đường Mid ---
+        this.placeInstance('space/gate', new THREE.Vector3(0, 0, 18), Math.PI, 1, true);
+        this.placeInstance('space/gate', new THREE.Vector3(0, 0, -18), 0, 1, true);
+
+        // --- 3. Vách ngăn trục đường Mid (Hành lang trung tâm) ---
+        const midZCoords = [-14, -10, -6, 6, 10, 14];
+        midZCoords.forEach(z => {
+            this.placeInstance('space/template-wall', new THREE.Vector3(-4, 0, z), Math.PI * 0.5, 1, true);
+            this.placeInstance('space/template-wall', new THREE.Vector3(4, 0, z), -Math.PI * 0.5, 1, true);
+        });
+
+        // Cổng Laser tại các ngách rẽ Connector (nối Mid sang Site A và Site B)
+        this.placeInstance('space/gate-lasers', new THREE.Vector3(-4, 0, 0), Math.PI * 0.5, 1, true);
+        this.placeInstance('space/gate-lasers', new THREE.Vector3(4, 0, 0), -Math.PI * 0.5, 1, true);
+
+        // --- 4. Vật cản trụ máy ngắm bắn tầm xa tại sảnh Mid (Mid Sniper Cover) ---
+        this.placeInstance('space/template-detail', new THREE.Vector3(-1.8, 0, -8), 0, 1.2, true);
+        this.placeInstance('space/template-detail', new THREE.Vector3(1.8, 0, 8), 0, 1.2, true);
+
+        // Dây cáp điện trung tâm
+        this.placeInstance('space/cables', new THREE.Vector3(0, 0, 4), 0, 1.4, false);
+        this.placeInstance('space/cables', new THREE.Vector3(0, 0, -4), Math.PI, 1.4, false);
     }
 
     buildTacticalCover() {
-        const coverPoints = [
-            // --- 4 Khối nhà góc (chỉ 1 block mỗi góc, đẩy sâu vào rìm) ---
-            { model: 'block',  pos: [-20, 0, -20], rot: 0,    scale: 2.0 },
-            { model: 'block',  pos: [ 20, 0, -20], rot: 0,    scale: 2.0 },
-            { model: 'block',  pos: [-20, 0,  20], rot: 0,    scale: 2.0 },
-            { model: 'block',  pos: [ 20, 0,  20], rot: 0,    scale: 2.0 },
-
-            // --- Cây vỉa hè (không có collider - chỉ décor) ---
-            // (Cây sẽ được đặt riêng bên dưới, addCollider = false)
-
-            // --- Vật chắn nế bắc/nam - đủ xa trung tâm, có khoảng lưu thông ---
-            { model: 'wall-low', pos: [-5, 0, -18], rot: 0,             scale: 1.8 },
-            { model: 'wall-low', pos: [ 5, 0,  18], rot: Math.PI,       scale: 1.8 },
-
-            // --- Rack vũ khí 2 bên đường chính ---
-            { model: 'weapon-rack', pos: [-13, 0, 0], rot: Math.PI * 0.5,  scale: 1.8 },
-            { model: 'weapon-rack', pos: [ 13, 0, 0], rot: -Math.PI * 0.5, scale: 1.8 },
-        ];
-
-        coverPoints.forEach(cp => {
-            this.placeInstance(cp.model, new THREE.Vector3(cp.pos[0], cp.pos[1], cp.pos[2]), cp.rot, cp.scale, true);
+        // --- 1. Cứ điểm A: Lò phản ứng Alpha (Site A - Long A & Short A) ---
+        // Vách ngăn hành lang Long A (chạy dọc X = -16)
+        const longAZ = [12, 8, -6, -10, -14];
+        longAZ.forEach(z => {
+            this.placeInstance('space/template-wall', new THREE.Vector3(-16, 0, z), Math.PI * 0.5, 1, true);
         });
+        // Cổng chốt nối từ Long A vào lòng Site A
+        this.placeInstance('space/gate', new THREE.Vector3(-16, 0, 1), Math.PI * 0.5, 1, true);
 
-        // Cây vỉa hè - không có collider để zombie/player không bị kẹt
-        const treePositions = [
-            [-10, 0, -22], [10, 0, -22],
-            [-10, 0,  22], [10, 0,  22],
-            [-22, 0, -10], [-22, 0, 10],
-            [ 22, 0, -10], [ 22, 0, 10],
-        ];
-        treePositions.forEach(([x, y, z], i) => {
-            this.placeInstance('tree', new THREE.Vector3(x, y, z), i * 0.7, 1.6, false);
-        });
+        // Bục máy Lò phản ứng hạt nhân ở trung tâm Site A
+        this.placeInstance('space/template-floor-layer-raised', new THREE.Vector3(-10, 0, 0), 0, 1, true);
+        this.placeInstance('space/template-detail', new THREE.Vector3(-10, 0, 4), 0, 1.2, true);
+        this.placeInstance('space/template-detail', new THREE.Vector3(-10, 0, -4), 0, 1.2, true);
 
-        // Banner trang trí góc - không có collider
-        this.placeInstance('banner', new THREE.Vector3(-17, 0, -17), 0.8, 1.6, false);
-        this.placeInstance('banner', new THREE.Vector3( 17, 0,  17), 2.5, 1.6, false);
+        // Vật cản khúc cua Long A
+        this.placeInstance('space/template-detail', new THREE.Vector3(-22, 0, 8), 0, 1.2, true);
+        this.placeInstance('space/template-detail', new THREE.Vector3(-22, 0, -8), 0, 1.2, true);
+        this.placeInstance('space/template-wall-half', new THREE.Vector3(-20, 0, 0), Math.PI * 0.5, 1, true);
+
+        // --- 2. Cứ điểm B: Kho chứa năng lượng Beta (Site B - B Tunnels & Room) ---
+        // Hành lang B Tunnels (Đường hầm ziczac tạo góc mù 90 độ)
+        this.placeInstance('space/template-wall', new THREE.Vector3(14, 0, 14), -Math.PI * 0.5, 1, true);
+        this.placeInstance('space/template-wall', new THREE.Vector3(14, 0, 10), -Math.PI * 0.5, 1, true);
+        this.placeInstance('space/template-wall', new THREE.Vector3(20, 0, 6), 0, 1, true);
+        this.placeInstance('space/template-wall', new THREE.Vector3(24, 0, 6), 0, 1, true);
+        this.placeInstance('space/template-detail', new THREE.Vector3(22, 0, 12), 0, 1.2, true);
+
+        // Vách phòng Site B tại Z = -4
+        this.placeInstance('space/template-wall', new THREE.Vector3(10, 0, -4), 0, 1, true);
+        this.placeInstance('space/template-wall', new THREE.Vector3(18, 0, -4), 0, 1, true);
+        this.placeInstance('space/gate-lasers', new THREE.Vector3(14, 0, -4), 0, 1, true);
+
+        // Thùng hàng modular và vật cản trong phòng Site B
+        this.placeInstance('space/template-floor-layer-raised', new THREE.Vector3(12, 0, -10), 0, 1, true);
+        this.placeInstance('space/template-floor-layer-raised', new THREE.Vector3(18, 0, -10), 0, 1, true);
+        this.placeInstance('space/template-detail', new THREE.Vector3(15, 0, -14), 0, 1.2, true);
+        this.placeInstance('space/template-wall-half', new THREE.Vector3(15, 0, -7), 0, 1, true);
+
+        // Dây cáp công nghiệp phụ trợ
+        this.placeInstance('space/cables', new THREE.Vector3(-8, 0, 0), 0, 1.5, false);
+        this.placeInstance('space/cables', new THREE.Vector3(15, 0, -10), Math.PI * 0.5, 1.5, false);
     }
 
     buildGrass() {
-        // Không rải cỏ trên nhựa đường - giữ mặt sàn sạch
-        // (bỏ trống, giữ method để tương thích với buildArena)
+        // Giữ mặt sàn trạm không gian sạch sẽ kim loại
     }
 
     update(delta) {
@@ -550,14 +551,24 @@ export class Arena {
 
     hasLineOfSight(fromPos, toPos) {
         _tempLosDir.subVectors(toPos, fromPos);
+        _tempLosDir.y = 0;
         const dist = _tempLosDir.length();
-        if (dist > 0.0001) _tempLosDir.multiplyScalar(1 / dist);
+        if (dist <= 0.0001) return true;
+        _tempLosDir.multiplyScalar(1 / dist);
 
-        _tempLosRay.set(fromPos, _tempLosDir);
+        // Đặt tia kiểm tra ở độ cao ngực/tầm mắt (Y = 1.0)
+        _tempLosRay.origin.set(fromPos.x, 1.0, fromPos.z);
+        _tempLosRay.direction.copy(_tempLosDir);
+
         for (const col of this.colliders) {
+            // Bỏ qua các vật thể nằm hoàn toàn dưới sàn hoặc trên trần
+            if (col.max.y <= 0.4 || col.min.y >= 3.0) continue;
             const hit = _tempLosRay.intersectBox(col, _tempLosHit);
-            if (hit && fromPos.distanceTo(hit) < dist - 0.2) {
-                return false;
+            if (hit) {
+                const hitDist = Math.hypot(hit.x - fromPos.x, hit.z - fromPos.z);
+                if (hitDist < dist - 0.25) {
+                    return false;
+                }
             }
         }
         return true;

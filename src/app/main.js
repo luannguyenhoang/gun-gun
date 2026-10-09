@@ -1759,10 +1759,10 @@ class CyberArenaGame {
             this.ui.updateTeamRoster(teammates, this.player);
 
             if (this.gameMode === 'TDM') {
-                // Áp dụng Culling tầm nhìn chia sẻ toàn đội (Team Shared Vision) trước khi vẽ radar
+                // Áp dụng Culling tầm nhìn chia sẻ toàn đội (Team Shared Vision) có kiểm tra vách tường trước khi vẽ radar
                 const teamMembers = (this.player.team === 'blue' ? this.tdmManager?.teamBlue : this.tdmManager?.teamRed) || [this.player];
                 const opponents = (this.player.team === 'blue' ? this.tdmManager?.teamRed : this.tdmManager?.teamBlue) || [];
-                applyVisibilityCulling(teamMembers, opponents);
+                applyVisibilityCulling(teamMembers, opponents, null, this.arena);
             }
 
             this.radarElapsed += delta;
@@ -1793,7 +1793,7 @@ class CyberArenaGame {
         this.renderer.render(this.scene, this.camera);
         if (this.state === 'PLAYING' && this.gameMode === 'TDM') {
             const myTeammates = ((this.player.team === 'blue' ? this.tdmManager?.teamBlue : this.tdmManager?.teamRed) || []).filter(p => p !== this.player);
-            this.visionCone?.render(this.player, true, myTeammates);
+            this.visionCone?.render(this.player, true, myTeammates, this.arena);
         } else {
             this.visionCone?.clear();
         }

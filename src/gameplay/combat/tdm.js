@@ -71,10 +71,23 @@ export class TDMBot {
     }
 
     pickNewPatrolTarget() {
-        // Tuần tra ngẫu nhiên quanh trung tâm bản đồ (-15 đến +15)
-        const rx = (Math.random() - 0.5) * 26;
-        const rz = (Math.random() - 0.5) * 26;
-        this.patrolTarget.set(rx, 0, rz);
+        // Tuần tra chiến thuật dọc theo 3 làn đường chính (Mid, Long A, Site B)
+        const laneChoice = Math.random();
+        let targetX = 0;
+        let targetZ = (Math.random() - 0.5) * 24;
+
+        if (laneChoice < 0.35) {
+            // Làn 1: Cứ điểm A & Long A
+            targetX = -12 + (Math.random() - 0.5) * 6;
+        } else if (laneChoice < 0.70) {
+            // Làn 2: Trục đường Mid
+            targetX = (Math.random() - 0.5) * 4;
+        } else {
+            // Làn 3: Cứ điểm B & B Tunnels
+            targetX = 14 + (Math.random() - 0.5) * 6;
+        }
+
+        this.patrolTarget.set(targetX, 0, targetZ);
     }
 
     takeDamage(amount, penPower, isCrit, direction, attacker) {
@@ -93,6 +106,15 @@ export class TDMBot {
 
             // Kích hoạt hiệu ứng hạ gục
             this.tdmManager.onEntityKilled(this.remote, attacker);
+        }
+    }
+
+    moveBot(dx, dz) {
+        if (this.game?.arena?.moveCharacter) {
+            this.game.arena.moveCharacter(this.remote.position, dx, dz, 0.45);
+        } else {
+            this.remote.position.x += dx;
+            this.remote.position.z += dz;
         }
     }
 
@@ -118,7 +140,7 @@ export class TDMBot {
 
         this.shootCooldown = Math.max(0, this.shootCooldown - delta);
 
-        // 1. Tìm kẻ địch còn sống gần nhất thuộc phe đối phương
+        // 1. Tìm kẻ địch còn sống gần nhất thuộc phe đối phương (có kiểm tra tường che)
         let nearestEnemy = null;
         let minDist = 32.0;
 
@@ -126,8 +148,18 @@ export class TDMBot {
             const opp = opponents[i];
             if (!opp || opp.isDead || opp.team === this.team) continue;
             const d = opp.position.distanceTo(this.remote.position);
-            if (d < minDist) {
-                minDist = d;
+
+            // Kiểm tra xem có vách tường che khuất giữa Bot và kẻ địch hay không
+            const hasLOS = this.game?.arena?.hasLineOfSight
+                ? this.game.arena.hasLineOfSight(this.remote.position, opp.position)
+                : true;
+
+            // Nếu bị tường che, Bot chỉ cảm nhận được nếu ở rất gần (nghe tiếng bước chân dưới 6.5m)
+            if (!hasLOS && d > 6.5) continue;
+
+            const effectiveDist = hasLOS ? d : d + 12.0;
+            if (effectiveDist < minDist) {
+                minDist = effectiveDist;
                 nearestEnemy = opp;
             }
         }
@@ -154,23 +186,30 @@ export class TDMBot {
             const moveSpeed = 5.2;
 
             if (dist > idealDist + 2.5) {
-                // Tiến lại gần kẻ địch
-                this.remote.position.addScaledVector(toEnemy, moveSpeed * delta);
+                // Tiến lại gần kẻ địch (có kiểm tra va chạm tường)
+                const step = moveSpeed * delta;
+                this.moveBot(toEnemy.x * step, toEnemy.z * step);
                 this.remote.moving = true;
             } else if (dist < idealDist - 2.5) {
-                // Lùi lại để giữ cự ly an toàn
-                this.remote.position.addScaledVector(toEnemy, -moveSpeed * 0.8 * delta);
+                // Lùi lại để giữ cự ly an toàn (có kiểm tra va chạm tường)
+                const step = -moveSpeed * 0.8 * delta;
+                this.moveBot(toEnemy.x * step, toEnemy.z * step);
                 this.remote.moving = true;
             } else {
-                // Di chuyển né đạn qua hai bên (Strafe)
+                // Di chuyển né đạn qua hai bên (Strafe có kiểm tra va chạm tường)
                 const strafeDir = new THREE.Vector3(-toEnemy.z, 0, toEnemy.x);
                 const strafeSign = (Math.floor(Date.now() / 1200) % 2 === 0) ? 1 : -1;
-                this.remote.position.addScaledVector(strafeDir, strafeSign * moveSpeed * 0.65 * delta);
+                const step = strafeSign * moveSpeed * 0.65 * delta;
+                this.moveBot(strafeDir.x * step, strafeDir.z * step);
                 this.remote.moving = true;
             }
 
-            // Khai hỏa khi cự ly phù hợp và hết hồi chiêu
-            if (this.shootCooldown <= 0 && dist <= 28.0) {
+            // Khai hỏa khi cự ly phù hợp, hết hồi chiêu và KHÔNG bị tường che khuất
+            const canShoot = this.game?.arena?.hasLineOfSight
+                ? this.game.arena.hasLineOfSight(this.remote.position, nearestEnemy.position)
+                : true;
+
+            if (this.shootCooldown <= 0 && dist <= 28.0 && canShoot) {
                 this.shootCooldown = 0.55 + Math.random() * 0.45;
                 if (gunId === 'scatter') this.shootCooldown = 0.95;
                 if (gunId === 'sniper') this.shootCooldown = 1.4;
@@ -186,7 +225,7 @@ export class TDMBot {
                 }
             }
         } else {
-            // Không có kẻ địch trong tầm: Tuần tra đến điểm chốt
+            // Không có kẻ địch trong tầm: Tuần tra đến điểm chốt (có kiểm tra va chạm tường)
             const toPatrol = this.patrolTarget.clone().sub(this.remote.position);
             toPatrol.y = 0;
             const distPatrol = toPatrol.length();
@@ -196,7 +235,8 @@ export class TDMBot {
                 this.remote.moving = false;
             } else {
                 toPatrol.normalize();
-                this.remote.position.addScaledVector(toPatrol, 4.2 * delta);
+                const step = 4.2 * delta;
+                this.moveBot(toPatrol.x * step, toPatrol.z * step);
                 this.remote.aimYaw = Math.atan2(toPatrol.x, toPatrol.z);
                 this.remote.moving = true;
             }
@@ -227,19 +267,19 @@ export class TDMManager {
         this.playerRespawnTimer = 0;
         this.matchTimer = 0;
 
-        // Vị trí xuất phát của 2 đội ở hai đầu bản đồ
+        // Vị trí xuất phát của 2 đội ở hai đầu bản đồ trạm không gian
         this.spawnPointsBlue = [
-            new THREE.Vector3(-18, 0, -18),
-            new THREE.Vector3(-15, 0, -21),
-            new THREE.Vector3(-21, 0, -15),
-            new THREE.Vector3(-13, 0, -18)
+            new THREE.Vector3(-6, 0, 23),
+            new THREE.Vector3(-2, 0, 23),
+            new THREE.Vector3(2, 0, 23),
+            new THREE.Vector3(6, 0, 23)
         ];
 
         this.spawnPointsRed = [
-            new THREE.Vector3(18, 0, 18),
-            new THREE.Vector3(15, 0, 21),
-            new THREE.Vector3(21, 0, 15),
-            new THREE.Vector3(13, 0, 18)
+            new THREE.Vector3(-6, 0, -23),
+            new THREE.Vector3(-2, 0, -23),
+            new THREE.Vector3(2, 0, -23),
+            new THREE.Vector3(6, 0, -23)
         ];
     }
 
@@ -272,7 +312,7 @@ export class TDMManager {
         // Đặt người chơi về điểm xuất phát của đội mình
         const playerSpawn = this.getRandomSpawnPoint(playerTeam);
         player.position.copy(playerSpawn);
-        player.aimYaw = playerTeam === 'blue' ? Math.PI * 0.25 : -Math.PI * 0.75;
+        player.aimYaw = playerTeam === 'blue' ? Math.PI : 0;
 
         this.teamBlue = [];
         this.teamRed = [];
