@@ -97,10 +97,10 @@ export function checkEntityVisibility(observer, target, visionConfig, arena = nu
     if (!isProximity) {
         // Kiểm tra góc mở hình quạt trên mặt phẳng XZ
         const angleToTarget = Math.atan2(dx, dz);
-        let angleDiff = Math.abs(angleToTarget - (observer.aimYaw || 0));
-        while (angleDiff > Math.PI) {
-            angleDiff = Math.abs(angleDiff - 2 * Math.PI);
-        }
+        let diff = (angleToTarget - (observer.aimYaw || 0)) % (Math.PI * 2);
+        if (diff > Math.PI) diff -= Math.PI * 2;
+        if (diff < -Math.PI) diff += Math.PI * 2;
+        const angleDiff = Math.abs(diff);
 
         const halfConeRad = ((visionConfig.visionAngle || 50.0) * Math.PI / 180) / 2;
         if (angleDiff > halfConeRad) {

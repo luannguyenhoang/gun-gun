@@ -148,7 +148,8 @@ export class BaseArena {
     optimizeColliders() {
         // Hợp nhất các hộp va chạm thẳng hàng tiếp giáp nhau để chống kẹt mép tường
         let merged = true;
-        while (merged) {
+        let maxMergeSteps = 500;
+        while (merged && --maxMergeSteps > 0) {
             merged = false;
             for (let i = 0; i < this.colliders.length; i++) {
                 const a = this.colliders[i];
@@ -492,7 +493,12 @@ export class BaseArena {
             if (current < 0) break;
             if (current === 1) {
                 const path = [];
-                for (let i = 1; i !== 0; i = parents[i]) path.unshift(nodes[i]);
+                let currIdx = 1;
+                let stepCount = 0;
+                while (currIdx !== 0 && currIdx !== undefined && stepCount++ < nodes.length) {
+                    path.unshift(nodes[currIdx]);
+                    currIdx = parents[currIdx];
+                }
                 return path;
             }
             closed.add(current);

@@ -1644,7 +1644,8 @@ class CyberArenaGame {
         if (!document.hidden || !this.network.active) return;
         // Small simulation steps keep collisions/timers stable after a delayed tick.
         let remaining = Math.min(delta, 0.25);
-        while (remaining > 0) {
+        let maxSteps = 8;
+        while (remaining > 0.001 && --maxSteps >= 0) {
             const step = Math.min(remaining, 0.05);
             this.updateFrame(step, false);
             remaining -= step;
