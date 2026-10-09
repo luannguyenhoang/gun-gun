@@ -316,13 +316,6 @@ export class Arena {
             ringMesh.rotation.y = p.rot;
             this.scene.add(ringMesh);
 
-            // Dynamic Portal Light
-            const pLight = new THREE.PointLight(idx % 2 === 0 ? 0x00d0ff : 0xb026ff, 4, 10);
-            pLight.position.copy(p.pos);
-            pLight.position.y = 1.4;
-            pLight.position.addScaledVector(p.spawnDir, 0.8);
-            this.scene.add(pLight);
-
             this.portals.push({
                 name: p.name,
                 position: p.pos,
@@ -330,8 +323,8 @@ export class Arena {
                 spawnDir: p.spawnDir,
                 vortex: vortexMesh,
                 ring: ringMesh,
-                light: pLight,
-                baseLightIntensity: 4
+                light: null,
+                baseLightIntensity: 0
             });
         });
     }

@@ -3085,7 +3085,7 @@ export class PlayerController {
         const target = _cameraTarget.set(this.position.x, 0.7, this.position.z);
         let targetFov = 50; // Default FOV
 
-        // Chế độ quan sát đồng đội khi nhân vật đã chết (Spectator Mode)
+        let targetZoom = 1.0;
         if (this.isDead) {
             const mates = this.getAliveTeammates();
             if (mates.length > 0) {
@@ -3114,12 +3114,24 @@ export class PlayerController {
                 const ui = this.ui || window.game?.ui;
                 ui?.hideSpectatorHUD?.();
             }
+            // Camera lead theo huong ngam chuot va tam ban cua vu khi
+            _tempAimVec.subVectors(this.aimPoint, this.position);
+            _tempAimVec.y = 0;
+            const currentWeapon = this.weapons?.currentGun || this.weapons?.getCurrentWeapon?.();
+            const gunId = currentWeapon?.id || '';
+            const isSniper = gunId.includes('sniper');
+            const isRifle = gunId.includes('repeater') || gunId.includes('blaster') || gunId.includes('rifle');
+
             if (this.isADS) {
-                _tempAimVec.subVectors(this.aimPoint, this.position);
-                _tempAimVec.y = 0;
-                _tempAimVec.clampLength(0, 4.2);
-                target.addScaledVector(_tempAimVec, 0.45); // Dịch 45% về phía con trỏ chuột
-                targetFov = 30; // Zoom in for ADS
+                const maxLead = isSniper ? 15.0 : (isRifle ? 9.5 : 6.0);
+                _tempAimVec.clampLength(0, maxLead);
+                target.addScaledVector(_tempAimVec, 0.55); // Dich camera ve huong ngam khi ADS
+                targetZoom = isSniper ? 1.22 : (isRifle ? 1.12 : 1.05);
+            } else {
+                // Khi ban thuong: camera lead nhe 3.5m giup nguoi choi bao quat ve phia truoc
+                _tempAimVec.clampLength(0, 3.5);
+                target.addScaledVector(_tempAimVec, 0.4);
+                targetZoom = 1.0;
             }
         }
 
@@ -3127,8 +3139,15 @@ export class PlayerController {
         this.cameraFocus.lerp(target, 1 - Math.exp(-lerpSpeed * Math.max(0, delta)));
         this.camera.position.copy(this.cameraFocus).add(this.cameraOffset);
 
-        // Smooth FOV zoom (Aiming Animation)
-        if (this.camera.fov) {
+        // Smooth camera zoom ho tro ca OrthographicCamera va PerspectiveCamera
+        if (this.camera.zoom !== undefined) {
+            const curZoom = this.camera.zoom || 1.0;
+            const newZoom = curZoom + (targetZoom - curZoom) * (1 - Math.exp(-12 * Math.max(0, delta)));
+            if (Math.abs(newZoom - curZoom) > 0.001) {
+                this.camera.zoom = newZoom;
+                this.camera.updateProjectionMatrix();
+            }
+        } else if (this.camera.fov) {
             this.camera.fov += (targetFov - this.camera.fov) * (1 - Math.exp(-15 * delta));
             this.camera.updateProjectionMatrix();
         }

@@ -1104,6 +1104,7 @@ const _tempCheckRay = new THREE.Ray();
 const _tempCheckRayDir = new THREE.Vector3();
 const _tempSparkDir = new THREE.Vector3();
 const _tempHitPointSparks = new THREE.Vector3();
+const _tempBulletColliders = [];
 const _heldParentRotation = new THREE.Quaternion();
 const _heldFacing = new THREE.Quaternion();
 const _barrelCorrection = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
@@ -3112,12 +3113,20 @@ export class WeaponSystem {
                         const dot = _tempSlashForward.dot(_tempToEnemyHoriz);
                         if (dot < 0.75) continue; // Đòn chọc thẳng (góc hẹp)
 
-                        // Check cản tường
+                        // Check can tuong voi Spatial Grid
                         _tempCheckRayDir.copy(_tempToEnemy).normalize();
                         _tempCheckRay.set(startPos, _tempCheckRayDir);
+                        const minKx = Math.min(startPos.x, enemy.position.x) - 0.5;
+                        const maxKx = Math.max(startPos.x, enemy.position.x) + 0.5;
+                        const minKz = Math.min(startPos.z, enemy.position.z) - 0.5;
+                        const maxKz = Math.max(startPos.z, enemy.position.z) + 0.5;
+                        const knifeCols = arena?.getCollidersInAABB
+                            ? arena.getCollidersInAABB(minKx, minKz, maxKx, maxKz, _tempBulletColliders)
+                            : arena.colliders;
+
                         let blocked = false;
-                        for (const col of arena.colliders) {
-                            const hit = _tempCheckRay.intersectBox(col, _tempHitPoint);
+                        for (let c = 0; c < knifeCols.length; c++) {
+                            const hit = _tempCheckRay.intersectBox(knifeCols[c], _tempHitPoint);
                             if (hit && startPos.distanceTo(hit) < dist - 0.3) {
                                 blocked = true;
                                 break;
@@ -3175,8 +3184,17 @@ export class WeaponSystem {
             _tempRay.set(startPos, p.direction);
             let hitFound = false;
 
-            // 1. Va chạm chướng ngại vật Arena
-            for (const col of arena.colliders) {
+            // 1. Va cham chuong ngai vat Arena su dung Spatial Grid
+            const minBx = Math.min(startPos.x, _tempNextPos.x) - 0.5;
+            const maxBx = Math.max(startPos.x, _tempNextPos.x) + 0.5;
+            const minBz = Math.min(startPos.z, _tempNextPos.z) - 0.5;
+            const maxBz = Math.max(startPos.z, _tempNextPos.z) + 0.5;
+            const bulletCols = arena?.getCollidersInAABB
+                ? arena.getCollidersInAABB(minBx, minBz, maxBx, maxBz, _tempBulletColliders)
+                : arena.colliders;
+
+            for (let c = 0; c < bulletCols.length; c++) {
+                const col = bulletCols[c];
                 const hit = _tempRay.intersectBox(col, _tempHitPoint);
                 if (hit && startPos.distanceTo(hit) <= stepDist) {
                     if (p.isExplosive) {

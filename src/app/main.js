@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js?v=58';
 import { ParticleSystem } from '../rendering/particles.js?v=67';
-import { Arena } from '../world/arena.js?v=22';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=70';
-import { PlayerController } from '../gameplay/player/player.js?v=70';
+import { Arena } from '../world/arena.js?v=23';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=71';
+import { PlayerController } from '../gameplay/player/player.js?v=72';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=69';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
 import { UIManager } from '../ui/ui.js?v=40';
@@ -15,7 +15,7 @@ import { HomeMenu } from '../ui/home.js?v=57';
 import { LootingSystem } from '../gameplay/loot/looting.js?v=70';
 import { RenderQuality } from '../rendering/performance.js';
 import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=49';
-import { VisionConeOverlay, getWeaponVisionConfig, applyVisibilityCulling } from '../gameplay/combat/vision-cone.js';
+import { VisionConeOverlay, getWeaponVisionConfig, applyVisibilityCulling } from '../gameplay/combat/vision-cone.js?v=71';
 import { TDMManager } from '../gameplay/combat/tdm.js';
 
 class CyberArenaGame {
@@ -82,8 +82,8 @@ class CyberArenaGame {
         this.scene.background = new THREE.Color(0x0c1017);
         this.scene.fog = new THREE.FogExp2(0x161a24, 0.022);
 
-        // Camera
-        this.viewHeight = 18;
+        // Camera tam nhin chien thuat rong bao quat tam ban va non tam nhin
+        this.viewHeight = 26;
         const aspect = window.innerWidth / window.innerHeight;
         this.camera = new THREE.OrthographicCamera(-this.viewHeight * aspect / 2, this.viewHeight * aspect / 2,
             this.viewHeight / 2, -this.viewHeight / 2, 0.1, 300);

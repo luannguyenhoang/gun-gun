@@ -210,8 +210,11 @@ export class VisionConeOverlay {
 
     initCanvasSize() {
         if (!this.canvas) return;
-        this.width = window.innerWidth;
-        this.height = window.innerHeight;
+        // Giảm kích thước canvas nội bộ (75%) để giảm 45% diện tích rasterize 2D của GPU/CPU
+        // Giữ CSS width/height 100% để tạo hiệu ứng sương mù mềm mại (soft fog)
+        const scale = 0.75;
+        this.width = Math.round(window.innerWidth * scale);
+        this.height = Math.round(window.innerHeight * scale);
         this.canvas.width = this.width;
         this.canvas.height = this.height;
     }
@@ -247,7 +250,7 @@ export class VisionConeOverlay {
      * @param {number} proxVal - Bán kính cận cảnh
      * @param {object} arena - Bản đồ đấu trường để kiểm tra va chạm tường
      */
-    _renderSpotterCutout(spotter, rangeVal, angleVal, proxVal, arena = null) {
+    _renderSpotterCutout(spotter, rangeVal, angleVal, proxVal, arena = null, isLocalPlayer = true) {
         const width = this.canvas.width;
         const height = this.canvas.height;
         const ctx = this.ctx;
@@ -279,8 +282,8 @@ export class VisionConeOverlay {
         const halfAngleRad = ((angleVal * Math.PI) / 180) / 2;
 
         // 3. BẮN TIA RAYCAST VÀO CÁC HỘP VA CHẠM TƯỜNG ĐỂ TẠO ĐA GIÁC TẦM NHÌN (Vision Polygon)
-        // Số tia lấy mẫu dọc theo góc nón
-        const numRays = 28;
+        // Đồng đội bot lấy mẫu ít tia hơn để tối ưu hiệu năng
+        const numRays = isLocalPlayer ? 24 : 12;
         const polyPoints = [];
 
         for (let s = 0; s <= numRays; s++) {
@@ -324,7 +327,7 @@ export class VisionConeOverlay {
         }
 
         // Bắn tia cho quầng cận cảnh quanh chân để không bị lọt qua vách tường sát bên
-        const proxRays = 16;
+        const proxRays = isLocalPlayer ? 14 : 8;
         const proxPoints = [];
         for (let s = 0; s < proxRays; s++) {
             const circleAngle = (s / proxRays) * Math.PI * 2;
@@ -403,23 +406,25 @@ export class VisionConeOverlay {
 
         ctx.restore();
 
-        // 5. Vẽ viền sáng phản quang nhẹ ở mép luồng sáng để tạo cảm giác đèn pin rọi vào bề mặt tường
-        ctx.save();
-        ctx.globalCompositeOperation = 'source-over';
-        const rimGrad = ctx.createRadialGradient(screenX, screenY, screenProxRadius * 0.5, screenX, screenY, screenRadius);
-        rimGrad.addColorStop(0, 'rgba(255, 245, 210, 0.08)');
-        rimGrad.addColorStop(0.85, 'rgba(255, 230, 180, 0.04)');
-        rimGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+        // 5. Chỉ vẽ viền sáng phản quang cho người chơi chính (bỏ qua cho bot để tối ưu GPU/CPU)
+        if (isLocalPlayer) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'source-over';
+            const rimGrad = ctx.createRadialGradient(screenX, screenY, screenProxRadius * 0.5, screenX, screenY, screenRadius);
+            rimGrad.addColorStop(0, 'rgba(255, 245, 210, 0.08)');
+            rimGrad.addColorStop(0.85, 'rgba(255, 230, 180, 0.04)');
+            rimGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
 
-        ctx.fillStyle = rimGrad;
-        ctx.beginPath();
-        ctx.moveTo(screenX, screenY);
-        for (let i = 0; i < polyPoints.length; i++) {
-            ctx.lineTo(polyPoints[i].x, polyPoints[i].y);
+            ctx.fillStyle = rimGrad;
+            ctx.beginPath();
+            ctx.moveTo(screenX, screenY);
+            for (let i = 0; i < polyPoints.length; i++) {
+                ctx.lineTo(polyPoints[i].x, polyPoints[i].y);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
         }
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
     }
 
     /**
@@ -444,7 +449,7 @@ export class VisionConeOverlay {
 
         // 3. Khoét luồng sáng cho người chơi chính (nếu còn sống)
         if (!player.isDead) {
-            this._renderSpotterCutout(player, this.currentRange, this.currentAngle, this.currentProximity, arena);
+            this._renderSpotterCutout(player, this.currentRange, this.currentAngle, this.currentProximity, arena, true);
         }
 
         // 4. Khoét luồng sáng cho tất cả đồng đội cùng phe (nếu còn sống)
@@ -456,7 +461,7 @@ export class VisionConeOverlay {
                 const isADS = !!mate.isADS;
                 const opticTier = mate.weapons?.getOpticTier ? mate.weapons.getOpticTier() : 1;
                 const cfg = getWeaponVisionConfig(weapon, isADS, opticTier);
-                this._renderSpotterCutout(mate, cfg.visionRange, cfg.visionAngle, cfg.proximityRadius, arena);
+                this._renderSpotterCutout(mate, cfg.visionRange, cfg.visionAngle, cfg.proximityRadius, arena, false);
             }
         }
     }
