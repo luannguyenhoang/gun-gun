@@ -1562,7 +1562,7 @@ export class WeaponSystem {
 
     // Kích hoạt chế độ Overclock (Xả đạn nhanh trong 6 giây)
     th_activateOverclock() {
-        if (this.onCommand) { this.onCommand({type: 'overclock'}); return true; }
+        if (this.onCommand) { this.onCommand({ type: 'overclock' }); return true; }
         if (this.overclockCooldown > 0) return false;
         this.overclockTimer = this.overclockDuration;
         this.overclockCooldown = this.overclockMaxCooldown;
@@ -1572,7 +1572,7 @@ export class WeaponSystem {
 
     // Bơm máu nhanh cấp cứu (Quick Heal)
     th_quickHeal(player) {
-        if (this.onCommand) { this.onCommand({type: 'quick_heal'}); return true; }
+        if (this.onCommand) { this.onCommand({ type: 'quick_heal' }); return true; }
         if (!player || player.isDead) return false;
         if ((this.inventory.medkits || 0) <= 0) return false;
         if (player.health >= player.maxHealth) return false;
@@ -2334,7 +2334,7 @@ export class WeaponSystem {
         if ((w.count || 0) <= 0) return false;
 
         if (this.onCommand) {
-            this.onCommand({type: 'throw_bomb', origin: origin.toArray(), target: targetPoint.toArray(), weaponId: w.id});
+            this.onCommand({ type: 'throw_bomb', origin: origin.toArray(), target: targetPoint.toArray(), weaponId: w.id });
             return true;
         }
 
@@ -2662,10 +2662,14 @@ export class WeaponSystem {
     getWorldState() {
         const id = entity => entity.netId ||= 'effect-' + (this.nextEffectId = (this.nextEffectId || 0) + 1);
         return {
-            zones: this.activeZones.map(z => ({ id: id(z), type: z.type, position: z.pos.toArray(), radius: z.radius,
-                life: z.life, maxLife: z.maxLife, burnDps: z.burnDps || 0 })),
-            bombs: this.thrownBombs.map(b => ({ id: id(b), start: b.startPos.toArray(), end: b.endPos.toArray(),
-                time: b.time, duration: b.duration, weaponId: b.bombConfig.id }))
+            zones: this.activeZones.map(z => ({
+                id: id(z), type: z.type, position: z.pos.toArray(), radius: z.radius,
+                life: z.life, maxLife: z.maxLife, burnDps: z.burnDps || 0
+            })),
+            bombs: this.thrownBombs.map(b => ({
+                id: id(b), start: b.startPos.toArray(), end: b.endPos.toArray(),
+                time: b.time, duration: b.duration, weaponId: b.bombConfig.id
+            }))
         };
     }
 
@@ -2702,7 +2706,7 @@ export class WeaponSystem {
         };
         reconcile(this.activeZones, state.zones || [], s => {
             const pos = new THREE.Vector3().fromArray(s.position);
-            if (s.type === 'fire') this.createFireZone(pos, s.radius, {duration: s.maxLife, burnDps: s.burnDps});
+            if (s.type === 'fire') this.createFireZone(pos, s.radius, { duration: s.maxLife, burnDps: s.burnDps });
             else this.createSmokeZone(pos, s.radius, s.maxLife);
         });
         reconcile(this.thrownBombs, (state.bombs || []).filter(s => getBombConfig(s.weaponId)), s => {
@@ -2740,7 +2744,7 @@ export class WeaponSystem {
                 const radius = bCfg.blastRadius || 5.5;
                 const game = globalThis.window?.game;
                 if (game?.network?.active && game.network.host) {
-                    (game.networkEvents ||= []).push({type: 'bomb_explosion', position: blastPos.toArray(), color: bCfg.color || 0xf97316, radius});
+                    (game.networkEvents ||= []).push({ type: 'bomb_explosion', position: blastPos.toArray(), color: bCfg.color || 0xf97316, radius });
                 }
 
                 // Hiệu ứng hạt nổ & chớp sáng
@@ -2750,8 +2754,8 @@ export class WeaponSystem {
 
                 // Kích hoạt rung màn hình chấn động nổ uy lực (Explosion Shockwave Screen Shake)
                 const blastTrauma = (bCfg.bombType === 'fire') ? 0.82 :
-                                    (bCfg.bombType === 'freeze') ? 0.75 :
-                                    (bCfg.bombType === 'smoke') ? 0.45 : 0.95;
+                    (bCfg.bombType === 'freeze') ? 0.75 :
+                        (bCfg.bombType === 'smoke') ? 0.45 : 0.95;
                 window.triggerExplosionScreenShake?.(blastPos, 26, blastTrauma);
                 if (tb.playerRef?.applyScreenShake) {
                     tb.playerRef.applyScreenShake(blastTrauma * 0.85);
