@@ -40,6 +40,25 @@ export class NetworkRoom {
         this.snapshotSeq = 0;
         this.lastSnapshotSeq = 0;
         this.stopTicker = null;
+        this.fillBots = false; // Mặc định không tự phân bổ Bot
+    }
+
+    toggleFillBots() {
+        if (!this.host) return;
+        this.fillBots = !this.fillBots;
+        this.broadcastRoster();
+    }
+
+    setTeam(team) {
+        if (this.host) {
+            const me = this.players.find(p => p.id === 'host');
+            if (me) me.team = team;
+            this.broadcastRoster();
+        } else {
+            if (this.conn && this.conn.open) {
+                this.conn.send({ type: 'set_team', team });
+            }
+        }
     }
 
     startTicker() {
@@ -65,12 +84,14 @@ export class NetworkRoom {
                 this.startedEpoch = null;
                 this.epoch = Date.now();
                 this.connections = [];
-                this.players = [{ id: 'host', name, character, weapon: this.game.weapons.startingWeaponId }];
+                this.fillBots = false;
+                const hostTeam = this.game.selectedTDMTeam || 'blue';
+                this.players = [{ id: 'host', name, character, team: hostTeam, weapon: this.game.weapons.startingWeaponId }];
                 
                 this.game.player.setCharacter(character);
                 this.game.player.cooperative = true;
                 this.game.weapons.onCommand = null;
-                const roomData = { code, host: 'host', you: 'host', players: this.players, isHost: true };
+                const roomData = { code, host: 'host', you: 'host', players: this.players, fillBots: this.fillBots, isHost: true };
                 this.game.showRoomState(roomData);
                 this.startTicker();
                 resolve(roomData);
@@ -102,10 +123,19 @@ export class NetworkRoom {
                         }
                         pName = data.name;
                         pChar = data.character;
-                        this.players.push({ id: pId, name: pName, character: pChar, weapon: getStartingWeapon(data.weapon).id, loadout: data.loadout });
+                        const blueCount = this.players.filter(p => p.team === 'blue').length;
+                        const redCount = this.players.filter(p => p.team === 'red').length;
+                        const preferredTeam = data.team || (blueCount <= redCount ? 'blue' : 'red');
+                        this.players.push({ id: pId, name: pName, character: pChar, team: preferredTeam, weapon: getStartingWeapon(data.weapon).id, loadout: data.loadout });
                         clientState.joined = true;
-                        conn.send({ type: 'accept', protocol: PROTOCOL_VERSION, you: pId, epoch: this.epoch, players: this.players, host: 'host' });
+                        conn.send({ type: 'accept', protocol: PROTOCOL_VERSION, you: pId, epoch: this.epoch, players: this.players, fillBots: this.fillBots, host: 'host' });
                         this.broadcastRoster();
+                    } else if (data.type === 'set_team') {
+                        const p = this.players.find(pl => pl.id === pId);
+                        if (p) {
+                            p.team = data.team === 'red' ? 'red' : 'blue';
+                            this.broadcastRoster();
+                        }
                     } else if (data.type === 'character') {
                         const p = this.players.find(pl => pl.id === pId);
                         if (p) {
@@ -139,14 +169,14 @@ export class NetworkRoom {
     }
 
     broadcastRoster() {
-        const data = { type: 'roster', players: this.players, host: 'host' };
+        const data = { type: 'roster', players: this.players, fillBots: this.fillBots, host: 'host' };
         for (const c of this.connections) {
             if (c.joined && c.conn.open) {
                 try { c.conn.send(data); } catch (e) { console.warn('[NetworkHost] Lỗi gửi roster:', e); }
             }
         }
         this.updateRoster(this.players);
-        this.game.showRoomState({ code: this.code, host: 'host', you: 'host', players: this.players, isHost: true });
+        this.game.showRoomState({ code: this.code, host: 'host', you: 'host', players: this.players, fillBots: this.fillBots, isHost: true });
     }
 
     async join(code, name, character = 'police') {
@@ -158,7 +188,8 @@ export class NetworkRoom {
                 this.conn = this.peer.connect('gungun-room-' + code, { reliable: true });
                 
                 this.conn.on('open', () => {
-                    this.conn.send({ type: 'join', protocol: PROTOCOL_VERSION, name, character, weapon: this.game.weapons.startingWeaponId, loadout: this.game.getLoadout?.() });
+                    const myTeam = this.game.selectedTDMTeam || 'red';
+                    this.conn.send({ type: 'join', protocol: PROTOCOL_VERSION, name, character, team: myTeam, weapon: this.game.weapons.startingWeaponId, loadout: this.game.getLoadout?.() });
                 });
                 
                 this.conn.on('data', (data) => {
@@ -182,21 +213,43 @@ export class NetworkRoom {
                         this.playerId = data.you;
                         this.startedEpoch = null;
                         this.epoch = data.epoch;
+                        this.fillBots = !!data.fillBots;
                         
                         this.game.player.setCharacter(character);
                         this.game.player.cooperative = true;
                         this.game.weapons.onCommand = (cmd) => this.sendCommand(cmd);
                         
                         this.updateRoster(data.players || []);
-                        const roomData = { code, host: data.host || 'host', you: data.you, players: data.players || [], isHost: false };
+                        const roomData = { code, host: data.host || 'host', you: data.you, players: data.players || [], fillBots: this.fillBots, isHost: false };
                         this.game.showRoomState(roomData);
                         this.startTicker();
                         resolve(roomData);
                     } else if (data.type === 'roster') {
+                        this.fillBots = !!data.fillBots;
                         this.updateRoster(data.players || []);
-                        this.game.showRoomState({ code: this.code, host: data.host || 'host', you: this.playerId, players: data.players || [], isHost: false });
+                        this.game.showRoomState({ code: this.code, host: data.host || 'host', you: this.playerId, players: data.players || [], fillBots: this.fillBots, isHost: false });
                     } else if (data.type === 'start') {
-                        this.beginMatch(data.epoch);
+                        if (data.mode === 'TDM') {
+                            this.epoch = data.epoch;
+                            this.startedEpoch = data.epoch;
+                            this.pendingCommands = [];
+                            this.seq = 0;
+                            this.inputSeq = 0;
+                            this.snapshotSeq = 0;
+                            this.lastSnapshotSeq = 0;
+                            this.pollTimer = 0;
+                            const myPlayer = (data.players || []).find(p => p.id === this.playerId);
+                            const myTeam = myPlayer?.team || 'red';
+                            for (const p of (data.players || [])) {
+                                if (p.id !== this.playerId) {
+                                    const remote = this.game.ensureCoopPlayer(p.id, p.name, p.character);
+                                    if (remote) remote.team = p.team || 'blue';
+                                }
+                            }
+                            this.game.startTDM(myTeam, { fillBots: !!data.fillBots, isCoop: true });
+                        } else {
+                            this.beginMatch(data.epoch);
+                        }
                     } else if (data.type === 'snapshot') {
                         if (!data.started || !data.snapshot) return;
                         if (!this.beginMatch(data.epoch)) return;
@@ -240,14 +293,32 @@ export class NetworkRoom {
 
     async start() {
         if (!this.host) return;
-        this.beginMatch(Math.max(Date.now(), (this.epoch || 0) + 1));
+        const mode = this.game.selectedGameMode || this.game.gameMode || 'SURVIVAL';
+        const hostPlayer = this.players.find(p => p.id === 'host');
+        const hostTeam = hostPlayer?.team || (this.game.selectedTDMTeam || 'blue');
+        this.epoch = Math.max(Date.now(), (this.epoch || 0) + 1);
+        this.startedEpoch = this.epoch;
+        this.pendingCommands = [];
+        this.seq = 0;
+        this.inputSeq = 0;
+        this.snapshotSeq = 0;
+        this.lastSnapshotSeq = 0;
+        this.pollTimer = 0;
+
         for (const c of this.connections) { c.input = {}; c.ack = 0; c.inputSeq = 0; c.events = []; }
-        this.game.showRoomState({ code: this.code, host: 'host', you: 'host', players: this.players, isHost: true, started: true });
-        const data = { type: 'start', epoch: this.epoch };
+        this.game.showRoomState({ code: this.code, host: 'host', you: 'host', players: this.players, fillBots: this.fillBots, isHost: true, started: true });
+
+        const data = { type: 'start', epoch: this.epoch, mode, fillBots: this.fillBots, players: this.players };
         for (const c of this.connections) {
             if (c.joined && c.conn.open) {
                 try { c.conn.send(data); } catch (e) { console.warn('[NetworkHost] Lỗi gửi start:', e); }
             }
+        }
+
+        if (mode === 'TDM') {
+            this.game.startTDM(hostTeam, { fillBots: this.fillBots, isCoop: true });
+        } else {
+            this.game.startGame(true);
         }
     }
 
@@ -440,10 +511,13 @@ export class NetworkRoom {
             if (player.id !== this.playerId) {
                 const isNew = !this.game.remotePlayers.has(player.id);
                 const remote = this.game.ensureCoopPlayer(player.id, player.name, player.character);
-                if (remote) remote.loadout = player.loadout || { primary: player.weapon };
+                if (remote) {
+                    remote.team = player.team || 'red';
+                    remote.loadout = player.loadout || { primary: player.weapon };
+                }
                 if ((this.game.state === 'MENU' || isNew) && remote?.weapons) {
                     const weapon = getStartingWeapon(player.weapon);
-                    remote.weapons.resetRun(weapon.id, remote.loadout.secondary, remote.loadout.bomb1, remote.loadout.bomb2);
+                    remote.weapons.resetRun(weapon.id, remote.loadout?.secondary, remote.loadout?.bomb1, remote.loadout?.bomb2);
                 }
             }
         }
@@ -771,7 +845,7 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
             return point && start.distanceTo(point) <= stepDist + 0.15
                 ? { hit: true, point } : { hit: false };
         },
-        takeDamage(amount) {
+        takeDamage(amount, penPower = 1, isCrit = false, direction = null, attacker = null) {
             if (this.isDead || this.isDowned || this.isDodging || this.invulnerability > 0) return;
             this.shieldRegenTimer = 4;
             const absorbed = Math.min(this.shield, amount);
@@ -779,12 +853,24 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
             this.health -= amount - absorbed;
             if (this.health <= 0) {
                 this.health = 0;
-                this.isDowned = true;
-                this.isDead = false;
-                this.bleedOutTimer = 30.0;
+                if (window.game?.gameMode === 'TDM') {
+                    this.isDead = true;
+                    this.isDowned = false;
+                    window.game?.tdmManager?.onEntityKilled(this, attacker);
+                    // Hồi sinh sau 3 giây cho người chơi đối kháng từ xa
+                    setTimeout(() => {
+                        if (window.game?.gameMode === 'TDM' && this.isDead) {
+                            window.game?.tdmManager?.respawnEntity(this);
+                        }
+                    }, 3000);
+                } else {
+                    this.isDowned = true;
+                    this.isDead = false;
+                    this.bleedOutTimer = 30.0;
+                }
             } else {
-                // Khóa nhận sát thương 0.8 giây (i-frame) cho người chơi từ xa
-                this.invulnerability = Math.max(this.invulnerability || 0, 0.8);
+                // Khóa nhận sát thương tạm thời cho người chơi từ xa
+                this.invulnerability = Math.max(this.invulnerability || 0, 0.4);
             }
         },
         heal(amount) {

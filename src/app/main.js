@@ -184,6 +184,12 @@ class CyberArenaGame {
         this.btnRestartOver = document.getElementById('btn-restart-gameover');
         this.roomName = document.getElementById('room-name');
         this.roomLobby = new RoomLobby(document.getElementById('room-lobby'), this.gltfLoader);
+        this.roomLobby.onSwitchTeam = (team) => {
+            this.network.setTeam(team);
+        };
+        this.roomLobby.onToggleFillBots = () => {
+            this.network.toggleFillBots();
+        };
         this.roomCode = document.getElementById('room-code');
         this.roomCopy = document.getElementById('room-copy');
         this.roomStatus = document.getElementById('room-status');
@@ -216,7 +222,7 @@ class CyberArenaGame {
         if (this.btnStart) {
             this.btnStart.addEventListener('click', () => {
                 if (this.selectedGameMode === 'TDM') {
-                    this.startTDM(this.selectedTDMTeam || 'blue');
+                    this.startTDM(this.selectedTDMTeam || 'blue', { fillBots: !!this.soloFillBots });
                 } else {
                     this.startGame();
                 }
@@ -577,7 +583,8 @@ class CyberArenaGame {
         this.ui.showBanner('SỐNG SÓT · NHẶT ĐẠN · NÂNG CẤP');
     }
 
-    startTDM(playerTeam = 'blue') {
+    startTDM(playerTeam = 'blue', options = {}) {
+        const fillBots = typeof options === 'boolean' ? options : !!options.fillBots;
         this.gameMode = 'TDM';
         this.selectedTDMTeam = playerTeam;
         this.switchArena('TDM');
@@ -603,6 +610,19 @@ class CyberArenaGame {
         const currentLoadout = this.getLoadout();
         this.weapons.resetRun(currentLoadout.primary, currentLoadout.secondary, currentLoadout.bomb1, currentLoadout.bomb2);
 
+        // Reset các remote players nếu có trong trận đấu Co-op
+        for (const remote of this.remotePlayers.values()) {
+            remote.health = remote.maxHealth;
+            remote.shield = remote.maxShield;
+            remote.isDead = false;
+            remote.isDowned = false;
+            remote.invulnerability = 2.0;
+            if (remote.weapons) {
+                const weaponId = remote.loadout?.primary || remote.weapons.startingWeaponId || 'repeater';
+                remote.weapons.resetRun(weaponId);
+            }
+        }
+
         this.player.reset();
         this.player.team = playerTeam;
         if (this.developerMode) {
@@ -616,11 +636,11 @@ class CyberArenaGame {
         this.lootingSystem?.clearAll?.();
 
         this.player.setInputEnabled(true);
-        this.player.cooperative = false;
+        this.player.cooperative = this.network.active;
         document.getElementById('hud-pause').disabled = false;
 
-        // Bắt đầu trận đấu đối kháng TDM
-        this.tdmManager?.startMatch(playerTeam, 4);
+        // Bắt đầu trận đấu đối kháng TDM với cờ fillBots được chỉ định
+        this.tdmManager?.startMatch(playerTeam, { fillBots, teamSize: 4 });
     }
 
     pauseGame() {
@@ -633,7 +653,7 @@ class CyberArenaGame {
         this.homeMenu?.syncAudio();
         this.syncPerformanceUI?.();
         const pWave = (typeof document !== 'undefined') ? document.getElementById('pause-wave-badge') : null;
-        if (pWave) pWave.textContent = this.gameMode === 'TDM' ? 'ĐỐI KHÁNG 4V4' : `ĐỢT ${this.currentWave || 1}`;
+        if (pWave) pWave.textContent = this.gameMode === 'TDM' ? 'ĐỐI KHÁNG TDM' : `ĐỢT ${this.currentWave || 1}`;
         if (this.screenPause) this.screenPause.style.display = 'flex';
     }
 
@@ -646,7 +666,7 @@ class CyberArenaGame {
 
     restartGame() {
         if (this.gameMode === 'TDM') {
-            this.startTDM(this.selectedTDMTeam || 'blue');
+            this.startTDM(this.selectedTDMTeam || 'blue', { fillBots: this.tdmManager?.lastFillBots ?? !!this.soloFillBots });
         } else {
             this.startGame();
         }
@@ -1406,7 +1426,8 @@ class CyberArenaGame {
             events,
             looting: this.lootingSystem?.snapshot ? this.lootingSystem.snapshot() : null,
             projectiles: this.coopPlayers.flatMap(player => (player.weapons?.projectiles || []).filter(p => p.mesh).map(p => ({ id: `${player.id || this.network.playerId}:${p.id}`, owner: player.id || this.network.playerId, position: p.mesh.position.toArray(), direction: p.direction.toArray(), speed: p.speed, color: p.color }))),
-            players: this.coopPlayers.map(player => ({ id: player.id || this.network.playerId, name: player.name || 'Bạn', character: player.characterId || this.characterId, position: player.position.toArray(), health: player.health, shield: player.shield, maxHealth: player.maxHealth, maxShield: player.maxShield, isDead: player.isDead, isDowned: player.isDowned, isInSmoke: !!player.isInSmoke, bleedOutTimer: player.bleedOutTimer, reviveProgress: player.reviveProgress || 0, isBeingRevived: !!player.isBeingRevived, invulnerability: player.invulnerability || 0, lootInventory: (player === this.player ? this.lootingSystem?.inventory : player.lootInventory)?.slots || null, aim: player.aimYaw, ads: !!player.isADS, moving: player === this.player ? player.velocity.lengthSq() > 0.1 : player.moving, skills: player.getSharedSkillState?.(), weapons: player.weapons?.getNetworkState(), processedSeq: player.processedSeq || 0 })),
+            players: this.coopPlayers.map(player => ({ id: player.id || this.network.playerId, name: player.name || 'Bạn', character: player.characterId || this.characterId, team: player.team || (player === this.player ? this.selectedTDMTeam : 'blue'), position: player.position.toArray(), health: player.health, shield: player.shield, maxHealth: player.maxHealth, maxShield: player.maxShield, isDead: player.isDead, isDowned: player.isDowned, isInSmoke: !!player.isInSmoke, bleedOutTimer: player.bleedOutTimer, reviveProgress: player.reviveProgress || 0, isBeingRevived: !!player.isBeingRevived, invulnerability: player.invulnerability || 0, lootInventory: (player === this.player ? this.lootingSystem?.inventory : player.lootInventory)?.slots || null, aim: player.aimYaw, ads: !!player.isADS, moving: player === this.player ? player.velocity.lengthSq() > 0.1 : player.moving, skills: player.getSharedSkillState?.(), weapons: player.weapons?.getNetworkState(), processedSeq: player.processedSeq || 0 })),
+            tdm: (this.gameMode === 'TDM' && this.tdmManager) ? { scoreBlue: this.tdmManager.scoreBlue, scoreRed: this.tdmManager.scoreRed, targetKills: this.tdmManager.targetKills, state: this.tdmManager.state } : null,
             enemies: this.waveManager.enemies.filter(enemy => !enemy.isDead).map(enemy => ({ id: enemy.id, type: enemy.type, position: enemy.position.toArray(), health: enemy.health, maxHealth: enemy.maxHealth, armor: enemy.armor ?? 0, status: {burnTimer: enemy.burnTimer || 0, burnDamage: enemy.burnDamage || 0, freezeTimer: enemy.freezeTimer || 0, vulnerableTimer: enemy.vulnerableTimer || 0, vulnerableMult: enemy.vulnerableMult || 1, combatState: enemy.combatState, combatTimer: enemy.combatTimer || 0}, animation: enemy.animationName || null, animationSeq: enemy.animationSeq || 0, animationTime: Number.isFinite(enemy.currentAction?.time) ? enemy.currentAction.time : null, animationRate: Number.isFinite(enemy.currentAction?.getEffectiveTimeScale()) ? enemy.currentAction.getEffectiveTimeScale() : null, animationPaused: typeof enemy.currentAction?.paused === 'boolean' ? enemy.currentAction.paused : null, yaw: enemy.mesh?.rotation.y || 0 })),
             pickups: this.pickups.pickups.map(pickup => ({ id: pickup.id, type: pickup.type, position: pickup.mesh.position.toArray(), weaponSlot: pickup.weaponSlot, life: pickup.life }))
         };
@@ -1419,6 +1440,15 @@ class CyberArenaGame {
 
         if (snapshot.looting && this.lootingSystem?.applySnapshot) {
             this.lootingSystem.applySnapshot(snapshot.looting);
+        }
+
+        // Đồng bộ tỷ số và trạng thái TDM từ Host sang Client
+        if (snapshot.tdm && this.tdmManager) {
+            this.tdmManager.scoreBlue = snapshot.tdm.scoreBlue;
+            this.tdmManager.scoreRed = snapshot.tdm.scoreRed;
+            this.tdmManager.targetKills = snapshot.tdm.targetKills;
+            this.tdmManager.state = snapshot.tdm.state;
+            this.ui?.updateTDMScore?.(this.tdmManager.scoreBlue, this.tdmManager.scoreRed, this.tdmManager.targetKills);
         }
 
         // Đồng bộ hiệu ứng đường đạn, ánh chớp nòng và âm thanh khi người chơi khác bắn
@@ -1539,6 +1569,12 @@ class CyberArenaGame {
             remote.bleedOutTimer = state.bleedOutTimer ?? 30; remote.reviveProgress = state.reviveProgress || 0;
             remote.isBeingRevived = !!state.isBeingRevived;
             remote.aimYaw = state.aim; remote.isADS = !!state.ads; remote.moving = !!state.moving;
+            if (state.team) {
+                remote.team = state.team;
+                if (!remote.teamRing && this.tdmManager) {
+                    this.tdmManager.attachPlayerTeamIndicator(remote);
+                }
+            }
             remote.applySharedSkillState?.(state.skills);
             remote.weapons.applyNetworkState(state.weapons);
         }
@@ -1699,6 +1735,9 @@ class CyberArenaGame {
                     if (this.gameMode === 'TDM') {
                         const botOpponents = remote.team === 'blue' ? this.tdmManager?.teamRed : this.tdmManager?.teamBlue;
                         remote.weapons.enemyTargets = botOpponents || [];
+                        if (!remote.isBot) {
+                            this.network.processCommands(remote);
+                        }
                         remote.weapons.update(delta, this.arena, botOpponents || [], remote,
                             (dmg, crit, pt, hitResult, target) => {
                                 if (target?.takeDamage) {

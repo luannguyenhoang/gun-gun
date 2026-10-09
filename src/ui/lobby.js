@@ -71,25 +71,29 @@ export class RoomLobby {
         ringMesh.rotation.x = Math.PI / 2;
         ringMesh.position.y = 0.035;
         this.pedestalGroup.add(ringMesh);
-        const glowCanvas = document.createElement('canvas');
-        glowCanvas.width = glowCanvas.height = 256;
-        const glowContext = glowCanvas.getContext('2d');
-        const glowGradient = glowContext.createRadialGradient(128, 128, 0, 128, 128, 128);
-        glowGradient.addColorStop(0, 'rgba(255,222,156,0)');
-        glowGradient.addColorStop(0.70, 'rgba(255,222,156,0)');
-        glowGradient.addColorStop(0.82, 'rgba(255,232,183,0.16)');
-        glowGradient.addColorStop(0.867, 'rgba(255,247,216,0.85)');
-        glowGradient.addColorStop(0.91, 'rgba(255,232,183,0.16)');
-        glowGradient.addColorStop(1, 'rgba(255,222,156,0)');
-        glowContext.fillStyle = glowGradient;
-        glowContext.fillRect(0, 0, 256, 256);
-        const rimGlow = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.MeshBasicMaterial({
-            map: new THREE.CanvasTexture(glowCanvas), transparent: true,
-            blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false
-        }));
-        rimGlow.rotation.x = -Math.PI / 2;
-        rimGlow.position.y = 0.06;
-        this.pedestalGroup.add(rimGlow);
+        const glowCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+        if (glowCanvas?.getContext) {
+            glowCanvas.width = glowCanvas.height = 256;
+            const glowContext = glowCanvas.getContext('2d');
+            if (glowContext) {
+                const glowGradient = glowContext.createRadialGradient(128, 128, 0, 128, 128, 128);
+                glowGradient.addColorStop(0, 'rgba(255,222,156,0)');
+                glowGradient.addColorStop(0.70, 'rgba(255,222,156,0)');
+                glowGradient.addColorStop(0.82, 'rgba(255,232,183,0.16)');
+                glowGradient.addColorStop(0.867, 'rgba(255,247,216,0.85)');
+                glowGradient.addColorStop(0.91, 'rgba(255,232,183,0.16)');
+                glowGradient.addColorStop(1, 'rgba(255,222,156,0)');
+                glowContext.fillStyle = glowGradient;
+                glowContext.fillRect(0, 0, 256, 256);
+                const rimGlow = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.MeshBasicMaterial({
+                    map: new THREE.CanvasTexture(glowCanvas), transparent: true,
+                    blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false
+                }));
+                rimGlow.rotation.x = -Math.PI / 2;
+                rimGlow.position.y = 0.06;
+                this.pedestalGroup.add(rimGlow);
+            }
+        }
         // Transparent concentric rings soften the bright rim without a postprocessing pass.
         for (let i = 1; i <= 5; i++) {
             const halo = new THREE.Mesh(
@@ -152,7 +156,7 @@ export class RoomLobby {
         this.solo = !!data.solo;
         this.container.classList?.toggle('solo-preview', this.solo);
         if (this.pedestalGroup) this.pedestalGroup.visible = this.solo;
-        const signature = JSON.stringify([data.code, data.host, data.you, players, this.solo]);
+        const signature = JSON.stringify([data.code, data.host, data.you, players, this.solo, data.fillBots]);
         if (signature === this.signature) return;
         this.signature = signature;
         this.heading.innerHTML = '';
@@ -183,6 +187,28 @@ export class RoomLobby {
         };
 
         this.heading.append(textSpan, copyCodeBtn, copyLinkBtn);
+
+        // Nút bấm phân bổ Bot chủ động trong phòng chờ
+        if (!this.solo) {
+            const isHost = data.host === data.you || data.isHost;
+            if (isHost) {
+                const botToggleBtn = document.createElement('button');
+                botToggleBtn.type = 'button';
+                botToggleBtn.className = `btn-toggle lobby-bot-btn ${data.fillBots ? 'active' : ''}`;
+                botToggleBtn.textContent = data.fillBots ? 'PHÂN BỔ BOT: BẬT (4V4)' : 'PHÂN BỔ BOT: TẮT';
+                botToggleBtn.title = 'Bấm để bật hoặc tắt phân bổ Bot bù vào 2 đội';
+                botToggleBtn.onclick = () => {
+                    this.onToggleFillBots?.();
+                };
+                this.heading.append(botToggleBtn);
+            } else {
+                const botStatusSpan = document.createElement('span');
+                botStatusSpan.className = 'lobby-bot-status';
+                botStatusSpan.textContent = data.fillBots ? 'BOT: ĐÃ BẬT (4V4)' : 'BOT: ĐÃ TẮT (CHỈ NGƯỜI)';
+                this.heading.append(botStatusSpan);
+            }
+        }
+
         const ids = new Set(players.map(p => p.id));
         for (const [id, member] of this.members) {
             if (!ids.has(id)) { this.remove(member); this.members.delete(id); }
@@ -194,13 +220,38 @@ export class RoomLobby {
             label.className = 'lobby-nameplate';
             this.labels.append(label);
             if (!player) { label.textContent = '+ Chờ đồng đội'; continue; }
+
+            const playerTeam = player.team || (index % 2 === 0 ? 'blue' : 'red');
+            label.className = `lobby-nameplate ${playerTeam === 'blue' ? 'team-blue' : 'team-red'}`;
+
             const character = player.character || 'police';
             const name = document.createElement('strong');
             name.textContent = player.name + (player.id === data.you ? ' (Bạn)' : '');
             const charLabel = CHARACTER_CONFIGS[character]?.label || CHARACTER_CONFIGS[normalizeCharacter(character)]?.label || 'Chiến binh';
             const role = document.createElement('small');
             role.textContent = `${player.id === data.host ? '★ CHỦ PHÒNG' : 'ĐỒNG ĐỘI'} · ${charLabel}`;
-            label.append(name, role);
+            
+            // Huy hiệu hiển thị đội
+            const teamBadge = document.createElement('span');
+            teamBadge.className = `lobby-team-badge ${playerTeam}`;
+            teamBadge.textContent = playerTeam === 'blue' ? 'ĐỘI XANH' : 'ĐỘI ĐỎ';
+
+            label.append(name, role, teamBadge);
+
+            // Nút bấm cho phép người chơi tự chuyển team theo mong muốn
+            if (player.id === data.you && !this.solo) {
+                const switchTeamBtn = document.createElement('button');
+                switchTeamBtn.type = 'button';
+                switchTeamBtn.className = 'btn-toggle-team';
+                switchTeamBtn.textContent = playerTeam === 'blue' ? 'CHUYỂN SANG ĐỎ' : 'CHUYỂN SANG XANH';
+                switchTeamBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const newTeam = playerTeam === 'blue' ? 'red' : 'blue';
+                    this.onSwitchTeam?.(newTeam);
+                };
+                label.append(switchTeamBtn);
+            }
+
             let member = this.members.get(player.id);
             if (member?.character !== character) {
                 if (member) this.remove(member);

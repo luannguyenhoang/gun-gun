@@ -2879,3 +2879,148 @@ body, html {
     box-shadow: 0 0 14px rgba(239, 68, 68, 0.4) !important;
 }
 
+/* Thanh phân bổ Bot chủ động tại sảnh chính */
+.tdm-bot-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    background: rgba(15, 12, 25, 0.7);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    animation: fadeInQuickTeam 0.25s ease-out;
+}
+
+.tdm-bot-label {
+    font-size: 11px;
+    font-weight: 1000;
+    color: #94a3b8;
+    font-family: var(--toy-font, sans-serif);
+    white-space: nowrap;
+}
+
+.tdm-bot-toggle-btn {
+    flex: 1;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 1000;
+    font-family: var(--toy-font, sans-serif);
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid #475569;
+    background: rgba(30, 41, 59, 0.6);
+    color: #94a3b8;
+    transition: all 0.2s ease;
+    user-select: none;
+    text-align: center;
+}
+
+.tdm-bot-toggle-btn:hover {
+    background: rgba(51, 65, 85, 0.8);
+    border-color: #64748b;
+    color: #cbd5e1;
+}
+
+.tdm-bot-toggle-btn.active {
+    background: linear-gradient(135deg, #059669, #10b981);
+    color: #ffffff;
+    border-color: #34d399;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.65);
+}
+
+/* Thẻ người chơi trong phòng chờ - Chia Đội */
+.lobby-nameplate.team-blue {
+    border: 2px solid #38bdf8 !important;
+    background: linear-gradient(180deg, rgba(14, 116, 144, 0.88), rgba(7, 89, 133, 0.95)) !important;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+}
+
+.lobby-nameplate.team-red {
+    border: 2px solid #ef4444 !important;
+    background: linear-gradient(180deg, rgba(185, 28, 28, 0.88), rgba(153, 27, 27, 0.95)) !important;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.35);
+}
+
+.lobby-team-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 700;
+    margin-top: 4px;
+    letter-spacing: 0.5px;
+}
+
+.lobby-team-badge.blue {
+    background: #0284c7;
+    color: #e0f2fe;
+    border: 1px solid #38bdf8;
+}
+
+.lobby-team-badge.red {
+    background: #b91c1c;
+    color: #fee2e2;
+    border: 1px solid #ef4444;
+}
+
+/* Nút bấm chuyển phe tự do trên thẻ người chơi */
+.btn-toggle-team {
+    margin-top: 6px;
+    display: block;
+    width: 100%;
+    padding: 4px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: rgba(0, 0, 0, 0.45);
+    color: #ffffff;
+    transition: all 0.15s ease;
+}
+
+.btn-toggle-team:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: #ffffff;
+    transform: translateY(-1px);
+}
+
+/* Nút bấm và nhãn phân bổ Bot trong sảnh phòng chờ */
+.lobby-bot-btn {
+    padding: 4px 10px;
+    font-size: 10px;
+    margin-left: 8px;
+    vertical-align: middle;
+    background: rgba(30, 41, 59, 0.85);
+    border: 1px solid #64748b;
+    color: #cbd5e1;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+
+.lobby-bot-btn:hover {
+    border-color: #94a3b8;
+    color: #ffffff;
+}
+
+.lobby-bot-btn.active {
+    background: linear-gradient(135deg, #059669, #10b981) !important;
+    border-color: #34d399 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5) !important;
+}
+
+.lobby-bot-status {
+    padding: 4px 8px;
+    font-size: 10px;
+    margin-left: 8px;
+    vertical-align: middle;
+    border-radius: 4px;
+    background: rgba(30, 41, 59, 0.7);
+    color: #94a3b8;
+    border: 1px solid #475569;
+}
+
+

@@ -70,9 +70,12 @@ export class HomeMenu {
         this.tabModeTDM = document.getElementById('mode-tab-tdm');
         this.quickTeamSection = document.getElementById('tdm-quick-team');
         this.quickTeamBtns = document.querySelectorAll('.quick-team-btn');
+        this.quickBotSection = document.getElementById('tdm-bot-bar');
+        this.btnBotToggle = document.getElementById('tdm-bot-toggle-btn');
         this.btnStart = document.getElementById('btn-start');
         this.selectedMode = 'SURVIVAL';
         this.selectedTeam = 'blue';
+        this.game.soloFillBots = false; // Mặc định không tự phân bổ Bot
 
         const applyMode = (mode, team) => {
             this.selectedMode = mode;
@@ -85,9 +88,12 @@ export class HomeMenu {
             if (this.tabModeSurvival) this.tabModeSurvival.classList.toggle('active', mode === 'SURVIVAL');
             if (this.tabModeTDM) this.tabModeTDM.classList.toggle('active', mode === 'TDM');
 
-            // 2. Ẩn/Hiện khu vực chọn phe nhanh
+            // 2. Ẩn/Hiện khu vực chọn phe nhanh và nút phân bổ Bot
             if (this.quickTeamSection) {
                 this.quickTeamSection.style.display = mode === 'TDM' ? 'flex' : 'none';
+            }
+            if (this.quickBotSection) {
+                this.quickBotSection.style.display = mode === 'TDM' ? 'flex' : 'none';
             }
 
             // 3. Cập nhật nút chọn phe nhanh
@@ -105,16 +111,17 @@ export class HomeMenu {
 
             // 5. Cập nhật hiển thị trên thẻ mode-card và nút bắt đầu
             if (mode === 'TDM') {
-                if (this.modeTitleStrong) this.modeTitleStrong.textContent = 'ĐỐI KHÁNG 4V4';
+                const hasBots = !!this.game.soloFillBots;
+                if (this.modeTitleStrong) this.modeTitleStrong.textContent = hasBots ? 'ĐỐI KHÁNG 4V4' : 'ĐỐI KHÁNG TDM';
                 if (this.modeTitleSmall) {
-                    this.modeTitleSmall.textContent = `Phe: ${team === 'blue' ? 'Đội Xanh' : 'Đội Đỏ'} · Fog of War`;
+                    this.modeTitleSmall.textContent = `Phe: ${team === 'blue' ? 'Đội Xanh' : 'Đội Đỏ'} · ${hasBots ? 'Có Bot' : 'Không Bot'}`;
                 }
                 if (this.modeCard) {
                     this.modeCard.classList.remove('tdm-blue', 'tdm-red');
                     this.modeCard.classList.add(team === 'blue' ? 'tdm-blue' : 'tdm-red');
                 }
                 if (this.btnStart) {
-                    this.btnStart.textContent = 'VÀO TRẬN 4V4';
+                    this.btnStart.textContent = hasBots ? 'VÀO TRẬN 4V4' : 'VÀO TRẬN';
                     this.btnStart.classList.add('tdm-start-btn');
                     this.btnStart.classList.toggle('red-team-active', team === 'red');
                 }
@@ -130,6 +137,14 @@ export class HomeMenu {
                 }
             }
         };
+
+        // Gắn sự kiện cho nút bật tắt phân bổ Bot chủ động
+        this.btnBotToggle?.addEventListener('click', () => {
+            this.game.soloFillBots = !this.game.soloFillBots;
+            this.btnBotToggle.classList.toggle('active', this.game.soloFillBots);
+            this.btnBotToggle.textContent = this.game.soloFillBots ? 'PHÂN BỔ BOT: BẬT (4V4)' : 'PHÂN BỔ BOT: TẮT';
+            applyMode(this.selectedMode, this.selectedTeam);
+        });
 
         // Gắn sự kiện cho các tab chọn nhanh tại sảnh chính
         this.tabModeSurvival?.addEventListener('click', () => applyMode('SURVIVAL', this.selectedTeam));

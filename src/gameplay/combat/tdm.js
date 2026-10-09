@@ -286,10 +286,14 @@ export class TDMManager {
     /**
      * Bắt đầu một trận đấu đối kháng mới
      * @param {string} playerTeam - 'blue' hoặc 'red'
-     * @param {number} teamSize - Số người mỗi đội (mặc định 4v4)
+     * @param {object|number} options - Tùy chọn trận đấu { fillBots: boolean, teamSize: number } hoặc số teamSize
      */
-    startMatch(playerTeam = 'blue', teamSize = 4) {
+    startMatch(playerTeam = 'blue', options = {}) {
         this.cleanup();
+
+        const fillBots = typeof options === 'boolean' ? options : (typeof options === 'object' && options !== null ? !!options.fillBots : false);
+        const teamSize = (typeof options === 'object' && options?.teamSize) || (typeof options === 'number' ? options : 4);
+        this.lastFillBots = fillBots;
 
         this.state = 'ACTIVE';
         this.playerTeam = playerTeam;
@@ -297,6 +301,7 @@ export class TDMManager {
         this.scoreRed = 0;
         this.matchTimer = 0;
         this.playerRespawnTimer = 0;
+        this.targetKills = fillBots ? 20 : 10;
 
         const player = this.game.player;
         player.team = playerTeam;
@@ -323,45 +328,62 @@ export class TDMManager {
             this.teamRed.push(player);
         }
 
-        // Tạo Bot lấp đầy 2 đội (4v4)
-        const botRoles = ['soldier', 'police', 'cyborg', 'specops'];
-        const botNamesBlue = ['Xanh - Alpha', 'Xanh - Bravo', 'Xanh - Delta'];
-        const botNamesRed = ['Đỏ - Reaper', 'Đỏ - Phantom', 'Đỏ - Shadow', 'Đỏ - Viper'];
-
-        // Sinh Bot cho Đội Xanh
-        const blueBotCount = playerTeam === 'blue' ? (teamSize - 1) : teamSize;
-        for (let i = 0; i < blueBotCount; i++) {
-            const spawnPos = this.spawnPointsBlue[i % this.spawnPointsBlue.length];
-            const name = botNamesBlue[i] || `Xanh ${i + 1}`;
-            const role = botRoles[i % botRoles.length];
-            const bot = new TDMBot(`bot_blue_${i + 1}`, name, 'blue', role, spawnPos, this.game, this);
-            this.bots.push(bot);
-            this.teamBlue.push(bot.remote);
+        // Đưa các người chơi Co-op thật (remotePlayers) vào đúng đội của họ
+        for (const [id, remote] of this.game.remotePlayers) {
+            if (remote.isBot) continue;
+            const team = remote.team || (playerTeam === 'blue' ? 'red' : 'blue');
+            remote.team = team;
+            if (team === 'blue') {
+                this.teamBlue.push(remote);
+            } else {
+                this.teamRed.push(remote);
+            }
+            this.attachPlayerTeamIndicator(remote);
         }
 
-        // Sinh Bot cho Đội Đỏ
-        const redBotCount = playerTeam === 'red' ? (teamSize - 1) : teamSize;
-        for (let i = 0; i < redBotCount; i++) {
-            const spawnPos = this.spawnPointsRed[i % this.spawnPointsRed.length];
-            const name = botNamesRed[i] || `Đỏ ${i + 1}`;
-            const role = botRoles[(i + 1) % botRoles.length];
-            const bot = new TDMBot(`bot_red_${i + 1}`, name, 'red', role, spawnPos, this.game, this);
-            this.bots.push(bot);
-            this.teamRed.push(bot.remote);
+        // Chỉ tạo Bot khi có cờ fillBots = true (bấm nút phân bổ Bot chủ động)
+        if (fillBots) {
+            const botRoles = ['soldier', 'police', 'cyborg', 'specops'];
+            const botNamesBlue = ['Xanh - Alpha', 'Xanh - Bravo', 'Xanh - Delta'];
+            const botNamesRed = ['Đỏ - Reaper', 'Đỏ - Phantom', 'Đỏ - Shadow', 'Đỏ - Viper'];
+
+            // Sinh Bot bù cho Đội Xanh
+            const blueNeeded = Math.max(0, teamSize - this.teamBlue.length);
+            for (let i = 0; i < blueNeeded; i++) {
+                const spawnPos = this.spawnPointsBlue[i % this.spawnPointsBlue.length];
+                const name = botNamesBlue[i] || `Xanh Bot ${i + 1}`;
+                const role = botRoles[i % botRoles.length];
+                const bot = new TDMBot(`bot_blue_${i + 1}`, name, 'blue', role, spawnPos, this.game, this);
+                this.bots.push(bot);
+                this.teamBlue.push(bot.remote);
+            }
+
+            // Sinh Bot bù cho Đội Đỏ
+            const redNeeded = Math.max(0, teamSize - this.teamRed.length);
+            for (let i = 0; i < redNeeded; i++) {
+                const spawnPos = this.spawnPointsRed[i % this.spawnPointsRed.length];
+                const name = botNamesRed[i] || `Đỏ Bot ${i + 1}`;
+                const role = botRoles[(i + 1) % botRoles.length];
+                const bot = new TDMBot(`bot_red_${i + 1}`, name, 'red', role, spawnPos, this.game, this);
+                this.bots.push(bot);
+                this.teamRed.push(bot.remote);
+            }
         }
 
         // Cập nhật giao diện TDM HUD
         this.game.ui?.showTDMScoreboard?.(this.scoreBlue, this.scoreRed, this.targetKills);
-        this.game.ui?.showBanner?.('TRẬN ĐẤU ĐỐI KHÁNG 4V4 BẮT ĐẦU! CHẠM MỐC 20 MẠNG ĐỂ THẮNG!');
+        const botStatusText = fillBots ? 'ĐÃ PHÂN BỔ BOT (4V4)' : 'KHÔNG CÓ BOT (CHỈ NGƯỜI THẬT)';
+        this.game.ui?.showBanner?.(`TRẬN ĐẤU ĐỐI KHÁNG BẮT ĐẦU! ${botStatusText} · CHẠM MỐC ${this.targetKills} MẠNG ĐỂ THẮNG!`);
         sounds.play('horn', { volume: 0.85 });
     }
 
-    attachPlayerTeamIndicator(player) {
-        if (!player.mesh) return;
-        if (this.playerTeamRing) {
-            player.mesh.remove(this.playerTeamRing);
+    attachPlayerTeamIndicator(entity) {
+        if (!entity || !entity.mesh) return;
+        if (entity.teamRing) {
+            entity.mesh.remove(entity.teamRing);
+            entity.teamRing = null;
         }
-        const color = player.team === 'blue' ? 0x38bdf8 : 0xef4444;
+        const color = entity.team === 'blue' ? 0x38bdf8 : 0xef4444;
         const ringGeo = new THREE.RingGeometry(0.58, 0.76, 32);
         ringGeo.rotateX(-Math.PI / 2);
         const ringMat = new THREE.MeshBasicMaterial({
@@ -371,9 +393,10 @@ export class TDMManager {
             side: THREE.DoubleSide,
             depthWrite: false
         });
-        this.playerTeamRing = new THREE.Mesh(ringGeo, ringMat);
-        this.playerTeamRing.position.y = 0.05;
-        player.mesh.add(this.playerTeamRing);
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.position.y = 0.05;
+        entity.teamRing = ringMesh;
+        entity.mesh.add(ringMesh);
     }
 
     getRandomSpawnPoint(team) {
@@ -491,7 +514,7 @@ export class TDMManager {
             playerTeam: this.playerTeam,
             scoreBlue: this.scoreBlue,
             scoreRed: this.scoreRed,
-            onRestart: () => this.startMatch(this.playerTeam, 4),
+            onRestart: () => this.startMatch(this.playerTeam, { fillBots: this.lastFillBots, teamSize: 4 }),
             onHome: () => this.game.returnToMenu()
         });
     }
@@ -511,9 +534,17 @@ export class TDMManager {
         this.teamBlue = [];
         this.teamRed = [];
 
-        if (this.playerTeamRing && this.game.player.mesh) {
-            this.game.player.mesh.remove(this.playerTeamRing);
-            this.playerTeamRing = null;
+        if (this.game.player.teamRing && this.game.player.mesh) {
+            this.game.player.mesh.remove(this.game.player.teamRing);
+            this.game.player.teamRing = null;
+        }
+
+        // Dọn sạch vòng hào quang đội của các remote player
+        for (const remote of this.game.remotePlayers.values()) {
+            if (remote.teamRing && remote.mesh) {
+                remote.mesh.remove(remote.teamRing);
+                remote.teamRing = null;
+            }
         }
 
         this.game.ui?.hideTDMScoreboard?.();
