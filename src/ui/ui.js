@@ -371,6 +371,8 @@ export class UIManager {
             this.tdmResultScore.textContent = `${options.scoreBlue || 0} - ${options.scoreRed || 0}`;
         }
         if (this.tdmBtnRestart) {
+            this.tdmBtnRestart.disabled = options.canRestart === false;
+            this.tdmBtnRestart.textContent = options.canRestart === false ? 'CHỜ CHỦ PHÒNG CHƠI LẠI' : 'CHƠI LẠI';
             this.tdmBtnRestart.onclick = () => {
                 this.hideTDMMatchResult();
                 options.onRestart?.();
@@ -436,8 +438,8 @@ export class UIManager {
 
     updateStats(player, waveManager, score) {
         // Vị trí con trỏ cộng thêm Cursor Kickback (đẩy trực tiếp tọa độ tâm ngắm trên màn hình)
-        const kickX = player.cursorKick ? player.cursorKick.x : 0;
-        const kickY = player.cursorKick ? player.cursorKick.y : 0;
+        const kickX = !player.firstPerson && player.cursorKick ? player.cursorKick.x : 0;
+        const kickY = !player.firstPerson && player.cursorKick ? player.cursorKick.y : 0;
         const posX = Math.round(player.pointerScreen.x + kickX);
         const posY = Math.round(player.pointerScreen.y + kickY);
 

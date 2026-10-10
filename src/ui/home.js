@@ -82,7 +82,8 @@ export class HomeMenu {
             this.selectedTeam = team;
             this.game.selectedGameMode = mode;
             this.game.selectedTDMTeam = team;
-            this.game.switchArena?.(mode);
+            this.game.switchArena?.(mode === 'FPS_SOLO' ? 'TDM' : mode);
+            document.getElementById('mode-tab-fps')?.classList.toggle('active', mode === 'FPS_SOLO');
 
             // 1. Cập nhật trạng thái các Tab chọn nhanh
             if (this.tabModeSurvival) this.tabModeSurvival.classList.toggle('active', mode === 'SURVIVAL');
@@ -126,8 +127,8 @@ export class HomeMenu {
                     this.btnStart.classList.toggle('red-team-active', team === 'red');
                 }
             } else {
-                if (this.modeTitleStrong) this.modeTitleStrong.textContent = 'VÔ TẬN';
-                if (this.modeTitleSmall) this.modeTitleSmall.textContent = 'Đấu trường Zombie';
+                if (this.modeTitleStrong) this.modeTitleStrong.textContent = mode === 'FPS_SOLO' ? 'FPS · BẠN BÈ' : 'VÔ TẬN';
+                if (this.modeTitleSmall) this.modeTitleSmall.textContent = mode === 'FPS_SOLO' ? 'Chơi đơn với bot hoặc tạo phòng đấu cùng bạn bè' : 'Đấu trường Zombie';
                 if (this.modeCard) {
                     this.modeCard.classList.remove('tdm-blue', 'tdm-red');
                 }
@@ -149,6 +150,7 @@ export class HomeMenu {
         // Gắn sự kiện cho các tab chọn nhanh tại sảnh chính
         this.tabModeSurvival?.addEventListener('click', () => applyMode('SURVIVAL', this.selectedTeam));
         this.tabModeTDM?.addEventListener('click', () => applyMode('TDM', this.selectedTeam));
+        document.getElementById('mode-tab-fps')?.addEventListener('click', () => applyMode('FPS_SOLO', 'blue'));
 
         // Gắn sự kiện cho các nút chọn phe nhanh
         this.quickTeamBtns.forEach(btn => {

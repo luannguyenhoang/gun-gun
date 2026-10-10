@@ -1,0 +1,14 @@
+.solo-fps #player-overhead-vitals {
+    display: block !important;
+    position: fixed !important;
+    left: 28px !important;
+    top: auto !important;
+    bottom: 30px !important;
+    transform: none !important;
+    width: 180px;
+}
+.solo-fps #vision-cone-canvas { display: none !important; }
+#mode-tab-fps { min-width: 110px; }
+.fps-controls { display: none; }
+.solo-fps .combat-controls { display: none; }
+.solo-fps .fps-controls { display: block; position: fixed; bottom: 8px; left: 20px; color: #b6c9db; font-size: 11px; pointer-events: none; }
