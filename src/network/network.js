@@ -16,7 +16,7 @@ const PEER_CONFIG = {
     }
 };
 
-const MAX_ROOM_PLAYERS = 4;
+const MAX_ROOM_PLAYERS = 8;
 const PROTOCOL_VERSION = 4;
 
 export class NetworkRoom {
@@ -52,8 +52,14 @@ export class NetworkRoom {
     setTeam(team) {
         if (this.host) {
             const me = this.players.find(p => p.id === 'host');
-            if (me) me.team = team;
-            this.broadcastRoster();
+            if (me) {
+                const targetTeam = team === 'red' ? 'red' : 'blue';
+                const teamCount = this.players.filter(p => p.team === targetTeam && p.id !== 'host').length;
+                if (teamCount < 4) {
+                    me.team = targetTeam;
+                    this.broadcastRoster();
+                }
+            }
         } else {
             if (this.conn && this.conn.open) {
                 this.conn.send({ type: 'set_team', team });
@@ -91,7 +97,8 @@ export class NetworkRoom {
                 this.game.player.setCharacter(character);
                 this.game.player.cooperative = true;
                 this.game.weapons.onCommand = null;
-                const roomData = { code, host: 'host', you: 'host', players: this.players, fillBots: this.fillBots, isHost: true };
+                const mode = this.game.selectedGameMode || 'TDM';
+                const roomData = { code, host: 'host', you: 'host', players: this.players, fillBots: this.fillBots, isHost: true, mode };
                 this.game.showRoomState(roomData);
                 this.startTicker();
                 resolve(roomData);
@@ -125,18 +132,26 @@ export class NetworkRoom {
                         pChar = data.character;
                         const blueCount = this.players.filter(p => p.team === 'blue').length;
                         const redCount = this.players.filter(p => p.team === 'red').length;
-                        const preferredTeam = this.game.selectedGameMode === 'FPS_SOLO' && this.players.length === 1
-                            ? (this.players[0].team === 'blue' ? 'red' : 'blue')
-                            : data.team || (blueCount <= redCount ? 'blue' : 'red');
+                        let preferredTeam = data.team || (blueCount <= redCount ? 'blue' : 'red');
+                        if (preferredTeam === 'blue' && blueCount >= 4 && redCount < 4) {
+                            preferredTeam = 'red';
+                        } else if (preferredTeam === 'red' && redCount >= 4 && blueCount < 4) {
+                            preferredTeam = 'blue';
+                        }
                         this.players.push({ id: pId, name: pName, character: pChar, team: preferredTeam, weapon: getStartingWeapon(data.weapon).id, loadout: data.loadout });
                         clientState.joined = true;
-                        conn.send({ type: 'accept', protocol: PROTOCOL_VERSION, you: pId, epoch: this.epoch, players: this.players, fillBots: this.fillBots, host: 'host' });
+                        const roomMode = this.game.selectedGameMode || 'TDM';
+                        conn.send({ type: 'accept', protocol: PROTOCOL_VERSION, you: pId, epoch: this.epoch, players: this.players, fillBots: this.fillBots, host: 'host', mode: roomMode });
                         this.broadcastRoster();
                     } else if (data.type === 'set_team') {
                         const p = this.players.find(pl => pl.id === pId);
                         if (p) {
-                            p.team = data.team === 'red' ? 'red' : 'blue';
-                            this.broadcastRoster();
+                            const targetTeam = data.team === 'red' ? 'red' : 'blue';
+                            const teamCount = this.players.filter(pl => pl.team === targetTeam && pl.id !== pId).length;
+                            if (teamCount < 4) {
+                                p.team = targetTeam;
+                                this.broadcastRoster();
+                            }
                         }
                     } else if (data.type === 'character') {
                         const p = this.players.find(pl => pl.id === pId);
@@ -171,14 +186,15 @@ export class NetworkRoom {
     }
 
     broadcastRoster() {
-        const data = { type: 'roster', players: this.players, fillBots: this.fillBots, host: 'host' };
+        const mode = this.game.selectedGameMode || 'TDM';
+        const data = { type: 'roster', players: this.players, fillBots: this.fillBots, host: 'host', mode };
         for (const c of this.connections) {
             if (c.joined && c.conn.open) {
                 try { c.conn.send(data); } catch (e) { console.warn('[NetworkHost] Lỗi gửi roster:', e); }
             }
         }
         this.updateRoster(this.players);
-        this.game.showRoomState({ code: this.code, host: 'host', you: 'host', players: this.players, fillBots: this.fillBots, isHost: true });
+        this.game.showRoomState({ code: this.code, host: 'host', you: 'host', players: this.players, fillBots: this.fillBots, isHost: true, mode });
     }
 
     async join(code, name, character = 'police') {
@@ -216,20 +232,22 @@ export class NetworkRoom {
                         this.startedEpoch = null;
                         this.epoch = data.epoch;
                         this.fillBots = !!data.fillBots;
+                        if (data.mode) this.game.selectedGameMode = data.mode;
                         
                         this.game.player.setCharacter(character);
                         this.game.player.cooperative = true;
                         this.game.weapons.onCommand = (cmd) => this.sendCommand(cmd);
                         
                         this.updateRoster(data.players || []);
-                        const roomData = { code, host: data.host || 'host', you: data.you, players: data.players || [], fillBots: this.fillBots, isHost: false };
+                        const roomData = { code, host: data.host || 'host', you: data.you, players: data.players || [], fillBots: this.fillBots, isHost: false, mode: data.mode || 'TDM' };
                         this.game.showRoomState(roomData);
                         this.startTicker();
                         resolve(roomData);
                     } else if (data.type === 'roster') {
                         this.fillBots = !!data.fillBots;
+                        if (data.mode) this.game.selectedGameMode = data.mode;
                         this.updateRoster(data.players || []);
-                        this.game.showRoomState({ code: this.code, host: data.host || 'host', you: this.playerId, players: data.players || [], fillBots: this.fillBots, isHost: false });
+                        this.game.showRoomState({ code: this.code, host: data.host || 'host', you: this.playerId, players: data.players || [], fillBots: this.fillBots, isHost: false, mode: data.mode || 'TDM' });
                     } else if (data.type === 'start') {
                         this.beginMatch(data.epoch, data);
                     } else if (data.type === 'snapshot') {

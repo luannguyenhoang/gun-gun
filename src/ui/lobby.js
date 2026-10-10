@@ -156,12 +156,16 @@ export class RoomLobby {
         this.solo = !!data.solo;
         this.container.classList?.toggle('solo-preview', this.solo);
         if (this.pedestalGroup) this.pedestalGroup.visible = this.solo;
-        const signature = JSON.stringify([data.code, data.host, data.you, players, this.solo, data.fillBots]);
+        const signature = JSON.stringify([data.code, data.host, data.you, players, this.solo, data.fillBots, data.mode]);
         if (signature === this.signature) return;
         this.signature = signature;
         this.heading.innerHTML = '';
+        
+        const isTDM = !this.solo && (data.mode === 'TDM' || data.mode === 'FPS_SOLO' || !data.mode || players.some(p => p.team));
+        const maxSlots = isTDM ? 8 : 4;
+
         const textSpan = document.createElement('span');
-        textSpan.textContent = `SẢNH CHỜ · ${players.length}/4 NGƯỜI · MÃ ${data.code} `;
+        textSpan.textContent = `SẢNH CHỜ · ${players.length}/${maxSlots} NGƯỜI · MÃ ${data.code} `;
         
         const copyCodeBtn = document.createElement('button');
         copyCodeBtn.className = 'btn-toggle';
@@ -214,74 +218,181 @@ export class RoomLobby {
             if (!ids.has(id)) { this.remove(member); this.members.delete(id); }
         }
         this.labels.replaceChildren();
-        for (let index = 0; index < 4; index++) {
-            const player = players[index];
-            const label = document.createElement('div');
-            label.className = 'lobby-nameplate';
-            this.labels.append(label);
-            if (!player) { label.textContent = '+ Chờ đồng đội'; continue; }
 
-            const playerTeam = player.team || (index % 2 === 0 ? 'blue' : 'red');
-            label.className = `lobby-nameplate ${playerTeam === 'blue' ? 'team-blue' : 'team-red'}`;
+        if (isTDM) {
+            this.labels.className = 'lobby-labels tdm-8slots';
 
-            const character = player.character || 'police';
-            const name = document.createElement('strong');
-            name.textContent = player.name + (player.id === data.you ? ' (Bạn)' : '');
-            const charLabel = CHARACTER_CONFIGS[character]?.label || CHARACTER_CONFIGS[normalizeCharacter(character)]?.label || 'Chiến binh';
-            const role = document.createElement('small');
-            role.textContent = `${player.id === data.host ? '★ CHỦ PHÒNG' : 'ĐỒNG ĐỘI'} · ${charLabel}`;
-            
-            // Huy hiệu hiển thị đội
-            const teamBadge = document.createElement('span');
-            teamBadge.className = `lobby-team-badge ${playerTeam}`;
-            teamBadge.textContent = playerTeam === 'blue' ? 'ĐỘI XANH' : 'ĐỘI ĐỎ';
+            const bluePlayers = players.filter(p => p.team === 'blue');
+            const redPlayers = players.filter(p => p.team === 'red');
 
-            label.append(name, role, teamBadge);
+            // Cột Đội Xanh (4 slots)
+            const bluePanel = document.createElement('div');
+            bluePanel.className = 'lobby-team-panel team-blue';
+            const blueHeader = document.createElement('div');
+            blueHeader.className = 'lobby-team-header';
+            blueHeader.innerHTML = `<span>ĐỘI XANH</span><span class="team-count">${bluePlayers.length}/4</span>`;
+            const blueSlots = document.createElement('div');
+            blueSlots.className = 'lobby-team-slots';
 
-            // Nút bấm cho phép người chơi tự chuyển team theo mong muốn
-            if (player.id === data.you && !this.solo) {
-                const switchTeamBtn = document.createElement('button');
-                switchTeamBtn.type = 'button';
-                switchTeamBtn.className = 'btn-toggle-team';
-                switchTeamBtn.textContent = playerTeam === 'blue' ? 'CHUYỂN SANG ĐỎ' : 'CHUYỂN SANG XANH';
-                switchTeamBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    const newTeam = playerTeam === 'blue' ? 'red' : 'blue';
-                    this.onSwitchTeam?.(newTeam);
-                };
-                label.append(switchTeamBtn);
+            for (let i = 0; i < 4; i++) {
+                const p = bluePlayers[i];
+                const slot = document.createElement('div');
+                if (p) {
+                    slot.className = 'lobby-nameplate team-blue';
+                    slot.setAttribute('data-player-id', p.id);
+                    const char = p.character || 'police';
+                    const charLabel = CHARACTER_CONFIGS[char]?.label || CHARACTER_CONFIGS[normalizeCharacter(char)]?.label || 'Chiến binh';
+                    const isYou = p.id === data.you;
+                    const isHost = p.id === data.host;
+                    
+                    const name = document.createElement('strong');
+                    name.textContent = p.name + (isYou ? ' (Bạn)' : '');
+                    const role = document.createElement('small');
+                    role.textContent = `${isHost ? '★ CHỦ PHÒNG' : 'ĐỒNG ĐỘI'} · ${charLabel}`;
+                    slot.append(name, role);
+
+                    if (isYou) {
+                        const switchBtn = document.createElement('button');
+                        switchBtn.type = 'button';
+                        switchBtn.className = 'btn-toggle-team';
+                        switchBtn.textContent = 'SANG ĐỎ ➔';
+                        switchBtn.disabled = redPlayers.length >= 4;
+                        switchBtn.title = redPlayers.length >= 4 ? 'Đội Đỏ đã đủ 4 người' : 'Chuyển sang Đội Đỏ';
+                        switchBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            this.onSwitchTeam?.('red');
+                        };
+                        slot.append(switchBtn);
+                    }
+                } else {
+                    slot.className = 'lobby-nameplate empty-slot slot-blue';
+                    slot.innerHTML = `<span>+ Chờ đồng đội</span>`;
+                    const me = players.find(pl => pl.id === data.you);
+                    if (me && me.team === 'red' && bluePlayers.length < 4) {
+                        slot.title = 'Bấm để đổi sang Đội Xanh';
+                        slot.onclick = () => this.onSwitchTeam?.('blue');
+                    }
+                }
+                blueSlots.append(slot);
             }
+            bluePanel.append(blueHeader, blueSlots);
 
+            // Biểu tượng phân cách VS
+            const vsDivider = document.createElement('div');
+            vsDivider.className = 'lobby-vs-divider';
+            vsDivider.textContent = 'VS';
+
+            // Cột Đội Đỏ (4 slots)
+            const redPanel = document.createElement('div');
+            redPanel.className = 'lobby-team-panel team-red';
+            const redHeader = document.createElement('div');
+            redHeader.className = 'lobby-team-header';
+            redHeader.innerHTML = `<span>ĐỘI ĐỎ</span><span class="team-count">${redPlayers.length}/4</span>`;
+            const redSlots = document.createElement('div');
+            redSlots.className = 'lobby-team-slots';
+
+            for (let i = 0; i < 4; i++) {
+                const p = redPlayers[i];
+                const slot = document.createElement('div');
+                if (p) {
+                    slot.className = 'lobby-nameplate team-red';
+                    slot.setAttribute('data-player-id', p.id);
+                    const char = p.character || 'police';
+                    const charLabel = CHARACTER_CONFIGS[char]?.label || CHARACTER_CONFIGS[normalizeCharacter(char)]?.label || 'Chiến binh';
+                    const isYou = p.id === data.you;
+                    const isHost = p.id === data.host;
+                    
+                    const name = document.createElement('strong');
+                    name.textContent = p.name + (isYou ? ' (Bạn)' : '');
+                    const role = document.createElement('small');
+                    role.textContent = `${isHost ? '★ CHỦ PHÒNG' : 'ĐỒNG ĐỘI'} · ${charLabel}`;
+                    slot.append(name, role);
+
+                    if (isYou) {
+                        const switchBtn = document.createElement('button');
+                        switchBtn.type = 'button';
+                        switchBtn.className = 'btn-toggle-team';
+                        switchBtn.textContent = '⬅ SANG XANH';
+                        switchBtn.disabled = bluePlayers.length >= 4;
+                        switchBtn.title = bluePlayers.length >= 4 ? 'Đội Xanh đã đủ 4 người' : 'Chuyển sang Đội Xanh';
+                        switchBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            this.onSwitchTeam?.('blue');
+                        };
+                        slot.append(switchBtn);
+                    }
+                } else {
+                    slot.className = 'lobby-nameplate empty-slot slot-red';
+                    slot.innerHTML = `<span>+ Chờ đồng đội</span>`;
+                    const me = players.find(pl => pl.id === data.you);
+                    if (me && me.team === 'blue' && redPlayers.length < 4) {
+                        slot.title = 'Bấm để đổi sang Đội Đỏ';
+                        slot.onclick = () => this.onSwitchTeam?.('red');
+                    }
+                }
+                redSlots.append(slot);
+            }
+            redPanel.append(redHeader, redSlots);
+
+            this.labels.append(bluePanel, vsDivider, redPanel);
+        } else {
+            this.labels.className = 'lobby-labels';
+            for (let index = 0; index < 4; index++) {
+                const player = players[index];
+                const label = document.createElement('div');
+                label.className = 'lobby-nameplate';
+                if (!player) {
+                    label.textContent = '+ Chờ đồng đội';
+                    this.labels.append(label);
+                    continue;
+                }
+                label.setAttribute('data-player-id', player.id);
+                const character = player.character || 'police';
+                const name = document.createElement('strong');
+                name.textContent = player.name + (player.id === data.you ? ' (Bạn)' : '');
+                const charLabel = CHARACTER_CONFIGS[character]?.label || CHARACTER_CONFIGS[normalizeCharacter(character)]?.label || 'Chiến binh';
+                const role = document.createElement('small');
+                role.textContent = `${player.id === data.host ? '★ CHỦ PHÒNG' : 'ĐỒNG ĐỘI'} · ${charLabel}`;
+                label.append(name, role);
+                this.labels.append(label);
+            }
+        }
+
+        // Tải và khởi tạo mô hình 3D cho tất cả người chơi
+        for (const player of players) {
+            const character = player.character || 'police';
             let member = this.members.get(player.id);
             if (member?.character !== character) {
                 if (member) this.remove(member);
-                member = { character, index, model: null, mixer: null };
+                member = { id: player.id, character, team: player.team, model: null, mixer: null };
                 this.members.set(player.id, member);
                 const pending = member;
                 this.load(character).then(gltf => {
                     if (this.members.get(player.id) !== pending) return;
                     const model = SkeletonUtils.clone(gltf.scene);
                     model.traverse(node => { if (node.isMesh) node.castShadow = true; });
-                    model.scale.setScalar(this.solo ? 4.3 : 2.7);
-                    model.rotation.y = -0.3;
+                    model.scale.setScalar(this.solo ? 4.3 : (isTDM ? 1.9 : 2.5));
+                    model.rotation.y = player.team === 'red' ? -0.35 : 0.35;
                     pending.model = model;
                     this.scene.add(model);
                     pending.mixer = new THREE.AnimationMixer(model);
                     const idle = gltf.animations?.find(clip => clip.name === 'idle');
                     if (idle) pending.mixer.clipAction(idle).play();
                     this.position(pending);
-                }).catch(() => { if (this.members.get(player.id) === pending) role.textContent = 'Không tải được nhân vật'; });
+                }).catch(() => {});
+            } else {
+                member.team = player.team;
+                if (member.model) member.model.rotation.y = player.team === 'red' ? -0.35 : 0.35;
             }
-            member.index = index;
             this.position(member);
         }
     }
 
     position(member, stageRect = null) {
-        member.model?.scale.setScalar(this.solo ? 4.3 : 2.7);
-        member.model?.position.set(this.solo ? 0 : (member.index - 1.5) * 2.7, this.solo ? -0.08 : 0.1, 0);
+        const isTDM = !this.solo;
+        member.model?.scale.setScalar(this.solo ? 4.3 : (isTDM ? 1.9 : 2.5));
         if (this.solo || !member.model || !this.stage?.clientWidth) return;
-        const label = this.labels.children[member.index];
+        const label = this.labels.querySelector(`[data-player-id="${member.id}"]`);
         if (!label) return;
         // Neo chân từng mô hình chính xác theo nhãn tên trên giao diện
         const stage = stageRect || this.stage.getBoundingClientRect();
@@ -289,7 +400,7 @@ export class RoomLobby {
         const card = label.getBoundingClientRect();
         const point = new THREE.Vector3(
             ((card.left + card.width / 2 - stage.left) / stage.width) * 2 - 1,
-            1 - ((card.top - 18 - stage.top) / stage.height) * 2,
+            1 - ((card.top - 16 - stage.top) / stage.height) * 2,
             0.5
         ).unproject(this.camera);
         const direction = point.sub(this.camera.position);
@@ -329,6 +440,7 @@ export class RoomLobby {
             this.position(member, stageRect);
             member.mixer?.update(delta);
             if (this.solo && member.model) member.model.rotation.y = -0.55;
+            else if (member.model) member.model.rotation.y = member.team === 'red' ? -0.35 : 0.35;
         }
         this.renderer.render(this.scene, this.camera);
     }

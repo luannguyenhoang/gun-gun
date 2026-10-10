@@ -930,7 +930,9 @@ export class HomeMenu {
         this.game.roomCreate.hidden = active;
         document.getElementById('share-code').textContent = code;
         const isHost = active && (data.host === data.you || !!data.isHost);
-        document.getElementById('mode-status').textContent = active ? `TỔ ĐỘI ${data.players.length}/4 · ${isHost ? 'CHỦ PHÒNG' : 'ĐỒNG ĐỘI'}` : 'CHƠI ĐƠN · SẴN SÀNG';
+        const isTDM = data.mode === 'TDM' || data.mode === 'FPS_SOLO' || this.game.selectedGameMode === 'TDM' || this.game.selectedGameMode === 'FPS_SOLO' || !data.mode;
+        const maxSlots = isTDM ? 8 : 4;
+        document.getElementById('mode-status').textContent = active ? `TỔ ĐỘI ${data.players.length}/${maxSlots} · ${isHost ? 'CHỦ PHÒNG' : 'ĐỒNG ĐỘI'}` : 'CHƠI ĐƠN · SẴN SÀNG';
         document.getElementById('friends-label').textContent = active ? `PHÒNG ${code}` : 'BẠN BÈ';
         document.querySelector('.button-badge').textContent = active ? data.players.length : '+';
         this.game.roomJoin.closest('.join-row').hidden = active;

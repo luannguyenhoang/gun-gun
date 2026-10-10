@@ -95,10 +95,32 @@
 #screen-menu.party-menu #room-start { display:flex!important; }
 #screen-menu .leave-button { position:relative; bottom:auto; right:auto; width:auto; min-width:140px; min-height:var(--control-height); font-size:15px; border-radius:20px; }
 #screen-menu #guest-wait { margin:0; min-height:var(--control-height); padding:14px; font:700 13px/1.5 var(--toy-font); }
-#screen-menu.party-menu #room-lobby { inset:120px 3% 140px 25%; pointer-events:auto; }
+#screen-menu.party-menu #room-lobby { inset:110px 2% 140px 22%; pointer-events:auto; }
 #screen-menu.party-menu .home-intro { display:none; }
 #screen-menu.party-menu .home-nav { display:flex; }
 #screen-menu.party-menu #mode-status { display:block!important; padding:0 12px 5px; color:#e6dbed; font-size:8px; text-align:center; }
+
+/* Sảnh chờ Đối kháng TDM 4v4: Bố cục 8 Slot 2 Đội */
+#room-lobby .lobby-labels.tdm-8slots { position:absolute; bottom:12px; left:2%; right:2%; display:flex; align-items:stretch; justify-content:space-between; gap:12px; z-index:3; }
+.lobby-team-panel { flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; background:rgba(22,17,33,0.85); border-radius:14px; padding:8px 10px; backdrop-filter:blur(8px); }
+.lobby-team-panel.team-blue { border:1.5px solid #0284c7; box-shadow:inset 0 0 16px rgba(2,132,199,0.15),0 4px 12px rgba(0,0,0,0.4); }
+.lobby-team-panel.team-red { border:1.5px solid #dc2626; box-shadow:inset 0 0 16px rgba(220,38,38,0.15),0 4px 12px rgba(0,0,0,0.4); }
+.lobby-team-header { display:flex; align-items:center; justify-content:space-between; padding:4px 10px; border-radius:8px; font-weight:900; font-size:11px; letter-spacing:.8px; text-transform:uppercase; font-family:var(--toy-font); }
+.lobby-team-panel.team-blue .lobby-team-header { background:linear-gradient(90deg,rgba(2,132,199,0.6),rgba(2,132,199,0.15)); color:#e0f2fe; border-left:3px solid #38bdf8; }
+.lobby-team-panel.team-red .lobby-team-header { background:linear-gradient(90deg,rgba(220,38,38,0.6),rgba(220,38,38,0.15)); color:#fee2e2; border-left:3px solid #f87171; }
+.lobby-team-header .team-count { font-size:11px; font-weight:800; opacity:.9; }
+.lobby-team-slots { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; }
+.lobby-vs-divider { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:38px; font-family:var(--toy-font); font-size:18px; font-weight:1000; color:#ffd166; text-shadow:0 0 12px rgba(255,209,102,0.7); letter-spacing:1px; }
+#room-lobby .lobby-nameplate { color:#fff; background:#2a1f3de8; border:1px solid #5a4570; border-radius:10px; padding:6px 4px; font:600 11px/1.3 var(--toy-font); overflow-wrap:anywhere; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:64px; box-sizing:border-box; transition:transform .15s,border-color .15s; user-select:none; }
+#room-lobby .lobby-nameplate.team-blue { background:linear-gradient(180deg,#162a45e8 0%,#0d1a2de8 100%); border-color:#0284c7; box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 3px 6px rgba(0,0,0,0.35); }
+#room-lobby .lobby-nameplate.team-red { background:linear-gradient(180deg,#451b26e8 0%,#2b0f17e8 100%); border-color:#dc2626; box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 3px 6px rgba(0,0,0,0.35); }
+#room-lobby .lobby-nameplate.empty-slot { background:rgba(255,255,255,0.04); border:1px dashed rgba(255,255,255,0.22); color:#94a3b8; cursor:pointer; font-size:10px; font-weight:700; }
+#room-lobby .lobby-nameplate.empty-slot:hover { background:rgba(255,255,255,0.1); border-color:#cbd5e1; transform:translateY(-2px); color:#ffffff; }
+#room-lobby .lobby-nameplate strong { font-size:11px; font-weight:900; color:#ffffff; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#room-lobby .lobby-nameplate small { font-size:8px; color:#cbd5e1; margin-top:2px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#room-lobby .lobby-nameplate .btn-toggle-team { margin-top:4px; padding:2px 6px; font-size:9px; font-weight:800; border-radius:6px; border:1px solid rgba(255,255,255,0.35); background:rgba(0,0,0,0.5); color:#ffffff; cursor:pointer; font-family:var(--toy-font); transition:transform .12s,background .12s; }
+#room-lobby .lobby-nameplate .btn-toggle-team:hover:not(:disabled) { background:rgba(255,255,255,0.25); transform:scale(1.05); }
+#room-lobby .lobby-nameplate .btn-toggle-team:disabled { opacity:.4; cursor:not-allowed; }
 @media(max-width:700px) {
  #screen-menu .home-shell { zoom:1; width:100%; height:100dvh; min-height:720px; }
  #screen-menu .home-header { inset:18px 18px auto; height:42px; gap:8px; }
