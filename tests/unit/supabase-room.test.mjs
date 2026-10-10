@@ -184,3 +184,31 @@ test('leaveDbRoom chuyen giao chu phong khi host roi phong va xoa phong khi khon
     assert.equal(updatedPayload.host_id, 'p2');
     assert.equal(updatedPayload.players.length, 1);
 });
+
+test('joinDbRoom nhan dien nguoi choi da co trong phong (rejoin) va khong nhan ban', async () => {
+    mockData = {
+        code: 'REJOIN01',
+        status: 'waiting',
+        host_id: 'host_uid',
+        host_name: 'Chủ Phòng',
+        players: [
+            { id: 'host', user_id: 'host_uid', name: 'Chủ Phòng', is_host: true, team: 'blue' },
+            { id: 'p_guest_1', user_id: 'guest_uid_1', name: 'Ngợi Trần', is_host: false, team: 'red' }
+        ]
+    };
+
+    // Trường hợp 1: Người chơi 'Ngợi Trần' thoát ra vào lại với cùng tên
+    const rejoinByName = await joinDbRoom({
+        code: 'REJOIN01',
+        playerName: 'Ngợi Trần',
+        character: 'assassin',
+        team: 'red'
+    });
+
+    assert.equal(rejoinByName.rejoined, true);
+    assert.equal(rejoinByName.player.name, 'Ngợi Trần');
+    assert.equal(rejoinByName.player.character, 'assassin');
+    // Danh sách không bị tăng kích thước (vẫn là 2 người, không bị nhân bản thành 3)
+    assert.equal(updatedPayload.players.length, 2);
+    assert.equal(updatedPayload.players.filter(p => p.name === 'Ngợi Trần').length, 1);
+});

@@ -11,8 +11,10 @@ import {
     updateDbRoomRoster,
     startDbRoom,
     subscribeDbRoom,
-    unsubscribeDbRoom
-} from './supabase-room.js?v=1';
+    unsubscribeDbRoom,
+    getClientUserId,
+    deduplicatePlayers
+} from './supabase-room.js?v=2';
 
 // Cấu hình STUN Server của Google giúp đục lỗ NAT khi chơi qua mạng Internet (4G, Wifi khác nhà)
 const PEER_CONFIG = {
@@ -35,6 +37,7 @@ export class NetworkRoom {
         this.host = false;
         this.code = '';
         this.playerId = '';
+        this.userId = getClientUserId();
         this.seq = 0;
         this.pendingCommands = [];
         this.pollTimer = 0;
@@ -137,8 +140,13 @@ export class NetworkRoom {
                 if (!this.active || !this.host) return;
                 if (Array.isArray(updatedRecord.players)) {
                     let hasChange = false;
-                    for (const p of updatedRecord.players) {
-                        const existing = this.players.find(pl => pl.id === p.id);
+                    const dbPlayers = deduplicatePlayers(updatedRecord.players);
+                    for (const p of dbPlayers) {
+                        const existing = this.players.find(pl =>
+                            (p.user_id && (pl.user_id === p.user_id || pl.id === p.user_id)) ||
+                            pl.id === p.id ||
+                            (pl.name && p.name && pl.name.trim().toLowerCase() === p.name.trim().toLowerCase())
+                        );
                         if (!existing) {
                             this.players.push(p);
                             hasChange = true;
@@ -148,6 +156,7 @@ export class NetworkRoom {
                             hasChange = true;
                         }
                     }
+                    this.players = deduplicatePlayers(this.players);
                     if (hasChange) {
                         this.broadcastRoster();
                     }
@@ -165,11 +174,20 @@ export class NetworkRoom {
                 this.host = true;
                 this.code = code;
                 this.playerId = 'host';
+                this.userId = getClientUserId();
                 this.startedEpoch = null;
                 this.epoch = Date.now();
                 this.connections = [];
                 this.fillBots = false;
-                this.players = [{ id: 'host', name, character, team: hostTeam, weapon: this.game.weapons.startingWeaponId }];
+                this.players = [{
+                    id: 'host',
+                    user_id: this.userId,
+                    name,
+                    character,
+                    team: hostTeam,
+                    weapon: this.game.weapons.startingWeaponId,
+                    is_host: true
+                }];
                 
                 this.game.player.setCharacter(character);
                 this.game.player.cooperative = true;
@@ -192,10 +210,7 @@ export class NetworkRoom {
             });
             
             this.peer.on('connection', (conn) => {
-                let pId = 'p' + Math.random().toString(36).substring(2, 8);
-                let pName = 'Player';
-                let pChar = 'police';
-                let clientState = { id: pId, conn, input: {}, commands: [], ack: 0 };
+                let clientState = { id: null, conn, input: {}, commands: [], ack: 0, joined: false };
                 this.connections.push(clientState);
                 
                 conn.on('data', (data) => {
@@ -205,14 +220,64 @@ export class NetworkRoom {
                             setTimeout(() => { try { conn.close(); } catch {} }, 500);
                             return;
                         }
-                        if (this.players.some(p => p.id === pId)) return;
+
+                        const clientUserId = data.userId || data.playerId;
+                        const clientName = (data.name || 'Đồng đội').trim().slice(0, 24) || 'Đồng đội';
+                        const clientChar = data.character || 'police';
+                        const roomMode = this.game.selectedGameMode || 'TDM';
+
+                        // Kiểm tra xem người chơi này đã có sẵn trong phòng chưa (Check theo user_id, id hoặc Tên)
+                        let existingPlayer = this.players.find(p => {
+                            if (!p || typeof p !== 'object' || p.id === 'host' || p.is_host) return false;
+                            if (clientUserId && (p.user_id === clientUserId || p.id === clientUserId)) return true;
+                            const pName = (p.name || '').trim().toLowerCase();
+                            if (pName && pName === clientName.toLowerCase()) return true;
+                            return false;
+                        });
+
+                        if (existingPlayer) {
+                            // REJOIN: Người chơi F5 hoặc kết nối lại, cập nhật thông tin và dùng lại slot
+                            if (clientUserId) existingPlayer.user_id = clientUserId;
+                            existingPlayer.name = clientName;
+                            existingPlayer.character = clientChar;
+                            if (data.weapon) existingPlayer.weapon = getStartingWeapon(data.weapon).id;
+                            if (data.loadout) existingPlayer.loadout = data.loadout;
+                            if (data.team && (data.team === 'red' || data.team === 'blue')) {
+                                existingPlayer.team = data.team;
+                            }
+
+                            clientState.id = existingPlayer.id;
+                            clientState.joined = true;
+
+                            // Dọn dẹp connection cũ nếu có
+                            this.connections = this.connections.filter(c => c === clientState || c.id !== existingPlayer.id);
+
+                            this.players = deduplicatePlayers(this.players);
+                            conn.send({
+                                type: 'accept',
+                                protocol: PROTOCOL_VERSION,
+                                you: existingPlayer.id,
+                                epoch: this.epoch,
+                                players: this.players,
+                                fillBots: this.fillBots,
+                                host: 'host',
+                                mode: roomMode
+                            });
+                            this.broadcastRoster();
+                            return;
+                        }
+
+                        // Người chơi mới hoàn toàn: kiểm tra giới hạn phòng
                         if (this.players.length >= MAX_ROOM_PLAYERS) {
                             conn.send({ type: 'reject', reason: `Phòng đã đầy (tối đa ${MAX_ROOM_PLAYERS} người)!` });
                             setTimeout(() => { try { conn.close(); } catch {} }, 500);
                             return;
                         }
-                        pName = data.name;
-                        pChar = data.character;
+
+                        const pId = clientUserId || ('p' + Math.random().toString(36).substring(2, 8));
+                        clientState.id = pId;
+                        clientState.joined = true;
+
                         const blueCount = this.players.filter(p => p.team === 'blue').length;
                         const redCount = this.players.filter(p => p.team === 'red').length;
                         let preferredTeam = data.team || (blueCount <= redCount ? 'blue' : 'red');
@@ -221,53 +286,83 @@ export class NetworkRoom {
                         } else if (preferredTeam === 'red' && redCount >= 4 && blueCount < 4) {
                             preferredTeam = 'blue';
                         }
-                        this.players.push({ id: pId, name: pName, character: pChar, team: preferredTeam, weapon: getStartingWeapon(data.weapon).id, loadout: data.loadout });
-                        clientState.joined = true;
-                        const roomMode = this.game.selectedGameMode || 'TDM';
-                        conn.send({ type: 'accept', protocol: PROTOCOL_VERSION, you: pId, epoch: this.epoch, players: this.players, fillBots: this.fillBots, host: 'host', mode: roomMode });
+
+                        this.players.push({
+                            id: pId,
+                            user_id: clientUserId || pId,
+                            name: clientName,
+                            character: clientChar,
+                            team: preferredTeam,
+                            weapon: getStartingWeapon(data.weapon).id,
+                            loadout: data.loadout,
+                            is_host: false
+                        });
+
+                        this.players = deduplicatePlayers(this.players);
+                        conn.send({
+                            type: 'accept',
+                            protocol: PROTOCOL_VERSION,
+                            you: pId,
+                            epoch: this.epoch,
+                            players: this.players,
+                            fillBots: this.fillBots,
+                            host: 'host',
+                            mode: roomMode
+                        });
                         this.broadcastRoster();
                     } else if (data.type === 'set_team') {
-                        const p = this.players.find(pl => pl.id === pId);
+                        const targetId = clientState.id;
+                        const p = this.players.find(pl => pl.id === targetId || (pl.user_id && pl.user_id === targetId));
                         if (p) {
                             const targetTeam = data.team === 'red' ? 'red' : 'blue';
-                            const teamCount = this.players.filter(pl => pl.team === targetTeam && pl.id !== pId).length;
+                            const teamCount = this.players.filter(pl => pl.team === targetTeam && pl.id !== p.id).length;
                             if (teamCount < 4) {
                                 p.team = targetTeam;
                                 this.broadcastRoster();
                             }
                         }
                     } else if (data.type === 'character') {
-                        const p = this.players.find(pl => pl.id === pId);
+                        const targetId = clientState.id;
+                        const p = this.players.find(pl => pl.id === targetId || (pl.user_id && pl.user_id === targetId));
                         if (p) {
                             p.character = data.character;
                             this.broadcastRoster();
                         }
                     } else if (data.type === 'weapon' && this.game.state === 'MENU') {
-                        const p = this.players.find(pl => pl.id === pId);
+                        const targetId = clientState.id;
+                        const p = this.players.find(pl => pl.id === targetId || (pl.user_id && pl.user_id === targetId));
                         if (p) { p.weapon = getStartingWeapon(data.weapon).id; p.loadout = data.loadout; this.broadcastRoster(); }
                     } else if (data.type === 'sync') {
+                        const targetId = clientState.id;
+                        if (!targetId) return;
                         if (data.epoch !== this.startedEpoch) return;
-                        if (!this.players.some(p => p.id === pId)) return;
+                        if (!this.players.some(p => p.id === targetId)) return;
                         if (!Number.isSafeInteger(data.inputSeq) || data.inputSeq <= (clientState.inputSeq || 0)) return;
                         clientState.inputSeq = data.inputSeq;
                         clientState.input = data.input;
-                        this.applyInputs({ [pId]: data.input });
+                        this.applyInputs({ [targetId]: data.input });
                         if (data.commands && data.commands.length > 0) {
-                            this.applyCommands([{ player: pId, commands: data.commands }]);
+                            this.applyCommands([{ player: targetId, commands: data.commands }]);
                         }
                     }
                 });
                 
                 conn.on('close', () => {
                     this.connections = this.connections.filter(c => c.conn !== conn);
-                    this.players = this.players.filter(p => p.id !== pId);
-                    this.broadcastRoster();
+                    if (clientState.id && clientState.id !== 'host') {
+                        if (this.startedEpoch === null) {
+                            this.players = this.players.filter(p => p.id !== clientState.id && p.user_id !== clientState.id);
+                            this.players = deduplicatePlayers(this.players);
+                            this.broadcastRoster();
+                        }
+                    }
                 });
             });
         });
     }
 
     broadcastRoster() {
+        this.players = deduplicatePlayers(this.players);
         const mode = this.game.selectedGameMode || 'TDM';
         const data = { type: 'roster', players: this.players, fillBots: this.fillBots, host: 'host', mode };
         for (const c of this.connections) {
@@ -288,17 +383,28 @@ export class NetworkRoom {
             throw new Error('Vui lòng nhập mã phòng hợp lệ.');
         }
 
-        // 1. Kiểm tra phòng và ghi danh trên cơ sở dữ liệu Supabase
-        const dbResult = await joinDbRoom({
-            code,
-            playerName: name,
-            character,
-            team: this.game.selectedTDMTeam || 'red',
-            weapon: this.game.weapons?.startingWeaponId,
-            loadout: this.game.getLoadout?.()
-        });
+        this.userId = getClientUserId();
 
-        const myPlayerId = dbResult.player.id;
+        // 1. Kiểm tra phòng và ghi danh trên cơ sở dữ liệu Supabase
+        let dbResult = null;
+        try {
+            dbResult = await joinDbRoom({
+                code,
+                playerName: name,
+                character,
+                team: this.game.selectedTDMTeam || 'red',
+                weapon: this.game.weapons?.startingWeaponId,
+                loadout: this.game.getLoadout?.()
+            });
+        } catch (err) {
+            console.warn('[NetworkClient] Cảnh báo ghi danh DB, tiếp tục với P2P:', err.message);
+            dbResult = {
+                room: { code, players: [], host_id: 'host' },
+                player: { id: this.userId, name, character, team: this.game.selectedTDMTeam || 'red' }
+            };
+        }
+
+        const myPlayerId = dbResult.player.id || this.userId;
         this.active = true;
         this.host = false;
         this.code = code;
@@ -312,7 +418,7 @@ export class NetworkRoom {
         this.game.player.cooperative = true;
         this.game.weapons.onCommand = (cmd) => this.sendCommand(cmd);
 
-        this.players = dbResult.room.players || [];
+        this.players = deduplicatePlayers(dbResult.room.players || []);
         this.updateRoster(this.players);
         const roomData = {
             code,
@@ -338,7 +444,7 @@ export class NetworkRoom {
                 this.fillBots = !!updatedRecord.fill_bots;
                 if (updatedRecord.mode) this.game.selectedGameMode = updatedRecord.mode;
                 if (Array.isArray(updatedRecord.players)) {
-                    this.players = updatedRecord.players;
+                    this.players = deduplicatePlayers(updatedRecord.players);
                     this.updateRoster(this.players);
                 }
                 if (updatedRecord.status === 'playing' && this.startedEpoch === null) {
@@ -360,67 +466,89 @@ export class NetworkRoom {
         );
 
         // 3. Khởi tạo PeerJS để đồng bộ mô phỏng chuyển động trong trận
-        try {
-            this.peer = new window.Peer(PEER_CONFIG);
-            this.peer.on('open', () => {
-                this.conn = this.peer.connect('gungun-room-' + code, { reliable: true });
-                this.conn.on('open', () => {
-                    const myTeam = dbResult.player.team || 'red';
-                    this.conn.send({
-                        type: 'join',
-                        protocol: PROTOCOL_VERSION,
-                        name,
-                        character,
-                        team: myTeam,
-                        weapon: this.game.weapons.startingWeaponId,
-                        loadout: this.game.getLoadout?.()
+        return new Promise((resolve) => {
+            let resolved = false;
+            const completeJoin = () => {
+                if (resolved) return;
+                resolved = true;
+                resolve(roomData);
+            };
+
+            const fallbackTimeout = setTimeout(completeJoin, 2500);
+
+            try {
+                this.peer = new window.Peer(PEER_CONFIG);
+                this.peer.on('open', () => {
+                    this.conn = this.peer.connect('gungun-room-' + code, { reliable: true });
+                    this.conn.on('open', () => {
+                        const myTeam = dbResult.player.team || 'red';
+                        this.conn.send({
+                            type: 'join',
+                            protocol: PROTOCOL_VERSION,
+                            userId: this.userId,
+                            playerId: myPlayerId,
+                            name,
+                            character,
+                            team: myTeam,
+                            weapon: this.game.weapons.startingWeaponId,
+                            loadout: this.game.getLoadout?.()
+                        });
+                    });
+
+                    this.conn.on('data', (data) => {
+                        if (data.type === 'reject') {
+                            clearTimeout(fallbackTimeout);
+                            this.game.showRoomError(data.reason || 'Không thể vào phòng!');
+                            completeJoin();
+                            return;
+                        }
+                        if (data.type === 'accept') {
+                            clearTimeout(fallbackTimeout);
+                            if (data.mode) this.game.selectedGameMode = data.mode;
+                            this.fillBots = !!data.fillBots;
+                            this.playerId = data.you || this.playerId;
+                            this.players = deduplicatePlayers(data.players || []);
+                            this.updateRoster(this.players);
+                            completeJoin();
+                        } else if (data.type === 'roster') {
+                            this.fillBots = !!data.fillBots;
+                            if (data.mode) this.game.selectedGameMode = data.mode;
+                            this.players = deduplicatePlayers(data.players || []);
+                            this.updateRoster(this.players);
+                        } else if (data.type === 'start') {
+                            this.beginMatch(data.epoch, data);
+                        } else if (data.type === 'snapshot') {
+                            if (!data.started || !data.snapshot) return;
+                            if (!this.beginMatch(data.epoch, data.snapshot)) return;
+                            if (!Number.isSafeInteger(data.snapshotSeq) || data.snapshotSeq <= this.lastSnapshotSeq) return;
+                            this.lastSnapshotSeq = data.snapshotSeq;
+                            try {
+                                this.game.applyCoopSnapshot(data.snapshot, this.playerId);
+                            } catch (err) {
+                                console.warn('[NetworkClient] Lỗi áp dụng snapshot:', err);
+                            }
+                            if (data.ack) {
+                                this.pendingCommands = this.pendingCommands.filter(c => c.seq > data.ack);
+                            }
+                        }
+                    });
+
+                    this.conn.on('close', () => {
+                        this.handleHostDisconnect();
                     });
                 });
 
-                this.conn.on('data', (data) => {
-                    if (data.type === 'reject') {
-                        this.game.showRoomError(data.reason || 'Không thể vào phòng!');
-                        return;
-                    }
-                    if (data.type === 'accept') {
-                        if (data.mode) this.game.selectedGameMode = data.mode;
-                        this.fillBots = !!data.fillBots;
-                        this.updateRoster(data.players || []);
-                    } else if (data.type === 'roster') {
-                        this.fillBots = !!data.fillBots;
-                        if (data.mode) this.game.selectedGameMode = data.mode;
-                        this.updateRoster(data.players || []);
-                    } else if (data.type === 'start') {
-                        this.beginMatch(data.epoch, data);
-                    } else if (data.type === 'snapshot') {
-                        if (!data.started || !data.snapshot) return;
-                        if (!this.beginMatch(data.epoch, data.snapshot)) return;
-                        if (!Number.isSafeInteger(data.snapshotSeq) || data.snapshotSeq <= this.lastSnapshotSeq) return;
-                        this.lastSnapshotSeq = data.snapshotSeq;
-                        try {
-                            this.game.applyCoopSnapshot(data.snapshot, this.playerId);
-                        } catch (err) {
-                            console.warn('[NetworkClient] Lỗi áp dụng snapshot:', err);
-                        }
-                        if (data.ack) {
-                            this.pendingCommands = this.pendingCommands.filter(c => c.seq > data.ack);
-                        }
-                    }
+                this.peer.on('error', (err) => {
+                    console.warn('[NetworkClient] Cảnh báo kết nối PeerJS (vẫn duy trì DB Room):', err.message);
+                    clearTimeout(fallbackTimeout);
+                    completeJoin();
                 });
-
-                this.conn.on('close', () => {
-                    this.handleHostDisconnect();
-                });
-            });
-
-            this.peer.on('error', (err) => {
-                console.warn('[NetworkClient] Cảnh báo kết nối PeerJS (vẫn duy trì DB Room):', err.message);
-            });
-        } catch (e) {
-            console.warn('[NetworkClient] Ngoại lệ PeerJS:', e);
-        }
-
-        return roomData;
+            } catch (e) {
+                console.warn('[NetworkClient] Ngoại lệ PeerJS:', e);
+                clearTimeout(fallbackTimeout);
+                completeJoin();
+            }
+        });
     }
 
     beginMatch(epoch, config = {}) {
@@ -670,6 +798,7 @@ export class NetworkRoom {
     }
 
     updateRoster(players) {
+        players = deduplicatePlayers(players);
         const ids = new Set(players.map(p => p.id));
         for (const player of players) {
             if (player.id !== this.playerId) {
@@ -947,7 +1076,7 @@ export class NetworkRoom {
         this.stopTicker = null;
         if (!this.active) return;
         const currentCode = this.code;
-        const currentPid = this.playerId;
+        const currentPid = this.playerId || this.userId;
         this.active = false;
         this.startedEpoch = null;
         this.pendingCommands = [];
