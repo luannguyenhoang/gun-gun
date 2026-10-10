@@ -212,6 +212,9 @@ class CyberArenaGame {
         document.getElementById('hud-pause')?.addEventListener('click', () => this.pauseGame());
         document.querySelectorAll('[data-return-home]').forEach(button => button.addEventListener('click', () => this.returnToMenu()));
 
+        // Vô hiệu hóa menu ngữ cảnh chuột phải mặc định của trình duyệt để không làm gián đoạn gameplay
+        window.addEventListener('contextmenu', (e) => e.preventDefault(), { passive: false });
+
         this.finalScoreEl = document.getElementById('final-score');
         this.finalWaveEl = document.getElementById('final-wave');
         this.highScoreMenuEl = document.getElementById('menu-highscore');

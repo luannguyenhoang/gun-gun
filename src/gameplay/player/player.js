@@ -478,7 +478,10 @@ export class PlayerController {
             }
 
             if (e.button === 0) this.mouseButtons.left = true;
-            if (e.button === 2) this.mouseButtons.right = true;
+            if (e.button === 2) {
+                e.preventDefault();
+                this.mouseButtons.right = true;
+            }
         });
 
         window.addEventListener('mouseup', (e) => {
@@ -502,7 +505,10 @@ export class PlayerController {
                     this.weapons.throwBomb(origin, this.clampedBombTarget, this, this._lastEnemiesRef || []);
                 }
             }
-            if (e.button === 2) this.mouseButtons.right = false;
+            if (e.button === 2) {
+                e.preventDefault();
+                this.mouseButtons.right = false;
+            }
         });
 
         window.addEventListener('wheel', (e) => {
@@ -524,6 +530,8 @@ export class PlayerController {
             this.pointerInCanvas = Math.abs(this.pointer.x) <= 1 && Math.abs(this.pointer.y) <= 1;
         });
         this.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+        window.addEventListener('contextmenu', (e) => e.preventDefault(), { capture: true, passive: false });
+        document.addEventListener('contextmenu', (e) => e.preventDefault(), { capture: true, passive: false });
         window.addEventListener('blur', () => {
             if (this.th_isRadialMenuOpen) {
                 (this.ui || window.game?.ui)?.closeRadialMenuOnly();
