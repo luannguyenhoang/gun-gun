@@ -10,6 +10,8 @@
     "check": "node tools/check-project.mjs",
     "test": "node --test tests/unit/*.test.mjs",
     "test:browser": "node tests/browser/structure-smoke.cjs",
+    "test:fps": "node tests/browser/first-person.cjs",
+    "test:fps:room": "node tests/browser/first-person-room.cjs",
     "test:multiplayer": "node tests/browser/multiplayer-browser.cjs",
     "test:multiplayer:timing": "node tests/browser/multiplayer-timing.cjs"
   },

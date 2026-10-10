@@ -377,6 +377,7 @@ export class PlayerController {
             // Phím [Alt]: Mở Bánh xe thao tác nhanh thông minh (Smart Dual-Mode)
             if (e.code === 'AltLeft' || e.code === 'AltRight') {
                 e.preventDefault();
+                if (this.firstPerson) return;
                 if (!e.repeat) {
                     this._radialPressTime = performance.now();
                     this.th_openRadialMenu();
@@ -387,8 +388,12 @@ export class PlayerController {
             if (this.isBackpackOpen) return;
             if (e.code === 'Space') {
                 e.preventDefault();
-                this.weapons.cancelReload();
-                this.tryDodge();
+                if (this.firstPerson) {
+                    if (this.isGrounded) { this.velocity.y = 7; this.isGrounded = false; }
+                } else {
+                    this.weapons.cancelReload();
+                    this.tryDodge();
+                }
             }
             this.keys[e.code] = true;
 
@@ -438,9 +443,11 @@ export class PlayerController {
 
         window.addEventListener('mousedown', (e) => {
             if (!this.inputEnabled) return;
+            if (this.firstPerson && !this.firstPerson.locked) return;
             // Chuột giữa (MMB): Kích hoạt Radial Menu
             if (e.button === 1) {
                 e.preventDefault();
+                if (this.firstPerson) return;
                 this._radialPressTime = performance.now();
                 if (this.th_isRadialMenuOpen) {
                     (this.ui || window.game?.ui)?.closeRadialMenuOnly();
@@ -505,6 +512,7 @@ export class PlayerController {
         });
 
         window.addEventListener('mousemove', (e) => {
+            if (this.firstPerson) { this.firstPerson.look(e); return; }
             if (this.th_isRadialMenuOpen) {
                 const ui = this.ui || window.game?.ui;
                 ui?.updateRadialMenuPointer(e.clientX, e.clientY);
@@ -543,6 +551,11 @@ export class PlayerController {
         this.domElement.style.cursor = enabled ? 'none' : 'default';
         this.keys = {};
         this.mouseButtons = { left: false, right: false };
+        if (this.firstPerson) {
+            if (!enabled && this.firstPerson.locked) document.exitPointerLock();
+            if (enabled) this.firstPerson.requestLock();
+            this.firstPerson.syncHint();
+        }
     }
 
     async loadModel(loader, scene, characterId = this.characterId) {
@@ -2558,6 +2571,7 @@ export class PlayerController {
 
     getMovementInput() {
         const input = new THREE.Vector3();
+        if (this.firstPerson && !this.firstPerson.locked) return input;
         if (this.keys['KeyW']) input.z -= 1;
         if (this.keys['KeyS']) input.z += 1;
         if (this.keys['KeyA']) input.x -= 1;
@@ -2566,10 +2580,13 @@ export class PlayerController {
         if (input.lengthSq() > 0) {
             input.normalize();
         }
+        if (this.firstPerson) input.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.firstPerson.yaw);
         return input;
     }
 
-    takeDamage(amount, hitDir, attacker = null) {
+    takeDamage(amount, hitDir, attacker = null, projectileDirection = null, projectileOwner = null) {
+        // WeaponSystem uses the same five-argument damage interface for PvP and zombies.
+        if (typeof hitDir === 'number') { hitDir = projectileDirection; attacker = projectileOwner; }
         if (this.isDead || this.isDowned || this.isDodging || this.invulnerability > 0 || (window.game?.network?.active && !window.game.network.host)) return;
         if (attacker) this.lastAttacker = attacker;
         // Kiem tra khien bat tu Nanite
@@ -2841,6 +2858,7 @@ export class PlayerController {
 
         // Locomotion input
         let currentSpeed = this.speed;
+        if (this.firstPerson && (this.keys.ShiftLeft || this.keys.ShiftRight)) currentSpeed *= 0.5;
         if (this.isADS) {
             currentSpeed *= 0.65;
         }
@@ -2960,7 +2978,13 @@ export class PlayerController {
                 const raycaster = new THREE.Raycaster();
                 raycaster.setFromCamera(this.pointer, this.camera);
                 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-                const groundHit = raycaster.ray.intersectPlane(groundPlane, new THREE.Vector3());
+                let groundHit = raycaster.ray.intersectPlane(groundPlane, new THREE.Vector3());
+                if (!groundHit && this.firstPerson) {
+                    const range = currentW.throwRange || 14;
+                    groundHit = this.position.clone().addScaledVector(
+                        new THREE.Vector3(Math.sin(this.aimYaw), 0, Math.cos(this.aimYaw)), range);
+                    groundHit.y = 0;
+                }
 
                 if (groundHit) {
                     const dx = groundHit.x - this.position.x;
@@ -3006,6 +3030,7 @@ export class PlayerController {
     }
 
     updateAim(enemies = []) {
+        if (this.firstPerson) { this.firstPerson.updateAim(); return; }
         _aimRaycaster.setFromCamera(this.pointer, this.camera);
         // Aim at torso height for empty space; directly pointing at a zombie
         // uses its actual hit volume, including larger mutants and headshots.
@@ -3050,7 +3075,9 @@ export class PlayerController {
         if (shouldShoot) {
             // Compute muzzle origin from character right arm
             const muzzlePos = new THREE.Vector3();
-            if (this.weapons.getMuzzlePosition?.(muzzlePos)) {
+            if (this.firstPerson) {
+                muzzlePos.copy(this.camera.position);
+            } else if (this.weapons.getMuzzlePosition?.(muzzlePos)) {
                 // The projectile and flash now originate at the visible barrel.
             } else if (this.handBone) {
                 this.model.updateMatrixWorld(true);
@@ -3064,7 +3091,10 @@ export class PlayerController {
             }
 
             const dmgMult = (this.damageMult || 1.0) * (this.activeSkillEffect === 'overdrive' ? 1.25 : 1.0);
-            this.weapons.shoot(muzzlePos, this.aimPoint, this.isADS, true, dmgMult, this);
+            const fired = this.weapons.shoot(muzzlePos, this.aimPoint, this.isADS, true, dmgMult, this);
+            if (fired && this.firstPerson && !w.isKnife) {
+                this.firstPerson.pitch = Math.min(1.45, this.firstPerson.pitch + (this.isADS ? 0.003 : 0.006));
+            }
         } else {
             if (!this.mouseButtons.left && sounds?.stopContinuousFire) {
                 sounds.stopContinuousFire();
@@ -3094,6 +3124,7 @@ export class PlayerController {
     }
 
     updateCamera(delta) {
+        if (this.firstPerson) { this.firstPerson.updateCamera(); return; }
         const target = _cameraTarget.set(this.position.x, 0.7, this.position.z);
         let targetFov = 50; // Default FOV
 

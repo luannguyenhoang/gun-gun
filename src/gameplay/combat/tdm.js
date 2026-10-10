@@ -342,7 +342,7 @@ export class TDMManager {
         }
 
         // Chỉ tạo Bot khi có cờ fillBots = true (bấm nút phân bổ Bot chủ động)
-        if (fillBots) {
+        if (fillBots && (!this.game.network.active || this.game.network.host)) {
             const botRoles = ['soldier', 'police', 'cyborg', 'specops'];
             const botNamesBlue = ['Xanh - Alpha', 'Xanh - Bravo', 'Xanh - Delta'];
             const botNamesRed = ['Đỏ - Reaper', 'Đỏ - Phantom', 'Đỏ - Shadow', 'Đỏ - Viper'];
@@ -475,6 +475,7 @@ export class TDMManager {
      */
     respawnEntity(entity) {
         if (!entity) return;
+        entity.spawnSeq = (entity.spawnSeq || 0) + 1;
 
         const spawnPos = this.getRandomSpawnPoint(entity.team);
         entity.position.copy(spawnPos);
@@ -499,6 +500,7 @@ export class TDMManager {
 
     endMatch(winningTeam) {
         this.state = 'MATCH_OVER';
+        if (this.game.firstPersonView?.active) this.game.player.setInputEnabled(false);
         const isVictory = winningTeam === this.playerTeam;
 
         if (isVictory) {
@@ -514,7 +516,12 @@ export class TDMManager {
             playerTeam: this.playerTeam,
             scoreBlue: this.scoreBlue,
             scoreRed: this.scoreRed,
-            onRestart: () => this.startMatch(this.playerTeam, { fillBots: this.lastFillBots, teamSize: 4 }),
+            canRestart: !this.game.network.active || this.game.network.host,
+            onRestart: () => {
+                if (this.game.network.active) { this.game.restartGame(); return; }
+                this.startMatch(this.playerTeam, { fillBots: this.lastFillBots, teamSize: 4 });
+                if (this.game.firstPersonView?.active) this.game.player.setInputEnabled(true);
+            },
             onHome: () => this.game.returnToMenu()
         });
     }

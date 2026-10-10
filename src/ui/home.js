@@ -82,7 +82,8 @@ export class HomeMenu {
             this.selectedTeam = team;
             this.game.selectedGameMode = mode;
             this.game.selectedTDMTeam = team;
-            this.game.switchArena?.(mode);
+            this.game.switchArena?.(mode === 'FPS_SOLO' ? 'TDM' : mode);
+            document.getElementById('mode-tab-fps')?.classList.toggle('active', mode === 'FPS_SOLO');
 
             // 1. Cập nhật trạng thái các Tab chọn nhanh
             if (this.tabModeSurvival) this.tabModeSurvival.classList.toggle('active', mode === 'SURVIVAL');
@@ -137,16 +138,30 @@ export class HomeMenu {
                     `;
                 }
             } else {
-                if (this.modeTitleStrong) this.modeTitleStrong.textContent = 'VÔ TẬN ZOMBIE';
+                if (this.modeTitleStrong) {
+                    this.modeTitleStrong.textContent = mode === 'FPS_SOLO' ? 'FPS · BẠN BÈ' : 'VÔ TẬN ZOMBIE';
+                }
+                if (this.modeTitleSmall) {
+                    this.modeTitleSmall.textContent = mode === 'FPS_SOLO' ? 'Chơi đơn với bot hoặc tạo phòng đấu cùng bạn bè' : 'Đấu trường Zombie';
+                }
                 if (this.modeCard) {
                     this.modeCard.classList.remove('tdm-blue', 'tdm-red');
                 }
-                if (modeIconImg) modeIconImg.src = 'assets/ui/lobby/runtime/skull-blue.png';
+                if (modeIconImg) {
+                    modeIconImg.src = mode === 'FPS_SOLO' ? 'assets/ui/lobby/runtime/skull-purple.png' : 'assets/ui/lobby/runtime/skull-blue.png';
+                }
                 if (badgesContainer) {
-                    badgesContainer.innerHTML = `
-                        <span class="mode-badge-pill purple">SINH TỒN</span>
-                        <span class="mode-badge-pill gray">ĐẤU TRƯỜNG</span>
-                    `;
+                    if (mode === 'FPS_SOLO') {
+                        badgesContainer.innerHTML = `
+                            <span class="mode-badge-pill blue">GÓC NHÌN 1</span>
+                            <span class="mode-badge-pill green">BẠN BÈ / BOT</span>
+                        `;
+                    } else {
+                        badgesContainer.innerHTML = `
+                            <span class="mode-badge-pill purple">SINH TỒN</span>
+                            <span class="mode-badge-pill gray">ĐẤU TRƯỜNG</span>
+                        `;
+                    }
                 }
             }
         };
@@ -162,6 +177,7 @@ export class HomeMenu {
         // Gắn sự kiện cho các tab chọn nhanh tại sảnh chính
         this.tabModeSurvival?.addEventListener('click', () => applyMode('SURVIVAL', this.selectedTeam));
         this.tabModeTDM?.addEventListener('click', () => applyMode('TDM', this.selectedTeam));
+        document.getElementById('mode-tab-fps')?.addEventListener('click', () => applyMode('FPS_SOLO', 'blue'));
 
         // Gắn sự kiện cho các nút chọn phe nhanh
         this.quickTeamBtns.forEach(btn => {

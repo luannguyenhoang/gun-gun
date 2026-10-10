@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="styles/ux.css?v=3">
     <link rel="stylesheet" href="styles/home-polish.css?v=2">
     <link rel="stylesheet" href="styles/home-reference.css?v=16">
+    <link rel="stylesheet" href="styles/first-person.css">
     <style>
       #armory-grid-section { display: none; }
       .weapon-mode #character-cards { display: none !important; }
@@ -541,6 +542,7 @@
         </div>
       </div>
 
+      <div class="fps-controls"><kbd>WASD</kbd> Di chuyển · <kbd>Shift</kbd> Đi chậm · <kbd>Space</kbd> Nhảy · Chuột phải ngắm · <kbd>R</kbd> Nạp đạn · <kbd>1–4 / V</kbd> Đổi vũ khí · <kbd>Esc</kbd> Tạm dừng</div>
       <div class="combat-controls"><kbd>WASD</kbd> Di chuyển <kbd>R</kbd> Nạp đạn <kbd>Q</kbd> Né <kbd>F</kbd> Nhặt / Đổi đồ hòm <kbd>Alt / Chuột giữa / [1-4]</kbd> Thao tác nhanh <kbd>ESC</kbd> Tạm dừng</div>
       <div id="teammate-indicators" class="teammate-indicators-container"></div>
     </div>
@@ -956,6 +958,11 @@
             <button type="button" class="toy-button coral close-mode-dialog" aria-label="Đóng">×</button>
           </div>
           <div class="mode-options-grid">
+            <div class="mode-option-card" data-mode="FPS_SOLO">
+              <div class="mode-opt-header"><span class="mode-opt-badge tdm">FPS · PC</span><h3>FPS · CHƠI CÙNG BẠN BÈ</h3></div>
+              <p>Chơi đơn với bot hoặc tạo phòng, gửi mã cho bạn bè. Chọn hai đội khác nhau và tắt bot để đấu 1v1; bật bot để đấu theo đội. WASD di chuyển, chuột phải ngắm, R nạp đạn, Space nhảy. Esc mở menu; trận online vẫn tiếp tục.</p>
+              <button type="button" class="toy-button yellow select-mode-btn" data-select-mode="FPS_SOLO">CHƠI GÓC NHÌN THỨ NHẤT</button>
+            </div>
             <div class="mode-option-card active" data-mode="SURVIVAL">
               <div class="mode-opt-header">
                 <span class="mode-opt-badge default">MẶC ĐỊNH</span>
@@ -1611,6 +1618,6 @@
     </div>
 
     <!-- Main Game Script -->
-    <script src="vendor/qrcode.min.js"></script><script type="module" src="src/app/main.js?v=73"></script>
+    <script src="vendor/qrcode.min.js"></script><script type="module" src="src/app/main.js?v=75"></script>
 </body>
 </html>
