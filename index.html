@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="styles/zappets.css?v=2"><link rel="stylesheet" href="styles/combat.css?v=44"><link rel="stylesheet" href="styles/showroom.css?v=47">
     <link rel="stylesheet" href="styles/ux.css?v=3">
     <link rel="stylesheet" href="styles/home-polish.css?v=3">
-    <link rel="stylesheet" href="styles/home-reference.css?v=17">
+    <link rel="stylesheet" href="styles/home-reference.css?v=18">
     <link rel="stylesheet" href="styles/first-person.css">
     <style>
       #armory-grid-section { display: none; }
@@ -115,9 +115,14 @@
             "three/addons/": "./vendor/"
         }
     }
+    <script>
+        // Vô hiệu hóa menu chuột phải mặc định của trình duyệt để không làm gián đoạn gameplay
+        window.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+        }, { capture: true, passive: false });
     </script>
 </head>
-<body>
+<body oncontextmenu="return false;">
     <!-- 3D Canvas -->
     <canvas id="game-canvas"></canvas>
     <!-- 2D Vision Cone Darkness Mask Canvas -->
