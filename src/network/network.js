@@ -4,6 +4,15 @@ import { HealthBar3D } from '../rendering/healthbar.js';
 import { CHARACTER_CONFIGS, normalizeCharacter } from '../gameplay/player/characters.js';
 import { getStartingWeapon } from '../gameplay/combat/weapons.js';
 import { createRoomTicker } from './room-ticker.js?v=2';
+import {
+    createDbRoom,
+    joinDbRoom,
+    leaveDbRoom,
+    updateDbRoomRoster,
+    startDbRoom,
+    subscribeDbRoom,
+    unsubscribeDbRoom
+} from './supabase-room.js?v=1';
 
 // Cấu hình STUN Server của Google giúp đục lỗ NAT khi chơi qua mạng Internet (4G, Wifi khác nhà)
 const PEER_CONFIG = {
@@ -41,12 +50,16 @@ export class NetworkRoom {
         this.lastSnapshotSeq = 0;
         this.stopTicker = null;
         this.fillBots = false; // Mặc định không tự phân bổ Bot
+        this.dbChannel = null; // Kênh Supabase Realtime đồng bộ trạng thái phòng
     }
 
     toggleFillBots() {
         if (!this.host) return;
         this.fillBots = !this.fillBots;
         this.broadcastRoster();
+        if (this.code) {
+            updateDbRoomRoster(this.code, { fillBots: this.fillBots });
+        }
     }
 
     setTeam(team) {
@@ -58,9 +71,24 @@ export class NetworkRoom {
                 if (teamCount < 4) {
                     me.team = targetTeam;
                     this.broadcastRoster();
+                    if (this.code) {
+                        updateDbRoomRoster(this.code, { players: this.players });
+                    }
                 }
             }
         } else {
+            const me = this.players.find(p => p.id === this.playerId);
+            if (me) {
+                const targetTeam = team === 'red' ? 'red' : 'blue';
+                const teamCount = this.players.filter(p => p.team === targetTeam && p.id !== this.playerId).length;
+                if (teamCount < 4) {
+                    me.team = targetTeam;
+                    this.updateRoster(this.players);
+                    if (this.code) {
+                        updateDbRoomRoster(this.code, { players: this.players });
+                    }
+                }
+            }
             if (this.conn && this.conn.open) {
                 this.conn.send({ type: 'set_team', team });
             }
@@ -78,11 +106,61 @@ export class NetworkRoom {
     }
 
     async create(name, character = 'police') {
-        return new Promise((resolve, reject) => {
-            const code = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const code = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const hostTeam = this.game.selectedTDMTeam || 'blue';
+        const mode = this.game.selectedGameMode || 'TDM';
+
+        // 1. Lưu phòng vào Supabase Database
+        try {
+            await createDbRoom({
+                code,
+                hostName: name,
+                character,
+                team: hostTeam,
+                weapon: this.game.weapons?.startingWeaponId,
+                loadout: this.game.getLoadout?.(),
+                mode,
+                fillBots: this.fillBots
+            });
+        } catch (err) {
+            console.warn('[NetworkHost] Cảnh báo lưu phòng DB:', err);
+        }
+
+        // 2. Lắng nghe thay đổi phòng qua Supabase Realtime
+        if (this.dbChannel) {
+            unsubscribeDbRoom(this.dbChannel);
+            this.dbChannel = null;
+        }
+        this.dbChannel = subscribeDbRoom(
+            code,
+            (updatedRecord) => {
+                if (!this.active || !this.host) return;
+                if (Array.isArray(updatedRecord.players)) {
+                    let hasChange = false;
+                    for (const p of updatedRecord.players) {
+                        const existing = this.players.find(pl => pl.id === p.id);
+                        if (!existing) {
+                            this.players.push(p);
+                            hasChange = true;
+                        } else if (existing.team !== p.team || existing.character !== p.character) {
+                            existing.team = p.team;
+                            existing.character = p.character;
+                            hasChange = true;
+                        }
+                    }
+                    if (hasChange) {
+                        this.broadcastRoster();
+                    }
+                }
+            },
+            () => {}
+        );
+
+        // 3. Khởi tạo PeerJS để đồng bộ mô phỏng chuyển động tốc độ cao trong trận
+        return new Promise((resolve) => {
             this.peer = new window.Peer('gungun-room-' + code, PEER_CONFIG);
             
-            this.peer.on('open', (id) => {
+            const activateHost = () => {
                 this.active = true;
                 this.host = true;
                 this.code = code;
@@ -91,21 +169,26 @@ export class NetworkRoom {
                 this.epoch = Date.now();
                 this.connections = [];
                 this.fillBots = false;
-                const hostTeam = this.game.selectedTDMTeam || 'blue';
                 this.players = [{ id: 'host', name, character, team: hostTeam, weapon: this.game.weapons.startingWeaponId }];
                 
                 this.game.player.setCharacter(character);
                 this.game.player.cooperative = true;
                 this.game.weapons.onCommand = null;
-                const mode = this.game.selectedGameMode || 'TDM';
                 const roomData = { code, host: 'host', you: 'host', players: this.players, fillBots: this.fillBots, isHost: true, mode };
                 this.game.showRoomState(roomData);
                 this.startTicker();
                 resolve(roomData);
+            };
+
+            this.peer.on('open', () => {
+                activateHost();
             });
 
             this.peer.on('error', (err) => {
-                reject(new Error("Không thể tạo phòng, có thể lỗi mạng: " + err.message));
+                console.warn('[NetworkHost] Cảnh báo PeerJS, tiếp tục với DB Room:', err.message);
+                if (!this.active) {
+                    activateHost();
+                }
             });
             
             this.peer.on('connection', (conn) => {
@@ -168,7 +251,6 @@ export class NetworkRoom {
                         if (!Number.isSafeInteger(data.inputSeq) || data.inputSeq <= (clientState.inputSeq || 0)) return;
                         clientState.inputSeq = data.inputSeq;
                         clientState.input = data.input;
-                        // Apply immediately, even if the host is not rendering.
                         this.applyInputs({ [pId]: data.input });
                         if (data.commands && data.commands.length > 0) {
                             this.applyCommands([{ player: pId, commands: data.commands }]);
@@ -195,59 +277,119 @@ export class NetworkRoom {
         }
         this.updateRoster(this.players);
         this.game.showRoomState({ code: this.code, host: 'host', you: 'host', players: this.players, fillBots: this.fillBots, isHost: true, mode });
+        if (this.code && this.host) {
+            updateDbRoomRoster(this.code, { players: this.players, fillBots: this.fillBots, mode });
+        }
     }
 
     async join(code, name, character = 'police') {
-        return new Promise((resolve, reject) => {
-            code = code.toUpperCase();
-            this.peer = new window.Peer(PEER_CONFIG);
-            
-            this.peer.on('open', (id) => {
-                this.conn = this.peer.connect('gungun-room-' + code, { reliable: true });
-                
-                this.conn.on('open', () => {
-                    const myTeam = this.game.selectedTDMTeam || 'red';
-                    this.conn.send({ type: 'join', protocol: PROTOCOL_VERSION, name, character, team: myTeam, weapon: this.game.weapons.startingWeaponId, loadout: this.game.getLoadout?.() });
+        code = (code || '').trim().toUpperCase();
+        if (!code) {
+            throw new Error('Vui lòng nhập mã phòng hợp lệ.');
+        }
+
+        // 1. Kiểm tra phòng và ghi danh trên cơ sở dữ liệu Supabase
+        const dbResult = await joinDbRoom({
+            code,
+            playerName: name,
+            character,
+            team: this.game.selectedTDMTeam || 'red',
+            weapon: this.game.weapons?.startingWeaponId,
+            loadout: this.game.getLoadout?.()
+        });
+
+        const myPlayerId = dbResult.player.id;
+        this.active = true;
+        this.host = false;
+        this.code = code;
+        this.playerId = myPlayerId;
+        this.startedEpoch = null;
+        this.epoch = dbResult.room.epoch || Date.now();
+        this.fillBots = !!dbResult.room.fill_bots;
+        if (dbResult.room.mode) this.game.selectedGameMode = dbResult.room.mode;
+
+        this.game.player.setCharacter(character);
+        this.game.player.cooperative = true;
+        this.game.weapons.onCommand = (cmd) => this.sendCommand(cmd);
+
+        this.players = dbResult.room.players || [];
+        this.updateRoster(this.players);
+        const roomData = {
+            code,
+            host: dbResult.room.host_id || 'host',
+            you: myPlayerId,
+            players: this.players,
+            fillBots: this.fillBots,
+            isHost: false,
+            mode: dbResult.room.mode || 'TDM'
+        };
+        this.game.showRoomState(roomData);
+        this.startTicker();
+
+        // 2. Lắng nghe cập nhật phòng thời gian thực qua Supabase Realtime
+        if (this.dbChannel) {
+            unsubscribeDbRoom(this.dbChannel);
+            this.dbChannel = null;
+        }
+        this.dbChannel = subscribeDbRoom(
+            code,
+            (updatedRecord) => {
+                if (!this.active || this.host) return;
+                this.fillBots = !!updatedRecord.fill_bots;
+                if (updatedRecord.mode) this.game.selectedGameMode = updatedRecord.mode;
+                if (Array.isArray(updatedRecord.players)) {
+                    this.players = updatedRecord.players;
+                    this.updateRoster(this.players);
+                }
+                if (updatedRecord.status === 'playing' && this.startedEpoch === null) {
+                    this.beginMatch(updatedRecord.epoch, updatedRecord);
+                }
+                this.game.showRoomState({
+                    code: this.code,
+                    host: updatedRecord.host_id || 'host',
+                    you: this.playerId,
+                    players: this.players,
+                    fillBots: this.fillBots,
+                    isHost: false,
+                    mode: updatedRecord.mode || 'TDM'
                 });
-                
+            },
+            () => {
+                this.handleHostDisconnect();
+            }
+        );
+
+        // 3. Khởi tạo PeerJS để đồng bộ mô phỏng chuyển động trong trận
+        try {
+            this.peer = new window.Peer(PEER_CONFIG);
+            this.peer.on('open', () => {
+                this.conn = this.peer.connect('gungun-room-' + code, { reliable: true });
+                this.conn.on('open', () => {
+                    const myTeam = dbResult.player.team || 'red';
+                    this.conn.send({
+                        type: 'join',
+                        protocol: PROTOCOL_VERSION,
+                        name,
+                        character,
+                        team: myTeam,
+                        weapon: this.game.weapons.startingWeaponId,
+                        loadout: this.game.getLoadout?.()
+                    });
+                });
+
                 this.conn.on('data', (data) => {
                     if (data.type === 'reject') {
                         this.game.showRoomError(data.reason || 'Không thể vào phòng!');
-                        reject(new Error(data.reason || 'Phòng đã đầy!'));
                         return;
                     }
                     if (data.type === 'accept') {
-                        if (data.protocol !== PROTOCOL_VERSION) {
-                            const reason = 'Khác phiên bản game. Hãy tải lại trang trên tất cả máy rồi tạo phòng mới.';
-                            this.game.showRoomError(reason);
-                            reject(new Error(reason));
-                            this.conn.close();
-                            this.peer.destroy();
-                            return;
-                        }
-                        this.active = true;
-                        this.host = false;
-                        this.code = code;
-                        this.playerId = data.you;
-                        this.startedEpoch = null;
-                        this.epoch = data.epoch;
-                        this.fillBots = !!data.fillBots;
                         if (data.mode) this.game.selectedGameMode = data.mode;
-                        
-                        this.game.player.setCharacter(character);
-                        this.game.player.cooperative = true;
-                        this.game.weapons.onCommand = (cmd) => this.sendCommand(cmd);
-                        
+                        this.fillBots = !!data.fillBots;
                         this.updateRoster(data.players || []);
-                        const roomData = { code, host: data.host || 'host', you: data.you, players: data.players || [], fillBots: this.fillBots, isHost: false, mode: data.mode || 'TDM' };
-                        this.game.showRoomState(roomData);
-                        this.startTicker();
-                        resolve(roomData);
                     } else if (data.type === 'roster') {
                         this.fillBots = !!data.fillBots;
                         if (data.mode) this.game.selectedGameMode = data.mode;
                         this.updateRoster(data.players || []);
-                        this.game.showRoomState({ code: this.code, host: data.host || 'host', you: this.playerId, players: data.players || [], fillBots: this.fillBots, isHost: false, mode: data.mode || 'TDM' });
                     } else if (data.type === 'start') {
                         this.beginMatch(data.epoch, data);
                     } else if (data.type === 'snapshot') {
@@ -258,22 +400,27 @@ export class NetworkRoom {
                         try {
                             this.game.applyCoopSnapshot(data.snapshot, this.playerId);
                         } catch (err) {
-                            console.warn('[NetworkClient] Lỗi khi áp dụng snapshot:', err);
+                            console.warn('[NetworkClient] Lỗi áp dụng snapshot:', err);
                         }
                         if (data.ack) {
                             this.pendingCommands = this.pendingCommands.filter(c => c.seq > data.ack);
                         }
                     }
                 });
-                
+
                 this.conn.on('close', () => {
                     this.handleHostDisconnect();
                 });
-                
-                this.conn.on('error', (err) => reject(new Error("Lỗi kết nối: " + err.message)));
             });
-            this.peer.on('error', (err) => reject(new Error("Lỗi mạng PeerJS: " + err.message)));
-        });
+
+            this.peer.on('error', (err) => {
+                console.warn('[NetworkClient] Cảnh báo kết nối PeerJS (vẫn duy trì DB Room):', err.message);
+            });
+        } catch (e) {
+            console.warn('[NetworkClient] Ngoại lệ PeerJS:', e);
+        }
+
+        return roomData;
     }
 
     beginMatch(epoch, config = {}) {
@@ -317,6 +464,9 @@ export class NetworkRoom {
 
         for (const c of this.connections) { c.input = {}; c.ack = 0; c.inputSeq = 0; c.events = []; }
         this.game.showRoomState({ code: this.code, host: 'host', you: 'host', players: this.players, fillBots: this.fillBots, isHost: true, started: true });
+        if (this.code) {
+            startDbRoom(this.code, this.epoch);
+        }
 
         const data = { type: 'start', epoch: this.epoch, mode, firstPerson, fillBots: this.fillBots, players: this.players };
         for (const c of this.connections) {
@@ -560,9 +710,22 @@ export class NetworkRoom {
             if (hostPlayer) {
                 hostPlayer.character = character;
                 this.broadcastRoster();
+                if (this.code) {
+                    updateDbRoomRoster(this.code, { players: this.players });
+                }
             }
-        } else if (this.conn && this.conn.open) {
-            this.conn.send({ type: 'character', character });
+        } else {
+            const me = this.players.find(p => p.id === this.playerId);
+            if (me) {
+                me.character = character;
+                this.updateRoster(this.players);
+                if (this.code) {
+                    updateDbRoomRoster(this.code, { players: this.players });
+                }
+            }
+            if (this.conn && this.conn.open) {
+                this.conn.send({ type: 'character', character });
+            }
         }
     }
 
@@ -783,15 +946,24 @@ export class NetworkRoom {
         this.stopTicker?.();
         this.stopTicker = null;
         if (!this.active) return;
+        const currentCode = this.code;
+        const currentPid = this.playerId;
         this.active = false;
         this.startedEpoch = null;
         this.pendingCommands = [];
         this.seq = 0;
         this.game.weapons.onCommand = null;
-        if (this.conn) this.conn.close();
-        if (this.peer) this.peer.destroy();
+        if (this.conn) { try { this.conn.close(); } catch {} }
+        if (this.peer) { try { this.peer.destroy(); } catch {} }
         this.connections = [];
         this.players = [];
+        if (this.dbChannel) {
+            unsubscribeDbRoom(this.dbChannel);
+            this.dbChannel = null;
+        }
+        if (currentCode && currentPid) {
+            leaveDbRoom(currentCode, currentPid);
+        }
         this.game.resetRoomUI?.();
     }
 }

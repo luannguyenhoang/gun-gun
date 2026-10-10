@@ -1052,7 +1052,18 @@
                 <div class="share-link-row" id="share-link-row" hidden><input id="share-link" readonly aria-label="Liên kết mời bạn"><button id="copy-link" class="toy-button blue">COPY</button></div>
                 <label class="eyebrow" for="room-code">HOẶC VÀO PHÒNG CỦA BẠN BÈ</label>
                 <div class="join-row"><input id="room-code" maxlength="6" placeholder="MÃ PHÒNG" autocomplete="off"><button id="room-join" class="toy-button orange">VÀO</button></div>
-                <p id="room-status" role="status">Tạo phòng và gửi liên kết để rủ bạn cùng chiến đấu. Tối đa 4 người.</p>
+                <p id="room-status" role="status">Tạo phòng và gửi liên kết để rủ bạn cùng chiến đấu. Tối đa 8 người.</p>
+
+                <!-- DANH SÁCH PHÒNG CÔNG KHAI ĐANG MỞ TRÊN HỆ THỐNG -->
+                <div class="public-rooms-section" id="public-rooms-section" style="margin-top: 14px;">
+                  <div class="friends-sub-title" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>PHÒNG ĐANG MỞ TRÊN HỆ THỐNG</span>
+                    <button type="button" id="btn-refresh-rooms" class="text-button" style="font-size: 11px; cursor: pointer; color: #ffbe3b;">LÀM MỚI</button>
+                  </div>
+                  <div id="public-rooms-list" class="friends-list-container" style="max-height: 180px; overflow-y: auto;">
+                    <div class="friends-empty-hint">Chưa có phòng nào đang mở. Hãy tạo phòng mới!</div>
+                  </div>
+                </div>
               </div>
             </section>
             <section data-panel="profile" hidden>
