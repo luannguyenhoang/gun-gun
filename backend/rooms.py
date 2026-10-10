@@ -84,6 +84,7 @@ class RoomService:
                 room['players'][player['id']] = player
                 return {**self.public(room, player), 'token': player['token']}
             room, player = self.authorize(data)
+            is_host = player['id'] == room['host']
             if action == 'leave':
                 del room['players'][player['id']]
                 if is_host:

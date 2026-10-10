@@ -3,6 +3,7 @@ import { CharacterShowroom } from './showroom.js?v=51';
 import { CHARACTER_CONFIGS, isCharacterUnlocked } from '../gameplay/player/characters.js';
 import { getStartingWeapon } from '../gameplay/combat/weapons.js?v=32';
 import { initAuth, signIn, signUp, signInWithGoogle, signOut, onAuthStateChange, applyProfileProgressToGame, resetGameProgressToGuest, refreshCurrentProfile } from '../network/auth.js?v=49';
+import { listPublicRooms } from '../network/supabase-room.js?v=1';
 import {
     initFriendsSystem,
     cleanupFriendsSystem,
@@ -432,11 +433,77 @@ export class HomeMenu {
             if (this.panelFriendsSocial) this.panelFriendsSocial.style.display = 'block';
             if (this.panelFriendsRoom) this.panelFriendsRoom.style.display = 'none';
         });
+        // Hàm tải và hiển thị danh sách phòng công khai đang mở
+        const renderPublicRoomsUI = async () => {
+            const listEl = document.getElementById('public-rooms-list');
+            if (!listEl) return;
+            listEl.innerHTML = '<div class="friends-empty-hint">Đang tải danh sách phòng...</div>';
+            try {
+                const rooms = await listPublicRooms();
+                listEl.replaceChildren();
+                if (!rooms || rooms.length === 0) {
+                    const empty = document.createElement('div');
+                    empty.className = 'friends-empty-hint';
+                    empty.textContent = 'Chưa có phòng nào đang mở. Hãy tạo phòng mới!';
+                    listEl.appendChild(empty);
+                    return;
+                }
+                for (const r of rooms) {
+                    const card = document.createElement('div');
+                    card.className = 'friend-item-card';
+
+                    const left = document.createElement('div');
+                    left.className = 'friend-info-left';
+
+                    const avatar = document.createElement('div');
+                    avatar.className = 'friend-avatar';
+                    avatar.textContent = (r.host_name || '★').charAt(0).toUpperCase();
+
+                    const meta = document.createElement('div');
+                    meta.className = 'friend-meta';
+
+                    const title = document.createElement('strong');
+                    title.textContent = `PHÒNG ${r.code}`;
+
+                    const sub = document.createElement('small');
+                    const playersCount = (r.players || []).length;
+                    const max = r.max_players || 8;
+                    sub.textContent = `${r.host_name || 'Chủ phòng'} · ${r.mode || 'TDM'} · ${playersCount}/${max} người`;
+
+                    meta.append(title, sub);
+                    left.append(avatar, meta);
+
+                    const right = document.createElement('div');
+                    right.className = 'friend-actions-right';
+
+                    const btnJoin = document.createElement('button');
+                    btnJoin.className = 'toy-button orange btn-friend-invite';
+                    btnJoin.textContent = 'VÀO NGAY';
+                    btnJoin.addEventListener('click', () => {
+                        this.game.roomCode.value = r.code;
+                        this.game.roomJoin.click();
+                    });
+                    right.appendChild(btnJoin);
+
+                    card.append(left, right);
+                    listEl.appendChild(card);
+                }
+            } catch (err) {
+                console.warn('[HomeMenu] Lỗi tải danh sách phòng:', err);
+                listEl.innerHTML = '<div class="friends-empty-hint">Không thể tải danh sách phòng lúc này.</div>';
+            }
+        };
+
         this.tabRoomP2p?.addEventListener('click', () => {
             this.tabRoomP2p.classList.add('active');
             this.tabFriendsList?.classList.remove('active');
             if (this.panelFriendsRoom) this.panelFriendsRoom.style.display = 'block';
             if (this.panelFriendsSocial) this.panelFriendsSocial.style.display = 'none';
+            renderPublicRoomsUI();
+        });
+
+        document.getElementById('btn-refresh-rooms')?.addEventListener('click', () => {
+            renderPublicRoomsUI();
         });
 
         // Nút chuyển sang Đăng nhập từ cảnh báo khách
