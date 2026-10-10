@@ -46,20 +46,55 @@
 #screen-menu #room-lobby { position:absolute; inset:92px 9% 124px 31%; z-index:1; pointer-events:none; }
 #screen-menu #room-lobby::before { bottom:5%; left:25%; right:25%; height:10%; opacity:.16; filter:blur(16px); }
 #screen-menu .home-equipped,#screen-menu .invite-button,#screen-menu .home-side-dock { display:none; }
-#screen-menu .home-footer { position:absolute; inset:auto auto 38px 61%; width:464px; transform:translateX(-50%); z-index:4; }
-#screen-menu .play-area { --control-height:62px; display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:stretch; width:100%; }
-#screen-menu .mode-card { display:flex; flex-direction:column; width:auto; min-width:0; min-height:var(--control-height); border:1px solid #6c587b; border-radius:13px; background:linear-gradient(#8b779a,#756183); box-shadow:inset 0 1px #ffffff4d,0 3px 0 #68526f,0 5px 10px #593d3920; font-family:var(--toy-font); text-shadow:none; }
-#screen-menu .mode-ribbon,#screen-menu .mode-dropdown-arrow { display:none; }
-#screen-menu .mode-content { display:flex; align-items:center; flex:1; gap:11px; min-height:0; margin:0; padding:10px 14px; border:0; border-radius:0; background:none; }
-#screen-menu .mode-content > .mode-icon { display:block; width:31px; height:31px; flex:0 0 31px; padding:0; border:0; border-radius:0; background:none; box-shadow:none; }
-.mode-titles { display:flex; flex-direction:column; gap:2px; }
-#screen-menu .mode-titles strong { color:#fff6ef; font:850 15px/19px var(--toy-font); letter-spacing:.2px; }
-#screen-menu .mode-titles small { color:#e0d6e6; font:600 10px/14px var(--toy-font); letter-spacing:0; white-space:nowrap; }
-#screen-menu .play-area .play-button,#screen-menu .play-area #btn-start { display:grid; place-items:center; position:relative; width:100%; height:100%; min-height:var(--control-height); max-width:none; margin:0; padding:0 18px; border:1px solid #fff2be; border-radius:13px; background:linear-gradient(#ffe3a0,#ffc576); box-shadow:inset 0 2px #fff6d4,0 3px 0 #bd8051,0 7px 15px #a7673426; color:#5a3425; font:900 28px/1 var(--toy-font); letter-spacing:.8px; text-shadow:0 1px #ffe5b0; -webkit-text-stroke:0; }
-#screen-menu .play-button::after { content:none; }
-#screen-menu #room-start { font-size:23px; }
-#screen-menu .leave-button { position:absolute; bottom:calc(100% + 14px); right:0; width:130px; min-height:34px; font-size:11px; }
-#screen-menu #guest-wait { margin:0; min-height:var(--control-height); padding:12px; font:700 12px/1.5 var(--toy-font); }
+#screen-menu .home-footer { position:absolute; right:36px; bottom:28px; left:auto; top:auto; width:auto; max-width:none; transform:none; display:flex; align-items:flex-end; justify-content:flex-end; gap:16px; z-index:6; }
+#screen-menu .play-wrapper { display:flex; flex-direction:row; align-items:stretch; justify-content:flex-end; width:auto; min-width:0; max-width:none; margin:0; padding:0; }
+#screen-menu .play-area { --control-height:96px; display:flex; flex-direction:row; gap:16px; align-items:stretch; justify-content:flex-end; width:auto; min-width:0; max-width:none; }
+
+/* Mode Card: Chế độ chơi (Rộng rãi 320px, hiển thị đầy đủ tiêu đề và huy hiệu) */
+#screen-menu .mode-card { display:flex; flex-direction:column; width:320px; min-width:320px; flex:0 0 320px; min-height:var(--control-height); height:var(--control-height); box-sizing:border-box; border:2px solid #5a4576; border-radius:20px; background:linear-gradient(180deg, #3d2f4d 0%, #281d36 100%); box-shadow:inset 0 1px 0 rgba(255,255,255,0.25), 0 6px 0 #1b1325, 0 14px 28px rgba(0,0,0,0.45); font-family:var(--toy-font); text-shadow:none; cursor:pointer; overflow:hidden; transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease; user-select:none; }
+#screen-menu .mode-card:hover { transform:translateY(-3px); border-color:#a855f7; box-shadow:inset 0 1px 0 rgba(255,255,255,0.35), 0 8px 0 #1b1325, 0 18px 32px rgba(168,85,247,0.4); }
+#screen-menu .mode-card:active { transform:translateY(2px); box-shadow:inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 0 #1b1325; }
+#screen-menu .mode-ribbon { display:flex; justify-content:space-between; align-items:center; padding:6px 14px; background:rgba(0,0,0,0.35); border-bottom:1px solid rgba(255,255,255,0.08); font-size:11px; font-weight:900; letter-spacing:.8px; color:#c4b5fd; text-transform:uppercase; }
+#screen-menu .mode-change-hint { font-size:10px; background:rgba(168,85,247,0.35); padding:2px 8px; border-radius:6px; color:#f3e8ff; border:1px solid rgba(168,85,247,0.5); }
+#screen-menu .mode-content { display:flex; align-items:center; flex:1; gap:14px; min-height:0; margin:0; padding:10px 16px; border:0; border-radius:0; background:none; }
+#screen-menu .mode-icon-box { width:48px; height:48px; border-radius:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.16); display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:inset 0 2px 4px rgba(0,0,0,0.4); }
+#screen-menu .mode-icon-box img { width:34px; height:34px; display:block; }
+#screen-menu .mode-titles { display:flex; flex-direction:column; gap:5px; min-width:0; flex:1; }
+#screen-menu .mode-titles strong { color:#ffffff; font:1000 19px/1.2 var(--toy-font); letter-spacing:.3px; white-space:nowrap; text-shadow:0 2px 4px rgba(0,0,0,0.7); }
+#screen-menu .mode-badges { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+#screen-menu .mode-badge-pill { font-size:10px; font-weight:900; padding:3px 8px; border-radius:6px; letter-spacing:.4px; text-transform:uppercase; line-height:1.2; box-shadow:0 1px 3px rgba(0,0,0,0.3); }
+#screen-menu .mode-badge-pill.blue { background:#0284c7; color:#ffffff; border:1px solid #38bdf8; }
+#screen-menu .mode-badge-pill.red { background:#dc2626; color:#ffffff; border:1px solid #f87171; }
+#screen-menu .mode-badge-pill.green { background:#16a34a; color:#ffffff; border:1px solid #4ade80; }
+#screen-menu .mode-badge-pill.purple { background:#7c3aed; color:#ffffff; border:1px solid #a78bfa; }
+#screen-menu .mode-badge-pill.gray { background:rgba(255,255,255,0.18); color:#f1f5f9; border:1px solid rgba(255,255,255,0.22); }
+
+/* Play buttons: 3D Toy Style (To lớn, hoành tráng) */
+#screen-menu .play-area .play-button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; position:relative; width:190px; min-width:190px; flex:0 0 190px; height:var(--control-height); min-height:var(--control-height); box-sizing:border-box; max-width:none; margin:0; padding:10px 16px; border-radius:20px; cursor:pointer; user-select:none; transition:transform .15s ease, box-shadow .15s ease; text-decoration:none; }
+#screen-menu .play-area .play-button .btn-subtext { font-size:11px; font-weight:900; letter-spacing:1px; line-height:1; text-transform:uppercase; opacity:.95; }
+#screen-menu .play-area .play-button .btn-maintext { font:1000 28px/1 var(--toy-font); letter-spacing:.6px; text-transform:uppercase; }
+
+/* CHƠI ĐƠN (Hổ Phách Vàng Rực Rỡ) */
+#screen-menu .play-area .play-solo-btn { border:2px solid #5a2603; background:linear-gradient(180deg, #ffe066 0%, #f59e0b 52%, #d97706 100%); box-shadow:inset 0 2px 0 rgba(255,255,255,0.7), inset 0 -4px 0 rgba(0,0,0,0.22), 0 6px 0 #5a2603, 0 14px 28px rgba(245,158,11,0.42); }
+#screen-menu .play-area .play-solo-btn:hover { transform:translateY(-3px); box-shadow:inset 0 2px 0 rgba(255,255,255,0.8), inset 0 -4px 0 rgba(0,0,0,0.22), 0 8px 0 #5a2603, 0 18px 32px rgba(245,158,11,0.55); }
+#screen-menu .play-area .play-solo-btn:active { transform:translateY(3px); box-shadow:inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -2px 0 rgba(0,0,0,0.15), 0 2px 0 #5a2603, 0 4px 10px rgba(0,0,0,0.2); }
+#screen-menu .play-area .play-solo-btn .btn-subtext { color:#451a03; text-shadow:0 1px 0 rgba(255,255,255,0.5); }
+#screen-menu .play-area .play-solo-btn .btn-maintext { color:#ffffff; text-shadow:0 2px 0 #78350f, 0 3px 6px rgba(0,0,0,0.45); }
+
+/* CHƠI ĐỘI (Xanh Dương Hoàng Gia) */
+#screen-menu .play-area .play-party-btn { border:2px solid #0f172a; background:linear-gradient(180deg, #38bdf8 0%, #2563eb 52%, #1d4ed8 100%); box-shadow:inset 0 2px 0 rgba(255,255,255,0.7), inset 0 -4px 0 rgba(0,0,0,0.25), 0 6px 0 #0f172a, 0 14px 28px rgba(37,99,235,0.45); }
+#screen-menu .play-area .play-party-btn:hover { transform:translateY(-3px); box-shadow:inset 0 2px 0 rgba(255,255,255,0.8), inset 0 -4px 0 rgba(0,0,0,0.25), 0 8px 0 #0f172a, 0 18px 32px rgba(37,99,235,0.6); }
+#screen-menu .play-area .play-party-btn:active { transform:translateY(3px); box-shadow:inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -2px 0 rgba(0,0,0,0.18), 0 2px 0 #0f172a, 0 4px 10px rgba(0,0,0,0.2); }
+#screen-menu .play-area .play-party-btn .btn-subtext { color:#dbeafe; text-shadow:0 1px 2px rgba(0,0,0,0.5); }
+#screen-menu .play-area .play-party-btn .btn-maintext { color:#ffffff; text-shadow:0 2px 0 #1e3a8a, 0 3px 6px rgba(0,0,0,0.45); }
+
+/* Trạng thái sảnh chờ phòng */
+#screen-menu.party-menu .play-area { display:flex; justify-content:flex-end; gap:14px; }
+#screen-menu.party-menu .play-solo-btn, #screen-menu.party-menu .play-party-btn { display:none!important; }
+#screen-menu #room-start { display:none!important; font-size:26px; min-width:190px; border-radius:20px; }
+#screen-menu.party-menu #room-start { display:flex!important; }
+#screen-menu .leave-button { position:relative; bottom:auto; right:auto; width:auto; min-width:140px; min-height:var(--control-height); font-size:15px; border-radius:20px; }
+#screen-menu #guest-wait { margin:0; min-height:var(--control-height); padding:14px; font:700 13px/1.5 var(--toy-font); }
 #screen-menu.party-menu #room-lobby { inset:120px 3% 140px 25%; pointer-events:auto; }
 #screen-menu.party-menu .home-intro { display:none; }
 #screen-menu.party-menu .home-nav { display:flex; }

@@ -21,15 +21,14 @@
 #screen-menu .home-equipped strong, #screen-menu .home-equipped b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #screen-menu .home-equipped:hover { transform: translateX(-50%) translateY(-2px); background: #fff2df; }
 #screen-menu .invite-button { border-radius: 18px; }
-#screen-menu .home-footer { align-items: end; gap: 20px; }
-#screen-menu .play-area { grid-template-columns: minmax(0,1fr) minmax(0,1fr); width: 56%; gap: 16px; }
-#screen-menu .mode-card { min-width: 0; border-radius: 17px; overflow: hidden; }
-#screen-menu .mode-ribbon { text-align: left; font-size: 10px; padding: 6px 12px; }
-#screen-menu .mode-content { min-height: 58px; }
-#screen-menu .mode-content small { color: #d5f4bb; }
-#screen-menu .play-button { min-height: 91px; font-size: clamp(28px,3vw,44px); border-radius: 18px; }
-#screen-menu .leave-button { width: calc(50% - 8px); border-radius: 13px; min-height: 36px; }
+#screen-menu .home-footer { align-items: flex-end; }
+#screen-menu .mode-card { border-radius: 20px; cursor: pointer; }
+
+#screen-menu .leave-button { width: auto; min-width: 120px; border-radius: 13px; min-height: 36px; }
 #screen-menu #guest-wait { padding: 14px; border: 2px solid #a988ae; border-radius: 18px; background: #624f77; color: #fff3ce; font-size: 14px; line-height: 1.5; }
+#screen-menu.party-menu .play-area { display: flex; justify-content: flex-end; width: auto; gap: 12px; }
+#screen-menu.party-menu .play-solo-btn, #screen-menu.party-menu .play-party-btn { display: none !important; }
+#screen-menu.party-menu #room-start { min-width: 170px; }
 #screen-menu.party-menu .home-nav { display: grid; }
 #screen-menu.party-menu #room-lobby { inset: 18% 3% 26% 27%; }
 #screen-menu.party-menu .invite-button { top: 16%; right: 5%; }
@@ -56,7 +55,6 @@
   #screen-menu .nav-tile { width: 120px; font-size: 10px; }
   #screen-menu .home-equipped { left: 66%; max-width: 290px; }
   #screen-menu .home-equipped strong { font-size: 12px; }
-  #screen-menu .play-area { width: 62%; }
   #screen-menu .record-button { padding: 10px; font-size: 15px; }
   #screen-menu .record-button small { font-size: 8px; }
   #screen-menu.party-menu #room-lobby { left: 30%; }

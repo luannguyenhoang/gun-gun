@@ -179,6 +179,7 @@ class CyberArenaGame {
         this.hud = document.getElementById('hud');
 
         this.btnStart = document.getElementById('btn-start');
+        this.btnStartParty = document.getElementById('btn-start-party');
         this.btnResume = document.getElementById('btn-resume');
         this.btnRestartPause = document.getElementById('btn-restart-pause');
         this.btnRestartOver = document.getElementById('btn-restart-gameover');
@@ -226,6 +227,11 @@ class CyberArenaGame {
                 } else {
                     this.startGame();
                 }
+            });
+        }
+        if (this.btnStartParty) {
+            this.btnStartParty.addEventListener('click', () => {
+                this.createRoom();
             });
         }
         if (this.btnResume) {
@@ -874,6 +880,7 @@ class CyberArenaGame {
         if (this.roomCreate) this.roomCreate.disabled = true;
         if (this.roomJoin) this.roomJoin.disabled = true;
         if (this.btnStart) this.btnStart.style.display = 'none';
+        if (this.btnStartParty) this.btnStartParty.style.display = 'none';
         
         if (data.code) {
             const newUrl = window.location.pathname + '?room=' + data.code;
@@ -891,7 +898,8 @@ class CyberArenaGame {
         if (this.roomLeave) this.roomLeave.style.display = 'none';
         if (this.roomCreate) this.roomCreate.disabled = false;
         if (this.roomJoin) this.roomJoin.disabled = false;
-        if (this.btnStart) this.btnStart.style.display = 'inline-block';
+        if (this.btnStart) this.btnStart.style.display = '';
+        if (this.btnStartParty) this.btnStartParty.style.display = '';
         this.characterOptions?.forEach(option => { option.disabled = false; });
         
         window.history.replaceState(null, '', window.location.pathname);

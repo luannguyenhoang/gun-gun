@@ -11,8 +11,8 @@
     <link rel="stylesheet" href="styles/style.css">
     <link rel="stylesheet" href="styles/zappets.css?v=2"><link rel="stylesheet" href="styles/combat.css?v=44"><link rel="stylesheet" href="styles/showroom.css?v=47">
     <link rel="stylesheet" href="styles/ux.css?v=3">
-    <link rel="stylesheet" href="styles/home-polish.css?v=1">
-    <link rel="stylesheet" href="styles/home-reference.css?v=13">
+    <link rel="stylesheet" href="styles/home-polish.css?v=2">
+    <link rel="stylesheet" href="styles/home-reference.css?v=16">
     <style>
       #armory-grid-section { display: none; }
       .weapon-mode #character-cards { display: none !important; }
@@ -897,46 +897,42 @@
 
         <footer class="home-footer">
           <div class="play-wrapper">
-            <!-- Thanh chọn nhanh Chế độ chơi trực quan tại sảnh chính -->
-            <div class="lobby-mode-bar" id="lobby-mode-bar">
-              <div class="mode-tabs">
-                <button type="button" class="mode-tab-btn active" data-mode="SURVIVAL" id="mode-tab-survival">
-                  <span class="tab-badge">SINH TỒN</span>
-                  <strong>VÔ TẬN ZOMBIE</strong>
-                </button>
-                <button type="button" class="mode-tab-btn" data-mode="TDM" id="mode-tab-tdm">
-                  <span class="tab-badge hot">HOT · 4V4</span>
-                  <strong>ĐỐI KHÁNG TDM</strong>
-                </button>
-              </div>
-              <!-- Thanh chọn phe nhanh khi kích hoạt Đối kháng -->
-              <div class="tdm-quick-team" id="tdm-quick-team" style="display:none;">
-                <span class="quick-team-label">CHỌN PHE:</span>
-                <button type="button" class="quick-team-btn blue-btn active" data-team="blue">ĐỘI XANH</button>
-                <button type="button" class="quick-team-btn red-btn" data-team="red">ĐỘI ĐỎ</button>
-              </div>
-              <!-- Thanh điều khiển phân bổ Bot chủ động -->
-              <div class="tdm-bot-bar" id="tdm-bot-bar" style="display:none;">
-                <span class="tdm-bot-label">BOT AI:</span>
-                <button type="button" class="tdm-bot-toggle-btn" id="tdm-bot-toggle-btn">PHÂN BỔ BOT: TẮT</button>
-              </div>
-            </div>
-
-            <div class="play-area">
+            <div class="play-area" id="main-play-area">
               <button id="room-leave" class="toy-button purple leave-button" style="display:none">RỜI PHÒNG</button>
-              <div class="mode-card purple">
-                <div class="mode-ribbon">Chế độ đã chọn</div>
+
+              <!-- Nút Chế độ chơi (Bên cạnh: bấm để mở modal chọn chế độ) -->
+              <div class="mode-card purple" id="btn-mode-card" role="button" tabindex="0" title="Bấm để đổi Chế độ chơi">
+                <div class="mode-ribbon">
+                  <span>CHẾ ĐỘ CHƠI</span>
+                  <span class="mode-change-hint">ĐỔI ▾</span>
+                </div>
                 <div class="mode-content">
-                  <span class="mode-icon" aria-hidden="true"><img class="lobby-png" src="assets/ui/lobby/runtime/skull-blue.png" alt="" aria-hidden="true" draggable="false"></span>
-                  <div class="mode-titles">
-                    <strong>VÔ TẬN</strong>
-                    <small>Đấu trường Zombie</small>
+                  <div class="mode-icon-box">
+                    <img class="lobby-png" id="mode-icon-img" src="assets/ui/lobby/runtime/skull-blue.png" alt="" aria-hidden="true" draggable="false">
                   </div>
-                  <span class="mode-dropdown-arrow" aria-hidden="true"><img class="lobby-png" src="assets/ui/lobby/runtime/sort-button.png" alt="" aria-hidden="true" draggable="false"></span>
+                  <div class="mode-titles">
+                    <strong id="mode-main-title">VÔ TẬN ZOMBIE</strong>
+                    <div class="mode-badges" id="mode-badges-container">
+                      <span class="mode-badge-pill purple">SINH TỒN</span>
+                      <span class="mode-badge-pill gray">ĐẤU TRƯỜNG</span>
+                    </div>
+                  </div>
                 </div>
                 <div id="mode-status" role="status" style="display:none;">CHƠI ĐƠN · SẴN SÀNG</div>
               </div>
-              <button id="btn-start" class="toy-button yellow play-button">CHƠI</button>
+
+              <!-- Nút CHƠI ĐƠN: Trực tiếp vào game luôn -->
+              <button id="btn-start" class="toy-button play-button play-solo-btn" title="Vào trận chiến ngay lập tức">
+                <span class="btn-subtext">CHIẾN ĐẤU SOLO</span>
+                <span class="btn-maintext">CHƠI ĐƠN</span>
+              </button>
+
+              <!-- Nút CHƠI ĐỘI: Mở/vào sảnh chờ tổ đội -->
+              <button id="btn-start-party" class="toy-button play-button play-party-btn" title="Tạo phòng và vào sảnh chờ cùng bạn bè">
+                <span class="btn-subtext">SẢNH CHỜ TỔ ĐỘI</span>
+                <span class="btn-maintext">CHƠI ĐỘI</span>
+              </button>
+
               <button id="room-start" class="toy-button yellow play-button" style="display:none">BẮT ĐẦU</button>
               <div id="guest-wait" role="status" hidden>ĐANG CHỜ CHỦ PHÒNG…</div>
             </div>
@@ -952,8 +948,9 @@
           <button class="dock-btn" data-open="friends" title="Cộng đồng"><img class="lobby-png" src="assets/ui/lobby/runtime/chat-brown.png" alt="" aria-hidden="true" draggable="false">
           </button>
         </aside>
+      </main>
 
-        <dialog id="mode-selector-dialog" class="mode-selector-dialog" aria-labelledby="mode-dialog-title">
+      <dialog id="mode-selector-dialog" class="mode-selector-dialog" aria-labelledby="mode-dialog-title">
           <div class="dialog-header">
             <h2 id="mode-dialog-title">CHỌN CHẾ ĐỘ CHƠI</h2>
             <button type="button" class="toy-button coral close-mode-dialog" aria-label="Đóng">×</button>
@@ -981,7 +978,11 @@
                   <button type="button" class="team-btn red" data-team="red">ĐỘI ĐỎ</button>
                 </div>
               </div>
-              <button type="button" class="toy-button yellow select-mode-btn" data-select-mode="TDM">CHỌN CHẾ ĐỘ NÀY</button>
+              <div class="team-picker" style="margin-top: 10px;">
+                <label>Chế độ Bot AI:</label>
+                <button type="button" class="tdm-bot-toggle-btn" id="tdm-bot-toggle-btn" style="width: 100%; margin-top: 4px;">PHÂN BỔ BOT: TẮT</button>
+              </div>
+              <button type="button" class="toy-button yellow select-mode-btn" data-select-mode="TDM" style="margin-top: 12px;">CHỌN CHẾ ĐỘ NÀY</button>
             </div>
           </div>
         </dialog>
@@ -1151,7 +1152,6 @@
             <section data-panel="records" hidden><p class="eyebrow">ĐIỂM CAO NHẤT TRÊN THIẾT BỊ NÀY</p><div class="record-value">★ <span id="record-score">0</span></div><p>Chiến đấu, sống sót và phá kỷ lục của chính bạn.</p></section>
           </div>
         </dialog>
-      </main>
     </div>
     <dialog id="character-screen" aria-labelledby="character-screen-title">
       <header class="character-header">

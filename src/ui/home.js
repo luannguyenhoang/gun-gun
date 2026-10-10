@@ -102,38 +102,51 @@ export class HomeMenu {
                 btn.classList.toggle('active', btnTeam === team);
             });
 
-            // 4. Cập nhật các nút phe trong hộp thoại modal (nếu có mở)
+            // 4. Cập nhật các nút phe và card active trong hộp thoại modal (nếu có mở)
             const modalTeamBtns = this.modeDialog?.querySelectorAll('.team-btn');
             modalTeamBtns?.forEach(btn => {
                 const btnTeam = btn.dataset.team || 'blue';
                 btn.classList.toggle('active', btnTeam === team);
             });
+            const modeOptionCards = this.modeDialog?.querySelectorAll('.mode-option-card');
+            modeOptionCards?.forEach(card => {
+                card.classList.toggle('active', card.dataset.mode === mode);
+            });
 
             // 5. Cập nhật hiển thị trên thẻ mode-card và nút bắt đầu
+            const modeIconImg = document.getElementById('mode-icon-img');
+            const badgesContainer = document.getElementById('mode-badges-container');
+            const subtextSolo = this.btnStart?.querySelector('.btn-subtext');
+            const subtextParty = this.btnStartParty?.querySelector('.btn-subtext');
+
+            if (subtextSolo) subtextSolo.textContent = 'CHIẾN ĐẤU SOLO';
+            if (subtextParty) subtextParty.textContent = 'SẢNH CHỜ TỔ ĐỘI';
+
             if (mode === 'TDM') {
                 const hasBots = !!this.game.soloFillBots;
                 if (this.modeTitleStrong) this.modeTitleStrong.textContent = hasBots ? 'ĐỐI KHÁNG 4V4' : 'ĐỐI KHÁNG TDM';
-                if (this.modeTitleSmall) {
-                    this.modeTitleSmall.textContent = `Phe: ${team === 'blue' ? 'Đội Xanh' : 'Đội Đỏ'} · ${hasBots ? 'Có Bot' : 'Không Bot'}`;
-                }
                 if (this.modeCard) {
                     this.modeCard.classList.remove('tdm-blue', 'tdm-red');
                     this.modeCard.classList.add(team === 'blue' ? 'tdm-blue' : 'tdm-red');
                 }
-                if (this.btnStart) {
-                    this.btnStart.textContent = hasBots ? 'VÀO TRẬN 4V4' : 'VÀO TRẬN';
-                    this.btnStart.classList.add('tdm-start-btn');
-                    this.btnStart.classList.toggle('red-team-active', team === 'red');
+                if (modeIconImg) modeIconImg.src = 'assets/ui/lobby/runtime/skull-purple.png';
+                if (badgesContainer) {
+                    badgesContainer.innerHTML = `
+                        <span class="mode-badge-pill ${team === 'blue' ? 'blue' : 'red'}">${team === 'blue' ? 'ĐỘI XANH' : 'ĐỘI ĐỎ'}</span>
+                        <span class="mode-badge-pill ${hasBots ? 'green' : 'gray'}">${hasBots ? 'CÓ BOT AI' : 'KHÔNG BOT'}</span>
+                    `;
                 }
             } else {
-                if (this.modeTitleStrong) this.modeTitleStrong.textContent = 'VÔ TẬN';
-                if (this.modeTitleSmall) this.modeTitleSmall.textContent = 'Đấu trường Zombie';
+                if (this.modeTitleStrong) this.modeTitleStrong.textContent = 'VÔ TẬN ZOMBIE';
                 if (this.modeCard) {
                     this.modeCard.classList.remove('tdm-blue', 'tdm-red');
                 }
-                if (this.btnStart) {
-                    this.btnStart.textContent = 'CHƠI';
-                    this.btnStart.classList.remove('tdm-start-btn', 'red-team-active');
+                if (modeIconImg) modeIconImg.src = 'assets/ui/lobby/runtime/skull-blue.png';
+                if (badgesContainer) {
+                    badgesContainer.innerHTML = `
+                        <span class="mode-badge-pill purple">SINH TỒN</span>
+                        <span class="mode-badge-pill gray">ĐẤU TRƯỜNG</span>
+                    `;
                 }
             }
         };
