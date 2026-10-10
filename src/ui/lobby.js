@@ -371,7 +371,7 @@ export class RoomLobby {
                     if (this.members.get(player.id) !== pending) return;
                     const model = SkeletonUtils.clone(gltf.scene);
                     model.traverse(node => { if (node.isMesh) node.castShadow = true; });
-                    model.scale.setScalar(this.solo ? 4.3 : (isTDM ? 2.15 : 2.5));
+                    model.scale.setScalar(this.solo ? 4.3 : (isTDM ? 1.9 : 2.5));
                     model.rotation.y = player.team === 'red' ? -0.35 : 0.35;
                     pending.model = model;
                     this.scene.add(model);
@@ -390,7 +390,7 @@ export class RoomLobby {
 
     position(member, stageRect = null) {
         const isTDM = !this.solo;
-        member.model?.scale.setScalar(this.solo ? 4.3 : (isTDM ? 2.15 : 2.5));
+        member.model?.scale.setScalar(this.solo ? 4.3 : (isTDM ? 1.9 : 2.5));
         if (this.solo || !member.model || !this.stage?.clientWidth) return;
         const label = this.labels.querySelector(`[data-player-id="${member.id}"]`);
         if (!label) return;
@@ -398,14 +398,9 @@ export class RoomLobby {
         const stage = stageRect || this.stage.getBoundingClientRect();
         if (!stage.width || !stage.height) return;
         const card = label.getBoundingClientRect();
-
-        // Đặt chân mô hình đứng nổi bật ngay trên mép trên của bảng đội, không bị bảng che mất thân thể
-        const panel = label.closest('.lobby-team-panel');
-        const footScreenY = panel ? (panel.getBoundingClientRect().top - 14) : (card.top - 16);
-
         const point = new THREE.Vector3(
             ((card.left + card.width / 2 - stage.left) / stage.width) * 2 - 1,
-            1 - ((footScreenY - stage.top) / stage.height) * 2,
+            1 - ((card.top - 16 - stage.top) / stage.height) * 2,
             0.5
         ).unproject(this.camera);
         const direction = point.sub(this.camera.position);
