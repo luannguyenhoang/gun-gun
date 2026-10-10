@@ -413,16 +413,20 @@ export class UIManager {
             }
             // The same DOM template and scale replace both local and remote 3D meters.
             if (subject.healthBar) subject.healthBar.group.visible = false;
-            _tempMateWorldPos.copy(subject.model?.position || subject.mesh?.position || subject.position);
+            const root = subject === player ? subject.model : subject.mesh;
+            if (root) root.getWorldPosition(_tempMateWorldPos);
+            else _tempMateWorldPos.copy(subject.position);
             _tempMateWorldPos.y += 2.35;
             _tempNdc.copy(_tempMateWorldPos).project(camera);
-            const hidden = !(_tempNdc.z >= -1 && _tempNdc.z <= 1 && Math.abs(_tempNdc.x) <= 1 && Math.abs(_tempNdc.y) <= 1);
+            const localFPS = subject === player && !!player.firstPerson;
+            const hidden = !localFPS && !(_tempNdc.z >= -1 && _tempNdc.z <= 1 && Math.abs(_tempNdc.x) <= 1 && Math.abs(_tempNdc.y) <= 1);
             if (meter.hidden !== hidden) meter.hidden = hidden;
-            if (meter.hidden) continue;
             const left = `${Math.round(rect.left + (_tempNdc.x + 1) * rect.width / 2)}px`;
             const top = `${Math.round(rect.top + (1 - _tempNdc.y) * rect.height / 2)}px`;
-            if (meter.style.left !== left) meter.style.left = left;
-            if (meter.style.top !== top) meter.style.top = top;
+            if (!hidden && !localFPS) {
+                if (meter.style.left !== left) meter.style.left = left;
+                if (meter.style.top !== top) meter.style.top = top;
+            }
             const health = Math.max(0, subject.health || 0), shield = Math.max(0, subject.shield || 0);
             const vitalsKey = `${health}|${shield}|${subject.maxHealth}|${subject.maxShield}|${subject.isDead}|${subject.isDowned}|${subject.name}`;
             if (meter._vitalsKey === vitalsKey) continue;
@@ -1693,7 +1697,7 @@ export class UIManager {
             return;
         }
 
-        const rosterKey = validMates.map(m => `${m.id}_${Math.round(m.health || 0)}_${Math.round(m.shield || 0)}_${m.isDowned}_${m.characterId}`).join('|');
+        const rosterKey = validMates.map(m => `${m.id}_${Math.round(m.health || 0)}_${Math.round(m.shield || 0)}_${m.maxHealth}_${m.maxShield}_${m.isDowned}_${m.characterId}_${m.name}`).join('|');
         if (rosterKey === this._lastRosterKey) return;
         this._lastRosterKey = rosterKey;
 
@@ -1725,8 +1729,8 @@ export class UIManager {
                             <span class="roster-status">${statusText}</span>
                         </div>
                         <div class="roster-bars">
-                            ${curSh > 0 ? `<div class="roster-bar-track"><div class="roster-bar-fill shield" style="width: ${shPct}%"></div></div>` : ''}
                             <div class="roster-bar-track"><div class="roster-bar-fill health ${hpClass}" style="width: ${hpPct}%"></div></div>
+                            <div class="roster-bar-track"><div class="roster-bar-fill shield" style="width: ${shPct}%"></div></div>
                         </div>
                     </div>
                 </div>

@@ -2092,7 +2092,7 @@ export class WeaponSystem {
         if (!cur) return;
         const mesh = this.weaponMeshes?.[cur.id];
         if (mesh) {
-            const effective = this.getModifiedStats(cur);
+            const effective = this.isReloading ? this.getModifiedStats(cur) : null;
             mesh.userData.reloadProgress = this.isReloading ? (1 - this.reloadTimer / (effective?.reloadTime || 1.5)) : 1.0;
         }
         updateHeldWeaponPose(mesh, this.handNode, character);

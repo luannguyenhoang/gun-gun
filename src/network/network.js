@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RemoteMotion } from './remote-motion.js';
 import * as SkeletonUtils from '../../vendor/SkeletonUtils.js';
 import { HealthBar3D } from '../rendering/healthbar.js';
 import { CHARACTER_CONFIGS, normalizeCharacter } from '../gameplay/player/characters.js';
@@ -885,6 +886,12 @@ export class NetworkRoom {
 
             // 2. Gỡ bỏ người chơi Host cũ khỏi trận đấu
             this.game.removeCoopPlayer('host');
+            // A replacement host has its own performance clock and authority.
+            for (const remote of this.game.remotePlayers.values()) {
+                remote.motion?.reset();
+                remote.netTarget = null;
+                remote.netSampleTime = 0;
+            }
             const zone = this.game.reviveZoneMeshes?.get('host');
             if (zone) {
                 this.game.scene?.remove(zone.group);
@@ -1135,16 +1142,21 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
             this.updateActiveSkills?.(delta);
         },
         updateVisual(delta = 1 / 60) {
+            this.motion ||= new RemoteMotion();
+            this.visualTarget ||= new THREE.Vector3();
+            const sampledYaw = this.motion.sample(this.visualTarget);
             const blend = 1 - Math.exp(-12 * delta);
             let visualTarget = this.position;
-            if (this.netTarget && this.netSampleTime) {
-                const age = Math.min(0.16, Math.max(0, (performance.now() - this.netSampleTime) / 1000));
-                visualTarget = this.netTarget.clone().addScaledVector(this.netVelocity || new THREE.Vector3(), age);
+            if (sampledYaw !== null) {
+                visualTarget = this.visualTarget;
+            } else if (this.netTarget && this.netSampleTime) {
+                visualTarget = this.visualTarget.copy(this.netTarget);
             }
-            if (!initialized || group.position.distanceTo(visualTarget) > 12) { group.position.copy(visualTarget); initialized = true; }
+            if (sampledYaw !== null || !initialized || group.position.distanceTo(visualTarget) > 12) { group.position.copy(visualTarget); initialized = true; }
             else group.position.lerp(visualTarget, blend);
             const angle = Math.atan2(Math.sin(this.aimYaw - group.rotation.y), Math.cos(this.aimYaw - group.rotation.y));
-            group.rotation.y += angle * blend;
+            if (sampledYaw !== null) group.rotation.y = sampledYaw;
+            else group.rotation.y += angle * blend;
             group.visible = this.isVisibleToObserver !== false;
             if (this.isDowned || this.isDead) {
                 group.rotation.x = -Math.PI / 2.2;
@@ -1157,6 +1169,9 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
             this.weapons?.updateEquippedMesh();
             this.weapons?.updateHeldPose(group);
             healthBar.update(group.position, this.isDowned ? (this.bleedOutTimer || 30.0) : this.health, this.isDowned ? 30.0 : this.maxHealth, group.visible);
+        },
+        receiveMotion(position, yaw, time, received) {
+            (this.motion ||= new RemoteMotion()).push(position, yaw, time, received);
         },
         checkHit(start, end, ray) {
             if (this.isDead || this.isDowned) return { hit: false };

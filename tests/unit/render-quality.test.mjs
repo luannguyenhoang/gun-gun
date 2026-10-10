@@ -10,6 +10,22 @@ const { Arena } = await import('../../src/world/arena.js');
 const { ParticleSystem } = await import('../../src/rendering/particles.js');
 const { VisionConeOverlay } = await import('../../src/gameplay/combat/vision-cone.js');
 
+test('shared vision candidates preserve wall occlusion for every camera direction', () => {
+    const arena = new Arena(new THREE.Scene());
+    for (const [x, z] of [[-8, 3], [5, 4], [0, -6], [12, -3]]) {
+        arena.colliders.push(new THREE.Box3(new THREE.Vector3(x, 0, z), new THREE.Vector3(x + 2, 3, z + 2)));
+    }
+    arena.buildSpatialGrid();
+    const candidates = arena.getCollidersInAABB(-20.5, -20.5, 20.5, 20.5, []);
+    const ray = new THREE.Ray(new THREE.Vector3(0, 1, 0));
+    for (let angle = 0; angle < 360; angle++) {
+        ray.direction.set(Math.sin(angle * Math.PI / 180), 0, Math.cos(angle * Math.PI / 180));
+        for (const range of [2, 20]) {
+            assert.equal(arena.raycastClosestDistance(ray, range, 0, 0, candidates), arena.raycastClosestDistance(ray, range, 0, 0));
+        }
+    }
+});
+
 test('optimized resolution bounds 4K/DPR work and recovers after resize and preset changes', () => {
     const quality = new RenderQuality(2);
     quality.configure(2, 3840, 2160, 'optimized');

@@ -7,15 +7,15 @@ import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getW
 import { PlayerController } from '../gameplay/player/player.js?v=74';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=69';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
-import { UIManager } from '../ui/ui.js?v=43';
-import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=71';
+import { UIManager } from '../ui/ui.js?v=44';
+import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=72';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=37';
 import { HomeMenu } from '../ui/home.js?v=59';
 import { LootingSystem } from '../gameplay/loot/looting.js?v=70';
 import { RenderQuality } from '../rendering/performance.js?v=2';
 import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=49';
-import { VisionConeOverlay, getWeaponVisionConfig, applyVisibilityCulling } from '../gameplay/combat/vision-cone.js?v=72';
+import { VisionConeOverlay, getWeaponVisionConfig, applyVisibilityCulling } from '../gameplay/combat/vision-cone.js?v=73';
 import { TDMManager } from '../gameplay/combat/tdm.js?v=2';
 import { FirstPersonView } from '../gameplay/player/first-person.js?v=2';
 
@@ -563,6 +563,7 @@ class CyberArenaGame {
         this.weapons.resetRun(currentLoadout.primary, currentLoadout.secondary, currentLoadout.bomb1, currentLoadout.bomb2);
         for (const remote of this.remotePlayers.values()) {
             remote.clearSharedSkills?.();
+            remote.motion?.reset();
             remote.applyCharacterStats?.();
             remote.weapons.resetRun(remote.loadout?.primary, remote.loadout?.secondary, remote.loadout?.bomb1, remote.loadout?.bomb2); remote.health = remote.maxHealth; remote.shield = remote.maxShield;
             remote.isDead = false; remote.isDowned = false; remote.commandQueue = [];
@@ -630,6 +631,7 @@ class CyberArenaGame {
         // Reset các remote players nếu có trong trận đấu Co-op
         for (const remote of this.remotePlayers.values()) {
             remote.health = remote.maxHealth;
+            remote.motion?.reset();
             remote.shield = remote.maxShield;
             remote.isDead = false;
             remote.isDowned = false;
@@ -1446,6 +1448,7 @@ class CyberArenaGame {
         this.networkEvents = [];
 
         return {
+            serverTime: performance.now(),
             worldEffects: this.weapons.getWorldState?.(),
             bombs: this.waveManager.bombs.snapshot(),
             state: this.state,
@@ -1602,6 +1605,9 @@ class CyberArenaGame {
             }
             remote.netTarget = nextPosition;
             remote.netSampleTime = sampleTime;
+            if (Number.isFinite(snapshot.serverTime)) {
+                remote.receiveMotion?.(nextPosition, state.aim || 0, snapshot.serverTime, sampleTime);
+            }
             remote.position.copy(nextPosition); remote.health = state.health; remote.shield = state.shield;
             remote.maxHealth = state.maxHealth ?? remote.maxHealth;
             remote.maxShield = state.maxShield ?? remote.maxShield;
@@ -1859,6 +1865,7 @@ class CyberArenaGame {
                 ? ((this.player.team === 'blue' ? this.tdmManager?.teamBlue : this.tdmManager?.teamRed) || []).filter(p => p !== this.player)
                 : Array.from(this.remotePlayers.values());
 
+            this.camera.updateMatrixWorld(true);
             this.ui.updateStats(this.player, this.waveManager, this.score);
             this.ui.updateOverheadVitals(this.player, this.camera, this.renderer.domElement, teammates);
             this.ui.updateTeammateIndicators(teammates, this.player, this.camera);

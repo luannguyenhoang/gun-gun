@@ -37,11 +37,11 @@ const assert = require('node:assert/strict');
         });
         assert.deepEqual(quality, { antialias: false, lights: 0, fullLights: 5, optimizedLights: 0 });
         const results = [];
-        for (const mode of ['SURVIVAL', 'TDM']) {
+        for (const mode of ['SURVIVAL', 'TDM', 'FPS_TDM']) {
             results.push(await page.evaluate(async mode => {
                 const g = window.game;
                 if (mode === 'SURVIVAL') await g.startGame();
-                else await g.startTDM('blue');
+                else await g.startTDM('blue', {fillBots:true, firstPerson:mode === 'FPS_TDM'});
                 g.player.setInputEnabled(false);
                 g.player.invulnerability = 1000;
                 g.ui.updateOverheadVitals(g.player, g.camera, g.canvas);
@@ -79,7 +79,11 @@ const assert = require('node:assert/strict');
                 const observer = new MutationObserver(records => mutations += records.length);
                 observer.observe(document.getElementById('hud'), { subtree: true, childList: true, attributes: true, characterData: true });
                 const start = performance.now();
-                for (let i = 0; i < 120; i++) g.updateFrame(1 / 60);
+                for (let i = 0; i < 120; i++) {
+                    if (mode === 'FPS_TDM') g.firstPersonView.yaw = i * Math.PI / 60;
+                    else g.player.pointer.set(Math.sin(i / 20), Math.cos(i / 20));
+                    g.updateFrame(1 / 60);
+                }
                 const elapsed = performance.now() - start;
                 mutations += observer.takeRecords().length;
                 observer.disconnect();
@@ -87,7 +91,7 @@ const assert = require('node:assert/strict');
                 const result = { mode, elapsedMs: Math.round(elapsed), timings, hudMutations: mutations,
                     drawCalls: g.renderer.info.render.calls, triangles: g.renderer.info.render.triangles,
                     ratio: g.renderer.getPixelRatio(), state: g.state,
-                    unchangedVitalsMutations, hiddenHudUpdates, hiddenSimulationAdvanced };
+                    unchangedVitalsMutations, hiddenHudUpdates, hiddenSimulationAdvanced, bots:g.tdmManager.bots.length };
                 if (mode === 'SURVIVAL') {
                     for (let i = 0; i < 20; i++) g.waveManager.spawnSingleEnemy(g.player, 0, 'walker');
                     result.stressEnemyCount = g.waveManager.enemies.length;
@@ -111,6 +115,7 @@ const assert = require('node:assert/strict');
         assert.ok(results.every(result => result.state === 'PLAYING' && result.drawCalls > 0));
         assert.ok(results.every(result => result.unchangedVitalsMutations === 0 && result.hiddenHudUpdates === 0 && result.hiddenSimulationAdvanced));
         assert.ok(results[0].stressEnemyCount >= 20);
+        assert.ok(results.slice(1).every(result=>result.bots===7));
         console.log(JSON.stringify({ results, errors }, null, 2));
     } finally {
         await browser?.close();
