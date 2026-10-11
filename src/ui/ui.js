@@ -2325,6 +2325,7 @@ export class UIManager {
     }
 
     startWeaponSelectCountdown(seconds = 10) {
+        if (window.game?.gameMode !== 'TDM') return;
         this.initWeaponSelectDOM();
         this.th_weaponSelectTimer = seconds;
         this.th_updateWeaponSelectBadge();
@@ -2334,6 +2335,15 @@ export class UIManager {
     }
 
     updateWeaponSelectTimer(delta) {
+        if (window.game?.gameMode !== 'TDM') {
+            if (this.thBSelectBanner && this.thBSelectBanner.style.display !== 'none') {
+                this.thBSelectBanner.style.display = 'none';
+            }
+            if (this.th_weaponSelectModalOpen) {
+                this.closeWeaponSelectMenu();
+            }
+            return;
+        }
         if (this.th_weaponSelectTimer > 0) {
             this.th_weaponSelectTimer = Math.max(0, this.th_weaponSelectTimer - delta);
             this.th_updateWeaponSelectBadge();
@@ -2360,6 +2370,7 @@ export class UIManager {
     }
 
     openWeaponSelectMenu(player = null) {
+        if (window.game?.gameMode !== 'TDM') return;
         if (this.th_weaponSelectTimer <= 0) {
             this.showPickupAlert('ĐÃ HẾT THỜI GIAN ĐỔI SÚNG (CHỈ TRONG 10S SAU HỒI SINH)');
             return;

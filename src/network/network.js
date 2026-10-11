@@ -111,8 +111,8 @@ export class NetworkRoom {
 
     async create(name, character = 'police') {
         const code = Math.random().toString(36).substring(2, 6).toUpperCase();
-        const hostTeam = this.game.selectedTDMTeam || 'blue';
-        const mode = this.game.selectedGameMode || 'TDM';
+        const mode = this.game.selectedGameMode || 'SURVIVAL';
+        const hostTeam = (mode === 'TDM' || mode === 'FPS_SOLO') ? (this.game.selectedTDMTeam || 'blue') : null;
 
         // 1. Lưu phòng vào Supabase Database
         try {
@@ -268,9 +268,11 @@ export class NetworkRoom {
                             return;
                         }
 
-                        // Người chơi mới hoàn toàn: kiểm tra giới hạn phòng
-                        if (this.players.length >= MAX_ROOM_PLAYERS) {
-                            conn.send({ type: 'reject', reason: `Phòng đã đầy (tối đa ${MAX_ROOM_PLAYERS} người)!` });
+                        // Người chơi mới hoàn toàn: kiểm tra giới hạn phòng theo chế độ
+                        const isModeTDM = roomMode === 'TDM' || roomMode === 'FPS_SOLO';
+                        const maxRoomSlots = isModeTDM ? MAX_ROOM_PLAYERS : 4;
+                        if (this.players.length >= maxRoomSlots) {
+                            conn.send({ type: 'reject', reason: `Phòng ${isModeTDM ? 'Đối kháng' : 'Sinh tồn'} đã đầy (tối đa ${maxRoomSlots} người)!` });
                             setTimeout(() => { try { conn.close(); } catch {} }, 500);
                             return;
                         }
@@ -279,13 +281,16 @@ export class NetworkRoom {
                         clientState.id = pId;
                         clientState.joined = true;
 
-                        const blueCount = this.players.filter(p => p.team === 'blue').length;
-                        const redCount = this.players.filter(p => p.team === 'red').length;
-                        let preferredTeam = data.team || (blueCount <= redCount ? 'blue' : 'red');
-                        if (preferredTeam === 'blue' && blueCount >= 4 && redCount < 4) {
-                            preferredTeam = 'red';
-                        } else if (preferredTeam === 'red' && redCount >= 4 && blueCount < 4) {
-                            preferredTeam = 'blue';
+                        let assignedTeam = null;
+                        if (isModeTDM) {
+                            const blueCount = this.players.filter(p => p.team === 'blue').length;
+                            const redCount = this.players.filter(p => p.team === 'red').length;
+                            assignedTeam = data.team || (blueCount <= redCount ? 'blue' : 'red');
+                            if (assignedTeam === 'blue' && blueCount >= 4 && redCount < 4) {
+                                assignedTeam = 'red';
+                            } else if (assignedTeam === 'red' && redCount >= 4 && blueCount < 4) {
+                                assignedTeam = 'blue';
+                            }
                         }
 
                         this.players.push({
@@ -293,7 +298,7 @@ export class NetworkRoom {
                             user_id: clientUserId || pId,
                             name: clientName,
                             character: clientChar,
-                            team: preferredTeam,
+                            team: assignedTeam,
                             weapon: getStartingWeapon(data.weapon).id,
                             loadout: data.loadout,
                             is_host: false
@@ -364,7 +369,7 @@ export class NetworkRoom {
 
     broadcastRoster() {
         this.players = deduplicatePlayers(this.players);
-        const mode = this.game.selectedGameMode || 'TDM';
+        const mode = this.game.selectedGameMode || 'SURVIVAL';
         const data = { type: 'roster', players: this.players, fillBots: this.fillBots, host: 'host', mode };
         for (const c of this.connections) {
             if (c.joined && c.conn.open) {
@@ -385,6 +390,7 @@ export class NetworkRoom {
         }
 
         this.userId = getClientUserId();
+        const isTdmJoin = this.game.selectedGameMode === 'TDM' || this.game.selectedGameMode === 'FPS_SOLO';
 
         // 1. Kiểm tra phòng và ghi danh trên cơ sở dữ liệu Supabase
         let dbResult = null;
@@ -393,7 +399,7 @@ export class NetworkRoom {
                 code,
                 playerName: name,
                 character,
-                team: this.game.selectedTDMTeam || 'red',
+                team: isTdmJoin ? (this.game.selectedTDMTeam || 'red') : null,
                 weapon: this.game.weapons?.startingWeaponId,
                 loadout: this.game.getLoadout?.()
             });
@@ -401,7 +407,7 @@ export class NetworkRoom {
             console.warn('[NetworkClient] Cảnh báo ghi danh DB, tiếp tục với P2P:', err.message);
             dbResult = {
                 room: { code, players: [], host_id: 'host' },
-                player: { id: this.userId, name, character, team: this.game.selectedTDMTeam || 'red' }
+                player: { id: this.userId, name, character, team: isTdmJoin ? (this.game.selectedTDMTeam || 'red') : null }
             };
         }
 

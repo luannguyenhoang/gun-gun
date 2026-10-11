@@ -385,10 +385,12 @@ export class PlayerController {
                 return;
             }
 
-            // Phím [B]: Bật/tắt Bảng chọn súng chiến thuật trong trận (trong 10s sau hồi sinh)
+            // Phím [B]: Chỉ khả dụng ở chế độ Đối Kháng TDM (trong 10s sau hồi sinh)
             if (e.code === 'KeyB') {
-                e.preventDefault();
-                (this.ui || window.game?.ui)?.toggleWeaponSelectMenu(this);
+                if (window.game?.gameMode === 'TDM') {
+                    e.preventDefault();
+                    (this.ui || window.game?.ui)?.toggleWeaponSelectMenu(this);
+                }
                 return;
             }
 
@@ -2553,9 +2555,14 @@ export class PlayerController {
         }, 280);
     }
 
-    applyScreenShake(traumaAmount = 0.5) {
-        const added = Math.max(0, typeof traumaAmount === 'number' ? traumaAmount : 0.5);
-        this.screenShakeTrauma = Math.min(1.0, (this.screenShakeTrauma || 0) + added);
+    applyScreenShake(traumaAmount = 0.5, th_isAdditive = false) {
+        const traumaVal = Math.max(0, typeof traumaAmount === 'number' ? traumaAmount : 0.5);
+        if (th_isAdditive) {
+            this.screenShakeTrauma = Math.min(1.0, (this.screenShakeTrauma || 0) + traumaVal);
+        } else {
+            // Giữ mức độ rung cố định theo từng phát bắn hoặc chấn động, không cộng dồn lũy tiến
+            this.screenShakeTrauma = Math.min(1.0, Math.max(this.screenShakeTrauma || 0, traumaVal));
+        }
     }
 
     // Rung màn hình chấn động nổ theo khoảng cách (Explosion Shockwave Screen Shake)
@@ -2566,7 +2573,7 @@ export class PlayerController {
             // Tỷ lệ suy giảm phi tuyến: gần tâm rung cực mạnh, xa tâm suy giảm êm
             const factor = Math.max(0, 1.0 - (dist / maxDist));
             const shockTrauma = maxTrauma * Math.pow(factor, 1.35);
-            this.applyScreenShake(shockTrauma);
+            this.applyScreenShake(shockTrauma, false);
         }
         // Đồng bộ lan truyền rung chấn cho tất cả đồng đội trong phòng Co-op
         const coopPlayers = window.game?.coopPlayers || [];
@@ -2575,7 +2582,7 @@ export class PlayerController {
                 const d = p.position.distanceTo(epicenter);
                 if (d <= maxDist) {
                     const factor = Math.max(0, 1.0 - (d / maxDist));
-                    p.applyScreenShake(maxTrauma * Math.pow(factor, 1.35));
+                    p.applyScreenShake(maxTrauma * Math.pow(factor, 1.35), false);
                 }
             }
         }
@@ -2589,9 +2596,9 @@ export class PlayerController {
         this.cursorKick.x += (Math.random() - 0.5) * kick * 6.0;
         this.cursorKick.y -= (Math.random() * 0.7 + 0.3) * kick * 7.8; // Nảy hất lên trên đầm hơn
 
-        // Rung màn hình dựa trên cỡ đạn (Screen Shake Trauma)
+        // Rung màn hình dựa trên cỡ đạn (Screen Shake Trauma) cố định, không cộng dồn lũy tiến
         const traumaAdd = (typeof shakeStrength === 'number' ? shakeStrength * 1.3 : 0.22);
-        this.applyScreenShake(traumaAdd);
+        this.applyScreenShake(traumaAdd, false);
     }
 
     getMovementInput() {
@@ -2738,7 +2745,9 @@ export class PlayerController {
         if (this.holdingAction) this.holdingAction.play();
         this.playAnimation('idle');
         sounds.play('powerup', { volume: 1.0 });
-        (this.ui || window.game?.ui)?.startWeaponSelectCountdown?.(10);
+        if (window.game?.gameMode === 'TDM') {
+            (this.ui || window.game?.ui)?.startWeaponSelectCountdown?.(10);
+        }
         return true;
     }
 
@@ -3307,9 +3316,17 @@ export class PlayerController {
         this.activeTurrets = [];
         this.activeVortexes = [];
         this.activeGrenades = [];
-        if (this.model) this.model.rotation.y = Math.PI;
+        if (this.model) {
+            this.model.rotation.set(0, Math.PI, 0);
+            this.model.position.copy(this.position);
+        }
         this.healthBar?.update(this.position, this.health, this.maxHealth, true);
-        if (this.holdingAction) this.holdingAction.play();
-        this.playAnimation('idle');
+        this.currentAction = null;
+        if (this.mixer) this.mixer.stopAllAction();
+        if (this.holdingAction) {
+            this.holdingAction.reset();
+            this.holdingAction.play();
+        }
+        this.playAnimation('idle', 0.05);
     }
 }

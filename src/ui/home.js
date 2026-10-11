@@ -997,9 +997,11 @@ export class HomeMenu {
         this.game.roomCreate.hidden = active;
         document.getElementById('share-code').textContent = code;
         const isHost = active && (data.host === data.you || !!data.isHost);
-        const isTDM = data.mode === 'TDM' || data.mode === 'FPS_SOLO' || this.game.selectedGameMode === 'TDM' || this.game.selectedGameMode === 'FPS_SOLO' || !data.mode;
+        const currentRoomMode = data.mode || this.game.selectedGameMode || 'SURVIVAL';
+        const isTDM = currentRoomMode === 'TDM' || currentRoomMode === 'FPS_SOLO';
         const maxSlots = isTDM ? 8 : 4;
-        document.getElementById('mode-status').textContent = active ? `TỔ ĐỘI ${data.players.length}/${maxSlots} · ${isHost ? 'CHỦ PHÒNG' : 'ĐỒNG ĐỘI'}` : 'CHƠI ĐƠN · SẴN SÀNG';
+        const modeLabel = isTDM ? 'ĐỐI KHÁNG' : 'SINH TỒN';
+        document.getElementById('mode-status').textContent = active ? `TỔ ĐỘI ${modeLabel} ${data.players.length}/${maxSlots} · ${isHost ? 'CHỦ PHÒNG' : 'ĐỒNG ĐỘI'}` : 'CHƠI ĐƠN · SẴN SÀNG';
         document.getElementById('friends-label').textContent = active ? `PHÒNG ${code}` : 'BẠN BÈ';
         document.querySelector('.button-badge').textContent = active ? data.players.length : '+';
         this.game.roomJoin.closest('.join-row').hidden = active;

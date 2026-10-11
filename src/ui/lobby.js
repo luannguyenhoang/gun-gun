@@ -162,11 +162,13 @@ export class RoomLobby {
         this.signature = signature;
         this.heading.innerHTML = '';
         
-        const isTDM = !this.solo && (data.mode === 'TDM' || data.mode === 'FPS_SOLO' || !data.mode || players.some(p => p.team));
+        const currentMode = data.mode || window.game?.selectedGameMode || 'SURVIVAL';
+        const isTDM = !this.solo && (currentMode === 'TDM' || currentMode === 'FPS_SOLO');
         const maxSlots = isTDM ? 8 : 4;
 
         const textSpan = document.createElement('span');
-        textSpan.textContent = `SẢNH CHỜ · ${players.length}/${maxSlots} NGƯỜI · MÃ ${data.code} `;
+        const modeLabel = isTDM ? 'ĐỐI KHÁNG 4V4' : 'TỔ ĐỘI SINH TỒN';
+        textSpan.textContent = `SẢNH CHỜ · ${modeLabel} · ${players.length}/${maxSlots} NGƯỜI · MÃ ${data.code} `;
         
         const copyCodeBtn = document.createElement('button');
         copyCodeBtn.className = 'btn-toggle';
@@ -193,8 +195,8 @@ export class RoomLobby {
 
         this.heading.append(textSpan, copyCodeBtn, copyLinkBtn);
 
-        // Nút bấm phân bổ Bot chủ động trong phòng chờ
-        if (!this.solo) {
+        // Nút bấm phân bổ Bot chủ động trong phòng chờ (Chỉ hiển thị ở chế độ Đối Kháng TDM)
+        if (!this.solo && isTDM) {
             const isHost = data.host === data.you || data.isHost;
             if (isHost) {
                 const botToggleBtn = document.createElement('button');

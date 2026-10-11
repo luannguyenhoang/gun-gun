@@ -598,7 +598,7 @@ class CyberArenaGame {
         if (!this.network.active || this.network.host) this.waveManager.startWave(this.currentWave);
         else this.waveManager.clear();
         this.ui.showBanner('SỐNG SÓT · NHẶT ĐẠN · NÂNG CẤP');
-        this.ui?.startWeaponSelectCountdown(10);
+        this.ui?.closeWeaponSelectMenu?.();
     }
 
     startTDM(playerTeam = 'blue', options = {}) {
