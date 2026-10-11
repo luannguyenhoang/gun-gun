@@ -3050,4 +3050,38 @@ body, html {
     border: 1px solid #475569;
 }
 
+/* Nút kích người chơi trong phòng chờ - tiền tố th_ */
+.th_btn-kick-player,
+#room-lobby .lobby-nameplate .th_btn-kick-player {
+    display: inline-block;
+    margin-top: 5px;
+    padding: 3px 8px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    border-radius: 5px;
+    border: 1px solid #ef4444;
+    background: rgba(185, 28, 28, 0.85);
+    color: #ffffff;
+    font-family: inherit;
+    text-transform: uppercase;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+    transition: transform 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.th_btn-kick-player:hover,
+#room-lobby .lobby-nameplate .th_btn-kick-player:hover {
+    background: #dc2626;
+    border-color: #f87171;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.7);
+    transform: scale(1.05);
+}
+
+.th_btn-kick-player:active,
+#room-lobby .lobby-nameplate .th_btn-kick-player:active {
+    transform: scale(0.96);
+}
+
+
 

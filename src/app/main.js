@@ -8,9 +8,9 @@ import { PlayerController } from '../gameplay/player/player.js?v=75';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=69';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
 import { UIManager } from '../ui/ui.js?v=44';
-import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=72';
+import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=73';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
-import { RoomLobby } from '../ui/lobby.js?v=37';
+import { RoomLobby } from '../ui/lobby.js?v=38';
 import { HomeMenu } from '../ui/home.js?v=59';
 import { LootingSystem } from '../gameplay/loot/looting.js?v=70';
 import { RenderQuality } from '../rendering/performance.js?v=2';
@@ -192,6 +192,9 @@ class CyberArenaGame {
         };
         this.roomLobby.onToggleFillBots = () => {
             this.network.toggleFillBots();
+        };
+        this.roomLobby.onKickPlayer = (playerId, playerName) => {
+            this.network.th_kickPlayer(playerId);
         };
         this.roomCode = document.getElementById('room-code');
         this.roomCopy = document.getElementById('room-copy');
@@ -707,6 +710,7 @@ class CyberArenaGame {
         this.pauseMenuOpen = false;
         this.lootingSystem.closeContainerUI();
         this.player.setInputEnabled(false);
+        this.player.reset();
         this.state = 'MENU';
         if (this.network.active) this.network.leave();
         for (const id of [...this.remotePlayers.keys()]) this.removeCoopPlayer(id);

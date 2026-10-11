@@ -383,6 +383,75 @@ export class NetworkRoom {
         }
     }
 
+    setMode(newMode) {
+        if (!this.active || !this.host) return;
+        this.game.selectedGameMode = newMode;
+        
+        // Nếu chuyển sang TDM: đảm bảo các người chơi có team
+        if (newMode === 'TDM' || newMode === 'FPS_SOLO') {
+            let bCount = 0;
+            let rCount = 0;
+            for (const p of this.players) {
+                if (!p.team) {
+                    p.team = (bCount <= rCount) ? 'blue' : 'red';
+                }
+                if (p.team === 'blue') bCount++;
+                else rCount++;
+            }
+        } else {
+            // Nếu chuyển sang SURVIVAL: loại bỏ chia team
+            for (const p of this.players) {
+                p.team = null;
+            }
+        }
+        
+        this.broadcastRoster();
+    }
+
+    th_kickPlayer(targetId) {
+        if (!this.active || !this.host || !targetId || targetId === 'host') return false;
+
+        const targetPlayer = this.players.find(p => p.id === targetId || p.user_id === targetId);
+        if (!targetPlayer) return false;
+
+        // 1. Gửi thông báo 'kicked' cho client đó qua kết nối P2P
+        const clientConn = this.connections.find(c => c.id === targetId || c.id === targetPlayer.id);
+        if (clientConn?.conn && clientConn.conn.open) {
+            try {
+                clientConn.conn.send({
+                    type: 'kicked',
+                    reason: 'Bạn đã bị chủ phòng kích khỏi phòng.'
+                });
+            } catch (err) {
+                console.warn('[NetworkHost] Lỗi gửi kicked message:', err);
+            }
+            setTimeout(() => {
+                try { clientConn.conn.close(); } catch {}
+            }, 100);
+        }
+
+        // 2. Xóa khỏi danh sách connections và players của host
+        this.connections = this.connections.filter(c => c.id !== targetId && c.id !== targetPlayer.id);
+        this.players = this.players.filter(p => p.id !== targetId && p.id !== targetPlayer.id && p.user_id !== targetId);
+        this.players = deduplicatePlayers(this.players);
+
+        // 3. Xóa remote model trong trận đấu
+        this.game.removeCoopPlayer?.(targetId);
+        if (targetPlayer.id) this.game.removeCoopPlayer?.(targetPlayer.id);
+
+        // 4. Đồng bộ xóa khỏi cơ sở dữ liệu phòng Supabase
+        if (this.code) {
+            const targetPid = targetPlayer.user_id || targetPlayer.id;
+            leaveDbRoom(this.code, targetPid);
+            updateDbRoomRoster(this.code, { players: this.players, mode: this.game.selectedGameMode });
+        }
+
+        // 5. Cập nhật và thông báo roster mới cho các thành viên còn lại
+        this.broadcastRoster();
+        this.game.ui?.showPickupAlert?.(`ĐÃ KÍCH ${targetPlayer.name || 'NGƯỜI CHƠI'} KHỎI PHÒNG!`);
+        return true;
+    }
+
     async join(code, name, character = 'police') {
         code = (code || '').trim().toUpperCase();
         if (!code) {
@@ -451,6 +520,14 @@ export class NetworkRoom {
                 this.fillBots = !!updatedRecord.fill_bots;
                 if (updatedRecord.mode) this.game.selectedGameMode = updatedRecord.mode;
                 if (Array.isArray(updatedRecord.players)) {
+                    const wasInRoom = this.players.some(p => p.id === this.playerId || p.user_id === this.userId || p.id === this.userId);
+                    const isStillInRoom = updatedRecord.players.some(p => p.id === this.playerId || p.user_id === this.userId || p.id === this.userId);
+                    if (wasInRoom && !isStillInRoom && !this.host) {
+                        this.leave();
+                        this.game.showRoomError('Bạn đã bị chủ phòng kích khỏi phòng.');
+                        this.game.ui?.showPickupAlert?.('BẠN ĐÃ BỊ CHỦ PHÒNG KÍCH KHỎI PHÒNG!');
+                        return;
+                    }
                     this.players = deduplicatePlayers(updatedRecord.players);
                     this.updateRoster(this.players);
                 }
@@ -511,17 +588,46 @@ export class NetworkRoom {
                         }
                         if (data.type === 'accept') {
                             clearTimeout(fallbackTimeout);
-                            if (data.mode) this.game.selectedGameMode = data.mode;
+                            if (data.mode) {
+                                this.game.selectedGameMode = data.mode;
+                                this.game.homeMenu?.applyModeSilent?.(data.mode);
+                            }
                             this.fillBots = !!data.fillBots;
                             this.playerId = data.you || this.playerId;
                             this.players = deduplicatePlayers(data.players || []);
                             this.updateRoster(this.players);
+                            this.game.showRoomState({
+                                code: this.code,
+                                host: 'host',
+                                you: this.playerId,
+                                players: this.players,
+                                fillBots: this.fillBots,
+                                isHost: false,
+                                mode: data.mode || this.game.selectedGameMode || 'SURVIVAL'
+                            });
                             completeJoin();
                         } else if (data.type === 'roster') {
                             this.fillBots = !!data.fillBots;
-                            if (data.mode) this.game.selectedGameMode = data.mode;
+                            if (data.mode) {
+                                this.game.selectedGameMode = data.mode;
+                                this.game.homeMenu?.applyModeSilent?.(data.mode);
+                            }
                             this.players = deduplicatePlayers(data.players || []);
                             this.updateRoster(this.players);
+                            this.game.showRoomState({
+                                code: this.code,
+                                host: 'host',
+                                you: this.playerId,
+                                players: this.players,
+                                fillBots: this.fillBots,
+                                isHost: false,
+                                mode: data.mode || this.game.selectedGameMode || 'SURVIVAL'
+                            });
+                        } else if (data.type === 'kicked') {
+                            this.leave();
+                            this.game.showRoomError(data.reason || 'Bạn đã bị chủ phòng kích khỏi phòng.');
+                            this.game.ui?.showPickupAlert?.(data.reason || 'BẠN ĐÃ BỊ CHỦ PHÒNG KÍCH KHỎI PHÒNG!');
+                            return;
                         } else if (data.type === 'start') {
                             this.beginMatch(data.epoch, data);
                         } else if (data.type === 'snapshot') {

@@ -165,7 +165,20 @@ export class HomeMenu {
                     }
                 }
             }
+
+            // 6. Đồng bộ chế độ ngay lập tức với sảnh chờ phòng nếu đang hoạt động
+            if (this.game.network?.active) {
+                if (this.game.network.host) {
+                    this.game.network.setMode(mode);
+                } else {
+                    this.game.ui?.showPickupAlert?.('CHẾ ĐỘ DO CHỦ PHÒNG QUYẾT ĐỊNH');
+                }
+            } else {
+                this.preview();
+            }
         };
+
+        this._th_applyMode = applyMode;
 
         // Gắn sự kiện cho nút bật tắt phân bổ Bot chủ động
         this.btnBotToggle?.addEventListener('click', () => {
@@ -1006,7 +1019,11 @@ export class HomeMenu {
         document.querySelector('.button-badge').textContent = active ? data.players.length : '+';
         this.game.roomJoin.closest('.join-row').hidden = active;
         this.dialog.querySelector('label[for="room-code"]').hidden = active;
-        document.getElementById('guest-wait').hidden = !active || data.host === data.you || !!data.isHost;
+        const guestWait = document.getElementById('guest-wait');
+        if (guestWait) {
+            guestWait.hidden = !active || isHost;
+            guestWait.style.display = (!active || isHost) ? 'none' : 'block';
+        }
         if (active) {
             const url = new URL(location.pathname, location.origin);
             url.searchParams.set('room', code);
@@ -1019,6 +1036,12 @@ export class HomeMenu {
                 this.qrCode = code;
             }
         } else this.preview();
+    }
+
+    applyModeSilent(mode, team = this.selectedTeam) {
+        if (typeof this._th_applyMode === 'function') {
+            this._th_applyMode(mode, team);
+        }
     }
 }
 

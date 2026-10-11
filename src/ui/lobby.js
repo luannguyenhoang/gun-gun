@@ -10,6 +10,9 @@ export class RoomLobby {
         this.models = new Map();
         this.members = new Map();
         this.signature = '';
+        this.onSwitchTeam = null;
+        this.onToggleFillBots = null;
+        this.onKickPlayer = null;
         this.scene = new THREE.Scene();
         this.scene.background = null;
         this.camera = new THREE.PerspectiveCamera(36, 2, 0.1, 100);
@@ -164,6 +167,7 @@ export class RoomLobby {
         
         const currentMode = data.mode || window.game?.selectedGameMode || 'SURVIVAL';
         const isTDM = !this.solo && (currentMode === 'TDM' || currentMode === 'FPS_SOLO');
+        const isHostMe = !this.solo && (data.host === data.you || !!data.isHost);
         const maxSlots = isTDM ? 8 : 4;
 
         const textSpan = document.createElement('span');
@@ -246,7 +250,7 @@ export class RoomLobby {
                     const char = p.character || 'police';
                     const charLabel = CHARACTER_CONFIGS[char]?.label || CHARACTER_CONFIGS[normalizeCharacter(char)]?.label || 'Chiến binh';
                     const isYou = p.id === data.you;
-                    const isHost = p.id === data.host;
+                    const isHost = p.id === data.host || !!p.is_host;
                     
                     const name = document.createElement('strong');
                     name.textContent = p.name + (isYou ? ' (Bạn)' : '');
@@ -266,6 +270,17 @@ export class RoomLobby {
                             this.onSwitchTeam?.('red');
                         };
                         slot.append(switchBtn);
+                    } else if (isHostMe && !isHost) {
+                        const kickBtn = document.createElement('button');
+                        kickBtn.type = 'button';
+                        kickBtn.className = 'th_btn-kick-player';
+                        kickBtn.textContent = 'KÍCH';
+                        kickBtn.title = `Kích ${p.name} ra khỏi phòng`;
+                        kickBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            this.onKickPlayer?.(p.id, p.name);
+                        };
+                        slot.append(kickBtn);
                     }
                 } else {
                     slot.className = 'lobby-nameplate empty-slot slot-blue';
@@ -303,7 +318,7 @@ export class RoomLobby {
                     const char = p.character || 'police';
                     const charLabel = CHARACTER_CONFIGS[char]?.label || CHARACTER_CONFIGS[normalizeCharacter(char)]?.label || 'Chiến binh';
                     const isYou = p.id === data.you;
-                    const isHost = p.id === data.host;
+                    const isHost = p.id === data.host || !!p.is_host;
                     
                     const name = document.createElement('strong');
                     name.textContent = p.name + (isYou ? ' (Bạn)' : '');
@@ -323,6 +338,17 @@ export class RoomLobby {
                             this.onSwitchTeam?.('blue');
                         };
                         slot.append(switchBtn);
+                    } else if (isHostMe && !isHost) {
+                        const kickBtn = document.createElement('button');
+                        kickBtn.type = 'button';
+                        kickBtn.className = 'th_btn-kick-player';
+                        kickBtn.textContent = 'KÍCH';
+                        kickBtn.title = `Kích ${p.name} ra khỏi phòng`;
+                        kickBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            this.onKickPlayer?.(p.id, p.name);
+                        };
+                        slot.append(kickBtn);
                     }
                 } else {
                     slot.className = 'lobby-nameplate empty-slot slot-red';
@@ -351,12 +377,28 @@ export class RoomLobby {
                 }
                 label.setAttribute('data-player-id', player.id);
                 const character = player.character || 'police';
+                const isYou = player.id === data.you;
+                const isHost = player.id === data.host || !!player.is_host;
                 const name = document.createElement('strong');
-                name.textContent = player.name + (player.id === data.you ? ' (Bạn)' : '');
+                name.textContent = player.name + (isYou ? ' (Bạn)' : '');
                 const charLabel = CHARACTER_CONFIGS[character]?.label || CHARACTER_CONFIGS[normalizeCharacter(character)]?.label || 'Chiến binh';
                 const role = document.createElement('small');
-                role.textContent = `${player.id === data.host ? '★ CHỦ PHÒNG' : 'ĐỒNG ĐỘI'} · ${charLabel}`;
+                role.textContent = `${isHost ? '★ CHỦ PHÒNG' : 'ĐỒNG ĐỘI'} · ${charLabel}`;
                 label.append(name, role);
+
+                if (isHostMe && !isYou && !isHost) {
+                    const kickBtn = document.createElement('button');
+                    kickBtn.type = 'button';
+                    kickBtn.className = 'th_btn-kick-player';
+                    kickBtn.textContent = 'KÍCH';
+                    kickBtn.title = `Kích ${player.name} ra khỏi phòng`;
+                    kickBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        this.onKickPlayer?.(player.id, player.name);
+                    };
+                    label.append(kickBtn);
+                }
+
                 this.labels.append(label);
             }
         }
@@ -375,7 +417,7 @@ export class RoomLobby {
                     const model = SkeletonUtils.clone(gltf.scene);
                     model.traverse(node => { if (node.isMesh) node.castShadow = true; });
                     model.scale.setScalar(this.solo ? 4.3 : (isTDM ? 2.15 : 2.5));
-                    model.rotation.y = player.team === 'red' ? -0.35 : 0.35;
+                    model.rotation.set(0, player.team === 'red' ? -0.35 : 0.35, 0);
                     pending.model = model;
                     this.scene.add(model);
                     pending.mixer = new THREE.AnimationMixer(model);
@@ -385,7 +427,7 @@ export class RoomLobby {
                 }).catch(() => {});
             } else {
                 member.team = player.team;
-                if (member.model) member.model.rotation.y = player.team === 'red' ? -0.35 : 0.35;
+                if (member.model) member.model.rotation.set(0, player.team === 'red' ? -0.35 : 0.35, 0);
             }
             this.position(member);
         }
@@ -447,8 +489,8 @@ export class RoomLobby {
         for (const member of this.members.values()) {
             this.position(member, stageRect);
             member.mixer?.update(delta);
-            if (this.solo && member.model) member.model.rotation.y = -0.55;
-            else if (member.model) member.model.rotation.y = member.team === 'red' ? -0.35 : 0.35;
+            if (this.solo && member.model) member.model.rotation.set(0, -0.55, 0);
+            else if (member.model) member.model.rotation.set(0, member.team === 'red' ? -0.35 : 0.35, 0);
         }
         this.renderer.render(this.scene, this.camera);
     }
