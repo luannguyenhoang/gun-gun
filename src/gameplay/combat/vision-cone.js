@@ -10,58 +10,70 @@ import * as THREE from 'three';
 export function getWeaponVisionConfig(weapon, isADS = false, opticTier = 1) {
     if (!weapon) {
         return {
-            visionRange: isADS ? 24.0 : 18.0,
-            visionAngle: isADS ? 35.0 : 50.0,
-            proximityRadius: isADS ? 1.5 : 2.2
+            visionRange: isADS ? 35.0 : 20.0,
+            visionAngle: isADS ? 25.0 : 45.0,
+            proximityRadius: isADS ? 1.0 : 1.8
         };
     }
 
     const cat = (weapon.category || '').toUpperCase();
     const id = (weapon.id || '').toLowerCase();
+    const name = (weapon.name || '').toUpperCase();
+    const aliases = Array.isArray(weapon.aliases) ? weapon.aliases.join(' ').toLowerCase() : '';
 
-    // 1. Nhóm Shotgun: Cận chiến góc cực rộng 75 độ, cự ly ngắn
+    // 1. Nhóm Shotgun: Cận chiến góc rộng, cự ly ngắn
     if (cat.includes('SHOTGUN') || cat.includes('SĂN') || id.includes('scatter') || id.includes('breacher') || (weapon.pellets && weapon.pellets > 1) || id === 'blaster_g' || id === 'blaster_l' || id === 'blaster_m') {
         if (isADS) {
-            return { visionRange: 17.0, visionAngle: 55.0, proximityRadius: 1.8 };
+            return { visionRange: 17.0, visionAngle: 50.0, proximityRadius: 1.6 };
         }
-        return { visionRange: 13.0, visionAngle: 75.0, proximityRadius: 2.5 };
+        return { visionRange: 13.0, visionAngle: 70.0, proximityRadius: 2.2 };
     }
 
-    // 2. Nhóm Sniper & DMR: Bắn tỉa cực xa (75m), thu hẹp góc nhìn tối đa còn vài độ (6 độ) chuẩn ngắm bắn tỉa
-    if (cat.includes('NGẮM') || cat.includes('SNIPER') || cat.includes('TỈA') || cat.includes('DMR') || id === 'awp' || id.includes('blaster_n') || id.includes('blaster_o')) {
+    // 2. Nhóm Sniper & DMR: Bắn tỉa cực xa (95m), tia quét tập trung vừa vặn (5.0 độ) khi ngắm, góc rộng 36 độ vừa phải khi bình thường
+    if (cat.includes('NGẮM') || cat.includes('SNIPER') || cat.includes('TỈA') || cat.includes('DMR') || name.includes('SNIPER') || name.includes('DMR') || id === 'awp' || id.includes('blaster_n') || id.includes('blaster_o') || aliases.includes('blaster_n') || aliases.includes('blaster_o')) {
         if (isADS) {
-            return { visionRange: 75.0, visionAngle: 6.0, proximityRadius: 0.5 };
+            // Khi ngắm chuột phải: Góc 5.0 độ (vừa vặn rõ ràng, không bị quá hẹp), dài 95 mét vươn suốt hành lang, bán kính chân 0.4m
+            return { visionRange: 95.0, visionAngle: 5.0, proximityRadius: 0.4 };
         }
-        return { visionRange: 24.0, visionAngle: 42.0, proximityRadius: 1.8 };
+        // Khi ở chế độ bình thường: Góc vẫn rộng 36 độ (hẹp hơn Shotgun 70 độ và Súng trường 46 độ) để quan sát cơ động
+        return { visionRange: 24.0, visionAngle: 36.0, proximityRadius: 1.8 };
     }
 
-    // 3. Nhóm Súng lục & Tiểu liên (Pistol / SMG): Cơ động cao, góc nhìn 55 độ
+    // 3. Nhóm Súng trường tầm xa (Battle Rifle như Blaster-F Enforcer)
+    if (cat.includes('TẦM XA') || name.includes('ENFORCER') || aliases.includes('blaster_f') || aliases.includes('blaster-f')) {
+        if (isADS) {
+            return { visionRange: 48.0, visionAngle: 15.0, proximityRadius: 0.8 };
+        }
+        return { visionRange: 26.0, visionAngle: 36.0, proximityRadius: 1.6 };
+    }
+
+    // 4. Nhóm Súng lục & Tiểu liên (Pistol / SMG): Cơ động cao
     if (cat.includes('LỤC') || cat.includes('NGẮN') || cat.includes('SMG') || cat.includes('TIỂU LIÊN') || ['blaster', 'blaster_a', 'blaster_b', 'blaster_c', 'repeater', 'blaster_d', 'mac10', 'blaster_h', 'blaster_i', 'pew', 'blaster_k'].includes(id)) {
         if (isADS) {
-            return { visionRange: 24.0, visionAngle: 40.0, proximityRadius: 1.5 };
+            return { visionRange: 26.0, visionAngle: 36.0, proximityRadius: 1.3 };
         }
-        return { visionRange: 18.0, visionAngle: 55.0, proximityRadius: 2.2 };
+        return { visionRange: 18.0, visionAngle: 50.0, proximityRadius: 2.0 };
     }
 
-    // 4. Nhóm Hỏa lực hạng nặng (Minigun Gatling & Rocket & Pháo)
+    // 5. Nhóm Hỏa lực hạng nặng (Minigun Gatling & Rocket & Pháo)
     if (cat.includes('GATLING') || cat.includes('LỰU') || cat.includes('PHÁO') || id === 'blaster_q' || id === 'rocket' || id === 'blaster_p' || id === 'blaster_r') {
         if (isADS) {
-            return { visionRange: 28.0, visionAngle: 35.0, proximityRadius: 1.6 };
+            return { visionRange: 28.0, visionAngle: 35.0, proximityRadius: 1.5 };
         }
-        return { visionRange: 20.0, visionAngle: 48.0, proximityRadius: 2.2 };
+        return { visionRange: 20.0, visionAngle: 48.0, proximityRadius: 2.0 };
     }
 
-    // 5. Nhóm Súng trường AR & Carbine (Assault Rifle): Chuẩn đa năng 50 độ
+    // 6. Nhóm Súng trường AR & Carbine (Assault Rifle): Chuẩn đa năng
     if (isADS) {
         if (opticTier >= 4) {
-            return { visionRange: 38.0, visionAngle: 24.0, proximityRadius: 1.0 };
+            return { visionRange: 40.0, visionAngle: 18.0, proximityRadius: 0.9 };
         }
         if (opticTier >= 2) {
-            return { visionRange: 34.0, visionAngle: 28.0, proximityRadius: 1.2 };
+            return { visionRange: 35.0, visionAngle: 22.0, proximityRadius: 1.1 };
         }
-        return { visionRange: 30.0, visionAngle: 32.0, proximityRadius: 1.5 };
+        return { visionRange: 32.0, visionAngle: 26.0, proximityRadius: 1.3 };
     }
-    return { visionRange: 21.0, visionAngle: 50.0, proximityRadius: 2.0 };
+    return { visionRange: 22.0, visionAngle: 46.0, proximityRadius: 1.8 };
 }
 
 /**
@@ -232,13 +244,13 @@ export class VisionConeOverlay {
     update(player, delta) {
         if (!player) return;
 
-        const weapon = player.weapons?.currentGun;
+        const weapon = player.weapons?.getCurrentWeapon?.() || player.weapons?.currentGun || player.weapons?.weaponSlots?.[player.weapons?.currentSlotIndex];
         const isADS = !!player.isADS;
         const opticTier = player.weapons?.getOpticTier ? player.weapons.getOpticTier() : 1;
         const targetCfg = getWeaponVisionConfig(weapon, isADS, opticTier);
 
-        // Nội suy lerp mượt mà (tốc độ lerp 12.0)
-        const lerpFactor = Math.min(1.0, 12.0 * delta);
+        // Nội suy lerp mượt mà (phản hồi dứt khoát 24.0 khi bật ADS ngắm bắn tỉa)
+        const lerpFactor = Math.min(1.0, (isADS ? 24.0 : 14.0) * delta);
         this.currentRange += (targetCfg.visionRange - this.currentRange) * lerpFactor;
         this.currentAngle += (targetCfg.visionAngle - this.currentAngle) * lerpFactor;
         this.currentProximity += (targetCfg.proximityRadius - this.currentProximity) * lerpFactor;

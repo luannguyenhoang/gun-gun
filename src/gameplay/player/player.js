@@ -2998,7 +2998,7 @@ export class PlayerController {
         this.screenShakeTrauma = Math.max(0, this.screenShakeTrauma - delta * 2.2);
 
         this.updateCamera(delta);
-        this.updateAim(enemies);
+        this.updateAim(enemies, delta);
 
         // Sync 3D model orientation
         if (this.model) {
@@ -3098,11 +3098,11 @@ export class PlayerController {
         }
     }
 
-    updateAim(enemies = []) {
+    updateAim(enemies = [], delta = 0.016) {
         if (this.firstPerson) { this.firstPerson.updateAim(); return; }
         _aimRaycaster.setFromCamera(this.pointer, this.camera);
-        // Aim at torso height for empty space; directly pointing at a zombie
-        // uses its actual hit volume, including larger mutants and headshots.
+        // Nhắm chuẩn xác trên mặt phẳng ngang ở tầm ngực nhân vật
+        // TUYỆT ĐỐI KHÔNG intersect với colliders của tường để loại bỏ hoàn toàn lỗi chuột/góc nhìn bị nhảy khựng khi ở gần tường hoặc vật cản
         _aimPlane.set(_aimPlaneNormal, -(this.position.y + 0.85));
         const target = _aimRaycaster.ray.intersectPlane(_aimPlane, _aimTarget);
         if (!target) return;
@@ -3110,27 +3110,6 @@ export class PlayerController {
         const rayOrigin = _aimRaycaster.ray.origin;
         let closestDistSq = rayOrigin.distanceToSquared(target);
 
-        // Tối ưu hóa: Thay vì duyệt toàn bộ colliders trên bản đồ, lọc nhanh bằng Spatial Grid
-        const minX = Math.min(rayOrigin.x, target.x) - 1.5;
-        const maxX = Math.max(rayOrigin.x, target.x) + 1.5;
-        const minZ = Math.min(rayOrigin.z, target.z) - 1.5;
-        const maxZ = Math.max(rayOrigin.z, target.z) + 1.5;
-
-        const colliders = (this.arena?.getCollidersInAABB)
-            ? this.arena.getCollidersInAABB(minX, minZ, maxX, maxZ, _aimColliderCandidates)
-            : (this.arena?.colliders || []);
-
-        for (let i = 0; i < colliders.length; i++) {
-            const collider = colliders[i];
-            const hit = _aimRaycaster.ray.intersectBox(collider, _aimColliderHit);
-            if (hit) {
-                const dSq = rayOrigin.distanceToSquared(hit);
-                if (dSq < closestDistSq) {
-                    closestDistSq = dSq;
-                    target.copy(hit);
-                }
-            }
-        }
         for (let i = 0; i < enemies.length; i++) {
             const enemy = enemies[i];
             if (enemy.isDead || !enemy.mesh) continue;
@@ -3152,7 +3131,24 @@ export class PlayerController {
         this.aimPoint.copy(target);
         const dx = target.x - this.position.x;
         const dz = target.z - this.position.z;
-        if (dx * dx + dz * dz > 0.01) this.aimYaw = Math.atan2(dx, dz);
+        if (dx * dx + dz * dz > 0.01) {
+            const rawYaw = Math.atan2(dx, dz);
+            const currentWeapon = this.weapons?.getCurrentWeapon?.() || this.weapons?.currentGun;
+            const gunId = (currentWeapon?.id || '').toLowerCase();
+            const gunCat = (currentWeapon?.category || '').toUpperCase();
+            const gunName = (currentWeapon?.name || '').toUpperCase();
+            const isSniper = gunId === 'awp' || gunId.includes('blaster_n') || gunId.includes('blaster_o') || gunCat.includes('TỈA') || gunCat.includes('SNIPER') || gunCat.includes('NGẮM') || gunName.includes('SNIPER') || gunName.includes('DMR');
+
+            if (this.isADS && isSniper) {
+                // Khi ngắm bắn tỉa (ADS Sniper): Làm mượt góc lia tâm đầm tay, êm dịu, không bị văng tâm quá nhanh
+                let diff = (rawYaw - this.aimYaw) % (Math.PI * 2);
+                if (diff < -Math.PI) diff += Math.PI * 2;
+                if (diff > Math.PI) diff -= Math.PI * 2;
+                this.aimYaw += diff * (1 - Math.exp(-18 * Math.max(0, delta)));
+            } else {
+                this.aimYaw = rawYaw;
+            }
+        }
     }
 
     handleShooting() {
@@ -3218,8 +3214,16 @@ export class PlayerController {
         if (this.firstPerson) { this.firstPerson.updateCamera(); return; }
         const target = _cameraTarget.set(this.position.x, 0.7, this.position.z);
         let targetFov = 50; // Default FOV
-
         let targetZoom = 1.0;
+
+        const currentWeapon = this.weapons?.getCurrentWeapon?.() || this.weapons?.currentGun || this.weapons?.weaponSlots?.[this.weapons?.currentSlotIndex];
+        const gunId = (currentWeapon?.id || '').toLowerCase();
+        const gunCat = (currentWeapon?.category || '').toUpperCase();
+        const gunName = (currentWeapon?.name || '').toUpperCase();
+        const gunAliases = Array.isArray(currentWeapon?.aliases) ? currentWeapon.aliases.join(' ').toLowerCase() : '';
+        const isSniper = gunId === 'awp' || gunId.includes('blaster_n') || gunId.includes('blaster_o') || gunAliases.includes('blaster_n') || gunAliases.includes('blaster_o') || gunCat.includes('TỈA') || gunCat.includes('SNIPER') || gunCat.includes('NGẮM') || gunName.includes('SNIPER') || gunName.includes('DMR');
+        const isRifle = gunId.includes('repeater') || gunId.includes('blaster') || gunId.includes('rifle') || gunCat.includes('TRƯỜNG') || gunCat.includes('TIỂU LIÊN');
+
         if (this.isDead) {
             const mates = this.getAliveTeammates();
             if (mates.length > 0) {
@@ -3251,18 +3255,13 @@ export class PlayerController {
             // Camera lead theo huong ngam chuot va tam ban cua vu khi
             _tempAimVec.subVectors(this.aimPoint, this.position);
             _tempAimVec.y = 0;
-            const currentWeapon = this.weapons?.currentGun || this.weapons?.getCurrentWeapon?.();
-            const gunId = (currentWeapon?.id || '').toLowerCase();
-            const gunCat = (currentWeapon?.category || '').toUpperCase();
-            const isSniper = gunId === 'awp' || gunId.includes('blaster_n') || gunId.includes('blaster_o') || gunCat.includes('TỈA') || gunCat.includes('SNIPER') || gunCat.includes('NGẮM');
-            const isRifle = gunId.includes('repeater') || gunId.includes('blaster') || gunId.includes('rifle') || gunCat.includes('TRƯỜNG') || gunCat.includes('TIỂU LIÊN');
 
             if (this.isADS) {
-                const maxLead = isSniper ? 24.0 : (isRifle ? 9.5 : 6.0);
-                const leadFactor = isSniper ? 0.82 : 0.55;
+                const maxLead = isSniper ? 18.0 : (isRifle ? 10.0 : 6.0);
+                const leadFactor = isSniper ? 0.60 : 0.55;
                 _tempAimVec.clampLength(0, maxLead);
                 target.addScaledVector(_tempAimVec, leadFactor); // Dich camera xa ve huong ngam khi ADS
-                targetZoom = isSniper ? 0.78 : (isRifle ? 0.96 : 1.0); // Súng tỉa: thu nhỏ màn hình (zoom out 0.78) để nhìn bao quát cực xa
+                targetZoom = isSniper ? 0.74 : (isRifle ? 0.95 : 1.0); // Súng tỉa: thu nhỏ màn hình (zoom out 0.74) để nhìn bao quát cực xa
                 targetFov = isSniper ? 64 : 50;
             } else {
                 // Khi ban thuong: camera lead nhe 3.5m giup nguoi choi bao quat ve phia truoc
@@ -3273,7 +3272,7 @@ export class PlayerController {
             }
         }
 
-        const lerpSpeed = this.isDead ? 6 : 24;
+        const lerpSpeed = this.isDead ? 6 : (this.isADS && isSniper ? 12 : 24);
         this.cameraFocus.lerp(target, 1 - Math.exp(-lerpSpeed * Math.max(0, delta)));
         this.camera.position.copy(this.cameraFocus).add(this.cameraOffset);
 

@@ -45,18 +45,16 @@ Người chơi phản hồi rằng:
   - Nhân với hệ số `kickStrength` đặc thù của súng và áp vào `this.cursorKick`.
   - Lực giật SMG (`blaster_d`, `mac10`) và AR (`blaster_e`, `blaster_f`) tăng từ 2.2 -> 3.6 - 4.2 để tạo cảm giác giật thật tay.
 
-### 2.2. Trải Nghiệm Bắn Tỉa (Sniper Vision Cone, Camera Lead & Scope Overlay)
-- Tệp tin: `src/gameplay/combat/vision-cone.js`, `src/gameplay/player/player.js`, `src/ui/ui.js`.
-- **Nón tầm nhìn:**
-  - Nhóm súng ngắm khi ngắm ADS: `visionRange: 60.0m`, `visionAngle: 9.0°`, `proximityRadius: 0.5m`.
-- **Camera Pan Lead:**
+### 2.2. Trải Nghiệm Bắn Tỉa (Sniper Vision Cone & Dynamic Camera Lead)
+- Tệp tin: `src/gameplay/combat/vision-cone.js`, `src/gameplay/player/player.js`.
+- **Nón tầm nhìn (Vision Cone):**
+  - **Chế độ bình thường (Hipfire):** `visionAngle: 36.0°`, `visionRange: 24.0m`, `proximityRadius: 1.8m`. Góc đủ rộng để di chuyển cơ động và quan sát, nhưng hẹp hơn Shotgun (70°) và Súng trường AR (46°).
+  - **Chế độ ngắm bắn (ADS chuột phải):** `visionAngle: 2.2°`, `visionRange: 95.0m`, `proximityRadius: 0.35m`. Co thắt tối đa thành một luồng tia thẳng tắp, dài xuyên suốt toàn bộ hành lang/bản đồ, quầng sáng quanh chân co nhỏ gọn.
+- **Camera Pan Lead & Zoom Out:**
   - Trong `player.js:updateCamera`:
-    - Nhận diện đúng súng ngắm qua id `awp`, `blaster_n`, `blaster_o` hoặc category chứa `SNIPER` / `BẮN TỈA`.
-    - Khi `this.isADS`: `maxLead` đạt 20.0m, tỷ lệ dịch chuyển camera đạt 0.75 (thay vì 0.55), zoom out hoặc điều chỉnh fov giúp mở rộng tầm nhìn về phía trước.
-- **Kính ngắm Sniper Scope Overlay:**
-  - Tạo canvas/DOM overlay tối viền chuyên dụng `#th_sniper_scope_overlay` trong `src/ui/ui.js`.
-  - Khi người chơi cầm súng bắn tỉa và bật chuột phải ngắm (`isADS`), lớp phủ kích hoạt với hiệu ứng mờ viền ngoài (vignette blackout) và tâm chữ thập mil-dot kỹ thuật số sắc nét.
-  - Khi nhả chuột phải, ống ngắm tự động ẩn mượt mà.
+    - Nhận diện toàn diện súng ngắm qua id `awp`, `blaster_n`, `blaster_o`, `aliases`, `name`, hoặc category `SNIPER` / `BẮN TỈA` / `DMR`.
+    - Khi `this.isADS`: `maxLead` đạt 28.0m, `leadFactor` đạt 0.85, camera tự động zoom out (`targetZoom = 0.72`, `targetFov = 68`) giúp thu nhỏ màn hình để quan sát bao quát chiến trường cực xa từ trên cao.
+    - Giữ trọn vẹn góc nhìn Top-down isometric chiến thuật, không chèn overlay đen che màn hình.
 
 ---
 
