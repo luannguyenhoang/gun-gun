@@ -650,7 +650,7 @@ export class UIManager {
                 }
 
                 if (this.centerReload) {
-                    this.centerReload.style.display = 'block';
+                    this.centerReload.style.display = 'none';
                 }
                 if (this.crosshairReloadRing) {
                     this.crosshairReloadRing.classList.add('active');
@@ -1707,59 +1707,9 @@ export class UIManager {
         }
     }
 
-    // Cập nhật bảng thông tin danh sách đồng đội trong HUD
+    // Cập nhật bảng thông tin danh sách đồng đội trong HUD (Đã tắt theo yêu cầu người dùng)
     updateTeamRoster(teammates, localPlayer) {
-        if (!this.teamRoster) return;
-        const validMates = (teammates || []).filter(mate => mate && (!mate.isDead || mate.isDowned));
-        if (validMates.length === 0) {
-            if (this._lastRosterKey !== 'empty') {
-                this._lastRosterKey = 'empty';
-                this.teamRoster.style.display = 'none';
-            }
-            return;
-        }
-
-        const rosterKey = validMates.map(m => `${m.id}_${Math.round(m.health || 0)}_${Math.round(m.shield || 0)}_${m.maxHealth}_${m.maxShield}_${m.isDowned}_${m.characterId}_${m.name}`).join('|');
-        if (rosterKey === this._lastRosterKey) return;
-        this._lastRosterKey = rosterKey;
-
-        this.teamRoster.style.display = 'block';
-
-        let html = `<div class="team-roster-title"><span>ĐỒNG ĐỘI</span><span>${validMates.length}</span></div><div class="team-roster-list">`;
-        for (const mate of validMates) {
-            const charColor = CHARACTER_COLORS[mate.characterId] || '#22e6a5';
-            const maxHp = mate.maxHealth || 100;
-            const curHp = Math.max(0, mate.health ?? maxHp);
-            const hpPct = Math.round((curHp / maxHp) * 100);
-
-            const maxSh = mate.maxShield || 100;
-            const curSh = Math.max(0, mate.shield ?? 0);
-            const shPct = Math.round((curSh / maxSh) * 100);
-
-            const isDowned = !!mate.isDowned;
-            const statusText = isDowned ? 'BỊ HẠ GỤC' : (hpPct <= 30 ? 'NGUY HIỂM' : 'SẴN SÀNG');
-            const hpClass = isDowned ? 'danger' : (hpPct <= 30 ? 'danger' : (hpPct <= 60 ? 'warn' : ''));
-
-            html += `
-                <div class="team-roster-item ${isDowned ? 'downed' : ''}">
-                    <div class="roster-avatar" style="--char-color: ${charColor};">
-                        ${getCharacterAvatarSvg(mate.characterId)}
-                    </div>
-                    <div class="roster-info">
-                        <div class="roster-name-row">
-                            <span class="roster-name">${mate.name || 'Đồng đội'}</span>
-                            <span class="roster-status">${statusText}</span>
-                        </div>
-                        <div class="roster-bars">
-                            <div class="roster-bar-track"><div class="roster-bar-fill health ${hpClass}" style="width: ${hpPct}%"></div></div>
-                            <div class="roster-bar-track"><div class="roster-bar-fill shield" style="width: ${shPct}%"></div></div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        html += `</div>`;
-        this.teamRoster.innerHTML = html;
+        if (this.teamRoster) this.teamRoster.style.display = 'none';
     }
 
     // Hiển thị bảng điểm TDM chi tiết khi giữ phím Tab

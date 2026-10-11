@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { sounds } from '../../audio/audio.js?v=58';
+import { sounds } from '../../audio/audio.js?v=59';
 import { WEAPON_CONFIGS } from './weapons.js';
 
 // Danh sách trang bị súng đa dạng cho các bot
@@ -36,6 +36,9 @@ export class TDMBot {
         this.remote.isDead = false;
         this.remote.isDowned = false;
         this.remote.invulnerability = 1.5;
+        this.remote.th_kills = 0;
+        this.remote.th_deaths = 0;
+        this.remote.th_score = 0;
 
         // Chuyển hướng nhận sát thương từ remote sang controller của Bot
         this.remote.botController = this;
@@ -347,6 +350,9 @@ export class TDMManager {
         player.isDead = false;
         player.isDowned = false;
         player.invulnerability = 2.0;
+        player.th_kills = 0;
+        player.th_deaths = 0;
+        player.th_score = 0;
 
         // Gắn vòng hào quang nhận diện phe cho người chơi chính
         this.attachPlayerTeamIndicator(player);
@@ -365,8 +371,11 @@ export class TDMManager {
             this.teamRed.push(player);
         }
 
-        // Đưa các người chơi Co-op thật (remotePlayers) vào đúng đội của họ
+        // Đưa các người chơi Co-op thật (remotePlayers) vào đúng đội của họ và reset chỉ số trận mới
         for (const [id, remote] of this.game.remotePlayers) {
+            remote.th_kills = 0;
+            remote.th_deaths = 0;
+            remote.th_score = 0;
             if (remote.isBot) continue;
             const team = remote.team || (playerTeam === 'blue' ? 'red' : 'blue');
             remote.team = team;
@@ -477,30 +486,37 @@ export class TDMManager {
     onEntityKilled(victim, killer) {
         if (this.state !== 'ACTIVE' || !victim) return;
 
+        // Chống lặp hạ gục trong cùng 1 frame cho 1 thực thể
+        const actualVictim = victim?.remote || victim;
+        if (actualVictim._th_killedInFrame) return;
+        actualVictim._th_killedInFrame = true;
+        setTimeout(() => { actualVictim._th_killedInFrame = false; }, 400);
+
         // Cộng điểm cho phe hạ gục
-        if (victim.team === 'blue') {
+        if (actualVictim.team === 'blue') {
             this.scoreRed++;
-        } else if (victim.team === 'red') {
+        } else if (actualVictim.team === 'red') {
             this.scoreBlue++;
         }
 
-        // Cập nhật chỉ số K/D/Score cho từng cá nhân (Hỗ trợ Bảng Điểm Tab Xếp Hạng)
-        const killerEntity = killer?.remote || killer;
-        if (killerEntity) {
-            killerEntity.th_kills = (killerEntity.th_kills || 0) + 1;
-            killerEntity.th_score = (killerEntity.th_score || 0) + 100;
-        }
-        if (killer === this.game.player || killerEntity === this.game.player) {
-            this.game.player.th_kills = (this.game.player.th_kills || 0) + 1;
-            this.game.player.th_score = (this.game.player.th_score || 0) + 100;
+        // Xác định killer duy nhất và cộng đúng 1 lần (loại bỏ hoàn toàn bug cộng đúp 2 kill)
+        let actualKiller = null;
+        if (killer === this.game.player || killer?.remote === this.game.player) {
+            actualKiller = this.game.player;
+        } else if (killer?.remote) {
+            actualKiller = killer.remote;
+        } else if (killer) {
+            actualKiller = killer;
         }
 
-        const victimEntity = victim?.remote || victim;
-        if (victimEntity) {
-            victimEntity.th_deaths = (victimEntity.th_deaths || 0) + 1;
+        if (actualKiller) {
+            actualKiller.th_kills = (actualKiller.th_kills || 0) + 1;
+            actualKiller.th_score = (actualKiller.th_score || 0) + 100;
         }
-        if (victim === this.game.player || victimEntity === this.game.player) {
-            this.game.player.th_deaths = (this.game.player.th_deaths || 0) + 1;
+
+        // Tăng đúng 1 lần tử trận cho nạn nhân
+        if (actualVictim) {
+            actualVictim.th_deaths = (actualVictim.th_deaths || 0) + 1;
         }
 
         // Cập nhật giao diện tỷ số
@@ -601,13 +617,21 @@ export class TDMManager {
         this.teamBlue = [];
         this.teamRed = [];
 
-        if (this.game.player.teamRing && this.game.player.mesh) {
-            this.game.player.mesh.remove(this.game.player.teamRing);
-            this.game.player.teamRing = null;
+        if (this.game.player) {
+            this.game.player.th_kills = 0;
+            this.game.player.th_deaths = 0;
+            this.game.player.th_score = 0;
+            if (this.game.player.teamRing && this.game.player.mesh) {
+                this.game.player.mesh.remove(this.game.player.teamRing);
+                this.game.player.teamRing = null;
+            }
         }
 
-        // Dọn sạch vòng hào quang đội của các remote player
+        // Dọn sạch vòng hào quang đội và chỉ số của các remote player
         for (const remote of this.game.remotePlayers.values()) {
+            remote.th_kills = 0;
+            remote.th_deaths = 0;
+            remote.th_score = 0;
             if (remote.teamRing && remote.mesh) {
                 remote.mesh.remove(remote.teamRing);
                 remote.teamRing = null;

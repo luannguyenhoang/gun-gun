@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { sounds } from '../../audio/audio.js?v=58';
+import { sounds } from '../../audio/audio.js?v=59';
 
 // Bộ nạp và cache texture hiệu ứng hạt từ Kenney Particle Pack
 const _molotovTextureLoader = new THREE.TextureLoader();
@@ -2295,11 +2295,7 @@ export class WeaponSystem {
         }
 
         // Hiệu ứng âm thanh bắn
-        if (isOverclockActive) {
-            sounds.playShot(w.id);
-        } else {
-            sounds.playShot(w.id);
-        }
+        sounds.playShot(w.id, { category: w.category, weapon: w, isOverclock: isOverclockActive });
 
         // Phụt tia lửa nòng (Chỉ chạy khi bật hiệu ứng để tránh lag)
         const bulletColor = isOverclockActive ? 0xffdd00 : (effective.hasLegendary ? 0xf59e0b : w.color);

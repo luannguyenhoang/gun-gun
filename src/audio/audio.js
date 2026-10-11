@@ -30,6 +30,9 @@ class SoundManager {
             land: 'assets/sounds/land.ogg',
             step: 'assets/sounds/walking.ogg',
             switchWeapon: 'assets/sounds/weapon_change.ogg',
+            // Âm thanh vũ khí Sniper và Súng lục mới
+            gunSniper: 'assets/sounds/sniper-gun.mp3',
+            gunPistol: 'assets/sounds/sung_luc.mp3',
             // Âm thanh và nhạc nền chiến đấu mới bổ sung
             bgmBattle: 'assets/sounds/freesound_community-battle-march-action-loop-6935.mp3',
             gunM249: 'assets/sounds/freesound_community-069321_light-machine-gun-m249-39814.mp3',
@@ -43,6 +46,9 @@ class SoundManager {
         this.lastHitMarkerTime = 0;
         this.lastEnemyHurtTime = 0;
         this.lastEnemyDeathTime = 0;
+        this.th_stepIndex = 0;
+        this.th_activeStepVoice = null;
+        this.th_lastFootstepTime = 0;
         this.shotOffsets = {};
         this.activeShotVoice = null;
         this.continuousFireVoice = null;
@@ -177,6 +183,10 @@ class SoundManager {
             this.playEnemyDeath(options);
             return null;
         }
+        // Xử lý bước chân dứt khoát riêng biệt, tránh chồng chéo âm thanh kéo dài
+        if (name === 'step') {
+            return this.th_playFootstep(options);
+        }
 
         const buffer = this.buffers[name];
         if (!buffer) return null;
@@ -274,45 +284,264 @@ class SoundManager {
         this.stopContinuousFire();
     }
 
-    playShot(weaponType = 'blaster') {
+    playShot(weaponType = 'blaster', options = {}) {
         if (!this.enabled) return;
         if (!this.ctx) this.init();
         this.resume();
         if (!this.ctx) return;
 
-        const t = this.ctx.currentTime;
         const type = (weaponType || 'blaster').toLowerCase();
+        const category = (options.category || options.weapon?.category || '').toLowerCase();
 
-        // 1. SÚNG NGẮM SNIPER (bắn phát một uy lực cao): phát độc lập âm vang dội sấm sét
-        const isSniper = type.includes('sniper') || type.includes('railgun') || type.includes('blaster_i') || type.includes('sharpshooter');
+        // 1. SÚNG NGẮM / BẮN TỈA SNIPER & DMR: Bắn phát một uy lực cao với âm thanh sniper-gun.mp3 mới
+        const isSniper = type.includes('sniper') || type.includes('awp') || type.includes('blaster_n') ||
+            type.includes('blaster_o') || type.includes('dmr') || type.includes('vortex') ||
+            category.includes('bắn tỉa') || category.includes('sniper') || category.includes('dmr');
+
         if (isSniper) {
-            const buffer = this.buffers['gunDistance'] || this.buffers['gunBurst'];
-            if (!buffer) return;
-            try {
-                const source = this.ctx.createBufferSource();
-                source.buffer = buffer;
-                source.playbackRate.value = 0.98;
-
-                const gainNode = this.ctx.createGain();
-                gainNode.gain.setValueAtTime(0.98, t);
-                gainNode.gain.setValueAtTime(0.98, t + 0.85);
-                gainNode.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
-
-                source.connect(gainNode);
-                gainNode.connect(this.sfxDestination);
-                source.start(t);
-                source.stop(t + 1.4);
-            } catch {}
+            this.stopContinuousFire(true);
+            this.th_playSniperShot(options);
             return;
         }
 
-        // 2. TẤT CẢ CÁC KHẨU SÚNG CÒN LẠI (kể cả blaster mặc định, blaster-a, b, c, d, e, rifle, m249...):
+        // 2. SÚNG LỤC / PISTOL: Bắn phát một đanh gọn dứt khoát với âm thanh sung_luc.mp3 mới
+        const isPistol = type.includes('pistol') || type.includes('blaster_a') || type.includes('blaster_b') ||
+            type.includes('blaster_c') || type.includes('blaster_i') || type.includes('blaster_k') ||
+            type.includes('magnum') || type.includes('revolver') || type.includes('pew') ||
+            type === 'blaster' || category.includes('súng lục') || category.includes('pistol');
+
+        if (isPistol) {
+            this.stopContinuousFire(true);
+            this.th_playPistolShot(options);
+            return;
+        }
+
+        // 3. TẤT CẢ CÁC KHẨU SÚNG TỰ ĐỘNG CÒN LẠI (Súng trường, SMG, LMG, Shotgun...):
         // Áp dụng CƠ CHẾ XẢ ĐẠN NGUYÊN BẢN TỆP MP3, NGỪNG BẮN LÀ FADE OUT ÂM VANG DỪNG LẠI!
-        const isHeavy = type.includes('m249') || type.includes('machinegun') || type.includes('repeater') || type.includes('blaster_e');
+        const isHeavy = type.includes('m249') || type.includes('machinegun') || type.includes('repeater') || type.includes('blaster_e') || category.includes('súng máy');
         const bufferKey = isHeavy ? 'gunM249' : 'gunBurst';
-        const rate = (type.includes('scatter') || type.includes('shotgun') || type.includes('blaster_f') || type.includes('blaster_g')) ? 0.88 : 1.0;
+        const rate = (type.includes('scatter') || type.includes('shotgun') || type.includes('blaster_f') || type.includes('blaster_g') || category.includes('shotgun')) ? 0.88 : 1.0;
 
         this.startContinuousFire(bufferKey, 0.92, rate);
+    }
+
+    // Phát âm thanh súng bắn tỉa (Sniper) uy lực từ sniper-gun.mp3
+    th_playSniperShot(options = {}) {
+        if (!this.enabled || !this.ctx) return;
+        this.resume();
+
+        const t = this.ctx.currentTime;
+        const buffer = this.buffers['gunSniper'] || this.buffers['gunDistance'] || this.buffers['gunBurst'];
+        if (!buffer) return;
+
+        try {
+            const source = this.ctx.createBufferSource();
+            source.buffer = buffer;
+
+            // Biến thiên nhẹ tốc độ phát để mỗi phát bắn sniper tự nhiên
+            const baseRate = (options.rate !== undefined ? options.rate : 1.0);
+            source.playbackRate.value = Math.max(0.85, Math.min(1.15, baseRate + (Math.random() - 0.5) * 0.03));
+
+            const gainNode = this.ctx.createGain();
+            const vol = options.volume !== undefined ? options.volume : 0.96;
+            gainNode.gain.setValueAtTime(vol, t);
+
+            // Tự nhiên fade out ở đuôi âm thanh theo thời lượng tệp (~0.97s)
+            const duration = Math.min(buffer.duration, 1.15);
+            gainNode.gain.setValueAtTime(vol, t + duration * 0.75);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+            source.connect(gainNode);
+            gainNode.connect(this.sfxDestination);
+
+            // Bỏ qua khoảng lặng đầu tệp nếu có
+            const startOffset = this.shotOffsets['gunSniper']?.[0] || 0;
+            const validOffset = (startOffset > 0.015 && startOffset < 0.12) ? startOffset : 0;
+
+            source.start(t, validOffset);
+            source.stop(t + duration);
+
+            // Tăng cường tầng Sub-bass Thump trầm sâu bổ trợ cho sniper
+            this.th_playSniperSubThump(t, vol);
+        } catch (err) {
+            console.warn('Lỗi phát âm thanh sniper:', err);
+        }
+    }
+
+    th_playSniperSubThump(t, vol = 0.95) {
+        if (!this.ctx) return;
+        try {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(115, t);
+            osc.frequency.exponentialRampToValueAtTime(32, t + 0.16);
+
+            gain.gain.setValueAtTime(vol * 0.45, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+
+            osc.connect(gain);
+            gain.connect(this.sfxDestination);
+            osc.start(t);
+            osc.stop(t + 0.16);
+        } catch {}
+    }
+
+    // Phát âm thanh súng lục (Pistol) đanh gọn dứt khoát từ sung_luc.mp3
+    th_playPistolShot(options = {}) {
+        if (!this.enabled || !this.ctx) return;
+        this.resume();
+
+        const t = this.ctx.currentTime;
+        const buffer = this.buffers['gunPistol'] || this.buffers['blaster'];
+        if (!buffer) return;
+
+        try {
+            const source = this.ctx.createBufferSource();
+            source.buffer = buffer;
+
+            // Biến thiên pitch nhẹ nhàng cho súng lục khi spam click chuột
+            const baseRate = (options.rate !== undefined ? options.rate : 1.0);
+            source.playbackRate.value = Math.max(0.88, Math.min(1.22, baseRate + (Math.random() - 0.5) * 0.05));
+
+            const gainNode = this.ctx.createGain();
+            const vol = options.volume !== undefined ? options.volume : 0.92;
+            gainNode.gain.setValueAtTime(vol, t);
+
+            // Độ dài đanh gọn dứt khoát của một phát bắn súng lục
+            const duration = Math.min(buffer.duration, 0.75);
+            gainNode.gain.setValueAtTime(vol, t + duration * 0.65);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+            source.connect(gainNode);
+            gainNode.connect(this.sfxDestination);
+
+            const startOffset = this.shotOffsets['gunPistol']?.[0] || 0;
+            const validOffset = (startOffset > 0.015 && startOffset < 0.10) ? startOffset : 0;
+
+            source.start(t, validOffset);
+            source.stop(t + duration);
+        } catch (err) {
+            console.warn('Lỗi phát âm thanh súng lục:', err);
+        }
+    }
+
+    // Xử lý âm thanh bước chân dứt khoát, triệt tiêu hoàn toàn hiện tượng chồng chéo dồn âm
+    th_playFootstep(options = {}) {
+        if (!this.enabled) return null;
+        if (!this.ctx) this.init();
+        this.resume();
+        if (!this.ctx) return null;
+
+        const t = this.ctx.currentTime;
+        // Chống kích hoạt quá dày đặc (tối thiểu 0.20s giữa các lần gọi)
+        if (t - (this.th_lastFootstepTime || 0) < 0.20) {
+            return null;
+        }
+        this.th_lastFootstepTime = t;
+
+        // Dừng dứt điểm âm bước chân trước đó (nếu còn)
+        this.th_stopFootstep();
+
+        const buffer = this.buffers['step'];
+        const vol = (options.volume !== undefined ? options.volume : 0.35);
+
+        if (buffer && buffer.duration > 0.4) {
+            try {
+                const source = this.ctx.createBufferSource();
+                source.buffer = buffer;
+
+                // Tệp walking.ogg dài ~4.9s chứa chuỗi nhiều bước chân.
+                // Luân phiên các mốc transient (0.18s) để tạo cảm giác bước chân trái / phải tự nhiên
+                const stepOffsets = [0.08, 0.52, 0.98, 1.45, 1.92, 2.40, 2.88, 3.35, 3.82, 4.30];
+                this.th_stepIndex = ((this.th_stepIndex || 0) + 1) % stepOffsets.length;
+                const offset = stepOffsets[this.th_stepIndex];
+
+                const rate = (options.rate || 1.0) + (Math.random() - 0.5) * 0.06;
+                source.playbackRate.value = Math.max(0.85, Math.min(1.18, rate));
+
+                const gainNode = this.ctx.createGain();
+                const stepDur = 0.18; // Chỉ phát đúng 180ms - chuẩn 1 bước chân tiếp đất
+
+                // Envelope dứt khoát: Attack 15ms -> Sustain 65ms -> Decay 100ms
+                gainNode.gain.setValueAtTime(0.001, t);
+                gainNode.gain.linearRampToValueAtTime(vol, t + 0.015);
+                gainNode.gain.setValueAtTime(vol * 0.85, t + 0.08);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, t + stepDur);
+
+                source.connect(gainNode);
+                gainNode.connect(this.sfxDestination);
+
+                source.start(t, offset, stepDur);
+                source.stop(t + stepDur);
+
+                this.th_activeStepVoice = { source, gainNode };
+                return source;
+            } catch (err) {
+                console.warn('Lỗi khi cắt lát bước chân:', err);
+            }
+        }
+
+        // Dự phòng: Tổng hợp âm thanh bước chân giòn tan bằng Web Audio nếu chưa có buffer
+        return this.th_synthesizeFootstep(vol, options.rate || 1.0);
+    }
+
+    // Ngắt âm thanh bước chân ngay lập tức khi người chơi dừng di chuyển
+    th_stopFootstep() {
+        if (!this.th_activeStepVoice || !this.ctx) return;
+        try {
+            const t = this.ctx.currentTime;
+            this.th_activeStepVoice.gainNode.gain.cancelScheduledValues(t);
+            this.th_activeStepVoice.gainNode.gain.setValueAtTime(this.th_activeStepVoice.gainNode.gain.value || 0.35, t);
+            this.th_activeStepVoice.gainNode.gain.exponentialRampToValueAtTime(0.001, t + 0.025);
+            this.th_activeStepVoice.source.stop(t + 0.025);
+        } catch {}
+        this.th_activeStepVoice = null;
+    }
+
+    // Tổng hợp âm bước chân gọn gàng (Thump + Noise Transient)
+    th_synthesizeFootstep(vol = 0.35, rate = 1.0) {
+        if (!this.ctx) return null;
+        try {
+            const t = this.ctx.currentTime;
+            // Transient gót giày tiếp đất
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            const baseFreq = 78 * rate + (Math.random() - 0.5) * 8;
+            osc.frequency.setValueAtTime(baseFreq, t);
+            osc.frequency.exponentialRampToValueAtTime(36, t + 0.065);
+
+            gain.gain.setValueAtTime(vol * 0.65, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.065);
+
+            osc.connect(gain);
+            gain.connect(this.sfxDestination);
+            osc.start(t);
+            osc.stop(t + 0.065);
+
+            // Đế giày ma sát
+            const bSize = Math.floor(this.ctx.sampleRate * 0.035);
+            const noiseBuf = this.ctx.createBuffer(1, bSize, this.ctx.sampleRate);
+            const data = noiseBuf.getChannelData(0);
+            for (let i = 0; i < bSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bSize);
+            const nSrc = this.ctx.createBufferSource();
+            nSrc.buffer = noiseBuf;
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(950 * rate, t);
+            filter.Q.setValueAtTime(1.6, t);
+            const nGain = this.ctx.createGain();
+            nGain.gain.setValueAtTime(vol * 0.38, t);
+            nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
+            nSrc.connect(filter);
+            filter.connect(nGain);
+            nGain.connect(this.sfxDestination);
+            nSrc.start(t);
+            return osc;
+        } catch {
+            return null;
+        }
     }
 
     playHitMarker(isCrit = false) {

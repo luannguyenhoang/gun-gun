@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { sounds } from '../../audio/audio.js?v=58';
+import { sounds } from '../../audio/audio.js?v=59';
 import { HealthBar3D } from '../../rendering/healthbar.js';
 import { CHARACTER_CONFIGS, normalizeCharacter } from './characters.js';
 import { AirdropDropEntity } from '../loot/looting.js';
@@ -3003,13 +3003,19 @@ export class PlayerController {
 
                 this.stepTimer -= delta;
                 if (this.stepTimer <= 0 && this.isGrounded) {
-                    sounds.play('step', { volume: 0.35, rate: 1.0 });
-                    this.stepTimer = 0.42;
+                    const speedRatio = Math.max(0.65, Math.min(1.35, currentSpeed / (this.moveSpeed || 7.5)));
+                    sounds.play('step', { volume: 0.35, rate: 0.95 + speedRatio * 0.08 });
+                    this.stepTimer = Math.max(0.28, 0.40 / speedRatio);
                 }
             } else {
                 this.velocity.x *= Math.pow(0.001, delta);
                 this.velocity.z *= Math.pow(0.001, delta);
+                this.stepTimer = 0.16;
+                sounds.th_stopFootstep?.();
             }
+        } else {
+            // Đang lướt né đòn (Dodge)
+            sounds.th_stopFootstep?.();
         }
 
         // Chuc nang Nhay da duoc thay the bang Luot ne don (Space = Dodge)

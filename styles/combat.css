@@ -27,10 +27,9 @@
   box-shadow: 0 4px 14px rgba(0,0,0,0.30);
 }
 
-/* ── VITALS: Máu & Khiên ─────────────────────────────── */
+/* ── VITALS: Máu & Khiên (Đã ẩn theo yêu cầu người dùng) ──────── */
 .combat-vitals {
-  position:absolute; top:14px; left:18px; width:auto; min-width:140px;
-  padding:6px 12px;
+  display: none !important;
 }
 .combat-card-title {
   display:flex; justify-content:space-between; gap:12px;
@@ -712,18 +711,9 @@
 .reload-ring-bar { fill:none; stroke:#ffbe57; stroke-width:3.2; stroke-linecap:round; stroke-dasharray:138.23; stroke-dashoffset:138.23; transform:rotate(-90deg); transform-origin:50% 50%; transition:stroke-dashoffset .05s linear,stroke .2s ease; }
 .crosshair-reload-ring.almost-ready .reload-ring-bar { stroke:#00f0ff; filter:drop-shadow(0 0 6px #00f0ff); animation:reloadRingPulse .35s ease infinite alternate; }
 .crosshair-reload-ring.ready-burst .reload-ring-bar { stroke:#10b981; filter:drop-shadow(0 0 10px #10b981); }
-/* Loading thay đạn ở giữa màn hình */
-/* Reload center HUD - tactical style */
+/* Loading thay đạn ở giữa màn hình - Đã ẩn theo yêu cầu người dùng */
 .hud-center-reload {
-  position:absolute; top:calc(50% + 55px); left:50%; transform:translate(-50%,0);
-  width:200px; padding:8px 14px;
-  background:rgba(0,6,12,0.90);
-  border:1px solid rgba(0,229,255,0.4);
-  border-radius:5px;
-  box-shadow:0 4px 24px rgba(0,0,0,0.8), 0 0 16px rgba(0,229,255,0.1);
-  pointer-events:none; z-index:120; text-align:center;
-  backdrop-filter:blur(10px);
-  transition:border-color .2s,box-shadow .2s,transform .15s ease;
+  display: none !important;
 }
 .hud-center-reload.almost-ready {
   border-color:rgba(0,229,255,0.8);
