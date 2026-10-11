@@ -238,6 +238,7 @@ export class UIManager {
         this._lastPosY = -9999;
         this._lastCrossDisplay = null;
         this._lastSpreadGap = -1;
+        this._lastReticleShown = null;
         this._lastHpVal = -1;
         this._lastMaxHp = -1;
         this._lastShVal = -1;
@@ -489,8 +490,23 @@ export class UIManager {
             if (this.hitmarker) this.hitmarker.style.display = shouldDisplay;
         }
 
-        // Cập nhật nón tản đạn mở rộng / co hẹp trực quan trên Crosshair (chỉ đổi CSS var khi giá trị pixel thay đổi)
+        // Cập nhật nón tản đạn mở rộng / co hẹp trực quan trên Crosshair
         if (this.crosshair) {
+            // Cơ chế ngắm bắn chiến thuật (Phương án B): Chỉ Súng lục và Shotgun mới có tâm khi không ADS
+            const curW = player.weapons?.getCurrentWeapon?.() || player.weapons?.currentWeapon;
+            const isPistolOrShotgun = this.th_isPistolOrShotgun(curW);
+            const isADS = !!(player.isADS || player.th_toggleADS);
+            const shouldShowReticle = isPistolOrShotgun || isADS;
+
+            if (this._lastReticleShown !== shouldShowReticle) {
+                this._lastReticleShown = shouldShowReticle;
+                if (shouldShowReticle) {
+                    this.crosshair.classList.remove('th_reticle_hidden');
+                } else {
+                    this.crosshair.classList.add('th_reticle_hidden');
+                }
+            }
+
             const spreadGap = Math.round(6 + (player.weapons?.currentSpreadDeg || 2) * 3.4);
             if (spreadGap !== this._lastSpreadGap) {
                 this._lastSpreadGap = spreadGap;
@@ -1130,6 +1146,36 @@ export class UIManager {
                 if (this.thSlotMelee) this.thSlotMelee.addEventListener('click', () => player.weapons?.switchWeapon(4, player));
             }
         }
+    }
+
+    /**
+     * Kiểm tra xem vũ khí hiện tại có phải là Súng lục hoặc Shotgun hay không.
+     * Áp dụng cho cơ chế ngắm bắn chiến thuật: Súng lục & Shotgun luôn giữ tâm ngắm phản xạ,
+     * các dòng súng khác chỉ hiển thị tâm khi ngắm chuột phải (ADS).
+     */
+    th_isPistolOrShotgun(weapon) {
+        if (!weapon) return false;
+        const cat = (weapon.category || '').toLowerCase();
+        const id = (weapon.id || '').toLowerCase();
+        // 1. Súng lục (Pistols)
+        if (cat.includes('súng lục') || cat.includes('lục') || cat.includes('pistol') || cat.includes('magnum') ||
+            id === 'blaster' || id === 'blaster_a' || id === 'blaster-a' ||
+            id === 'blaster_b' || id === 'blaster-b' ||
+            id === 'blaster_c' || id === 'blaster-c' ||
+            id === 'blaster_i' || id === 'blaster-i' ||
+            id === 'blaster_k' || id === 'blaster-k' ||
+            id === 'pew') {
+            return true;
+        }
+        // 2. Shotgun (Súng săn / Shotgun tán xạ)
+        if (cat.includes('shotgun') || cat.includes('tán xạ') || cat.includes('hai nòng') || cat.includes('chiến thuật') ||
+            id === 'scatter' ||
+            id === 'blaster_g' || id === 'blaster-g' ||
+            id === 'blaster_l' || id === 'blaster-l' ||
+            id === 'blaster_m' || id === 'blaster-m') {
+            return true;
+        }
+        return false;
     }
 
     triggerDamageFlash() {

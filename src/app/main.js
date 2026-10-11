@@ -7,7 +7,7 @@ import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getW
 import { PlayerController } from '../gameplay/player/player.js?v=76';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=70';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
-import { UIManager } from '../ui/ui.js?v=45';
+import { UIManager } from '../ui/ui.js?v=46';
 import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=75';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=40';

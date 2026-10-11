@@ -468,6 +468,15 @@ body, html {
     transform: translateY(-50%);
 }
 
+/* Ẩn hoàn toàn dấu cộng tâm ngắm khi không ngắm chuột phải (ngoại trừ súng lục & shotgun) */
+.crosshair.th_reticle_hidden .cross-dot,
+.crosshair.th_reticle_hidden .cross-line {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transition: opacity 0.08s ease, visibility 0.08s ease;
+}
+
 /* Hitmarker */
 .hitmarker {
     position: fixed;

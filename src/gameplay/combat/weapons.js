@@ -669,11 +669,11 @@ export const WEAPON_CONFIGS = [
         reloadTime: 2.1,
         range: 38,
         bulletSpeed: 180,
-        baseSpreadDegHip: 4.5,
-        baseSpreadDegADS: 0.05,
-        moveSpreadPenalty: 4.5,
-        recoilSpreadPerShot: 4.5,
-        maxSpreadDeg: 12.0,
+        baseSpreadDegHip: 22.0, // Khi không ngắm (No-scope): góc lệch 22 độ, tỷ lệ trúng cực thấp
+        baseSpreadDegADS: 0.05, // Khi ngắm (ADS): tâm gom tuyệt đối chính xác
+        moveSpreadPenalty: 6.0,
+        recoilSpreadPerShot: 5.5,
+        maxSpreadDeg: 28.0,
         spreadRecoveryRate: 16.0,
         screenShake: 0.55,
         cursorKick: 9.5,
@@ -705,11 +705,11 @@ export const WEAPON_CONFIGS = [
         reloadTime: 1.55,
         range: 32,
         bulletSpeed: 155,
-        baseSpreadDegHip: 2.2,
-        baseSpreadDegADS: 0.2,
-        moveSpreadPenalty: 2.5,
-        recoilSpreadPerShot: 1.6,
-        maxSpreadDeg: 9.0,
+        baseSpreadDegHip: 14.0, // DMR khi không ngắm có độ tản đạn cao
+        baseSpreadDegADS: 0.15, // Khi ngắm gom chuẩn xác
+        moveSpreadPenalty: 4.5,
+        recoilSpreadPerShot: 2.5,
+        maxSpreadDeg: 20.0,
         spreadRecoveryRate: 20.0,
         screenShake: 0.32,
         cursorKick: 5.5,
