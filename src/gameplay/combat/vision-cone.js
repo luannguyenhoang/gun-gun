@@ -249,11 +249,44 @@ export class VisionConeOverlay {
         const opticTier = player.weapons?.getOpticTier ? player.weapons.getOpticTier() : 1;
         const targetCfg = getWeaponVisionConfig(weapon, isADS, opticTier);
 
-        // Nội suy lerp mượt mà (phản hồi dứt khoát 24.0 khi bật ADS ngắm bắn tỉa)
-        const lerpFactor = Math.min(1.0, (isADS ? 24.0 : 14.0) * delta);
-        this.currentRange += (targetCfg.visionRange - this.currentRange) * lerpFactor;
-        this.currentAngle += (targetCfg.visionAngle - this.currentAngle) * lerpFactor;
-        this.currentProximity += (targetCfg.proximityRadius - this.currentProximity) * lerpFactor;
+        const cat = (weapon?.category || '').toUpperCase();
+        const id = (weapon?.id || '').toLowerCase();
+        const name = (weapon?.name || '').toUpperCase();
+        const aliases = Array.isArray(weapon?.aliases) ? weapon.aliases.join(' ').toLowerCase() : '';
+        const isSniper = cat.includes('NGẮM') || cat.includes('SNIPER') || cat.includes('TỈA') || cat.includes('DMR') || 
+                         name.includes('SNIPER') || name.includes('DMR') || id === 'awp' || 
+                         id.includes('blaster_n') || id.includes('blaster_o') || 
+                         aliases.includes('blaster_n') || aliases.includes('blaster_o');
+
+        // Hiệu ứng thu hẹp dần dần góc nhìn khi bật ngắm Sniper (đồng bộ nhịp nhàng với quá trình tâm ngắm co nhỏ lại)
+        let angleSpeed = 10.0;
+        let rangeSpeed = 12.0;
+        let proxSpeed = 10.0;
+
+        if (isSniper) {
+            if (isADS) {
+                // Khi bật ngắm: Góc nhìn từ từ khép lại mượt mà trong ~0.4s và tầm nhìn vươn dài ra phía trước
+                angleSpeed = 5.2;
+                rangeSpeed = 6.2;
+                proxSpeed = 5.5;
+            } else {
+                // Khi nhả ngắm: Mở rộng nhanh chóng để khôi phục tầm quan sát bao quát
+                angleSpeed = 9.5;
+                rangeSpeed = 12.0;
+                proxSpeed = 9.0;
+            }
+        } else if (isADS) {
+            angleSpeed = 12.0;
+            rangeSpeed = 14.0;
+        }
+
+        const lerpAngle = Math.min(1.0, angleSpeed * delta);
+        const lerpRange = Math.min(1.0, rangeSpeed * delta);
+        const lerpProx = Math.min(1.0, proxSpeed * delta);
+
+        this.currentAngle += (targetCfg.visionAngle - this.currentAngle) * lerpAngle;
+        this.currentRange += (targetCfg.visionRange - this.currentRange) * lerpRange;
+        this.currentProximity += (targetCfg.proximityRadius - this.currentProximity) * lerpProx;
     }
 
     /**

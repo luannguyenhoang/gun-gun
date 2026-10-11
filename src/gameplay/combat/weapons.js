@@ -386,8 +386,8 @@ export const WEAPON_CONFIGS = [
         critMultiplier: 2.2,
         magSize: 25,
         reloadTime: 1.4,
-        range: 28,
-        bulletSpeed: 140,
+        range: 55,
+        bulletSpeed: 165,
         baseSpreadDegHip: 2.2,
         baseSpreadDegADS: 0.4,
         moveSpreadPenalty: 2.5,
@@ -667,8 +667,8 @@ export const WEAPON_CONFIGS = [
         critMultiplier: 2.5,
         magSize: 5,
         reloadTime: 2.1,
-        range: 38,
-        bulletSpeed: 180,
+        range: 110, // Vươn xa 110 mét (vượt qua toàn bộ 95 mét tầm nhìn bắn tỉa)
+        bulletSpeed: 240, // Đạn bắn tỉa bay cực nhanh, găm trúng mục tiêu ở cuối hành lang
         baseSpreadDegHip: 22.0, // Khi không ngắm (No-scope): góc lệch 22 độ, tỷ lệ trúng cực thấp
         baseSpreadDegADS: 0.05, // Khi ngắm (ADS): tâm gom tuyệt đối chính xác
         moveSpreadPenalty: 6.0,
@@ -703,8 +703,8 @@ export const WEAPON_CONFIGS = [
         critMultiplier: 2.3,
         magSize: 12,
         reloadTime: 1.55,
-        range: 32,
-        bulletSpeed: 155,
+        range: 95, // DMR tầm xa vươn suốt tầm nhìn
+        bulletSpeed: 195,
         baseSpreadDegHip: 14.0, // DMR khi không ngắm có độ tản đạn cao
         baseSpreadDegADS: 0.15, // Khi ngắm gom chuẩn xác
         moveSpreadPenalty: 4.5,
