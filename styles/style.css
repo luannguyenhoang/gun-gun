@@ -420,13 +420,14 @@ body, html {
 .crosshair {
     --spread-gap: 8px;
     position: fixed;
-    top: 50%;
-    left: 50%;
+    top: 0;
+    left: 0;
     width: 32px;
     height: 32px;
-    transform: translate(-50%, -50%);
+    transform: translate3d(-50%, -50%, 0);
     pointer-events: none;
     z-index: 100;
+    will-change: transform;
 }
 
 .cross-line {
@@ -469,15 +470,16 @@ body, html {
 
 /* Hitmarker */
 .hitmarker {
-    position: absolute;
-    top: 50%;
-    left: 50%;
+    position: fixed;
+    top: 0;
+    left: 0;
     width: 26px;
     height: 26px;
-    transform: translate(-50%, -50%);
+    transform: translate3d(-50%, -50%, 0);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.05s ease;
+    will-change: transform;
 }
 
 .hitmarker.active {

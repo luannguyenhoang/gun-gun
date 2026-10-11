@@ -439,11 +439,14 @@ export class UIManager {
             const localFPS = subject === player && !!player.firstPerson;
             const hidden = !localFPS && !(_tempNdc.z >= -1 && _tempNdc.z <= 1 && Math.abs(_tempNdc.x) <= 1 && Math.abs(_tempNdc.y) <= 1);
             if (meter.hidden !== hidden) meter.hidden = hidden;
-            const left = `${Math.round(rect.left + (_tempNdc.x + 1) * rect.width / 2)}px`;
-            const top = `${Math.round(rect.top + (1 - _tempNdc.y) * rect.height / 2)}px`;
+            const screenX = Math.round(rect.left + (_tempNdc.x + 1) * rect.width / 2);
+            const screenY = Math.round(rect.top + (1 - _tempNdc.y) * rect.height / 2);
             if (!hidden && !localFPS) {
-                if (meter.style.left !== left) meter.style.left = left;
-                if (meter.style.top !== top) meter.style.top = top;
+                const tf = `translate3d(calc(${screenX}px - 50%), calc(${screenY}px - 100%), 0)`;
+                if (meter._lastTf !== tf) {
+                    meter._lastTf = tf;
+                    meter.style.transform = tf;
+                }
             }
             const health = Math.max(0, subject.health || 0), shield = Math.max(0, subject.shield || 0);
             const vitalsKey = `${health}|${shield}|${subject.maxHealth}|${subject.maxShield}|${subject.isDead}|${subject.isDowned}|${subject.name}`;
@@ -468,13 +471,12 @@ export class UIManager {
         if (posX !== this._lastPosX || posY !== this._lastPosY) {
             this._lastPosX = posX;
             this._lastPosY = posY;
+            const tf = `translate3d(calc(${posX}px - 50%), calc(${posY}px - 50%), 0)`;
             if (this.crosshair) {
-                this.crosshair.style.left = `${posX}px`;
-                this.crosshair.style.top = `${posY}px`;
+                this.crosshair.style.transform = tf;
             }
             if (this.hitmarker) {
-                this.hitmarker.style.left = `${posX}px`;
-                this.hitmarker.style.top = `${posY}px`;
+                this.hitmarker.style.transform = tf;
             }
         }
 

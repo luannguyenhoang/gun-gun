@@ -3,19 +3,19 @@ import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js?v=58';
 import { ParticleSystem } from '../rendering/particles.js?v=68';
 import { Arena, SurvivalArena, SpaceArena } from '../world/arena.js?v=25';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=72';
-import { PlayerController } from '../gameplay/player/player.js?v=75';
-import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=69';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=73';
+import { PlayerController } from '../gameplay/player/player.js?v=76';
+import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=70';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
-import { UIManager } from '../ui/ui.js?v=44';
+import { UIManager } from '../ui/ui.js?v=45';
 import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=75';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=40';
 import { HomeMenu } from '../ui/home.js?v=63';
 import { LootingSystem } from '../gameplay/loot/looting.js?v=70';
-import { RenderQuality } from '../rendering/performance.js?v=2';
+import { RenderQuality } from '../rendering/performance.js?v=3';
 import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=49';
-import { VisionConeOverlay, getWeaponVisionConfig, applyVisibilityCulling } from '../gameplay/combat/vision-cone.js?v=73';
+import { VisionConeOverlay, getWeaponVisionConfig, applyVisibilityCulling } from '../gameplay/combat/vision-cone.js?v=74';
 import { TDMManager } from '../gameplay/combat/tdm.js?v=3';
 import { FirstPersonView } from '../gameplay/player/first-person.js?v=2';
 import { TH_VersusLoadingScreen } from '../ui/th_versus_loading.js?v=2';
@@ -1917,7 +1917,6 @@ class CyberArenaGame {
                 ? ((this.player.team === 'blue' ? this.tdmManager?.teamBlue : this.tdmManager?.teamRed) || []).filter(p => p !== this.player)
                 : Array.from(this.remotePlayers.values());
 
-            this.camera.updateMatrixWorld(true);
             this.ui.updateStats(this.player, this.waveManager, this.score);
             this.ui.updateOverheadVitals(this.player, this.camera, this.renderer.domElement, teammates);
             this.ui.updateTeammateIndicators(teammates, this.player, this.camera);

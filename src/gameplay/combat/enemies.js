@@ -35,6 +35,8 @@ const _tempMoveVel = new THREE.Vector3();
 const _tempDesiredDir = new THREE.Vector3();
 const _tempCheckPos = new THREE.Vector3();
 const _tempClawPos = new THREE.Vector3();
+const _tempMeleeHitDir = new THREE.Vector3();
+const _tempClawSparkDir = new THREE.Vector3();
 
 // Cac trang thai chu ky chien dau cua Zombie
 export const ZombieCombatState = {
@@ -744,20 +746,24 @@ export class Zombie {
             this.spitCharge = 0;
             this.playAnimation('walk');
 
-            // 1. Lực tách bầy chống quái chồng lấn
+            // 1. Lực tách bầy chống quái chồng lấn (Tối ưu hóa: Manhattan check & scalar primitives)
             _tempSeparation.set(0, 0, 0);
             let neighborCount = 0;
             for (let i = 0; i < allZombies.length; i++) {
                 const other = allZombies[i];
                 if (other === this || other.isDead || !other.active) continue;
-                _tempDiff.subVectors(this.position, other.position);
-                _tempDiff.y = 0;
                 const minSpace = this.radius + other.radius;
-                const distanceSq = _tempDiff.lengthSq();
+                const dx = this.position.x - other.position.x;
+                if (dx >= minSpace || dx <= -minSpace) continue;
+                const dz = this.position.z - other.position.z;
+                if (dz >= minSpace || dz <= -minSpace) continue;
+
+                const distanceSq = dx * dx + dz * dz;
                 if (distanceSq > 0.0001 && distanceSq < minSpace * minSpace) {
                     const d = Math.sqrt(distanceSq);
-                    _tempDiff.multiplyScalar((minSpace - d) / (minSpace * d));
-                    _tempSeparation.add(_tempDiff);
+                    const scale = (minSpace - d) / (minSpace * d);
+                    _tempSeparation.x += dx * scale;
+                    _tempSeparation.z += dz * scale;
                     neighborCount++;
                 }
             }
@@ -830,20 +836,24 @@ export class Zombie {
             sounds?.play?.('enemyAttack', { volume: 0.75, pitchVariation: 0.2 });
         }
 
-        // 2. Swarm separation: Thuat toan day mem chong chong lan quai, giup bay tu dan hang ngang
+        // 2. Swarm separation: Thuat toan day mem chong chong lan quai (Tối ưu hóa Manhattan & scalar)
         _tempSeparation.set(0, 0, 0);
         let neighborCount = 0;
         for (let i = 0; i < allZombies.length; i++) {
             const other = allZombies[i];
             if (other === this || other.isDead || !other.active) continue;
-            _tempDiff.subVectors(this.position, other.position);
-            _tempDiff.y = 0;
             const minSpace = this.radius + other.radius;
-            const distanceSq = _tempDiff.lengthSq();
+            const dx = this.position.x - other.position.x;
+            if (dx >= minSpace || dx <= -minSpace) continue;
+            const dz = this.position.z - other.position.z;
+            if (dz >= minSpace || dz <= -minSpace) continue;
+
+            const distanceSq = dx * dx + dz * dz;
             if (distanceSq > 0.0001 && distanceSq < minSpace * minSpace) {
                 const d = Math.sqrt(distanceSq);
-                _tempDiff.multiplyScalar((minSpace - d) / (minSpace * d));
-                _tempSeparation.add(_tempDiff);
+                const scale = (minSpace - d) / (minSpace * d);
+                _tempSeparation.x += dx * scale;
+                _tempSeparation.z += dz * scale;
                 neighborCount++;
             }
         }
@@ -1022,8 +1032,8 @@ export class Zombie {
                 if (t.isDead || t.isDowned) continue;
                 const d = t.position.distanceTo(this.position);
                 if (d <= slamRadius) {
-                    const hitDir = new THREE.Vector3().subVectors(t.position, this.position).normalize();
-                    t.takeDamage(this.damage * 1.5, hitDir);
+                    _tempMeleeHitDir.subVectors(t.position, this.position).normalize();
+                    t.takeDamage(this.damage * 1.5, _tempMeleeHitDir);
                     if (t.applyKickbackAndShake) t.applyKickbackAndShake(new THREE.Vector2(0, 0), 0.8);
                 }
             }
@@ -1043,10 +1053,10 @@ export class Zombie {
         const isPlayerHidden = player.isInSmoke || player.isStealthed || ((player.shadowVeilTimer || 0) > 0);
         if (isPlayerHidden || this.weapons?.isPositionInSmoke?.(this.position) || window.game?.weapons?.isPositionInSmoke?.(this.position)) return;
         sounds.play('enemyAttack', { volume: 0.7, pitchVariation: 0.15 });
-        const hitDir = new THREE.Vector3().subVectors(player.position, this.position).normalize();
+        _tempMeleeHitDir.subVectors(player.position, this.position).normalize();
         
         // Tru mau nguoi choi
-        player.takeDamage(this.damage, hitDir);
+        player.takeDamage(this.damage, _tempMeleeHitDir);
 
         // Kich hoat rung man hinh chấn thương va flash do man hinh
         if (typeof player.applyKickbackAndShake === 'function') {
@@ -1058,7 +1068,8 @@ export class Zombie {
         // Tao tia mau va vet cao chem
         _tempClawPos.copy(player.position);
         _tempClawPos.y += 1.1;
-        this.particles?.createImpactSparks(_tempClawPos, hitDir.clone().negate(), 0xff1133, 10);
+        _tempClawSparkDir.copy(_tempMeleeHitDir).negate();
+        this.particles?.createImpactSparks(_tempClawPos, _tempClawSparkDir, 0xff1133, 10);
     }
 }
 

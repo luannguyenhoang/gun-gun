@@ -300,8 +300,8 @@ export class VisionConeOverlay {
             return;
         }
 
-        // Người chơi chính: Bắn tia tạo Đa Giác Tầm Nhìn sắc nét
-        const numRays = 14;
+        // Người chơi chính: Bắn tia tạo Đa Giác Tầm Nhìn sắc nét (Tối ưu hóa: 10 tia + 5 tia cận cảnh)
+        const numRays = 10;
         const polyPoints = (this._localPolyPoints ||= []);
         polyPoints.length = numRays + 1;
         const range = Math.max(rangeVal, proxVal) + 0.5;
@@ -324,7 +324,6 @@ export class VisionConeOverlay {
             } else if (arena && arena.colliders) {
                 for (let c = 0; c < arena.colliders.length; c++) {
                     const col = arena.colliders[c];
-                    // Bo qua cac vat the nam hoan toan duoi san hoac tren tran
                     if (col.max.y <= 0.4 || col.min.y >= 3.0) continue;
                     const hit = this._coneRay.intersectBox(col, this._coneHit);
                     if (hit) {
@@ -349,7 +348,7 @@ export class VisionConeOverlay {
         }
 
         // Bắn tia cho quầng cận cảnh quanh chân để không bị lọt qua vách tường sát bên
-        const proxRays = 8;
+        const proxRays = 5;
         const proxPoints = (this._localProxPoints ||= []);
         proxPoints.length = proxRays;
         for (let s = 0; s < proxRays; s++) {
@@ -428,26 +427,6 @@ export class VisionConeOverlay {
         }
 
         ctx.restore();
-
-        // 5. Chỉ vẽ viền sáng phản quang cho người chơi chính (bỏ qua cho bot để tối ưu GPU/CPU)
-        if (isLocalPlayer) {
-            ctx.save();
-            ctx.globalCompositeOperation = 'source-over';
-            const rimGrad = ctx.createRadialGradient(screenX, screenY, screenProxRadius * 0.5, screenX, screenY, screenRadius);
-            rimGrad.addColorStop(0, 'rgba(255, 245, 210, 0.08)');
-            rimGrad.addColorStop(0.85, 'rgba(255, 230, 180, 0.04)');
-            rimGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
-
-            ctx.fillStyle = rimGrad;
-            ctx.beginPath();
-            ctx.moveTo(screenX, screenY);
-            for (let i = 0; i < polyPoints.length; i++) {
-                ctx.lineTo(polyPoints[i].x, polyPoints[i].y);
-            }
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
-        }
     }
 
     /**

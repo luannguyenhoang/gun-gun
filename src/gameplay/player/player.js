@@ -20,6 +20,9 @@ const _aimEnemySphere = new THREE.Sphere();
 const _aimEnemyHit = new THREE.Vector3();
 const _cameraTarget = new THREE.Vector3();
 const _tempAimVec = new THREE.Vector3();
+const _th_muzzlePos = new THREE.Vector3();
+const _th_shootForward = new THREE.Vector3();
+const _aimColliderCandidates = [];
 
 // Bộ nạp và cache texture hiệu ứng hạt từ Kenney Particle Pack (bao gồm thư mục Rotated/)
 const _skillTextureLoader = new THREE.TextureLoader();
@@ -3072,31 +3075,53 @@ export class PlayerController {
         _aimPlane.set(_aimPlaneNormal, -(this.position.y + 0.85));
         const target = _aimRaycaster.ray.intersectPlane(_aimPlane, _aimTarget);
         if (!target) return;
-        for (let i = 0; i < this.arena.colliders.length; i++) {
-            const collider = this.arena.colliders[i];
+
+        const rayOrigin = _aimRaycaster.ray.origin;
+        let closestDistSq = rayOrigin.distanceToSquared(target);
+
+        // Tối ưu hóa: Thay vì duyệt toàn bộ colliders trên bản đồ, lọc nhanh bằng Spatial Grid
+        const minX = Math.min(rayOrigin.x, target.x) - 1.5;
+        const maxX = Math.max(rayOrigin.x, target.x) + 1.5;
+        const minZ = Math.min(rayOrigin.z, target.z) - 1.5;
+        const maxZ = Math.max(rayOrigin.z, target.z) + 1.5;
+
+        const colliders = (this.arena?.getCollidersInAABB)
+            ? this.arena.getCollidersInAABB(minX, minZ, maxX, maxZ, _aimColliderCandidates)
+            : (this.arena?.colliders || []);
+
+        for (let i = 0; i < colliders.length; i++) {
+            const collider = colliders[i];
             const hit = _aimRaycaster.ray.intersectBox(collider, _aimColliderHit);
-            if (hit && _aimRaycaster.ray.origin.distanceTo(hit) < _aimRaycaster.ray.origin.distanceTo(target)) {
-                target.copy(hit);
+            if (hit) {
+                const dSq = rayOrigin.distanceToSquared(hit);
+                if (dSq < closestDistSq) {
+                    closestDistSq = dSq;
+                    target.copy(hit);
+                }
             }
         }
         for (let i = 0; i < enemies.length; i++) {
             const enemy = enemies[i];
             if (enemy.isDead || !enemy.mesh) continue;
             _aimEnemyCenter.copy(enemy.position);
-            _aimEnemyCenter.y += enemy.scale * 0.45;
+            _aimEnemyCenter.y += (enemy.scale || 1.0) * 0.45;
             _aimEnemySphere.center.copy(_aimEnemyCenter);
-            _aimEnemySphere.radius = enemy.radius;
+            _aimEnemySphere.radius = enemy.radius || 0.6;
             const hit = _aimRaycaster.ray.intersectSphere(_aimEnemySphere, _aimEnemyHit);
-            if (hit && _aimRaycaster.ray.origin.distanceTo(hit) < _aimRaycaster.ray.origin.distanceTo(target)) {
-                // Aim just inside the body so overhead selection does not send
-                // the muzzle ray grazing tangentially along the hit sphere.
-                target.copy(hit).lerp(_aimEnemyCenter, 0.25);
+            if (hit) {
+                const dSq = rayOrigin.distanceToSquared(hit);
+                if (dSq < closestDistSq) {
+                    closestDistSq = dSq;
+                    // Aim just inside the body so overhead selection does not send
+                    // the muzzle ray grazing tangentially along the hit sphere.
+                    target.copy(hit).lerp(_aimEnemyCenter, 0.25);
+                }
             }
         }
         this.aimPoint.copy(target);
         const dx = target.x - this.position.x;
         const dz = target.z - this.position.z;
-        if (Math.hypot(dx, dz) > 0.1) this.aimYaw = Math.atan2(dx, dz);
+        if (dx * dx + dz * dz > 0.01) this.aimYaw = Math.atan2(dx, dz);
     }
 
     handleShooting() {
@@ -3108,25 +3133,25 @@ export class PlayerController {
         const shouldShoot = w.isAuto ? this.mouseButtons.left : (this.mouseButtons.left && this.weapons.fireCooldown <= 0);
 
         if (shouldShoot) {
-            // Compute muzzle origin from character right arm
-            const muzzlePos = new THREE.Vector3();
+            // Compute muzzle origin from character right arm (Zero Allocation GC)
             if (this.firstPerson) {
-                muzzlePos.copy(this.camera.position);
-            } else if (this.weapons.getMuzzlePosition?.(muzzlePos)) {
+                _th_muzzlePos.copy(this.camera.position);
+            } else if (this.weapons.getMuzzlePosition?.(_th_muzzlePos)) {
                 // The projectile and flash now originate at the visible barrel.
             } else if (this.handBone) {
                 this.model.updateMatrixWorld(true);
-                this.handBone.getWorldPosition(muzzlePos);
+                this.handBone.getWorldPosition(_th_muzzlePos);
                 // Forward offset in character facing direction
-                const forward = new THREE.Vector3(Math.sin(this.aimYaw), 0, Math.cos(this.aimYaw));
-                muzzlePos.addScaledVector(forward, 0.45);
-                muzzlePos.y += 0.05;
+                _th_shootForward.set(Math.sin(this.aimYaw), 0, Math.cos(this.aimYaw));
+                _th_muzzlePos.addScaledVector(_th_shootForward, 0.45);
+                _th_muzzlePos.y += 0.05;
             } else {
-                muzzlePos.copy(this.position).add(new THREE.Vector3(0, 1.2, 0));
+                _th_muzzlePos.copy(this.position);
+                _th_muzzlePos.y += 1.2;
             }
 
             const dmgMult = (this.damageMult || 1.0) * (this.activeSkillEffect === 'overdrive' ? 1.25 : 1.0);
-            const fired = this.weapons.shoot(muzzlePos, this.aimPoint, this.isADS, true, dmgMult, this);
+            const fired = this.weapons.shoot(_th_muzzlePos, this.aimPoint, this.isADS, true, dmgMult, this);
             if (fired && this.firstPerson && !w.isKnife) {
                 this.firstPerson.pitch = Math.min(1.45, this.firstPerson.pitch + (this.isADS ? 0.003 : 0.006));
             }

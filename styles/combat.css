@@ -2046,8 +2046,10 @@
 /* All players share the same overhead health and shield presentation. */
 .player-overhead-vitals {
   position: fixed; z-index: 30; width: 86px;
-  transform: translate(-50%, -100%); pointer-events: none;
+  top: 0; left: 0;
+  transform: translate3d(-50%, -100%, 0); pointer-events: none;
   filter: drop-shadow(0 2px 2px #0006);
+  will-change: transform;
 }
 .player-overhead-vitals[hidden] { display: none; }
 .overhead-health { position: relative; height: 17px; border: 2px solid #202329; border-radius: 5px; background: #30353c; overflow: hidden; }

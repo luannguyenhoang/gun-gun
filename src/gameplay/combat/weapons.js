@@ -1101,9 +1101,12 @@ const _tempSlashForward = new THREE.Vector3();
 const _tempToEnemy = new THREE.Vector3();
 const _tempToEnemyHoriz = new THREE.Vector3();
 const _tempCheckRay = new THREE.Ray();
-const _tempCheckRayDir = new THREE.Vector3();
 const _tempSparkDir = new THREE.Vector3();
+const _tempSplashDir = new THREE.Vector3();
+const _tempMedkitPos = new THREE.Vector3();
 const _tempHitPointSparks = new THREE.Vector3();
+let _cachedSlashTex = null;
+let _cachedSlashMat = null;
 const _tempBulletColliders = [];
 const _heldParentRotation = new THREE.Quaternion();
 const _heldFacing = new THREE.Quaternion();
@@ -3082,12 +3085,12 @@ export class WeaponSystem {
             } else {
                 this.medkitTimer -= delta;
                 if (Math.random() < 0.28) {
-                    const sparkPos = p.position.clone().add(new THREE.Vector3(
-                        (Math.random() - 0.5) * 0.7,
-                        0.4 + Math.random() * 0.9,
-                        (Math.random() - 0.5) * 0.7
-                    ));
-                    this.particles.createImpactSparks(sparkPos, new THREE.Vector3(0, 1, 0), 0x00ff88, 2);
+                    _tempMedkitPos.set(
+                        p.position.x + (Math.random() - 0.5) * 0.7,
+                        p.position.y + 0.4 + Math.random() * 0.9,
+                        p.position.z + (Math.random() - 0.5) * 0.7
+                    );
+                    this.particles.createImpactSparks(_tempMedkitPos, new THREE.Vector3(0, 1, 0), 0x00ff88, 2);
                 }
 
                 if (this.medkitTimer <= 0) {
@@ -3119,7 +3122,9 @@ export class WeaponSystem {
 
                     p.painTimer = 0;
                     sounds.playMedkit();
-                    this.particles.createImpactSparks(p.position.clone().add(new THREE.Vector3(0, 1.0, 0)), new THREE.Vector3(0, 1, 0), medCfg.color || 0x00ff88, 24);
+                    _tempMedkitPos.copy(p.position);
+                    _tempMedkitPos.y += 1.0;
+                    this.particles.createImpactSparks(_tempMedkitPos, new THREE.Vector3(0, 1, 0), medCfg.color || 0x00ff88, 24);
                     this.medkitPlayerRef = null;
                 }
             }
@@ -3253,7 +3258,8 @@ export class WeaponSystem {
             if (p.maxRange && p.distanceTraveled >= p.maxRange) {
                 // Tạo hiệu ứng hạt tàn đạn nhẹ khi viên đạn bay hết cự ly hiệu dụng
                 if (startPos) {
-                    this.particles?.createImpactSparks?.(startPos, p.direction.clone().negate(), p.color, 4);
+                    _tempSparkDir.copy(p.direction).negate();
+                    this.particles?.createImpactSparks?.(startPos, _tempSparkDir, p.color, 4);
                 }
                 this.removeProjectile(i);
                 continue;
@@ -3283,12 +3289,13 @@ export class WeaponSystem {
                             if (!enemy.isDead && enemy.position.distanceTo(hit) <= p.splashRadius) {
                                 const dist = enemy.position.distanceTo(hit);
                                 const splashDmg = Math.round(p.damage * (1 - (dist / p.splashRadius) * 0.45));
-                                const dir = enemy.position.clone().sub(hit).normalize();
-                                enemy.takeDamage(splashDmg, p.penPower, false, dir);
+                                _tempSplashDir.subVectors(enemy.position, hit).normalize();
+                                enemy.takeDamage(splashDmg, p.penPower, false, _tempSplashDir);
                             }
                         }
                     } else {
-                        this.particles.createImpactSparks(hit, p.direction.clone().negate(), p.color, 8);
+                        _tempSparkDir.copy(p.direction).negate();
+                        this.particles.createImpactSparks(hit, _tempSparkDir, p.color, 8);
                     }
                     this.removeProjectile(i);
                     hitFound = true;
@@ -3327,25 +3334,25 @@ export class WeaponSystem {
                             p.owner.isStealthed = false;
                             sounds.play('enemyDestroy', { volume: 1.0, pitchVariation: 0.2 });
 
-                            // Vệt chém bóng ma tím khổng lồ phá tàng hình (slash_01.png)
-                            const slashTex = new THREE.TextureLoader().load('assets/particles/slash_01.png');
-                            if (THREE.SRGBColorSpace) slashTex.colorSpace = THREE.SRGBColorSpace;
-                            const slashMat = new THREE.SpriteMaterial({
-                                map: slashTex,
-                                color: 0x8b5cf6,
-                                transparent: true,
-                                opacity: 0.95,
-                                blending: THREE.AdditiveBlending,
-                                depthWrite: false
-                            });
-                            const slashSprite = new THREE.Sprite(slashMat);
+                            // Vệt chém bóng ma tím khổng lồ phá tàng hình (pre-cached)
+                            if (!_cachedSlashTex) {
+                                _cachedSlashTex = new THREE.TextureLoader().load('assets/particles/slash_01.png');
+                                if (THREE.SRGBColorSpace) _cachedSlashTex.colorSpace = THREE.SRGBColorSpace;
+                                _cachedSlashMat = new THREE.SpriteMaterial({
+                                    map: _cachedSlashTex,
+                                    color: 0x8b5cf6,
+                                    transparent: true,
+                                    opacity: 0.95,
+                                    blending: THREE.AdditiveBlending,
+                                    depthWrite: false
+                                });
+                            }
+                            const slashSprite = new THREE.Sprite(_cachedSlashMat);
                             slashSprite.position.copy(hitInfo.point);
                             slashSprite.scale.set(4.5, 4.5, 1);
                             this.scene.add(slashSprite);
                             setTimeout(() => {
                                 this.scene.remove(slashSprite);
-                                slashMat.dispose();
-                                slashTex.dispose();
                             }, 280);
 
                             this.particles?.createExplosion?.(hitInfo.point, 0x8b5cf6, 26, 3.8);

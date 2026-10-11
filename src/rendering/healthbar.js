@@ -33,7 +33,6 @@ export class HealthBar3D {
 
         background.onBeforeRender = (_renderer, _scene, camera) => {
             this.group.quaternion.copy(camera.quaternion);
-            this.group.updateMatrixWorld(true);
         };
         this.group.add(background, this.fill, this.armorFill);
         scene.add(this.group);
