@@ -1,5 +1,57 @@
 // Quản lý lưu trữ và đồng bộ trạng thái phòng nhiều người chơi qua Supabase Database
-import { getSupabaseClient } from './auth.js?v=49';
+import { getSupabaseClient, getCurrentUser } from './auth.js?v=49';
+
+/**
+ * Lấy định danh duy nhất của người chơi hiện tại:
+ * - Nếu đã đăng nhập: Sử dụng UUID duy nhất từ tài khoản Supabase (user.id).
+ * - Nếu là khách: Sử dụng định danh cố định lưu trong localStorage để không bị nhân bản khi tải lại trang.
+ * @returns {string}
+ */
+export function getClientUserId() {
+    try {
+        const user = getCurrentUser();
+        if (user && user.id) return user.id;
+        if (typeof window !== 'undefined' && window.localStorage) {
+            let guestId = window.localStorage.getItem('arena_client_user_id');
+            if (!guestId) {
+                guestId = 'guest_' + Math.random().toString(36).substring(2, 10);
+                window.localStorage.setItem('arena_client_user_id', guestId);
+            }
+            return guestId;
+        }
+    } catch {}
+    return 'guest_' + Math.random().toString(36).substring(2, 10);
+}
+
+/**
+ * Khử trùng lặp danh sách người chơi trong phòng dựa theo user_id, id hoặc tên hiển thị
+ * @param {Array} players Danh sách người chơi
+ * @returns {Array} Danh sách đã lọc bỏ bản sao
+ */
+export function deduplicatePlayers(players) {
+    if (!Array.isArray(players)) return [];
+    const seenKeys = new Set();
+    const seenNames = new Set();
+    const result = [];
+
+    // Ưu tiên giữ lại Host trước
+    const sorted = [...players].sort((a, b) => (b.is_host ? 1 : 0) - (a.is_host ? 1 : 0));
+
+    for (const p of sorted) {
+        if (!p || typeof p !== 'object') continue;
+        const key = p.user_id || p.id;
+        const name = (p.name || '').trim().toLowerCase();
+
+        // Nếu trùng key định danh hoặc trùng tên trong cùng một phòng thì bỏ qua bản sao
+        if (key && seenKeys.has(key)) continue;
+        if (name && seenNames.has(name)) continue;
+
+        if (key) seenKeys.add(key);
+        if (name) seenNames.add(name);
+        result.push(p);
+    }
+    return result;
+}
 
 /**
  * Đọc thông tin phòng từ cơ sở dữ liệu Supabase theo mã phòng
@@ -19,6 +71,9 @@ export async function getDbRoom(code) {
             console.warn('[DbRoom] Lỗi truy vấn phòng:', error.message);
             return null;
         }
+        if (data && Array.isArray(data.players)) {
+            data.players = deduplicatePlayers(data.players);
+        }
         return data;
     } catch (err) {
         console.warn('[DbRoom] Ngoại lệ khi lấy phòng:', err);
@@ -35,9 +90,11 @@ export async function createDbRoom({ code, hostName, character = 'soldier', team
     const client = getSupabaseClient();
     const cleanCode = code.trim().toUpperCase();
     const cleanHostName = (hostName || 'Chủ phòng').trim().slice(0, 24) || 'Chủ phòng';
+    const hostUserId = getClientUserId();
 
     const hostPlayer = {
         id: 'host',
+        user_id: hostUserId,
         name: cleanHostName,
         character: character || 'soldier',
         team: team === 'red' ? 'red' : 'blue',
@@ -49,7 +106,7 @@ export async function createDbRoom({ code, hostName, character = 'soldier', team
 
     const roomData = {
         code: cleanCode,
-        host_id: 'host',
+        host_id: hostUserId,
         host_name: cleanHostName,
         mode: mode || 'TDM',
         status: 'waiting',
@@ -61,7 +118,6 @@ export async function createDbRoom({ code, hostName, character = 'soldier', team
     };
 
     if (!client) {
-        // Fallback khi không có kết nối cơ sở dữ liệu
         return { room: roomData, player: hostPlayer };
     }
 
@@ -87,9 +143,10 @@ export async function createDbRoom({ code, hostName, character = 'soldier', team
 }
 
 /**
- * Tham gia vào phòng đã lưu trên cơ sở dữ liệu Supabase
+ * Tham gia vào phòng đã lưu trên cơ sở dữ liệu Supabase có kiểm tra định danh duy nhất (User ID)
+ * để chống nhân bản người chơi khi thoát ra vào lại hoặc làm mới trang
  * @param {object} params Thông tin người chơi tham gia
- * @returns {Promise<{ room: object, player: object }>}
+ * @returns {Promise<{ room: object, player: object, rejoined: boolean }>}
  */
 export async function joinDbRoom({ code, playerName, character = 'soldier', team = null, weapon = 'blaster_c', loadout = null }) {
     const client = getSupabaseClient();
@@ -98,8 +155,30 @@ export async function joinDbRoom({ code, playerName, character = 'soldier', team
         throw new Error('Vui lòng nhập mã phòng hợp lệ.');
     }
 
+    const currentUserId = getClientUserId();
+    const cleanName = (playerName || 'Đồng đội').trim().slice(0, 24) || 'Đồng đội';
+
     if (!client) {
-        throw new Error('Chưa kết nối dịch vụ cơ sở dữ liệu.');
+        const fallbackPlayer = {
+            id: currentUserId,
+            user_id: currentUserId,
+            name: cleanName,
+            character: character || 'soldier',
+            team: team || 'red',
+            weapon: weapon || 'blaster_c',
+            loadout: loadout || null,
+            is_host: false,
+            joined_at: new Date().toISOString()
+        };
+        return {
+            room: {
+                code: cleanCode,
+                status: 'waiting',
+                players: [fallbackPlayer]
+            },
+            player: fallbackPlayer,
+            rejoined: false
+        };
     }
 
     // 1. Kiểm tra sự tồn tại và trạng thái phòng trong DB
@@ -121,12 +200,78 @@ export async function joinDbRoom({ code, playerName, character = 'soldier', team
         throw new Error('Trận đấu đã bắt đầu. Vui lòng chờ trận mới hoặc chọn phòng khác.');
     }
 
-    const currentPlayers = Array.isArray(room.players) ? [...room.players] : [];
+    let currentPlayers = deduplicatePlayers(room.players || []);
+
+    // 2. Kiểm tra xem người chơi này đã có sẵn trong phòng chưa (Check theo User ID, ID hoặc Tên)
+    const existingIndex = currentPlayers.findIndex(p => {
+        if (!p || typeof p !== 'object') return false;
+        if (p.user_id && p.user_id === currentUserId) return true;
+        if (p.id && p.id === currentUserId) return true;
+        const pName = (p.name || '').trim().toLowerCase();
+        // Nếu cùng tên với một người chơi đã có trong phòng
+        if (pName && pName === cleanName.toLowerCase()) return true;
+        return false;
+    });
+
+    if (existingIndex !== -1) {
+        // NGƯỜI CHƠI ĐÃ CÓ TRONG PHÒNG: Đây là hành vi Rejoin / F5 vào lại
+        // Tuyệt đối không nhân bản thêm dòng mới; chỉ cập nhật lại thông tin mới nhất
+        const existing = currentPlayers[existingIndex];
+        existing.user_id = currentUserId;
+        existing.name = cleanName;
+        existing.character = character || existing.character;
+        existing.weapon = weapon || existing.weapon;
+        existing.loadout = loadout || existing.loadout;
+        if (team && (team === 'red' || team === 'blue')) {
+            existing.team = team;
+        }
+        existing.updated_at = new Date().toISOString();
+
+        currentPlayers = deduplicatePlayers(currentPlayers);
+
+        await client
+            .from('rooms')
+            .update({
+                players: currentPlayers,
+                updated_at: new Date().toISOString()
+            })
+            .eq('code', cleanCode);
+
+        return { room: { ...room, players: currentPlayers }, player: existing, rejoined: true };
+    }
+
+    // 3. Nếu là chủ phòng (Host) vào lại phòng của chính mình
+    const isHostUser = room.host_id === currentUserId ||
+        (room.host_name && room.host_name.trim().toLowerCase() === cleanName.toLowerCase()) ||
+        (currentPlayers.length > 0 && (currentPlayers[0].name || '').trim().toLowerCase() === cleanName.toLowerCase() && currentPlayers[0].is_host);
+
+    if (isHostUser) {
+        const hostPlayer = currentPlayers.find(p => p.is_host) || currentPlayers[0] || { id: 'host', is_host: true };
+        hostPlayer.user_id = currentUserId;
+        hostPlayer.name = cleanName;
+        hostPlayer.character = character || hostPlayer.character;
+        hostPlayer.updated_at = new Date().toISOString();
+
+        currentPlayers = deduplicatePlayers(currentPlayers);
+
+        await client
+            .from('rooms')
+            .update({
+                host_id: currentUserId,
+                players: currentPlayers,
+                updated_at: new Date().toISOString()
+            })
+            .eq('code', cleanCode);
+
+        return { room: { ...room, players: currentPlayers }, player: hostPlayer, rejoined: true };
+    }
+
+    // 4. Nếu là người chơi mới hoàn toàn: kiểm tra giới hạn số lượng
     if (currentPlayers.length >= (room.max_players || 8)) {
         throw new Error(`Phòng đã đủ số lượng tối đa (${room.max_players || 8} người).`);
     }
 
-    // 2. Tính toán phân bổ đội cân bằng
+    // Tính toán phân bổ đội cân bằng
     const blueCount = currentPlayers.filter(p => p.team === 'blue').length;
     const redCount = currentPlayers.filter(p => p.team === 'red').length;
     let preferredTeam = team || (blueCount <= redCount ? 'blue' : 'red');
@@ -136,12 +281,9 @@ export async function joinDbRoom({ code, playerName, character = 'soldier', team
         preferredTeam = 'blue';
     }
 
-    // 3. Khởi tạo thông tin người chơi mới
-    const guestId = 'p' + Math.random().toString(36).substring(2, 8);
-    const cleanName = (playerName || 'Đồng đội').trim().slice(0, 24) || 'Đồng đội';
-
     const newPlayer = {
-        id: guestId,
+        id: currentUserId,
+        user_id: currentUserId,
         name: cleanName,
         character: character || 'soldier',
         team: preferredTeam,
@@ -152,8 +294,9 @@ export async function joinDbRoom({ code, playerName, character = 'soldier', team
     };
 
     currentPlayers.push(newPlayer);
+    currentPlayers = deduplicatePlayers(currentPlayers);
 
-    // 4. Cập nhật danh sách người chơi vào DB
+    // Cập nhật danh sách người chơi vào DB
     const { data: updatedRoom, error: updateErr } = await client
         .from('rooms')
         .update({
@@ -169,7 +312,7 @@ export async function joinDbRoom({ code, playerName, character = 'soldier', team
         throw new Error('Không thể ghi danh vào phòng trên hệ thống.');
     }
 
-    return { room: updatedRoom, player: newPlayer };
+    return { room: updatedRoom, player: newPlayer, rejoined: false };
 }
 
 /**
@@ -182,7 +325,7 @@ export async function updateDbRoomRoster(code, { players, fillBots, mode }) {
     if (!client || !code) return;
     try {
         const payload = { updated_at: new Date().toISOString() };
-        if (Array.isArray(players)) payload.players = players;
+        if (Array.isArray(players)) payload.players = deduplicatePlayers(players);
         if (typeof fillBots === 'boolean') payload.fill_bots = fillBots;
         if (mode) payload.mode = mode;
 
@@ -220,15 +363,17 @@ export async function startDbRoom(code, epoch) {
 /**
  * Rời phòng trên cơ sở dữ liệu Supabase
  * @param {string} code Mã phòng
- * @param {string} playerId Mã định danh người chơi
+ * @param {string} playerId Mã định danh người chơi hoặc User ID
  * @returns {Promise<{ closed: boolean, newHost: object|null }>}
  */
 export async function leaveDbRoom(code, playerId) {
     const client = getSupabaseClient();
-    if (!client || !code || !playerId) return { closed: false, newHost: null };
+    if (!client || !code) return { closed: false, newHost: null };
 
     try {
         const cleanCode = code.trim().toUpperCase();
+        const currentUserId = playerId || getClientUserId();
+
         const { data: room } = await client
             .from('rooms')
             .select('*')
@@ -237,10 +382,10 @@ export async function leaveDbRoom(code, playerId) {
 
         if (!room) return { closed: true, newHost: null };
 
-        const currentPlayers = Array.isArray(room.players) ? room.players : [];
-        const remainingPlayers = currentPlayers.filter(p => p.id !== playerId);
+        const currentPlayers = deduplicatePlayers(room.players || []);
+        const remainingPlayers = currentPlayers.filter(p => p.id !== currentUserId && p.user_id !== currentUserId);
 
-        // Nếu không còn ai trong phòng: đóng hoặc xóa phòng
+        // Nếu không còn ai trong phòng: xóa phòng
         if (remainingPlayers.length === 0) {
             await client.from('rooms').delete().eq('code', cleanCode);
             return { closed: true, newHost: null };
@@ -248,14 +393,14 @@ export async function leaveDbRoom(code, playerId) {
 
         // Nếu người rời phòng là chủ phòng: chuyển giao quyền chủ phòng cho người tiếp theo
         let newHost = null;
-        const wasHost = (room.host_id === playerId) || (playerId === 'host');
+        const wasHost = (room.host_id === currentUserId) || (currentUserId === 'host');
         if (wasHost) {
             newHost = remainingPlayers[0];
             newHost.is_host = true;
             await client
                 .from('rooms')
                 .update({
-                    host_id: newHost.id,
+                    host_id: newHost.user_id || newHost.id,
                     host_name: newHost.name,
                     players: remainingPlayers,
                     updated_at: new Date().toISOString()
@@ -314,6 +459,9 @@ export function subscribeDbRoom(code, onUpdate, onClosed) {
                     onClosed?.();
                     return;
                 }
+                if (Array.isArray(record.players)) {
+                    record.players = deduplicatePlayers(record.players);
+                }
                 onUpdate?.(record);
             }
         )
@@ -361,7 +509,10 @@ export async function listPublicRooms() {
             console.warn('[DbRoom] Lỗi tải danh sách phòng:', error.message);
             return [];
         }
-        return data || [];
+        return (data || []).map(r => ({
+            ...r,
+            players: deduplicatePlayers(r.players || [])
+        }));
     } catch (err) {
         console.warn('[DbRoom] Ngoại lệ khi tải danh sách phòng:', err);
         return [];

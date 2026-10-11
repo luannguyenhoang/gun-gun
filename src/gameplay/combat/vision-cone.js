@@ -132,6 +132,10 @@ export function applyVisibilityCulling(teamOrObserver, entities, defaultVisionCo
     // Chuẩn hóa danh sách thành viên quan sát cùng phe
     const observers = Array.isArray(teamOrObserver) ? teamOrObserver : [teamOrObserver];
     const activeObservers = observers.filter(o => o && !o.isDead);
+    const configs = activeObservers.map(obs => {
+        const weapon = obs.weapons?.currentGun || obs.weapons?.getCurrentWeapon?.();
+        return (obs === teamOrObserver && defaultVisionConfig) || getWeaponVisionConfig(weapon, !!obs.isADS, obs.weapons?.getOpticTier?.() || 1);
+    });
 
     for (let i = 0; i < entities.length; i++) {
         const entity = entities[i];
@@ -150,12 +154,7 @@ export function applyVisibilityCulling(teamOrObserver, entities, defaultVisionCo
         // Kiểm tra xem có bất kỳ thành viên nào trong đội soi trúng đối thủ này không
         for (let j = 0; j < activeObservers.length; j++) {
             const obs = activeObservers[j];
-            const weapon = obs.weapons?.currentGun || obs.weapons?.getCurrentWeapon?.();
-            const isADS = !!obs.isADS;
-            const opticTier = obs.weapons?.getOpticTier ? obs.weapons.getOpticTier() : 1;
-            const cfg = (obs === teamOrObserver && defaultVisionConfig)
-                ? defaultVisionConfig
-                : getWeaponVisionConfig(weapon, isADS, opticTier);
+            const cfg = configs[j];
 
             if (checkEntityVisibility(obs, entity, cfg, arena)) {
                 isVisible = true;
@@ -287,7 +286,11 @@ export class VisionConeOverlay {
         // 3. BẮN TIA RAYCAST VÀO CÁC HỘP VA CHẠM TƯỜNG ĐỂ TẠO ĐA GIÁC TẦM NHÌN (Vision Polygon)
         // Đồng đội bot lấy mẫu ít tia hơn để tối ưu hiệu năng
         const numRays = isLocalPlayer ? 24 : 12;
-        const polyPoints = [];
+        const polyPoints = isLocalPlayer ? (this._localPolyPoints ||= []) : (this._polyPoints ||= []);
+        polyPoints.length = numRays + 1;
+        const range = Math.max(rangeVal, proxVal) + 0.5;
+        const candidates = arena?.getCollidersInAABB?.(spotter.position.x - range, spotter.position.z - range,
+            spotter.position.x + range, spotter.position.z + range, this._candidates ||= []);
 
         for (let s = 0; s <= numRays; s++) {
             const relAngle = -halfAngleRad + (s / numRays) * (halfAngleRad * 2);
@@ -301,7 +304,7 @@ export class VisionConeOverlay {
 
             let hitDist = rangeVal;
             if (arena && typeof arena.raycastClosestDistance === 'function') {
-                hitDist = arena.raycastClosestDistance(this._coneRay, rangeVal, spotter.position.x, spotter.position.z);
+                hitDist = arena.raycastClosestDistance(this._coneRay, rangeVal, spotter.position.x, spotter.position.z, candidates);
             } else if (arena && arena.colliders) {
                 for (let c = 0; c < arena.colliders.length; c++) {
                     const col = arena.colliders[c];
@@ -326,12 +329,13 @@ export class VisionConeOverlay {
 
             const px = (this._rayTarget3D.x * 0.5 + 0.5) * width;
             const py = (-(this._rayTarget3D.y * 0.5) + 0.5) * height;
-            polyPoints.push({ x: px, y: py });
+            const point = polyPoints[s] ||= { x: 0, y: 0 }; point.x = px; point.y = py;
         }
 
         // Bắn tia cho quầng cận cảnh quanh chân để không bị lọt qua vách tường sát bên
         const proxRays = isLocalPlayer ? 14 : 8;
-        const proxPoints = [];
+        const proxPoints = isLocalPlayer ? (this._localProxPoints ||= []) : (this._proxPoints ||= []);
+        proxPoints.length = proxRays;
         for (let s = 0; s < proxRays; s++) {
             const circleAngle = (s / proxRays) * Math.PI * 2;
             const dirX = Math.sin(circleAngle);
@@ -343,7 +347,7 @@ export class VisionConeOverlay {
 
             let hitDist = proxVal;
             if (arena && typeof arena.raycastClosestDistance === 'function') {
-                hitDist = arena.raycastClosestDistance(this._coneRay, proxVal, spotter.position.x, spotter.position.z);
+                hitDist = arena.raycastClosestDistance(this._coneRay, proxVal, spotter.position.x, spotter.position.z, candidates);
             } else if (arena && arena.colliders) {
                 for (let c = 0; c < arena.colliders.length; c++) {
                     const col = arena.colliders[c];
@@ -367,7 +371,7 @@ export class VisionConeOverlay {
 
             const px = (this._rayTarget3D.x * 0.5 + 0.5) * width;
             const py = (-(this._rayTarget3D.y * 0.5) + 0.5) * height;
-            proxPoints.push({ x: px, y: py });
+            const point = proxPoints[s] ||= { x: 0, y: 0 }; point.x = px; point.y = py;
         }
 
         // 4. Khoét thủng bóng tối bằng destination-out

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as SkeletonUtils from '../../vendor/SkeletonUtils.js';
 import { CHARACTER_CONFIGS, normalizeCharacter } from '../gameplay/player/characters.js';
+import { deduplicatePlayers } from '../network/supabase-room.js?v=2';
 
 export class RoomLobby {
     constructor(container, loader) {
@@ -152,7 +153,7 @@ export class RoomLobby {
         if (!this.container) return;
         this.mount();
         this.container.hidden = false;
-        const players = data.players || [];
+        const players = deduplicatePlayers(data.players || []);
         this.solo = !!data.solo;
         this.container.classList?.toggle('solo-preview', this.solo);
         if (this.pedestalGroup) this.pedestalGroup.visible = this.solo;

@@ -21,15 +21,23 @@ const root = path.resolve(__dirname, '../..');
         const context = await browser.newContext({viewport:{width:640,height:360}});
         await context.route('https://**/*',r=>r.abort());
         await context.addInitScript(require('./local-peer.cjs'));
+        await context.addInitScript(() => {
+            // BroadcastChannel requires a shared context; emulate separate device identities.
+            const deviceId = `guest_${crypto.randomUUID()}`, getItem = Storage.prototype.getItem;
+            Storage.prototype.getItem = function(key) {
+                return key === 'arena_client_user_id' ? deviceId : getItem.call(this, key);
+            };
+        });
         const makePage = async () => {
             const p=await context.newPage(); p.on('pageerror',e=>{errors.push(e.stack);console.error(e.stack);});
             await p.goto(`http://127.0.0.1:${server.address().port}`);
             await p.waitForFunction(()=>window.game?.state==='MENU'); return p;
         };
         const host=await makePage(), guest=await makePage();
-        await host.locator('#mode-tab-fps').click();
+        await host.locator('.mode-card').click();
+        await host.locator('[data-select-mode="FPS_SOLO"]').click();
         const code=await host.evaluate(async()=>{await game.network.create('Host');return game.network.code;});
-        await guest.evaluate(code=>game.network.join(code,'Guest'),code);
+        await guest.evaluate(code=>{game.selectedTDMTeam='red';return game.network.join(code,'Guest');},code);
         await host.locator('#room-start').click();
         await guest.waitForFunction(()=>game.gameMode==='TDM' && game.firstPersonView.active && game.coopPlayers.length===2);
         const guestId=await guest.evaluate(()=>game.network.playerId);
@@ -104,6 +112,28 @@ const root = path.resolve(__dirname, '../..');
         await guest.waitForFunction(()=>game.coopPlayers.length===8 && game.tdmManager.teamBlue.length===4 && game.tdmManager.teamRed.length===4);
         assert.equal(await guest.evaluate(()=>game.tdmManager.bots.length),0);
         assert.equal(await host.evaluate(()=>game.tdmManager.bots.length),5);
+        const mateId=await host.evaluate(()=>game.tdmManager.teamBlue.find(p=>p.isBot).id);
+        await host.evaluate(id=>{
+            const mate=game.remotePlayers.get(id);mate.health=73;mate.maxHealth=100;mate.shield=30;mate.maxShield=150;
+            mate.invulnerability=999;
+            for(const bot of game.tdmManager.bots) bot.update=()=>{};
+        },mateId);
+        await late.waitForFunction(id=>game.remotePlayers.get(id)?.health===73 && game.remotePlayers.get(id)?.maxShield===150,mateId);
+        const meterState=async page=>page.evaluate(id=>{
+            const mate=game.remotePlayers.get(id), camera=game.firstPersonView.overhead;
+            camera.position.copy(mate.mesh.position).add({x:0,y:15,z:15});camera.lookAt(mate.mesh.position);camera.updateMatrixWorld(true);
+            game.ui.updateOverheadVitals(game.player,camera,game.canvas,[mate]);
+            const meter=game.ui.teammateVitals.get(id), position=mate.mesh.position.clone();
+            mate.mesh.getWorldPosition(position);position.y+=2.35;position.project(camera);
+            const rect=game.canvas.getBoundingClientRect();
+            const assertPosition=Math.round(rect.left+(position.x+1)*rect.width/2);
+            return {hp:meter.querySelector('.overhead-health strong').textContent,shield:meter.querySelector('.overhead-shield > div').style.width,
+                hpWidth:meter.querySelector('.overhead-health > div').style.width,aligned:parseFloat(meter.style.left)===assertPosition};
+        },mateId);
+        const meters=await Promise.all([meterState(host),meterState(late)]);
+        assert.deepEqual(meters[0],{hp:'73',shield:'20%',hpWidth:'73%',aligned:true});
+        assert.deepEqual(meters[0],meters[1]);
+        console.log('PASS: teammate HP/shield match on both clients and the HUD follows the visible world-space model.');
         assert.deepEqual(errors,[]);
         console.log('PASS: shared result/restart and host-only bots replicated to FPS guests; no JavaScript errors.');
     } finally { await browser?.close(); await new Promise(r=>server.close(r)); }

@@ -281,7 +281,7 @@ export class BaseArena {
         return outList;
     }
 
-    raycastClosestDistance(ray, maxDist, originX, originZ) {
+    raycastClosestDistance(ray, maxDist, originX, originZ, cachedCandidates = null) {
         const dir = ray.direction;
         const targetX = ray.origin.x + dir.x * maxDist;
         const targetZ = ray.origin.z + dir.z * maxDist;
@@ -290,7 +290,7 @@ export class BaseArena {
         const minZ = Math.min(ray.origin.z, targetZ) - 0.5;
         const maxZ = Math.max(ray.origin.z, targetZ) + 0.5;
 
-        const candidates = this.getCollidersInAABB(minX, minZ, maxX, maxZ, _tempNearbyColliders);
+        const candidates = cachedCandidates || this.getCollidersInAABB(minX, minZ, maxX, maxZ, _tempNearbyColliders);
         let closestDist = maxDist;
 
         for (let i = 0; i < candidates.length; i++) {
