@@ -19,47 +19,49 @@ export function getWeaponVisionConfig(weapon, isADS = false, opticTier = 1) {
     const cat = (weapon.category || '').toUpperCase();
     const id = (weapon.id || '').toLowerCase();
 
-    // 1. Nhóm Shotgun: Cận chiến bao quát rộng hơn súng trường, tầm ngắn
-    if (cat.includes('SHOTGUN') || cat.includes('SĂN') || id.includes('scatter') || id.includes('breacher') || (weapon.pellets && weapon.pellets > 1)) {
+    // 1. Nhóm Shotgun: Cận chiến góc cực rộng 75 độ, cự ly ngắn
+    if (cat.includes('SHOTGUN') || cat.includes('SĂN') || id.includes('scatter') || id.includes('breacher') || (weapon.pellets && weapon.pellets > 1) || id === 'blaster_g' || id === 'blaster_l' || id === 'blaster_m') {
         if (isADS) {
-            return { visionRange: 16.0, visionAngle: 50.0, proximityRadius: 1.8 };
+            return { visionRange: 17.0, visionAngle: 55.0, proximityRadius: 1.8 };
         }
-        return { visionRange: 12.0, visionAngle: 75.0, proximityRadius: 2.5 };
+        return { visionRange: 13.0, visionAngle: 75.0, proximityRadius: 2.5 };
     }
 
-    // 2. Nhóm Sniper / DMR / Railgun: Bắn tỉa cực xa, thu hẹp góc tối đa khi ngắm (Tunnel Vision)
-    if (cat.includes('NGẮM') || cat.includes('SNIPER') || cat.includes('TỈA') || id.includes('sniper') || id.includes('railgun') || id.includes('amr') || id.includes('dmr')) {
+    // 2. Nhóm Sniper & DMR: Bắn tỉa cực xa (75m), thu hẹp góc nhìn tối đa còn vài độ (6 độ) chuẩn ngắm bắn tỉa
+    if (cat.includes('NGẮM') || cat.includes('SNIPER') || cat.includes('TỈA') || cat.includes('DMR') || id === 'awp' || id.includes('blaster_n') || id.includes('blaster_o')) {
         if (isADS) {
-            if (opticTier >= 5) {
-                return { visionRange: 65.0, visionAngle: 12.0, proximityRadius: 0.4 };
-            }
-            if (opticTier >= 4) {
-                return { visionRange: 50.0, visionAngle: 18.0, proximityRadius: 0.6 };
-            }
-            return { visionRange: 38.0, visionAngle: 25.0, proximityRadius: 1.0 };
+            return { visionRange: 75.0, visionAngle: 6.0, proximityRadius: 0.5 };
         }
-        return { visionRange: 24.0, visionAngle: 45.0, proximityRadius: 1.8 };
+        return { visionRange: 24.0, visionAngle: 42.0, proximityRadius: 1.8 };
     }
 
-    // 3. Nhóm Súng lục & Tiểu liên (Pistol / SMG): Cơ động, tầm gần - trung
-    if (cat.includes('LỤC') || cat.includes('NGẮN') || cat.includes('SMG') || id.includes('blaster') || id.includes('striker')) {
+    // 3. Nhóm Súng lục & Tiểu liên (Pistol / SMG): Cơ động cao, góc nhìn 55 độ
+    if (cat.includes('LỤC') || cat.includes('NGẮN') || cat.includes('SMG') || cat.includes('TIỂU LIÊN') || ['blaster', 'blaster_a', 'blaster_b', 'blaster_c', 'repeater', 'blaster_d', 'mac10', 'blaster_h', 'blaster_i', 'pew', 'blaster_k'].includes(id)) {
         if (isADS) {
-            return { visionRange: 22.0, visionAngle: 40.0, proximityRadius: 1.5 };
+            return { visionRange: 24.0, visionAngle: 40.0, proximityRadius: 1.5 };
         }
-        return { visionRange: 17.0, visionAngle: 55.0, proximityRadius: 2.2 };
+        return { visionRange: 18.0, visionAngle: 55.0, proximityRadius: 2.2 };
     }
 
-    // 4. Nhóm Súng trường (Assault Rifle / Carbine / Repeater): Chuẩn 50 độ
+    // 4. Nhóm Hỏa lực hạng nặng (Minigun Gatling & Rocket & Pháo)
+    if (cat.includes('GATLING') || cat.includes('LỰU') || cat.includes('PHÁO') || id === 'blaster_q' || id === 'rocket' || id === 'blaster_p' || id === 'blaster_r') {
+        if (isADS) {
+            return { visionRange: 28.0, visionAngle: 35.0, proximityRadius: 1.6 };
+        }
+        return { visionRange: 20.0, visionAngle: 48.0, proximityRadius: 2.2 };
+    }
+
+    // 5. Nhóm Súng trường AR & Carbine (Assault Rifle): Chuẩn đa năng 50 độ
     if (isADS) {
         if (opticTier >= 4) {
-            return { visionRange: 42.0, visionAngle: 20.0, proximityRadius: 0.8 };
+            return { visionRange: 38.0, visionAngle: 24.0, proximityRadius: 1.0 };
         }
         if (opticTier >= 2) {
             return { visionRange: 34.0, visionAngle: 28.0, proximityRadius: 1.2 };
         }
-        return { visionRange: 26.0, visionAngle: 38.0, proximityRadius: 1.8 };
+        return { visionRange: 30.0, visionAngle: 32.0, proximityRadius: 1.5 };
     }
-    return { visionRange: 20.0, visionAngle: 50.0, proximityRadius: 2.0 };
+    return { visionRange: 21.0, visionAngle: 50.0, proximityRadius: 2.0 };
 }
 
 /**

@@ -819,16 +819,29 @@ export class CharacterShowroom {
             const raw = localStorage.getItem('cyber_arena_loadout');
             if (raw) {
                 const parsed = JSON.parse(raw);
+                let primary = parsed.primary || 'repeater';
+                let secondary = parsed.secondary || 'blaster';
+
+                // Tương thích ngược: Nếu súng chính cũ là súng lục (blaster_c, blaster_i, v.v.), tự động hoán đổi sang slot phụ
+                if (SECONDARY_WEAPON_IDS.has(primary)) {
+                    secondary = primary;
+                    primary = 'repeater';
+                }
+                // Nếu slot phụ đang gắn nhầm súng chính, đặt lại về súng lục cơ bản
+                if (!SECONDARY_WEAPON_IDS.has(secondary)) {
+                    secondary = 'blaster';
+                }
+
                 return {
-                    primary: parsed.primary || 'blaster_c',
-                    secondary: parsed.secondary || 'blaster',
+                    primary,
+                    secondary,
                     bomb1: parsed.bomb1 || 'grenade_a',
                     bomb2: parsed.bomb2 || 'grenade_b'
                 };
             }
         } catch {}
         return {
-            primary: 'blaster_c',
+            primary: 'repeater',
             secondary: 'blaster',
             bomb1: 'grenade_a',
             bomb2: 'grenade_b'
@@ -864,7 +877,15 @@ export class CharacterShowroom {
             if (!bought) return;
         }
 
-        this.loadout[slotName] = itemId;
+        // Tự động điều chỉnh slot nếu người chơi chọn loại súng đặc thù
+        let targetSlot = slotName;
+        if (item.slotType === 'secondary' && (targetSlot === 'primary')) {
+            targetSlot = 'secondary';
+        } else if (item.slotType === 'primary' && (targetSlot === 'secondary')) {
+            targetSlot = 'primary';
+        }
+
+        this.loadout[targetSlot] = itemId;
         this.saveLoadout();
         this.syncSelection();
         this.syncLoadoutUI();

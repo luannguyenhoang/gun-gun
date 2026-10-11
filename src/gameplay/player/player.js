@@ -2595,11 +2595,42 @@ export class PlayerController {
         if (!this.cursorKick) this.cursorKick = new THREE.Vector2(0, 0);
         const recoilM = this.recoilMult || 1.0;
         const kick = (typeof kickStrength === 'number' ? kickStrength : (kickStrength?.x || 3.5)) * recoilM;
-        // Tăng độ nảy ngang và giật hất lên trên khi xả đạn (~20%) để cảm giác súng đầm tay
-        this.cursorKick.x += (Math.random() - 0.5) * kick * 6.0;
-        this.cursorKick.y -= (Math.random() * 0.7 + 0.3) * kick * 7.8; // Nảy hất lên trên đầm hơn
 
-        // Rung màn hình dựa trên cỡ đạn (Screen Shake Trauma) cố định, không cộng dồn lũy tiến
+        // Quy luật nảy tâm có thể dự đoán (Predictable Recoil Spray Pattern)
+        const now = performance.now();
+        if (!this.th_lastShotTime || (now - this.th_lastShotTime > 280)) {
+            this.th_sprayShotCount = 0; // Reset nhịp spray nếu ngừng bắn quá 0.28s
+        }
+        this.th_lastShotTime = now;
+        this.th_sprayShotCount = (this.th_sprayShotCount || 0) + 1;
+
+        let xOffset = 0;
+        let yOffset = -1.0;
+        const shot = this.th_sprayShotCount;
+
+        if (shot <= 4) {
+            // Viên 1-4: Nảy giật thẳng đứng lên trên (người chơi chỉ cần ghìm chuột kéo xuống)
+            xOffset = (Math.random() - 0.5) * 0.2;
+            yOffset = -1.05 - (shot * 0.05);
+        } else if (shot <= 10) {
+            // Viên 5-10: Nảy chếch sang phải (người chơi ghìm chéo xuống góc trái)
+            xOffset = 0.65 + (Math.random() - 0.5) * 0.25;
+            yOffset = -0.75;
+        } else if (shot <= 20) {
+            // Viên 11-20: Đổi hướng nảy lượn sang bên trái (người chơi kéo ngược sang phải)
+            xOffset = -0.85 + (Math.random() - 0.5) * 0.25;
+            yOffset = -0.55;
+        } else {
+            // Viên > 20: Dao động ngang hai bên ở đỉnh
+            xOffset = Math.sin(shot * 1.4) * 0.9;
+            yOffset = -0.45;
+        }
+
+        // Tác động lực giật vào tâm chuột
+        this.cursorKick.x += xOffset * kick * 5.8;
+        this.cursorKick.y += yOffset * kick * 8.2;
+
+        // Rung màn hình dựa trên cỡ đạn (Screen Shake Trauma) cố định
         const traumaAdd = (typeof shakeStrength === 'number' ? shakeStrength * 1.3 : 0.22);
         this.applyScreenShake(traumaAdd, false);
     }
@@ -3221,20 +3252,24 @@ export class PlayerController {
             _tempAimVec.subVectors(this.aimPoint, this.position);
             _tempAimVec.y = 0;
             const currentWeapon = this.weapons?.currentGun || this.weapons?.getCurrentWeapon?.();
-            const gunId = currentWeapon?.id || '';
-            const isSniper = gunId.includes('sniper');
-            const isRifle = gunId.includes('repeater') || gunId.includes('blaster') || gunId.includes('rifle');
+            const gunId = (currentWeapon?.id || '').toLowerCase();
+            const gunCat = (currentWeapon?.category || '').toUpperCase();
+            const isSniper = gunId === 'awp' || gunId.includes('blaster_n') || gunId.includes('blaster_o') || gunCat.includes('TỈA') || gunCat.includes('SNIPER') || gunCat.includes('NGẮM');
+            const isRifle = gunId.includes('repeater') || gunId.includes('blaster') || gunId.includes('rifle') || gunCat.includes('TRƯỜNG') || gunCat.includes('TIỂU LIÊN');
 
             if (this.isADS) {
-                const maxLead = isSniper ? 15.0 : (isRifle ? 9.5 : 6.0);
+                const maxLead = isSniper ? 24.0 : (isRifle ? 9.5 : 6.0);
+                const leadFactor = isSniper ? 0.82 : 0.55;
                 _tempAimVec.clampLength(0, maxLead);
-                target.addScaledVector(_tempAimVec, 0.55); // Dich camera ve huong ngam khi ADS
-                targetZoom = isSniper ? 1.22 : (isRifle ? 1.12 : 1.05);
+                target.addScaledVector(_tempAimVec, leadFactor); // Dich camera xa ve huong ngam khi ADS
+                targetZoom = isSniper ? 0.78 : (isRifle ? 0.96 : 1.0); // Súng tỉa: thu nhỏ màn hình (zoom out 0.78) để nhìn bao quát cực xa
+                targetFov = isSniper ? 64 : 50;
             } else {
                 // Khi ban thuong: camera lead nhe 3.5m giup nguoi choi bao quat ve phia truoc
                 _tempAimVec.clampLength(0, 3.5);
                 target.addScaledVector(_tempAimVec, 0.4);
                 targetZoom = 1.0;
+                targetFov = 50;
             }
         }
 
