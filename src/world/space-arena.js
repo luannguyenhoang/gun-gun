@@ -80,38 +80,28 @@ export class SpaceArena extends BaseArena {
     }
 
     setupLighting() {
-        // Ánh sáng môi trường trạm không gian Sci-Fi dịu mắt, độ tương phản công nghệ cao
-        this.ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+        // Ánh sáng môi trường trạm không gian Sci-Fi dịu mắt, huyền bí và có độ tương phản cao
+        this.ambientLight = new THREE.AmbientLight(0xc8dcfa, 0.38);
         this.addSceneObject(this.ambientLight);
 
-        this.hemiLight = new THREE.HemisphereLight(0xcfd8dc, 0x1e293b, 0.65);
+        this.hemiLight = new THREE.HemisphereLight(0x64748b, 0x090d16, 0.30);
         this.addSceneObject(this.hemiLight);
 
-        // Nguồn sáng định hướng mặt trời ngoài vũ trụ rọi xiên vừa phải, tạo chiều sâu khối kiến trúc
-        const sun = new THREE.DirectionalLight(0xffffff, 1.35);
+        // Nguồn sáng định hướng mặt trời rọi xiên vừa phải, không bị gắt mắt
+        const sun = new THREE.DirectionalLight(0xffffff, 0.85);
         sun.position.set(24, 38, 20);
-        sun.castShadow = true;
-        sun.shadow.mapSize.width = 1024;
-        sun.shadow.mapSize.height = 1024;
-        sun.shadow.camera.near = 1.0;
-        sun.shadow.camera.far = 90;
-        const d = 34; // Bao phủ toàn bộ bản đồ 56m x 56m
-        sun.shadow.camera.left = -d;
-        sun.shadow.camera.right = d;
-        sun.shadow.camera.top = d;
-        sun.shadow.camera.bottom = -d;
-        sun.shadow.bias = -0.0005;
+        sun.castShadow = false; // Tắt bóng đổ mặt trời để tối đa hóa hiệu năng 60 FPS
         this.sunLight = sun;
         this.addSceneObject(sun);
         this.addSceneObject(sun.target);
 
-        // Đèn PointLight neon nhận diện các cứ điểm chiến thuật chính
+        // Đèn PointLight neon nhận diện các cứ điểm chiến thuật chính với cường độ dịu nhẹ
         const tacticalLights = [
-            { pos: [0, 4.5, 24], color: 0x00e5ff, intensity: 3.8, dist: 24 },   // Căn cứ Đội Xanh (Nam)
-            { pos: [0, 4.5, -24], color: 0xff3b30, intensity: 3.8, dist: 24 },  // Căn cứ Đội Đỏ (Bắc)
-            { pos: [0, 4.5, 0], color: 0xffeedd, intensity: 3.5, dist: 22 },    // Sảnh Mid (Trung tâm)
-            { pos: [-18, 4.5, 0], color: 0xc040ff, intensity: 3.5, dist: 20 },  // Cứ điểm A (Reactor Alpha)
-            { pos: [18, 4.5, 0], color: 0xffaa00, intensity: 3.5, dist: 20 },   // Cứ điểm B (Storage Beta)
+            { pos: [0, 4.5, 24], color: 0x00e5ff, intensity: 1.6, dist: 14 },   // Căn cứ Đội Xanh (Nam)
+            { pos: [0, 4.5, -24], color: 0xff3b30, intensity: 1.6, dist: 14 },  // Căn cứ Đội Đỏ (Bắc)
+            { pos: [0, 4.5, 0], color: 0xffeedd, intensity: 1.4, dist: 12 },    // Sảnh Mid (Trung tâm)
+            { pos: [-18, 4.5, 0], color: 0xc040ff, intensity: 1.4, dist: 12 },  // Cứ điểm A (Reactor Alpha)
+            { pos: [18, 4.5, 0], color: 0xffaa00, intensity: 1.4, dist: 12 },   // Cứ điểm B (Storage Beta)
         ];
         tacticalLights.forEach(tl => {
             const pl = new THREE.PointLight(tl.color, tl.intensity, tl.dist);

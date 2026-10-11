@@ -281,9 +281,28 @@ export class VisionConeOverlay {
         const yaw = spotter.aimYaw || 0;
         const halfAngleRad = ((angleVal * Math.PI) / 180) / 2;
 
-        // Đồng đội bot lấy mẫu ít tia hơn để tối ưu hiệu năng
-        const numRays = isLocalPlayer ? 20 : 8;
-        const polyPoints = isLocalPlayer ? (this._localPolyPoints ||= []) : (this._polyPoints ||= []);
+        if (!isLocalPlayer) {
+            // Đối với đồng đội bot: Khoét quầng sáng tròn tĩnh chia sẻ tầm nhìn (Zero CPU Raycast)
+            // Giúp giải phóng hoàn toàn chi phí raycast đa giác cho toàn bộ bot đồng đội
+            ctx.save();
+            ctx.globalCompositeOperation = 'destination-out';
+            const mateRadius = Math.max(30, screenProxRadius * 2.4);
+            const mateGrad = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, mateRadius);
+            mateGrad.addColorStop(0, 'rgba(0, 0, 0, 1.0)');
+            mateGrad.addColorStop(0.72, 'rgba(0, 0, 0, 0.85)');
+            mateGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
+
+            ctx.fillStyle = mateGrad;
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, mateRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            return;
+        }
+
+        // Người chơi chính: Bắn tia tạo Đa Giác Tầm Nhìn sắc nét
+        const numRays = 14;
+        const polyPoints = (this._localPolyPoints ||= []);
         polyPoints.length = numRays + 1;
         const range = Math.max(rangeVal, proxVal) + 0.5;
         const candidates = arena?.getCollidersInAABB?.(spotter.position.x - range, spotter.position.z - range,
@@ -330,8 +349,8 @@ export class VisionConeOverlay {
         }
 
         // Bắn tia cho quầng cận cảnh quanh chân để không bị lọt qua vách tường sát bên
-        const proxRays = isLocalPlayer ? 10 : 6;
-        const proxPoints = isLocalPlayer ? (this._localProxPoints ||= []) : (this._proxPoints ||= []);
+        const proxRays = 8;
+        const proxPoints = (this._localProxPoints ||= []);
         proxPoints.length = proxRays;
         for (let s = 0; s < proxRays; s++) {
             const circleAngle = (s / proxRays) * Math.PI * 2;

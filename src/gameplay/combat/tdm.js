@@ -5,6 +5,13 @@ import { WEAPON_CONFIGS } from './weapons.js';
 // Danh sách trang bị súng đa dạng cho các bot
 const BOT_WEAPON_POOL = ['repeater', 'scatter', 'sniper', 'blaster_c', 'carbine'];
 
+// Tái sử dụng các Vector3 tạm thời để triệt tiêu Garbage Collection churn gây khựng/giật khung hình
+const _th_toEnemy = new THREE.Vector3();
+const _th_strafeDir = new THREE.Vector3();
+const _th_shootOrigin = new THREE.Vector3();
+const _th_shootTarget = new THREE.Vector3();
+const _th_toPatrol = new THREE.Vector3();
+
 /**
  * Controller điều khiển từng Bot AI trong trận đối kháng TDM
  */
@@ -48,6 +55,10 @@ export class TDMBot {
         this.respawnTimer = 0;
         this.patrolTarget = new THREE.Vector3();
         this.pickNewPatrolTarget();
+
+        // Nhịp quét AI có điều tiết (8-10 Hz) để chống nghẽn CPU và raycast dồn dập
+        this.th_scanTimer = Math.random() * 0.1;
+        this.th_targetEnemy = null;
 
         // Gắn vòng màu nhận diện phe dưới chân (Team Ring Indicator)
         this.attachTeamIndicator();
@@ -122,6 +133,7 @@ export class TDMBot {
         if (this.remote.isDead) {
             this.respawnTimer += delta;
             this.remote.moving = false;
+            this.th_targetEnemy = null;
             if (this.respawnTimer >= 3.0) {
                 this.tdmManager.respawnEntity(this.remote);
                 this.respawnTimer = 0;
@@ -139,40 +151,51 @@ export class TDMBot {
         }
 
         this.shootCooldown = Math.max(0, this.shootCooldown - delta);
+        this.th_scanTimer = (this.th_scanTimer || 0) - delta;
 
-        // 1. Tìm kẻ địch còn sống gần nhất thuộc phe đối phương (có kiểm tra tường che)
-        let nearestEnemy = null;
-        let minDist = 32.0;
-
-        for (let i = 0; i < opponents.length; i++) {
-            const opp = opponents[i];
-            if (!opp || opp.isDead || opp.team === this.team) continue;
-            const d = opp.position.distanceTo(this.remote.position);
-
-            // Kiểm tra xem có vách tường che khuất giữa Bot và kẻ địch hay không
-            const hasLOS = this.game?.arena?.hasLineOfSight
-                ? this.game.arena.hasLineOfSight(this.remote.position, opp.position)
-                : true;
-
-            // Nếu bị tường che, Bot chỉ cảm nhận được nếu ở rất gần (nghe tiếng bước chân dưới 6.5m)
-            if (!hasLOS && d > 6.5) continue;
-
-            const effectiveDist = hasLOS ? d : d + 12.0;
-            if (effectiveDist < minDist) {
-                minDist = effectiveDist;
-                nearestEnemy = opp;
-            }
+        // 1. Quét tìm mục tiêu có điều tiết (8-10 Hz) để tránh bão hòa raycast CPU
+        let nearestEnemy = this.th_targetEnemy;
+        if (nearestEnemy && (nearestEnemy.isDead || nearestEnemy.position.distanceTo(this.remote.position) > 34.0)) {
+            nearestEnemy = null;
+            this.th_targetEnemy = null;
         }
 
-        // 2. Hành vi tác chiến
+        if (this.th_scanTimer <= 0 || !nearestEnemy) {
+            this.th_scanTimer = 0.11 + Math.random() * 0.03;
+            let minDist = 32.0;
+            nearestEnemy = null;
+
+            for (let i = 0; i < opponents.length; i++) {
+                const opp = opponents[i];
+                if (!opp || opp.isDead || opp.team === this.team) continue;
+                const d = opp.position.distanceTo(this.remote.position);
+                if (d >= minDist) continue; // Bỏ qua ngay nếu đối thủ này xa hơn mục tiêu tối ưu hiện có
+
+                // Chỉ tốn chi phí Raycast khi cự ly dưới 32m
+                const hasLOS = this.game?.arena?.hasLineOfSight
+                    ? this.game.arena.hasLineOfSight(this.remote.position, opp.position)
+                    : true;
+
+                if (!hasLOS && d > 6.5) continue;
+
+                const effectiveDist = hasLOS ? d : d + 12.0;
+                if (effectiveDist < minDist) {
+                    minDist = effectiveDist;
+                    nearestEnemy = opp;
+                }
+            }
+            this.th_targetEnemy = nearestEnemy;
+        }
+
+        // 2. Hành vi tác chiến (Không tạo rác Vector3 mới)
         if (nearestEnemy) {
-            const toEnemy = nearestEnemy.position.clone().sub(this.remote.position);
-            toEnemy.y = 0;
-            const dist = toEnemy.length();
+            _th_toEnemy.subVectors(nearestEnemy.position, this.remote.position);
+            _th_toEnemy.y = 0;
+            const dist = _th_toEnemy.length();
 
             // Xoay hướng ngắm về phía mục tiêu
             if (dist > 0.1) {
-                this.remote.aimYaw = Math.atan2(toEnemy.x, toEnemy.z);
+                this.remote.aimYaw = Math.atan2(_th_toEnemy.x, _th_toEnemy.z);
             }
 
             // Khoảng cách chiến thuật tối ưu theo vũ khí
@@ -182,62 +205,71 @@ export class TDMBot {
             else if (gunId === 'sniper') idealDist = 20.0;
             else if (gunId === 'blaster_c') idealDist = 9.0;
 
-            toEnemy.normalize();
+            if (dist > 0.001) {
+                _th_toEnemy.multiplyScalar(1 / dist);
+            }
             const moveSpeed = 5.2;
 
             if (dist > idealDist + 2.5) {
-                // Tiến lại gần kẻ địch (có kiểm tra va chạm tường)
+                // Tiến lại gần kẻ địch
                 const step = moveSpeed * delta;
-                this.moveBot(toEnemy.x * step, toEnemy.z * step);
+                this.moveBot(_th_toEnemy.x * step, _th_toEnemy.z * step);
                 this.remote.moving = true;
             } else if (dist < idealDist - 2.5) {
-                // Lùi lại để giữ cự ly an toàn (có kiểm tra va chạm tường)
+                // Lùi lại để giữ cự ly an toàn
                 const step = -moveSpeed * 0.8 * delta;
-                this.moveBot(toEnemy.x * step, toEnemy.z * step);
+                this.moveBot(_th_toEnemy.x * step, _th_toEnemy.z * step);
                 this.remote.moving = true;
             } else {
-                // Di chuyển né đạn qua hai bên (Strafe có kiểm tra va chạm tường)
-                const strafeDir = new THREE.Vector3(-toEnemy.z, 0, toEnemy.x);
+                // Di chuyển né đạn qua hai bên (Strafe không cấp phát Vector mới)
+                _th_strafeDir.set(-_th_toEnemy.z, 0, _th_toEnemy.x);
                 const strafeSign = (Math.floor(Date.now() / 1200) % 2 === 0) ? 1 : -1;
                 const step = strafeSign * moveSpeed * 0.65 * delta;
-                this.moveBot(strafeDir.x * step, strafeDir.z * step);
+                this.moveBot(_th_strafeDir.x * step, _th_strafeDir.z * step);
                 this.remote.moving = true;
             }
 
             // Khai hỏa khi cự ly phù hợp, hết hồi chiêu và KHÔNG bị tường che khuất
-            const canShoot = this.game?.arena?.hasLineOfSight
-                ? this.game.arena.hasLineOfSight(this.remote.position, nearestEnemy.position)
-                : true;
+            // CHỈ tính toán Raycast Line of Sight khi súng đã sẵn sàng bắn
+            if (this.shootCooldown <= 0 && dist <= 28.0) {
+                const canShoot = this.game?.arena?.hasLineOfSight
+                    ? this.game.arena.hasLineOfSight(this.remote.position, nearestEnemy.position)
+                    : true;
 
-            if (this.shootCooldown <= 0 && dist <= 28.0 && canShoot) {
-                this.shootCooldown = 0.55 + Math.random() * 0.45;
-                if (gunId === 'scatter') this.shootCooldown = 0.95;
-                if (gunId === 'sniper') this.shootCooldown = 1.4;
+                if (canShoot) {
+                    this.shootCooldown = 0.55 + Math.random() * 0.45;
+                    if (gunId === 'scatter') this.shootCooldown = 0.95;
+                    if (gunId === 'sniper') this.shootCooldown = 1.4;
 
-                const shootOrigin = this.remote.position.clone().add(new THREE.Vector3(0, 1.15, 0));
-                // Thêm một chút độ lệch ngắm để Bot bắn thực tế (không bị aimbot hoàn hảo)
-                const spreadX = (Math.random() - 0.5) * 0.8;
-                const spreadZ = (Math.random() - 0.5) * 0.8;
-                const shootTarget = nearestEnemy.position.clone().add(new THREE.Vector3(spreadX, 0.85, spreadZ));
+                    _th_shootOrigin.copy(this.remote.position);
+                    _th_shootOrigin.y += 1.15;
 
-                if (this.remote.weapons) {
-                    this.remote.weapons.shoot(shootOrigin, shootTarget, false, true, 0.95, this.remote);
+                    const spreadX = (Math.random() - 0.5) * 0.8;
+                    const spreadZ = (Math.random() - 0.5) * 0.8;
+                    _th_shootTarget.copy(nearestEnemy.position);
+                    _th_shootTarget.x += spreadX;
+                    _th_shootTarget.y += 0.85;
+                    _th_shootTarget.z += spreadZ;
+
+                    if (this.remote.weapons) {
+                        this.remote.weapons.shoot(_th_shootOrigin, _th_shootTarget, false, true, 0.95, this.remote);
+                    }
                 }
             }
         } else {
-            // Không có kẻ địch trong tầm: Tuần tra đến điểm chốt (có kiểm tra va chạm tường)
-            const toPatrol = this.patrolTarget.clone().sub(this.remote.position);
-            toPatrol.y = 0;
-            const distPatrol = toPatrol.length();
+            // Không có kẻ địch trong tầm: Tuần tra đến điểm chốt
+            _th_toPatrol.subVectors(this.patrolTarget, this.remote.position);
+            _th_toPatrol.y = 0;
+            const distPatrol = _th_toPatrol.length();
 
             if (distPatrol < 2.0) {
                 this.pickNewPatrolTarget();
                 this.remote.moving = false;
             } else {
-                toPatrol.normalize();
+                _th_toPatrol.multiplyScalar(1 / distPatrol);
                 const step = 4.2 * delta;
-                this.moveBot(toPatrol.x * step, toPatrol.z * step);
-                this.remote.aimYaw = Math.atan2(toPatrol.x, toPatrol.z);
+                this.moveBot(_th_toPatrol.x * step, _th_toPatrol.z * step);
+                this.remote.aimYaw = Math.atan2(_th_toPatrol.x, _th_toPatrol.z);
                 this.remote.moving = true;
             }
         }
@@ -246,6 +278,7 @@ export class TDMBot {
         this.remote.position.x = Math.max(-23, Math.min(23, this.remote.position.x));
         this.remote.position.z = Math.max(-23, Math.min(23, this.remote.position.z));
     }
+
 }
 
 /**
@@ -412,10 +445,12 @@ export class TDMManager {
 
         this.matchTimer += delta;
 
-        // Cập nhật từng Bot AI
-        const allEntities = [...this.teamBlue, ...this.teamRed];
+        // Cập nhật từng Bot AI với danh sách cache thực thể
+        if (!this._allEntities || this._allEntities.length !== (this.teamBlue.length + this.teamRed.length)) {
+            this._allEntities = [...this.teamBlue, ...this.teamRed];
+        }
         for (let i = 0; i < this.bots.length; i++) {
-            this.bots[i].update(delta, allEntities);
+            this.bots[i].update(delta, this._allEntities);
         }
 
         // Quản lý đếm ngược hồi sinh cho người chơi chính
