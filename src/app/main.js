@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
-import { sounds } from '../audio/audio.js?v=59';
+import { sounds } from '../audio/audio.js?v=63';
 import { ParticleSystem } from '../rendering/particles.js?v=68';
 import { Arena, SurvivalArena, SpaceArena } from '../world/arena.js?v=25';
 import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=73';
 import { PlayerController } from '../gameplay/player/player.js?v=76';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=70';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
-import { UIManager } from '../ui/ui.js?v=46';
+import { UIManager } from '../ui/ui.js?v=47';
 import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=75';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=40';

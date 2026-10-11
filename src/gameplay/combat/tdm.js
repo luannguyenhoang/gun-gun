@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { sounds } from '../../audio/audio.js?v=59';
+import { sounds } from '../../audio/audio.js?v=63';
 import { WEAPON_CONFIGS } from './weapons.js';
 
 // Danh sách trang bị súng đa dạng cho các bot

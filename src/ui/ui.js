@@ -465,6 +465,13 @@ export class UIManager {
     }
 
     updateStats(player, waveManager, score) {
+        // Đảm bảo con trỏ chuột hệ điều hành luôn ẩn (none) khi đang chơi game, không bao giờ để lọt dấu cộng native của Windows
+        if (player.inputEnabled && !this.th_weaponSelectModalOpen && !player.isBackpackOpen && !player.th_isRadialMenuOpen) {
+            if (player.domElement && player.domElement.style.cursor !== 'none') {
+                player.domElement.style.cursor = 'none';
+            }
+        }
+
         // Vị trí con trỏ cộng thêm Cursor Kickback (đẩy trực tiếp tọa độ tâm ngắm trên màn hình)
         const kickX = !player.firstPerson && player.cursorKick ? player.cursorKick.x : 0;
         const kickY = !player.firstPerson && player.cursorKick ? player.cursorKick.y : 0;
@@ -2549,9 +2556,8 @@ export class UIManager {
         if (player) {
             player.th_isWeaponSelectOpen = false;
             player.keys = {};
-            player.mouseButtons = { left: false, right: false };
-            if (player.domElement && !player.firstPerson?.active) {
-                player.domElement.style.cursor = 'crosshair';
+            if (player.domElement) {
+                player.domElement.style.cursor = player.inputEnabled ? 'none' : 'default';
             }
         }
     }

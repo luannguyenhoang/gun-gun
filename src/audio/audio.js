@@ -18,7 +18,7 @@ class SoundManager {
                 if (savedM !== null) this.musicVolume = Math.max(0, Math.min(1, parseFloat(savedM)));
                 const savedS = localStorage.getItem('arena_sfx_volume');
                 if (savedS !== null) this.sfxVolume = Math.max(0, Math.min(1, parseFloat(savedS)));
-            } catch {}
+            } catch { }
         }
         this.sounds = {
             blaster: 'assets/sounds/blaster.ogg',
@@ -30,13 +30,14 @@ class SoundManager {
             land: 'assets/sounds/land.ogg',
             step: 'assets/sounds/walking.ogg',
             switchWeapon: 'assets/sounds/weapon_change.ogg',
-            // Âm thanh vũ khí Sniper và Súng lục mới
+            // Âm thanh vũ khí Sniper, Súng lục và Súng phóng lựu mới
             gunSniper: 'assets/sounds/sniper-gun.mp3',
             gunPistol: 'assets/sounds/sung_luc.mp3',
+            gunLauncher: 'assets/sounds/sung_phong_luu.mp3?v=2',
             // Âm thanh và nhạc nền chiến đấu mới bổ sung
             bgmBattle: 'assets/sounds/freesound_community-battle-march-action-loop-6935.mp3',
-            gunM249: 'assets/sounds/freesound_community-069321_light-machine-gun-m249-39814.mp3',
-            gunBurst: 'assets/sounds/freesound_community-clean-machine-gun-burst-98224.mp3',
+            gunM249: 'assets/sounds/freesound_community-069321_light-machine-gun-m249-39814.mp3?v=2',
+            gunBurst: 'assets/sounds/freesound_community-clean-machine-gun-burst-98224.mp3?v=2',
             gunDistance: 'assets/sounds/freesound_community-gun-shots-from-a-distance-8-39860.mp3'
         };
         this.isMusicPlaying = false;
@@ -117,7 +118,7 @@ class SoundManager {
             const sampleRate = audioBuffer.sampleRate;
             const minSamples = Math.floor(minGapSec * sampleRate);
             const windowSize = Math.floor(0.008 * sampleRate); // Cửa sổ ~8ms
-            
+
             let maxEnergy = 0;
             const energies = [];
             for (let i = 0; i < data.length - windowSize; i += windowSize) {
@@ -209,7 +210,7 @@ class SoundManager {
         return source;
     }
 
-    // Bắt đầu hoặc duy trì luồng âm thanh xả đạn liên thanh tự nhiên 100% nguyên bản từ tệp MP3
+    // Bắt đầu hoặc duy trì luồng âm thanh xả đạn liên thanh tự nhiên 100% nguyên bản từ tệp MP3 đã cắt gọn
     startContinuousFire(bufferKey = 'gunBurst', volume = 0.92, rate = 1.0) {
         if (!this.enabled || !this.ctx) return;
         this.resume();
@@ -230,7 +231,7 @@ class SoundManager {
         try {
             const source = this.ctx.createBufferSource();
             source.buffer = buffer;
-            source.loop = true; // Phát lặp mượt mà chuỗi đạn xả của tệp gốc
+            source.loop = true; // Các tệp MP3 liên thanh đã được cắt gọn gàng, loop tự nhiên 100% không cần xử lý thêm
             source.playbackRate.value = rate;
 
             const gainNode = this.ctx.createGain();
@@ -275,7 +276,7 @@ class SoundManager {
                     gainNode.gain.setValueAtTime(curGain, t);
                     gainNode.gain.exponentialRampToValueAtTime(0.001, t + fadeTime);
                     source.stop(t + fadeTime);
-                } catch {}
+                } catch { }
             }
         }
     }
@@ -316,9 +317,22 @@ class SoundManager {
             return;
         }
 
-        // 3. TẤT CẢ CÁC KHẨU SÚNG TỰ ĐỘNG CÒN LẠI (Súng trường, SMG, LMG, Shotgun...):
+        // 3. SÚNG PHÓNG LỰU / ROCKET RPG (Blaster-P RPG Devastator): Bắn phát một uy lực từ sung_phong_luu.mp3 mới
+        const isLauncher = type.includes('rocket') || type.includes('blaster_p') || type.includes('rpg') ||
+            type.includes('devastator') || category.includes('phóng lựu') || category.includes('lựu') ||
+            options.weapon?.isExplosive;
+
+        if (isLauncher) {
+            this.stopContinuousFire(true);
+            this.th_playLauncherShot(options);
+            return;
+        }
+
+        // 4. TẤT CẢ CÁC KHẨU SÚNG TỰ ĐỘNG CÒN LẠI (Súng trường, SMG, LMG, Shotgun...):
         // Áp dụng CƠ CHẾ XẢ ĐẠN NGUYÊN BẢN TỆP MP3, NGỪNG BẮN LÀ FADE OUT ÂM VANG DỪNG LẠI!
-        const isHeavy = type.includes('m249') || type.includes('machinegun') || type.includes('repeater') || type.includes('blaster_e') || category.includes('súng máy');
+        const isHeavy = type.includes('m249') || type.includes('machinegun') || type.includes('repeater') ||
+            type.includes('blaster_e') || type.includes('blaster_q') || type.includes('gatling') ||
+            type.includes('minigun') || category.includes('súng máy') || category.includes('gatling');
         const bufferKey = isHeavy ? 'gunM249' : 'gunBurst';
         const rate = (type.includes('scatter') || type.includes('shotgun') || type.includes('blaster_f') || type.includes('blaster_g') || category.includes('shotgun')) ? 0.88 : 1.0;
 
@@ -384,7 +398,7 @@ class SoundManager {
             gain.connect(this.sfxDestination);
             osc.start(t);
             osc.stop(t + 0.16);
-        } catch {}
+        } catch { }
     }
 
     // Phát âm thanh súng lục (Pistol) đanh gọn dứt khoát từ sung_luc.mp3
@@ -424,6 +438,68 @@ class SoundManager {
         } catch (err) {
             console.warn('Lỗi phát âm thanh súng lục:', err);
         }
+    }
+
+    // Phát âm thanh súng phóng lựu / Rocket RPG từ sung_phong_luu.mp3
+    th_playLauncherShot(options = {}) {
+        if (!this.enabled || !this.ctx) return;
+        this.resume();
+
+        const t = this.ctx.currentTime;
+        const buffer = this.buffers['gunLauncher'] || this.buffers['gunSniper'] || this.buffers['gunDistance'];
+        if (!buffer) return;
+
+        try {
+            const source = this.ctx.createBufferSource();
+            source.buffer = buffer;
+
+            const baseRate = (options.rate !== undefined ? options.rate : 1.0);
+            source.playbackRate.value = Math.max(0.88, Math.min(1.12, baseRate + (Math.random() - 0.5) * 0.04));
+
+            const gainNode = this.ctx.createGain();
+            const vol = options.volume !== undefined ? options.volume : 0.98;
+            gainNode.gain.setValueAtTime(vol, t);
+
+            // Thời lượng phát rút ngắn tối ưu: ~1.55s (đủ trọn vẹn tiếng nổ đoàng và đuôi rền vang, không lãng phí tài nguyên)
+            const duration = Math.min(buffer.duration, 1.55);
+            gainNode.gain.setValueAtTime(vol, t + duration * 0.65);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+            source.connect(gainNode);
+            gainNode.connect(this.sfxDestination);
+
+            // Bắt đầu ngay tức thì (0ms latency):
+            // Tệp mới đã cắt sát tiếng nổ (~1.59s) nên phát ngay từ 0s.
+            // Nếu trình duyệt còn dính cache file cũ (> 2.5s), tự động bắt đầu từ 0.45s (đỉnh phát nổ).
+            const startOffset = buffer.duration > 2.5 ? 0.45 : 0;
+
+            source.start(t, startOffset);
+            source.stop(t + duration);
+
+            // Bổ trợ Sub-bass Thump rền vang uy lực đồng bộ tức thì khi phóng rocket
+            this.th_playLauncherSubThump(t, vol);
+        } catch (err) {
+            console.warn('Lỗi phát âm thanh súng phóng lựu:', err);
+        }
+    }
+
+    th_playLauncherSubThump(t, vol = 0.98) {
+        if (!this.ctx) return;
+        try {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(95, t);
+            osc.frequency.exponentialRampToValueAtTime(28, t + 0.22);
+
+            gain.gain.setValueAtTime(vol * 0.5, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+
+            osc.connect(gain);
+            gain.connect(this.sfxDestination);
+            osc.start(t);
+            osc.stop(t + 0.22);
+        } catch { }
     }
 
     // Xử lý âm thanh bước chân dứt khoát, triệt tiêu hoàn toàn hiện tượng chồng chéo dồn âm
@@ -495,7 +571,7 @@ class SoundManager {
             this.th_activeStepVoice.gainNode.gain.setValueAtTime(this.th_activeStepVoice.gainNode.gain.value || 0.35, t);
             this.th_activeStepVoice.gainNode.gain.exponentialRampToValueAtTime(0.001, t + 0.025);
             this.th_activeStepVoice.source.stop(t + 0.025);
-        } catch {}
+        } catch { }
         this.th_activeStepVoice = null;
     }
 
@@ -590,7 +666,7 @@ class SoundManager {
                     bellOsc.start(t);
                     bellOsc.stop(t + 0.08);
                 });
-            } catch {}
+            } catch { }
         } else {
             // BODY HIT: Tiếng "thwack" găm vào da thịt chắc nịch + Click cơ học giòn tan, êm dịu không gắt
             try {
@@ -633,7 +709,7 @@ class SoundManager {
                 bpFilter.connect(noiseGain);
                 noiseGain.connect(this.sfxDestination);
                 noiseSrc.start(t);
-            } catch {}
+            } catch { }
         }
     }
 
@@ -676,7 +752,7 @@ class SoundManager {
 
             osc.start(t);
             osc.stop(t + 0.13);
-        } catch {}
+        } catch { }
     }
 
     // Tiếng tiêu diệt zombie uy lực, đã tai (3 tầng: Sub-bass + Visceral Gore Crunch + Pop chốt hạ)
@@ -712,7 +788,7 @@ class SoundManager {
             gain.connect(this.sfxDestination);
             osc.start(t);
             osc.stop(t + duration);
-        } catch {}
+        } catch { }
 
         // TẦNG 2: VISCERAL GORE CRUNCH (Tiếng xương thịt đứt gãy đầm ấm qua Lowpass 700Hz)
         try {
@@ -738,7 +814,7 @@ class SoundManager {
             lpFilter.connect(noiseGain);
             noiseGain.connect(this.sfxDestination);
             noiseSrc.start(t);
-        } catch {}
+        } catch { }
 
         // TẦNG 3: SATISFYING KILL CONFIRM POP (Tiếng chốt hạ mục tiêu ngọt ngào, tạo cảm giác thỏa mãn cực cao)
         try {
@@ -755,7 +831,7 @@ class SoundManager {
             popGain.connect(this.sfxDestination);
             popOsc.start(t);
             popOsc.stop(t + 0.055);
-        } catch {}
+        } catch { }
     }
 
     playShieldDamage() {
@@ -878,7 +954,7 @@ class SoundManager {
             clinkGain.connect(this.sfxDestination);
             clinkOsc.start(t);
             clinkOsc.stop(t + 0.035);
-        } catch {}
+        } catch { }
     }
 
     // Tiếng tiêm thuốc hồi sinh lực (Medkit)
@@ -1061,7 +1137,7 @@ class SoundManager {
             try {
                 this.bgmSource.stop();
                 this.bgmSource.disconnect();
-            } catch {}
+            } catch { }
             this.bgmSource = null;
         }
 
@@ -1085,7 +1161,7 @@ class SoundManager {
             try {
                 this.bgmSource.stop();
                 this.bgmSource.disconnect();
-            } catch {}
+            } catch { }
             this.bgmSource = null;
         }
         if (this.musicInterval) {
@@ -1098,7 +1174,7 @@ class SoundManager {
     setMusicVolume(val) {
         this.musicVolume = Math.max(0, Math.min(1, parseFloat(val)));
         if (typeof localStorage !== 'undefined') {
-            try { localStorage.setItem('arena_music_volume', this.musicVolume.toString()); } catch {}
+            try { localStorage.setItem('arena_music_volume', this.musicVolume.toString()); } catch { }
         }
         if (this.musicGain && this.ctx) {
             this.musicGain.gain.setValueAtTime((this.musicEnabled && this.enabled) ? this.musicVolume : 0, this.ctx.currentTime);
@@ -1111,7 +1187,7 @@ class SoundManager {
     setSfxVolume(val) {
         this.sfxVolume = Math.max(0, Math.min(1, parseFloat(val)));
         if (typeof localStorage !== 'undefined') {
-            try { localStorage.setItem('arena_sfx_volume', this.sfxVolume.toString()); } catch {}
+            try { localStorage.setItem('arena_sfx_volume', this.sfxVolume.toString()); } catch { }
         }
         if (this.sfxGain && this.ctx) {
             this.sfxGain.gain.setValueAtTime(this.enabled ? this.sfxVolume : 0, this.ctx.currentTime);

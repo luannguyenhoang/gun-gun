@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { sounds } from '../../audio/audio.js?v=59';
+import { sounds } from '../../audio/audio.js?v=63';
 
 // Bộ nạp và cache texture hiệu ứng hạt từ Kenney Particle Pack
 const _molotovTextureLoader = new THREE.TextureLoader();

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { sounds } from '../../audio/audio.js?v=59';
+import { sounds } from '../../audio/audio.js?v=63';
 import { HealthBar3D } from '../../rendering/healthbar.js';
 import { CHARACTER_CONFIGS, normalizeCharacter } from './characters.js';
 import { AirdropDropEntity } from '../loot/looting.js';
