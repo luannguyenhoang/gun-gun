@@ -1,8 +1,8 @@
-// Use sustained frame time, not individual loading/GC spikes, to adjust resolution.
 export class RenderQuality {
     constructor(pixelRatio) {
-        this.maxRatio = Math.min(pixelRatio || 1, 1.5);
-        this.minRatio = Math.min(this.maxRatio, 0.75);
+        const dpr = pixelRatio || (typeof window !== 'undefined' ? window.devicePixelRatio : 1) || 1;
+        this.maxRatio = Math.max(1.0, Math.min(dpr, 2.0));
+        this.minRatio = 1.0; // Tuyệt đối không hạ dưới 1.0 để hình ảnh luôn sắc nét
         this.ratio = this.maxRatio;
         this.reset();
     }
@@ -14,34 +14,14 @@ export class RenderQuality {
     }
 
     configure(pixelRatio, width, height, mode = 'optimized') {
-        // Bound fragment work on 1440p/4K displays, even at devicePixelRatio 1.
-        const optimized = mode === 'optimized';
-        const pixelBudget = optimized ? 1920 * 1080 : 2560 * 1440;
-        const screenLimit = Math.sqrt(pixelBudget / Math.max(1, width * height));
-        this.maxRatio = Math.min(pixelRatio || 1, optimized ? 1 : 1.5, screenLimit);
-        this.minRatio = Math.min(this.maxRatio, optimized ? 0.5 : 0.75);
-        this.ratio = Math.max(this.minRatio, Math.min(this.ratio, this.maxRatio));
+        const dpr = pixelRatio || (typeof window !== 'undefined' ? window.devicePixelRatio : 1) || 1;
+        this.maxRatio = Math.max(1.0, Math.min(dpr, 2.0));
+        this.minRatio = 1.0;
+        this.ratio = this.maxRatio;
         this.reset();
     }
 
     sample(delta) {
-        if (delta <= 0 || delta > 0.25) { this.reset(); return false; }
-        this.elapsed += delta;
-        this.frames++;
-        if (this.elapsed < 2) return false;
-        const average = this.elapsed / this.frames;
-        this.elapsed = 0;
-        this.frames = 0;
-        const previous = this.ratio;
-        if (average > 1 / 48) {
-            this.ratio = Math.max(this.minRatio, this.ratio - 0.15);
-            this.fastWindows = 0;
-        } else if (average < 1 / 58) {
-            if (++this.fastWindows >= 4) {
-                this.ratio = Math.min(this.maxRatio, this.ratio + 0.15);
-                this.fastWindows = 0;
-            }
-        } else this.fastWindows = 0;
-        return Math.abs(previous - this.ratio) > 0.001;
+        return false;
     }
 }

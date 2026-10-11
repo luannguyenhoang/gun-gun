@@ -21,6 +21,7 @@ export class SpaceArena extends BaseArena {
     }
 
     async loadModels() {
+        if (this.th_isLoaded) return;
         const modelNames = [
             'space/template-floor', 'space/template-floor-detail', 'space/template-wall',
             'space/template-wall-corner', 'space/template-wall-half', 'space/gate',
@@ -43,15 +44,29 @@ export class SpaceArena extends BaseArena {
                         resolve();
                     },
                     undefined,
-                    () => resolve()
+                    (err) => {
+                        console.error(`[SpaceArena] Lỗi tải model ${name}:`, err);
+                        resolve();
+                    }
                 );
             });
         });
 
         await Promise.all(promises);
+        this.th_isLoaded = true;
     }
 
     buildArena() {
+        // Đảm bảo models đã sẵn sàng trước khi dựng map
+        if (!this.models['space/template-floor'] || !this.models['space/template-wall']) {
+            this.loadModels().then(() => {
+                if (this.sceneObjects.length === 0) {
+                    this.buildArena();
+                }
+            });
+            if (Object.keys(this.models).length === 0) return;
+        }
+
         this.setupLighting();
         this.buildFloorAndWalls();
         this.buildCenterPlaza();
@@ -65,22 +80,22 @@ export class SpaceArena extends BaseArena {
     }
 
     setupLighting() {
-        // Ánh sáng môi trường trạm không gian Sci-Fi
-        this.ambientLight = new THREE.AmbientLight(0x162438, 0.75);
+        // Ánh sáng môi trường trạm không gian Sci-Fi dịu mắt, độ tương phản công nghệ cao
+        this.ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
         this.addSceneObject(this.ambientLight);
 
-        this.hemiLight = new THREE.HemisphereLight(0x4488bb, 0x111622, 0.6);
+        this.hemiLight = new THREE.HemisphereLight(0xcfd8dc, 0x1e293b, 0.65);
         this.addSceneObject(this.hemiLight);
 
-        // Nguồn sáng định hướng mặt trời ngoài vũ trụ rọi xiên
-        const sun = new THREE.DirectionalLight(0xddeeff, 1.4);
-        sun.position.set(24, 35, 20);
+        // Nguồn sáng định hướng mặt trời ngoài vũ trụ rọi xiên vừa phải, tạo chiều sâu khối kiến trúc
+        const sun = new THREE.DirectionalLight(0xffffff, 1.35);
+        sun.position.set(24, 38, 20);
         sun.castShadow = true;
         sun.shadow.mapSize.width = 1024;
         sun.shadow.mapSize.height = 1024;
         sun.shadow.camera.near = 1.0;
-        sun.shadow.camera.far = 80;
-        const d = 30; // Bao phủ toàn bộ bản đồ 56m x 56m
+        sun.shadow.camera.far = 90;
+        const d = 34; // Bao phủ toàn bộ bản đồ 56m x 56m
         sun.shadow.camera.left = -d;
         sun.shadow.camera.right = d;
         sun.shadow.camera.top = d;
@@ -92,11 +107,11 @@ export class SpaceArena extends BaseArena {
 
         // Đèn PointLight neon nhận diện các cứ điểm chiến thuật chính
         const tacticalLights = [
-            { pos: [0, 5, 24], color: 0x00d0ff, intensity: 4.2, dist: 28 },   // Căn cứ Đội Xanh (Nam)
-            { pos: [0, 5, -24], color: 0xff3b30, intensity: 4.2, dist: 28 },  // Căn cứ Đội Đỏ (Bắc)
-            { pos: [0, 5, 0], color: 0xffeedd, intensity: 4.5, dist: 28 },    // Sảnh Mid (Trung tâm)
-            { pos: [-18, 5, 0], color: 0xaa33ff, intensity: 4.0, dist: 24 },  // Cứ điểm A (Reactor Alpha)
-            { pos: [18, 5, 0], color: 0xff9900, intensity: 4.0, dist: 24 },   // Cứ điểm B (Storage Beta)
+            { pos: [0, 4.5, 24], color: 0x00e5ff, intensity: 3.8, dist: 24 },   // Căn cứ Đội Xanh (Nam)
+            { pos: [0, 4.5, -24], color: 0xff3b30, intensity: 3.8, dist: 24 },  // Căn cứ Đội Đỏ (Bắc)
+            { pos: [0, 4.5, 0], color: 0xffeedd, intensity: 3.5, dist: 22 },    // Sảnh Mid (Trung tâm)
+            { pos: [-18, 4.5, 0], color: 0xc040ff, intensity: 3.5, dist: 20 },  // Cứ điểm A (Reactor Alpha)
+            { pos: [18, 4.5, 0], color: 0xffaa00, intensity: 3.5, dist: 20 },   // Cứ điểm B (Storage Beta)
         ];
         tacticalLights.forEach(tl => {
             const pl = new THREE.PointLight(tl.color, tl.intensity, tl.dist);
@@ -104,6 +119,17 @@ export class SpaceArena extends BaseArena {
             this.addSceneObject(pl);
             this.tacticalLights.push(pl);
         });
+    }
+
+    setQuality({ mode = 'optimized', shadows = false } = {}) {
+        // Tối ưu hóa GPU: Tắt các đèn pointlight neon khi ở chế độ mượt mà (optimized) để duy trì 60 FPS
+        const isFull = mode !== 'optimized';
+        for (const light of this.tacticalLights) {
+            light.visible = isFull;
+        }
+        if (this.sunLight) {
+            this.sunLight.castShadow = !!shadows;
+        }
     }
 
     buildFloorAndWalls() {

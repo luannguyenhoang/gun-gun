@@ -210,11 +210,9 @@ export class VisionConeOverlay {
 
     initCanvasSize() {
         if (!this.canvas) return;
-        // Giảm kích thước canvas nội bộ (75%) để giảm 45% diện tích rasterize 2D của GPU/CPU
-        // Giữ CSS width/height 100% để tạo hiệu ứng sương mù mềm mại (soft fog)
-        const scale = 0.75;
-        this.width = Math.round(window.innerWidth * scale);
-        this.height = Math.round(window.innerHeight * scale);
+        // Đặt kích thước canvas sắc nét chuẩn 100% theo màn hình thật
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
         this.canvas.width = this.width;
         this.canvas.height = this.height;
         this._hasContent = false;
@@ -283,9 +281,8 @@ export class VisionConeOverlay {
         const yaw = spotter.aimYaw || 0;
         const halfAngleRad = ((angleVal * Math.PI) / 180) / 2;
 
-        // 3. BẮN TIA RAYCAST VÀO CÁC HỘP VA CHẠM TƯỜNG ĐỂ TẠO ĐA GIÁC TẦM NHÌN (Vision Polygon)
         // Đồng đội bot lấy mẫu ít tia hơn để tối ưu hiệu năng
-        const numRays = isLocalPlayer ? 24 : 12;
+        const numRays = isLocalPlayer ? 20 : 8;
         const polyPoints = isLocalPlayer ? (this._localPolyPoints ||= []) : (this._polyPoints ||= []);
         polyPoints.length = numRays + 1;
         const range = Math.max(rangeVal, proxVal) + 0.5;
@@ -333,7 +330,7 @@ export class VisionConeOverlay {
         }
 
         // Bắn tia cho quầng cận cảnh quanh chân để không bị lọt qua vách tường sát bên
-        const proxRays = isLocalPlayer ? 14 : 8;
+        const proxRays = isLocalPlayer ? 10 : 6;
         const proxPoints = isLocalPlayer ? (this._localProxPoints ||= []) : (this._proxPoints ||= []);
         proxPoints.length = proxRays;
         for (let s = 0; s < proxRays; s++) {

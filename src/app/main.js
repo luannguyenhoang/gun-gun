@@ -18,6 +18,8 @@ import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v
 import { VisionConeOverlay, getWeaponVisionConfig, applyVisibilityCulling } from '../gameplay/combat/vision-cone.js?v=73';
 import { TDMManager } from '../gameplay/combat/tdm.js?v=3';
 import { FirstPersonView } from '../gameplay/player/first-person.js?v=2';
+import { TH_VersusLoadingScreen } from '../ui/th_versus_loading.js?v=2';
+import { th_preloadAllGameAssets } from './th_asset_preloader.js';
 
 class CyberArenaGame {
     constructor() {
@@ -91,7 +93,7 @@ class CyberArenaGame {
         const aspect = window.innerWidth / window.innerHeight;
         this.camera = new THREE.OrthographicCamera(-this.viewHeight * aspect / 2, this.viewHeight * aspect / 2,
             this.viewHeight / 2, -this.viewHeight / 2, 0.1, 300);
-        // High-Performance WebGL Renderer
+        // High-Performance WebGL Renderer tối ưu hóa hiệu năng
         this.renderer = new THREE.WebGLRenderer({
             canvas: this.canvas,
             antialias: this.perfSettings.mode !== 'optimized',
@@ -100,7 +102,7 @@ class CyberArenaGame {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderQuality = new RenderQuality(window.devicePixelRatio);
         this.renderQuality.configure(window.devicePixelRatio, window.innerWidth, window.innerHeight, this.perfSettings.mode);
-        this.renderer.setPixelRatio(this.renderQuality.ratio);
+        this.renderer.setPixelRatio(1.0);
         this.renderer.shadowMap.enabled = !!this.perfSettings.shadows;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -141,10 +143,11 @@ class CyberArenaGame {
         this.coopPlayers = [this.player];
         this.reviveZoneMeshes = new Map();
 
-        // Khởi tạo hệ thống Tầm nhìn hình quạt và Chế độ đối kháng TDM
+        // Khởi tạo hệ thống Tầm nhìn hình quạt, Chế độ đối kháng TDM và Màn hình tải trận 4v4 LoL
         this.visionCone = new VisionConeOverlay(document.getElementById('vision-cone-canvas'), this.camera);
         this.tdmManager = new TDMManager(this);
         this.firstPersonView = new FirstPersonView(this);
+        this.th_versusLoading = new TH_VersusLoadingScreen();
 
         // Lắng nghe phát bắn của người chơi Host để broadcast cho đồng đội
         this.weapons.onShotFired = (info) => {
@@ -475,7 +478,17 @@ class CyberArenaGame {
     switchArena(targetMode) {
         const isTDM = targetMode === 'TDM';
         const targetArena = isTDM ? this.spaceArena : this.survivalArena;
-        if (this.arena === targetArena && this.arena.colliders.length > 0) {
+
+        // Cập nhật môi trường không gian và sương mù theo chế độ
+        if (isTDM) {
+            this.scene.fog = null; // Tắt sương mù Zombie để trạm không gian hiển thị sáng rõ rực rỡ
+            this.scene.background = new THREE.Color(0x0a101d);
+        } else {
+            this.scene.fog = new THREE.FogExp2(0x161a24, 0.022); // Sương mù Zombie
+            this.scene.background = new THREE.Color(0x0c1017);
+        }
+
+        if (this.arena === targetArena && this.arena.colliders.length > 0 && this.arena.sceneObjects.length > 10) {
             return;
         }
 
@@ -611,13 +624,17 @@ class CyberArenaGame {
     }
 
     startTDM(playerTeam = 'blue', options = {}) {
-        this.firstPersonView?.setEnabled(options.firstPerson ?? (this.selectedGameMode === 'FPS_SOLO'));
         const fillBots = typeof options === 'boolean' ? options : !!options.fillBots;
+
+        // Ẩn màn hình chờ nếu còn hiển thị
+        this.th_versusLoading?.close?.();
+
+        this.firstPersonView?.setEnabled(options.firstPerson ?? (this.selectedGameMode === 'FPS_SOLO'));
         this.gameMode = 'TDM';
         this.selectedTDMTeam = playerTeam;
         this.switchArena('TDM');
-        this.homeMenu?.showroom.dialog.close();
-        this.homeMenu?.dialog.close();
+        this.homeMenu?.showroom?.dialog?.close?.();
+        this.homeMenu?.dialog?.close?.();
         sounds.init();
         sounds.startMusic();
 
