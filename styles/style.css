@@ -1671,15 +1671,16 @@ body, html {
 
 .team-roster-panel {
     position: absolute;
-    top: 195px;
-    left: 24px;
-    width: 260px;
-    background: var(--bg-dark);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--border-light);
+    top: 185px;
+    left: 18px;
+    width: 215px;
+    background: rgba(6, 14, 24, 0.22);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: 1px solid rgba(0, 229, 255, 0.18);
     border-radius: 6px;
-    padding: 10px 14px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 10px var(--cyan-glow);
+    padding: 8px 10px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
     pointer-events: none;
     z-index: 10;
 }
@@ -2292,18 +2293,19 @@ body, html {
 
 .tdm-scoreboard {
     position: fixed;
-    top: 14px;
+    top: 12px;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
     align-items: center;
-    gap: 18px;
-    background: rgba(15, 23, 42, 0.90);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    border-radius: 12px;
-    padding: 6px 24px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65);
+    gap: 16px;
+    background: rgba(6, 14, 24, 0.28);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 10px;
+    padding: 4px 18px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.30);
     pointer-events: none;
     z-index: 15;
 }

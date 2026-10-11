@@ -331,6 +331,36 @@ export class PlayerController {
         window.addEventListener('keydown', (e) => {
             if (!this.inputEnabled || e.target?.matches?.('input, textarea, select, [contenteditable="true"]')) return;
 
+            // Phím [Tab]: Xem bảng điểm chi tiết K/D/Score 2 phe trong TDM (Hỗ trợ cả Giữ Hold & Nhấp Toggle)
+            if (e.code === 'Tab') {
+                e.preventDefault();
+                if (e.repeat) return;
+                const tdm = window.game?.tdmManager;
+                const ui = this.ui || window.game?.ui;
+                if (tdm && (tdm.isActive || tdm.state === 'ACTIVE')) {
+                    this._thTabPressTime = performance.now();
+                    if (ui?.thIsTabScoreboardOpen) {
+                        ui.th_hideTabScoreboard();
+                        this._thTabToggledByTap = false;
+                    } else {
+                        ui?.th_showTabScoreboard(tdm);
+                        this._thTabToggledByTap = false;
+                    }
+                }
+                return;
+            }
+
+            // Phím [Escape]: Đóng Bảng điểm nếu đang mở
+            if (e.code === 'Escape') {
+                const ui = this.ui || window.game?.ui;
+                if (ui?.thIsTabScoreboardOpen) {
+                    e.preventDefault();
+                    ui.th_hideTabScoreboard();
+                    this._thTabToggledByTap = false;
+                    return;
+                }
+            }
+
             // Nếu người chơi đã chết: Cho phép phím A/D hoặc mũi tên trái/phải để chuyển đổi góc nhìn theo dõi đồng đội
             if (this.isDead) {
                 if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
@@ -450,6 +480,18 @@ export class PlayerController {
         });
 
         window.addEventListener('keyup', (e) => {
+            if (e.code === 'Tab') {
+                e.preventDefault();
+                const ui = this.ui || window.game?.ui;
+                const pressDuration = performance.now() - (this._thTabPressTime || 0);
+                if (pressDuration > 220) {
+                    ui?.th_hideTabScoreboard();
+                    this._thTabToggledByTap = false;
+                } else {
+                    this._thTabToggledByTap = true;
+                }
+                return;
+            }
             if (e.code === 'AltLeft' || e.code === 'AltRight') {
                 e.preventDefault();
                 const pressDuration = performance.now() - (this._radialPressTime || 0);
@@ -460,6 +502,10 @@ export class PlayerController {
                 }
             }
             this.keys[e.code] = false;
+        });
+
+        window.addEventListener('blur', () => {
+            (this.ui || window.game?.ui)?.th_hideTabScoreboard();
         });
 
         window.addEventListener('mousedown', (e) => {

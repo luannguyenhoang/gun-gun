@@ -316,6 +316,10 @@ export class TDMManager {
         ];
     }
 
+    get isActive() {
+        return this.state === 'ACTIVE';
+    }
+
     /**
      * Bắt đầu một trận đấu đối kháng mới
      * @param {string} playerTeam - 'blue' hoặc 'red'
@@ -480,11 +484,31 @@ export class TDMManager {
             this.scoreBlue++;
         }
 
+        // Cập nhật chỉ số K/D/Score cho từng cá nhân (Hỗ trợ Bảng Điểm Tab Xếp Hạng)
+        const killerEntity = killer?.remote || killer;
+        if (killerEntity) {
+            killerEntity.th_kills = (killerEntity.th_kills || 0) + 1;
+            killerEntity.th_score = (killerEntity.th_score || 0) + 100;
+        }
+        if (killer === this.game.player || killerEntity === this.game.player) {
+            this.game.player.th_kills = (this.game.player.th_kills || 0) + 1;
+            this.game.player.th_score = (this.game.player.th_score || 0) + 100;
+        }
+
+        const victimEntity = victim?.remote || victim;
+        if (victimEntity) {
+            victimEntity.th_deaths = (victimEntity.th_deaths || 0) + 1;
+        }
+        if (victim === this.game.player || victimEntity === this.game.player) {
+            this.game.player.th_deaths = (this.game.player.th_deaths || 0) + 1;
+        }
+
         // Cập nhật giao diện tỷ số
         this.game.ui?.updateTDMScore?.(this.scoreBlue, this.scoreRed, this.targetKills);
+        this.game.ui?.th_updateTabScoreboardIfOpen?.(this);
 
         // Hiển thị thông báo Killfeed
-        const killerName = killer?.name || 'Chiến binh';
+        const killerName = killer?.name || (killer === this.game.player ? 'Bạn' : 'Chiến binh');
         const victimName = victim.name || (victim === this.game.player ? 'Bạn' : 'Chiến binh');
         const isKillerFriendly = (killer?.team || killer?.owner?.team) === this.playerTeam;
         this.game.ui?.addTDMKillFeed?.(killerName, victimName, isKillerFriendly);
@@ -593,5 +617,55 @@ export class TDMManager {
         this.game.ui?.hideTDMScoreboard?.();
         this.game.ui?.hideTDMRespawnCountdown?.();
         this.game.ui?.hideTDMMatchResult?.();
+        this.game.ui?.th_hideTabScoreboard?.();
+    }
+
+    /**
+     * Trả về dữ liệu chi tiết hai phe phục vụ Bảng Điểm Tab Xếp Hạng K/D/Score
+     */
+    getScoreboardData() {
+        const formatTeam = (teamList, teamColor) => {
+            return (teamList || []).map(ent => {
+                const kills = ent.th_kills || 0;
+                const deaths = ent.th_deaths || 0;
+                const score = ent.th_score !== undefined ? ent.th_score : (kills * 100);
+                const kdRatio = deaths === 0 ? kills.toFixed(1) : (kills / deaths).toFixed(1);
+                const isLocal = ent === this.game.player;
+                const name = isLocal ? 'Bạn (Chiến binh)' : (ent.name || 'Chiến binh');
+                const weapon = ent.weapons?.getCurrentWeapon?.() || ent.weapons?.currentGun;
+                const weaponName = weapon?.name || 'Súng chiến thuật';
+                return {
+                    id: ent.id || (isLocal ? 'local_player' : 'bot'),
+                    name,
+                    isLocal,
+                    team: teamColor,
+                    isDead: !!ent.isDead,
+                    kills,
+                    deaths,
+                    score,
+                    kd: kdRatio,
+                    weaponName
+                };
+            }).sort((a, b) => (b.score !== a.score) ? (b.score - a.score) : (b.kills - a.kills));
+        };
+
+        return {
+            mode: 'TDM',
+            playerTeam: this.playerTeam,
+            scoreBlue: this.scoreBlue,
+            scoreRed: this.scoreRed,
+            targetKills: this.targetKills,
+            matchTimeFormatted: this.getFormattedMatchTime(),
+            teamBlue: formatTeam(this.teamBlue, 'blue'),
+            teamRed: formatTeam(this.teamRed, 'red')
+        };
+    }
+
+    getFormattedMatchTime() {
+        const sec = Math.floor(this.matchTimer || 0);
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     }
 }
+

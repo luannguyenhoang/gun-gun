@@ -155,6 +155,8 @@ export class UIManager {
         // Vùng chứa biểu tượng đồng đội ngoài màn hình và danh sách đồng đội
         this.teammateContainer = document.getElementById('teammate-indicators');
         this.teamRoster = document.getElementById('team-roster');
+        this.thTabScoreboard = document.getElementById('th-tab-scoreboard');
+        this.thIsTabScoreboardOpen = false;
         this.teammateMarkers = new Map();
 
         // Minimalist Survival Bottom HUD System Elements
@@ -1758,6 +1760,153 @@ export class UIManager {
         }
         html += `</div>`;
         this.teamRoster.innerHTML = html;
+    }
+
+    // Hiển thị bảng điểm TDM chi tiết khi giữ phím Tab
+    th_showTabScoreboard(tdmManager) {
+        if (!this.thTabScoreboard || !tdmManager) return;
+        const isTdmActive = tdmManager.isActive || tdmManager.state === 'ACTIVE';
+        if (!isTdmActive) return;
+        this.thIsTabScoreboardOpen = true;
+        const data = tdmManager.getScoreboardData ? tdmManager.getScoreboardData() : null;
+        if (!data) return;
+        this.thTabScoreboard.innerHTML = this.th_renderTabScoreboardHtml(data);
+        this.thTabScoreboard.style.display = 'flex';
+        this.thTabScoreboard.setAttribute('aria-hidden', 'false');
+    }
+
+    // Ẩn bảng điểm TDM khi nhả phím Tab
+    th_hideTabScoreboard() {
+        if (!this.thTabScoreboard) return;
+        this.thIsTabScoreboardOpen = false;
+        this.thTabScoreboard.style.display = 'none';
+        this.thTabScoreboard.setAttribute('aria-hidden', 'true');
+    }
+
+    // Cập nhật lại số liệu nếu bảng điểm đang mở mà có kill/death mới
+    th_updateTabScoreboardIfOpen(tdmManager) {
+        if (!this.thIsTabScoreboardOpen || !this.thTabScoreboard || !tdmManager) return;
+        const isTdmActive = tdmManager.isActive || tdmManager.state === 'ACTIVE';
+        if (!isTdmActive) return;
+        const data = tdmManager.getScoreboardData ? tdmManager.getScoreboardData() : null;
+        if (!data) return;
+        this.thTabScoreboard.innerHTML = this.th_renderTabScoreboardHtml(data);
+    }
+
+    // Render HTML bảng điểm đối kháng 2 đội Xanh vs Đỏ (không tạo icon, chèn icon)
+    th_renderTabScoreboardHtml(data) {
+        const renderRows = (members, isRed = false) => {
+            if (!members || members.length === 0) {
+                return `<tr><td colspan="6" style="text-align:center; padding:16px; color:#64748b; font-style:italic;">Chưa có dữ liệu chiến đấu</td></tr>`;
+            }
+            return members.map((p, idx) => {
+                const rankClass = idx === 0 ? 'top-1' : (idx === 1 ? 'top-2' : (idx === 2 ? 'top-3' : ''));
+                const isLocal = !!(p.isLocal || p.isLocalPlayer);
+                const localClass = isLocal ? 'is-local-player' : '';
+                const deadClass = p.isDead ? 'is-dead' : '';
+                const displayName = isLocal ? 'BẠN' : (p.name || 'Chiến binh');
+                const escapedName = displayName.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const weapon = (p.weaponName || 'BLASTER').toUpperCase();
+                const kd = p.kd || p.kdRatio || '0.0';
+                return `
+                    <tr class="${localClass} ${deadClass}">
+                        <td class="th-sb-row-rank ${rankClass}">#${idx + 1}</td>
+                        <td>
+                            <div class="th-sb-row-name-wrap">
+                                <div class="th-sb-row-name">
+                                    <span>${escapedName}</span>
+                                    ${isLocal ? '<span class="th-sb-tag-you">[BẠN]</span>' : ''}
+                                </div>
+                                <span class="th-sb-row-gun">${weapon}</span>
+                            </div>
+                        </td>
+                        <td class="th-sb-row-stat kills">${p.kills || 0}</td>
+                        <td class="th-sb-row-stat">${p.deaths || 0}</td>
+                        <td class="th-sb-row-stat">${kd}</td>
+                        <td class="th-sb-row-score">${p.score || 0}</td>
+                    </tr>
+                `;
+            }).join('');
+        };
+
+        const timeStr = data.matchTimeFormatted || data.matchTime || '00:00';
+
+        return `
+            <div class="th-sb-container">
+                <div class="th-sb-header">
+                    <span class="th-sb-title-badge">BẢNG ĐIỂM CHIẾN ĐẤU [TAB] • ĐỐI KHÁNG 4V4 TDM</span>
+                    <div class="th-sb-score-banner">
+                        <div class="th-sb-team-side blue">
+                            <span class="th-sb-team-tag">ĐỘI XANH</span>
+                            <span class="th-sb-team-score">${data.scoreBlue || 0}</span>
+                        </div>
+                        <div class="th-sb-vs-target">
+                            <span class="th-sb-vs-label">VS</span>
+                            <span class="th-sb-vs-label">MỤC TIÊU: ${data.targetKills || 20}</span>
+                            <span class="th-sb-time">${timeStr}</span>
+                        </div>
+                        <div class="th-sb-team-side red">
+                            <span class="th-sb-team-score">${data.scoreRed || 0}</span>
+                            <span class="th-sb-team-tag">ĐỘI ĐỎ</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="th-sb-teams-grid">
+                    <div class="th-sb-team-column blue">
+                        <div class="th-sb-column-header">
+                            <span class="th-sb-col-title">ĐỘI XANH (${data.teamBlue ? data.teamBlue.length : 0} CHIẾN BINH)</span>
+                            <span class="th-sb-col-sub">${data.scoreBlue || 0} HẠ GỤC</span>
+                        </div>
+                        <div class="th-sb-table-wrap">
+                            <table class="th-sb-table">
+                                <thead>
+                                    <tr>
+                                        <th class="th-col-rank">#</th>
+                                        <th class="th-col-name">CHIẾN BINH</th>
+                                        <th class="th-col-stat">K</th>
+                                        <th class="th-col-stat">D</th>
+                                        <th class="th-col-stat">K/D</th>
+                                        <th class="th-col-score">ĐIỂM</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${renderRows(data.teamBlue, false)}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="th-sb-team-column red">
+                        <div class="th-sb-column-header">
+                            <span class="th-sb-col-title">ĐỘI ĐỎ (${data.teamRed ? data.teamRed.length : 0} CHIẾN BINH)</span>
+                            <span class="th-sb-col-sub">${data.scoreRed || 0} HẠ GỤC</span>
+                        </div>
+                        <div class="th-sb-table-wrap red-table">
+                            <table class="th-sb-table">
+                                <thead>
+                                    <tr>
+                                        <th class="th-col-rank">#</th>
+                                        <th class="th-col-name">CHIẾN BINH</th>
+                                        <th class="th-col-stat">K</th>
+                                        <th class="th-col-stat">D</th>
+                                        <th class="th-col-stat">K/D</th>
+                                        <th class="th-col-score">ĐIỂM</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${renderRows(data.teamRed, true)}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="th-sb-footer">
+                    <span>GIỮ PHÍM [TAB] ĐỂ XEM BẢNG ĐIỂM • THẢ ĐỂ ĐÓNG</span>
+                </div>
+            </div>
+        `;
     }
 
     // Ẩn tất cả chỉ báo đồng đội ngoài màn hình (dùng khi tạm dừng hoặc kết thúc màn chơi)

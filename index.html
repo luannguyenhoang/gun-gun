@@ -212,6 +212,8 @@
       <section class="combat-radar combat-panel"><span class="combat-kicker">BẢN ĐỒ</span><canvas id="radar-canvas" width="140" height="140"></canvas><span class="radar-key">● BẠN <i>● ZOMBIE</i></span></section>
       <div id="boss-health-container" class="combat-boss" style="display:none"><span>TRÙM ĐỘT BIẾN</span><div class="combat-meter health-meter"><div id="boss-health-fill"></div></div></div>
       <div id="team-roster" class="team-roster-panel" style="display:none"></div>
+      <!-- Bảng điểm chi tiết TDM khi bấm giữ phím Tab [K/D/Điểm/Xếp hạng] -->
+      <div id="th-tab-scoreboard" class="th-tab-scoreboard" style="display:none;" aria-hidden="true"></div>
       <div id="crosshair" class="crosshair">
         <div class="cross-dot"></div>
         <div class="cross-line top"></div>
@@ -585,8 +587,8 @@
         </div>
       </div>
 
-      <div class="fps-controls"><kbd>WASD</kbd> Di chuyển · <kbd>Shift</kbd> Đi chậm · <kbd>Space</kbd> Nhảy · <kbd>B</kbd> Đổi súng · Chuột phải ngắm · <kbd>R</kbd> Nạp đạn · <kbd>1–4 / V</kbd> Đổi vũ khí · <kbd>Esc</kbd> Tạm dừng</div>
-      <div class="combat-controls"><kbd>WASD</kbd> Di chuyển <kbd>R</kbd> Nạp đạn <kbd>B</kbd> Đổi súng [10s] <kbd>Q</kbd> Né <kbd>F</kbd> Nhặt / Đổi đồ hòm <kbd>Alt / Chuột giữa / [1-4]</kbd> Thao tác nhanh <kbd>ESC</kbd> Tạm dừng</div>
+      <div class="fps-controls"><kbd>WASD</kbd> Di chuyển · <kbd>Shift</kbd> Đi chậm · <kbd>Space</kbd> Nhảy · <kbd>Tab</kbd> Bảng điểm · <kbd>B</kbd> Đổi súng · Chuột phải ngắm · <kbd>R</kbd> Nạp đạn · <kbd>1–4 / V</kbd> Đổi vũ khí · <kbd>Esc</kbd> Tạm dừng</div>
+      <div class="combat-controls"><kbd>WASD</kbd> Di chuyển <kbd>Tab</kbd> Bảng điểm <kbd>R</kbd> Nạp đạn <kbd>B</kbd> Đổi súng [10s] <kbd>Q</kbd> Né <kbd>F</kbd> Nhặt / Đổi đồ hòm <kbd>Alt / Chuột giữa / [1-4]</kbd> Thao tác nhanh <kbd>ESC</kbd> Tạm dừng</div>
       <div id="teammate-indicators" class="teammate-indicators-container"></div>
     </div>
 
