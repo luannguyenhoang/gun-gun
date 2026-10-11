@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="preload" href="assets/fonts/Nunito-Variable.ttf" as="font" type="font/ttf" crossorigin>
-    <link rel="stylesheet" href="styles/style.css">
+    <link rel="stylesheet" href="styles/style.css?v=23">
     <link rel="stylesheet" href="styles/zappets.css?v=2"><link rel="stylesheet" href="styles/combat.css?v=45"><link rel="stylesheet" href="styles/showroom.css?v=47">
     <link rel="stylesheet" href="styles/ux.css?v=3">
     <link rel="stylesheet" href="styles/home-polish.css?v=3">
@@ -945,26 +945,81 @@
             <div class="play-area" id="main-play-area">
               <button id="room-leave" class="toy-button purple leave-button" style="display:none">RỜI PHÒNG</button>
 
-              <!-- Nút Chế độ chơi (Bên cạnh: bấm để mở modal chọn chế độ) -->
-              <div class="mode-card purple" id="btn-mode-card" role="button" tabindex="0" title="Bấm để đổi Chế độ chơi">
-                <div class="mode-ribbon">
-                  <span>CHẾ ĐỘ CHƠI</span>
-                  <span class="mode-change-hint">ĐỔI ▾</span>
-                </div>
-                <div class="mode-content">
-                  <div class="mode-icon-box">
-                    <img class="lobby-png" id="mode-icon-img" src="assets/ui/lobby/runtime/skull-blue.png" alt="" aria-hidden="true" draggable="false">
+              <!-- Wrapper bao quanh Nút Chế độ chơi và Popover chọn chế độ -->
+              <div class="th_mode-card-wrapper" id="th-mode-card-wrapper">
+                <div class="mode-card purple" id="btn-mode-card" role="button" tabindex="0" title="Bấm để đổi Chế độ chơi">
+                  <div class="mode-ribbon">
+                    <span>CHẾ ĐỘ CHƠI</span>
+                    <span class="mode-change-hint">ĐỔI ▾</span>
                   </div>
-                  <div class="mode-titles">
-                    <strong id="mode-main-title">VÔ TẬN ZOMBIE</strong>
-                    <div class="mode-badges" id="mode-badges-container">
-                      <span class="mode-badge-pill purple">SINH TỒN</span>
-                      <span class="mode-badge-pill gray">ĐẤU TRƯỜNG</span>
+                  <div class="mode-content">
+                    <div class="mode-icon-box">
+                      <img class="lobby-png" id="mode-icon-img" src="assets/ui/lobby/runtime/skull-blue.png" alt="" aria-hidden="true" draggable="false">
+                    </div>
+                    <div class="mode-titles">
+                      <strong id="mode-main-title">VÔ TẬN ZOMBIE</strong>
+                      <div class="mode-badges" id="mode-badges-container">
+                        <span class="mode-badge-pill purple">SINH TỒN</span>
+                        <span class="mode-badge-pill gray">ĐẤU TRƯỜNG</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div id="mode-status" role="status" style="display:none;">CHƠI ĐƠN · SẴN SÀNG</div>
+                </div>
+
+                <!-- Danh sách chọn chế độ dạng popover nổi ngay phía trên thẻ -->
+                <div id="th-mode-select-popover" class="th_mode-select-popover" style="display: none;" role="menu" aria-label="Danh sách chế độ chơi">
+                  <div class="th_popover-header">
+                    <span class="th_popover-title">DANH SÁCH CHẾ ĐỘ CHƠI</span>
+                    <button type="button" class="th_popover-close" id="th-mode-popover-close" title="Đóng">ĐÓNG</button>
+                  </div>
+                  <div class="th_popover-list">
+                    <!-- Mục 1: Vô tận Zombie -->
+                    <div class="th_mode-item" data-mode="SURVIVAL" role="menuitem" tabindex="0">
+                      <div class="th_mode-item-left">
+                        <div class="th_mode-item-title-row">
+                          <span class="th_mode-badge purple">SINH TỒN</span>
+                          <strong class="th_mode-item-title">VÔ TẬN ZOMBIE</strong>
+                          <span class="th_mode-current-tag" data-tag-mode="SURVIVAL">[ĐANG CHỌN]</span>
+                        </div>
+                        <div class="th_mode-item-desc">Chiến đấu theo từng đợt quái, nhặt trang bị, nâng cấp súng và mở hòm tiếp tế vô tận (Tổ đội 4 người hoặc Đơn).</div>
+                      </div>
+                    </div>
+
+                    <!-- Mục 2: Đối kháng 4v4 TDM -->
+                    <div class="th_mode-item" data-mode="TDM" role="menuitem" tabindex="0">
+                      <div class="th_mode-item-left">
+                        <div class="th_mode-item-title-row">
+                          <span class="th_mode-badge tdm">ĐỐI KHÁNG</span>
+                          <strong class="th_mode-item-title">ĐỐI KHÁNG 4V4 (TDM)</strong>
+                          <span class="th_mode-current-tag" data-tag-mode="TDM">[ĐANG CHỌN]</span>
+                        </div>
+                        <div class="th_mode-item-desc">Chia 2 phe Đội Xanh vs Đội Đỏ, tầm nhìn chiến thuật hình quạt, hồi sinh sau 3s, chạm 20 mạng để chiến thắng.</div>
+                        <div class="th_popover-tdm-controls">
+                          <div class="th_popover-team-row">
+                            <button type="button" class="th_popover-team-btn blue active" data-tdm-team="blue">ĐỘI XANH</button>
+                            <button type="button" class="th_popover-team-btn red" data-tdm-team="red">ĐỘI ĐỎ</button>
+                          </div>
+                          <button type="button" class="th_popover-bot-btn active" id="th-popover-bot-toggle">BỔ SUNG BOT 4V4: BẬT</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Mục 3: Góc nhìn thứ nhất FPS -->
+                    <div class="th_mode-item" data-mode="FPS_SOLO" role="menuitem" tabindex="0">
+                      <div class="th_mode-item-left">
+                        <div class="th_mode-item-title-row">
+                          <span class="th_mode-badge fps">FPS PC</span>
+                          <strong class="th_mode-item-title">GÓC NHÌN THỨ NHẤT (FPS)</strong>
+                          <span class="th_mode-current-tag" data-tag-mode="FPS_SOLO">[ĐANG CHỌN]</span>
+                        </div>
+                        <div class="th_mode-item-desc">Bắn súng góc nhìn thứ nhất, solo cùng bot hoặc tạo phòng so tài cùng bạn bè.</div>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div id="mode-status" role="status" style="display:none;">CHƠI ĐƠN · SẴN SÀNG</div>
               </div>
+
 
               <!-- Nút CHƠI ĐƠN: Trực tiếp vào game luôn -->
               <button id="btn-start" class="toy-button play-button play-solo-btn" title="Vào trận chiến ngay lập tức">
@@ -978,8 +1033,12 @@
                 <span class="btn-maintext">CHƠI ĐỘI</span>
               </button>
 
-              <button id="room-start" class="toy-button yellow play-button" style="display:none">BẮT ĐẦU</button>
-              <div id="guest-wait" role="status" hidden>ĐANG CHỜ CHỦ PHÒNG…</div>
+              <!-- Nút dành cho Chủ phòng -->
+              <button id="room-start" class="toy-button yellow play-button" style="display:none" type="button">BẮT ĐẦU</button>
+
+              <!-- Nút SẴN SÀNG dành cho Thành viên khách -->
+              <button id="th-room-ready" class="toy-button green play-button th_ready-btn" style="display:none" type="button">SẴN SÀNG</button>
+              <div id="guest-wait" role="status" style="display:none !important;" hidden>ĐANG CHỜ CHỦ PHÒNG…</div>
             </div>
           </div>
         </footer>
@@ -1672,7 +1731,7 @@
     </div>
 
     <!-- Main Game Script -->
-    <script src="vendor/qrcode.min.js"></script><script type="module" src="src/app/main.js?v=78"></script>
+    <script src="vendor/qrcode.min.js"></script><script type="module" src="src/app/main.js?v=82"></script>
     <script>
         // Vô hiệu hóa triệt để menu ngữ cảnh chuột phải mặc định của trình duyệt
         window.addEventListener('contextmenu', function(e) {

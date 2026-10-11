@@ -74,15 +74,57 @@ export class HomeMenu {
         this.quickBotSection = document.getElementById('tdm-bot-bar');
         this.btnBotToggle = document.getElementById('tdm-bot-toggle-btn');
         this.btnStart = document.getElementById('btn-start');
-        this.selectedMode = 'SURVIVAL';
-        this.selectedTeam = 'blue';
-        this.game.soloFillBots = false; // Mặc định không tự phân bổ Bot
+        const popoverBotBtn = document.getElementById('th-popover-bot-toggle');
+        const savedMode = localStorage.getItem('th_saved_game_mode');
+        this.selectedMode = (savedMode === 'TDM' || savedMode === 'FPS_SOLO' || savedMode === 'SURVIVAL') ? savedMode : 'SURVIVAL';
+        this.selectedTeam = localStorage.getItem('th_saved_tdm_team') || 'blue';
+        const savedBots = localStorage.getItem('th_saved_tdm_fill_bots');
+        this.game.soloFillBots = savedBots !== null ? (savedBots === 'true') : true; // Mặc định BẬT Bot cho TDM
+
+        const syncBotUI = () => {
+            const hasBots = !!this.game.soloFillBots;
+            if (popoverBotBtn) {
+                popoverBotBtn.classList.toggle('active', hasBots);
+                popoverBotBtn.textContent = hasBots ? 'BỔ SUNG BOT 4V4: BẬT' : 'BỔ SUNG BOT 4V4: TẮT';
+            }
+            if (this.btnBotToggle) {
+                this.btnBotToggle.classList.toggle('active', hasBots);
+                this.btnBotToggle.textContent = hasBots ? 'PHÂN BỔ BOT: BẬT (4V4)' : 'PHÂN BỔ BOT: TẮT';
+            }
+            if (this.selectedMode === 'TDM') {
+                if (this.modeTitleStrong) this.modeTitleStrong.textContent = hasBots ? 'ĐỐI KHÁNG 4V4' : 'ĐỐI KHÁNG TDM';
+                const badgesContainer = document.getElementById('mode-badges-container');
+                if (badgesContainer) {
+                    badgesContainer.innerHTML = `
+                        <span class="mode-badge-pill ${this.selectedTeam === 'blue' ? 'blue' : 'red'}">${this.selectedTeam === 'blue' ? 'ĐỘI XANH' : 'ĐỘI ĐỎ'}</span>
+                        <span class="mode-badge-pill ${hasBots ? 'green' : 'gray'}">${hasBots ? 'CÓ BOT AI' : 'KHÔNG BOT'}</span>
+                    `;
+                }
+            }
+        };
+
+        const toggleBots = () => {
+            this.game.soloFillBots = !this.game.soloFillBots;
+            localStorage.setItem('th_saved_tdm_fill_bots', this.game.soloFillBots);
+            if (this.game.network?.active && this.game.network.host) {
+                this.game.network.toggleFillBots();
+            }
+            syncBotUI();
+        };
+
+        this.syncBotUI = syncBotUI;
+        this.syncBotUI();
+
+        popoverBotBtn?.addEventListener('click', (e) => { e.stopPropagation(); toggleBots(); });
+        this.btnBotToggle?.addEventListener('click', (e) => { e.stopPropagation(); toggleBots(); });
 
         const applyMode = (mode, team) => {
             this.selectedMode = mode;
             this.selectedTeam = team;
             this.game.selectedGameMode = mode;
             this.game.selectedTDMTeam = team;
+            localStorage.setItem('th_saved_game_mode', mode);
+            if (team) localStorage.setItem('th_saved_tdm_team', team);
             this.game.switchArena?.(mode === 'FPS_SOLO' ? 'TDM' : mode);
             document.getElementById('mode-tab-fps')?.classList.toggle('active', mode === 'FPS_SOLO');
 
@@ -104,7 +146,19 @@ export class HomeMenu {
                 btn.classList.toggle('active', btnTeam === team);
             });
 
-            // 4. Cập nhật các nút phe và card active trong hộp thoại modal (nếu có mở)
+            // 4. Cập nhật trạng thái trong Popover danh sách chế độ chơi
+            const popoverModeItems = document.querySelectorAll('#th-mode-select-popover .th_mode-item');
+            popoverModeItems.forEach(item => {
+                item.classList.toggle('active', item.dataset.mode === mode);
+            });
+
+            // Cập nhật các nút chọn phe trong popover
+            const popoverTeamBtns = document.querySelectorAll('#th-mode-select-popover .th_popover-team-btn');
+            popoverTeamBtns.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tdmTeam === team);
+            });
+
+            // 5. Cập nhật các nút phe và card active trong hộp thoại modal (nếu có mở)
             const modalTeamBtns = this.modeDialog?.querySelectorAll('.team-btn');
             modalTeamBtns?.forEach(btn => {
                 const btnTeam = btn.dataset.team || 'blue';
@@ -115,7 +169,7 @@ export class HomeMenu {
                 card.classList.toggle('active', card.dataset.mode === mode);
             });
 
-            // 5. Cập nhật hiển thị trên thẻ mode-card và nút bắt đầu
+            // 6. Cập nhật hiển thị trên thẻ mode-card và nút bắt đầu
             const modeIconImg = document.getElementById('mode-icon-img');
             const badgesContainer = document.getElementById('mode-badges-container');
             const subtextSolo = this.btnStart?.querySelector('.btn-subtext');
@@ -166,7 +220,10 @@ export class HomeMenu {
                 }
             }
 
-            // 6. Đồng bộ chế độ ngay lập tức với sảnh chờ phòng nếu đang hoạt động
+            // Đồng bộ trạng thái Bot
+            syncBotUI();
+
+            // 7. Đồng bộ chế độ ngay lập tức với sảnh chờ phòng nếu đang hoạt động
             if (this.game.network?.active) {
                 if (this.game.network.host) {
                     this.game.network.setMode(mode);
@@ -179,14 +236,6 @@ export class HomeMenu {
         };
 
         this._th_applyMode = applyMode;
-
-        // Gắn sự kiện cho nút bật tắt phân bổ Bot chủ động
-        this.btnBotToggle?.addEventListener('click', () => {
-            this.game.soloFillBots = !this.game.soloFillBots;
-            this.btnBotToggle.classList.toggle('active', this.game.soloFillBots);
-            this.btnBotToggle.textContent = this.game.soloFillBots ? 'PHÂN BỔ BOT: BẬT (4V4)' : 'PHÂN BỔ BOT: TẮT';
-            applyMode(this.selectedMode, this.selectedTeam);
-        });
 
         // Gắn sự kiện cho các tab chọn nhanh tại sảnh chính
         this.tabModeSurvival?.addEventListener('click', () => applyMode('SURVIVAL', this.selectedTeam));
@@ -201,13 +250,82 @@ export class HomeMenu {
             });
         });
 
-        // Hộp thoại modal chi tiết
-        if (this.modeCard && this.modeDialog) {
-            this.modeCard.style.cursor = 'pointer';
-            this.modeCard.addEventListener('click', () => {
-                this.modeDialog.showModal();
+        // Xử lý nút chọn phe trong Popover
+        const popoverTeamBtns = document.querySelectorAll('#th-mode-select-popover .th_popover-team-btn');
+        popoverTeamBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const team = btn.dataset.tdmTeam || 'blue';
+                applyMode('TDM', team);
             });
+        });
 
+        // Xử lý danh sách chọn chế độ dạng popover một chạm (.th_mode-select-popover)
+        const modePopover = document.getElementById('th-mode-select-popover');
+        const modePopoverClose = document.getElementById('th-mode-popover-close');
+        const modeCardWrapper = document.getElementById('th-mode-card-wrapper');
+
+        const toggleModePopover = (forceState) => {
+            if (!modePopover) return;
+            const willOpen = typeof forceState === 'boolean' ? forceState : (modePopover.style.display === 'none' || !modePopover.style.display);
+            modePopover.style.display = willOpen ? 'block' : 'none';
+            if (willOpen) {
+                const items = modePopover.querySelectorAll('.th_mode-item');
+                items.forEach(it => it.classList.toggle('active', it.dataset.mode === this.selectedMode));
+            }
+        };
+
+        if (this.modeCard) {
+            this.modeCard.style.cursor = 'pointer';
+            this.modeCard.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleModePopover();
+            });
+        }
+
+        modePopoverClose?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleModePopover(false);
+        });
+
+        // Chọn một chạm trong Popover
+        const popoverItems = modePopover?.querySelectorAll('.th_mode-item');
+        popoverItems?.forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const mode = item.dataset.mode;
+                applyMode(mode, this.selectedTeam);
+                toggleModePopover(false);
+            });
+            item.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    item.click();
+                }
+            });
+        });
+
+        // Bấm ra ngoài vùng chọn để đóng Popover
+        document.addEventListener('click', (e) => {
+            if (modePopover && modePopover.style.display !== 'none') {
+                if (!modeCardWrapper?.contains(e.target)) {
+                    toggleModePopover(false);
+                }
+            }
+        });
+
+        // Nhấn Esc để đóng Popover
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modePopover && modePopover.style.display !== 'none') {
+                toggleModePopover(false);
+            }
+        });
+
+        // Đồng bộ chế độ ban đầu ngay khi tải game
+        applyMode(this.selectedMode, this.selectedTeam);
+
+        // Hộp thoại modal chi tiết (dự phòng)
+        if (this.modeDialog) {
             this.modeDialog.querySelector('.close-mode-dialog')?.addEventListener('click', () => {
                 this.modeDialog.close();
             });
@@ -999,6 +1117,11 @@ export class HomeMenu {
         const active = !!code;
         this.currentRoomCode = code;
 
+        if (active && data?.mode && data.mode !== this.selectedMode) {
+            this.selectedMode = data.mode;
+            this.applyModeSilent(data.mode);
+        }
+
         // Nếu vừa tạo phòng tự động để mời bạn bè
         if (active && this.pendingInviteFriendId) {
             sendGameInvite(this.pendingInviteFriendId, code);
@@ -1021,8 +1144,12 @@ export class HomeMenu {
         this.dialog.querySelector('label[for="room-code"]').hidden = active;
         const guestWait = document.getElementById('guest-wait');
         if (guestWait) {
-            guestWait.hidden = !active || isHost;
-            guestWait.style.display = (!active || isHost) ? 'none' : 'block';
+            guestWait.hidden = true;
+            guestWait.style.display = 'none';
+        }
+        if (active && data && typeof data.fillBots === 'boolean') {
+            this.game.soloFillBots = data.fillBots;
+            this.syncBotUI?.();
         }
         if (active) {
             const url = new URL(location.pathname, location.origin);

@@ -53,7 +53,7 @@ export class NetworkRoom {
         this.snapshotSeq = 0;
         this.lastSnapshotSeq = 0;
         this.stopTicker = null;
-        this.fillBots = false; // Mặc định không tự phân bổ Bot
+        this.fillBots = true; // Mặc định tự phân bổ Bot cho trận đấu đối kháng TDM
         this.dbChannel = null; // Kênh Supabase Realtime đồng bộ trạng thái phòng
     }
 
@@ -179,7 +179,7 @@ export class NetworkRoom {
                 this.startedEpoch = null;
                 this.epoch = Date.now();
                 this.connections = [];
-                this.fillBots = false;
+                this.fillBots = (mode === 'TDM' || mode === 'FPS_SOLO') ? (this.game.soloFillBots !== false) : false;
                 this.players = [{
                     id: 'host',
                     user_id: this.userId,
@@ -338,6 +338,13 @@ export class NetworkRoom {
                         const targetId = clientState.id;
                         const p = this.players.find(pl => pl.id === targetId || (pl.user_id && pl.user_id === targetId));
                         if (p) { p.weapon = getStartingWeapon(data.weapon).id; p.loadout = data.loadout; this.broadcastRoster(); }
+                    } else if (data.type === 'th_ready') {
+                        const targetId = clientState.id || data.playerId;
+                        const p = this.players.find(pl => pl.id === targetId || (pl.user_id && pl.user_id === targetId));
+                        if (p) {
+                            p.th_ready = !!data.isReady;
+                            this.broadcastRoster();
+                        }
                     } else if (data.type === 'sync') {
                         const targetId = clientState.id;
                         if (!targetId) return;
@@ -450,6 +457,29 @@ export class NetworkRoom {
         this.broadcastRoster();
         this.game.ui?.showPickupAlert?.(`ĐÃ KÍCH ${targetPlayer.name || 'NGƯỜI CHƠI'} KHỎI PHÒNG!`);
         return true;
+    }
+
+    th_sendReady(isReady) {
+        this.th_isReady = !!isReady;
+        if (!this.active) return;
+        if (this.host) {
+            const me = this.players.find(p => p.id === 'host' || p.is_host);
+            if (me) me.th_ready = true;
+            this.broadcastRoster();
+            return;
+        }
+        if (this.conn && this.conn.open) {
+            try {
+                this.conn.send({
+                    type: 'th_ready',
+                    playerId: this.playerId,
+                    userId: this.userId,
+                    isReady: !!isReady
+                });
+            } catch (err) {
+                console.warn('[Network] Lỗi gửi tín hiệu sẵn sàng:', err);
+            }
+        }
     }
 
     async join(code, name, character = 'police') {

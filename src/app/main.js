@@ -8,10 +8,10 @@ import { PlayerController } from '../gameplay/player/player.js?v=75';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=69';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
 import { UIManager } from '../ui/ui.js?v=44';
-import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=73';
+import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=75';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
-import { RoomLobby } from '../ui/lobby.js?v=38';
-import { HomeMenu } from '../ui/home.js?v=59';
+import { RoomLobby } from '../ui/lobby.js?v=40';
+import { HomeMenu } from '../ui/home.js?v=63';
 import { LootingSystem } from '../gameplay/loot/looting.js?v=70';
 import { RenderQuality } from '../rendering/performance.js?v=2';
 import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=49';
@@ -27,9 +27,12 @@ class CyberArenaGame {
         this.score = 0;
         this.highScore = parseInt(localStorage.getItem('cyber_arena_highscore') || '0', 10);
         this.currentWave = 1; // Infinite Phase counter
-        this.gameMode = 'SURVIVAL'; // 'SURVIVAL' hoặc 'TDM'
-        this.selectedGameMode = 'SURVIVAL';
-        this.selectedTDMTeam = 'blue';
+        const savedMode = localStorage.getItem('th_saved_game_mode');
+        this.selectedGameMode = (savedMode === 'TDM' || savedMode === 'FPS_SOLO' || savedMode === 'SURVIVAL') ? savedMode : 'SURVIVAL';
+        this.gameMode = this.selectedGameMode;
+        this.selectedTDMTeam = localStorage.getItem('th_saved_tdm_team') || 'blue';
+        const savedBots = localStorage.getItem('th_saved_tdm_fill_bots');
+        this.soloFillBots = savedBots !== null ? (savedBots === 'true') : true; // Mặc định BẬT Bot AI cho TDM
         this.characterId = normalizeCharacter(localStorage.getItem('cyber_arena_character') || 'police');
         this.nextWaveTimer = 0;
         this.clock = new THREE.Clock();
@@ -200,6 +203,9 @@ class CyberArenaGame {
         this.roomCopy = document.getElementById('room-copy');
         this.roomStatus = document.getElementById('room-status');
         this.roomStart = document.getElementById('room-start');
+        this.th_btnReady = document.getElementById('th-room-ready');
+        this.th_isReady = false;
+        this.th_btnReady?.addEventListener('click', () => this.th_toggleReady());
         this.roomCreate = document.getElementById('room-create');
         this.roomJoin = document.getElementById('room-join');
         this.roomLeave = document.getElementById('room-leave');
@@ -235,7 +241,7 @@ class CyberArenaGame {
                         if (this.network.host) this.network.start();
                     } else this.startTDM('blue', { fillBots: true });
                 } else if (this.selectedGameMode === 'TDM') {
-                    this.startTDM(this.selectedTDMTeam || 'blue', { fillBots: !!this.soloFillBots });
+                    this.startTDM(this.selectedTDMTeam || 'blue', { fillBots: this.soloFillBots !== false });
                 } else {
                     this.startGame();
                 }
@@ -896,14 +902,19 @@ class CyberArenaGame {
         this.roomLobby?.update(data);
         this.homeMenu?.room(data);
         this.screenMenu?.classList.add('party-menu');
-        if (!this.roomStatus) return;
         const isHost = data.host === data.you || data.isHost;
+        this.screenMenu?.classList.toggle('is-host', !!isHost);
+        this.screenMenu?.classList.toggle('is-guest', !isHost);
+        if (!this.roomStatus) return;
         const names = (data.players || []).map(player => player.name).join(', ');
         this.roomStatus.textContent = `PHÒNG ${data.code}: ${names}${isHost ? ' • Đóng cửa sổ này và bấm BẮT ĐẦU khi cả đội đã sẵn sàng.' : ' • Đang chờ chủ phòng bắt đầu.'}`;
         if (this.roomCode) this.roomCode.value = data.code;
         if (this.roomCopy) this.roomCopy.style.display = 'inline-block';
-        if (this.roomStart) this.roomStart.style.display = isHost ? 'inline-block' : 'none';
+        if (this.roomStart) this.roomStart.style.display = isHost ? 'flex' : 'none';
         if (this.roomStart) this.roomStart.disabled = (data.players || []).length < 1 || data.started;
+        if (this.th_btnReady) this.th_btnReady.style.display = !isHost ? 'flex' : 'none';
+        const guestWait = document.getElementById('guest-wait');
+        if (guestWait) guestWait.style.display = 'none';
         if (this.roomLeave) this.roomLeave.style.display = 'inline-block';
         this.characterOptions?.forEach(option => { option.disabled = !!data.started; });
         if (this.roomCreate) this.roomCreate.disabled = true;
@@ -918,12 +929,20 @@ class CyberArenaGame {
     }
 
     resetRoomUI() {
-        this.screenMenu?.classList.remove('party-menu');
+        this.screenMenu?.classList.remove('party-menu', 'is-host', 'is-guest');
         if (this.roomLobby?.container) this.roomLobby.container.hidden = true;
         if (this.roomStatus) this.roomStatus.textContent = 'Tạo phòng và gửi liên kết để rủ bạn cùng chiến đấu. Tối đa 4 người.';
         if (this.roomCode) this.roomCode.value = '';
         if (this.roomCopy) this.roomCopy.style.display = 'none';
         if (this.roomStart) this.roomStart.style.display = 'none';
+        if (this.th_btnReady) {
+            this.th_btnReady.style.display = 'none';
+            this.th_isReady = false;
+            this.th_btnReady.textContent = 'SẴN SÀNG';
+            this.th_btnReady.classList.remove('ready-active');
+        }
+        const guestWait = document.getElementById('guest-wait');
+        if (guestWait) guestWait.style.display = 'none';
         if (this.roomLeave) this.roomLeave.style.display = 'none';
         if (this.roomCreate) this.roomCreate.disabled = false;
         if (this.roomJoin) this.roomJoin.disabled = false;
@@ -933,6 +952,15 @@ class CyberArenaGame {
         
         window.history.replaceState(null, '', window.location.pathname);
         this.homeMenu?.room(null);
+    }
+
+    th_toggleReady() {
+        this.th_isReady = !this.th_isReady;
+        if (this.th_btnReady) {
+            this.th_btnReady.textContent = this.th_isReady ? 'HỦY SẴN SÀNG' : 'SẴN SÀNG';
+            this.th_btnReady.classList.toggle('ready-active', this.th_isReady);
+        }
+        this.network.th_sendReady(this.th_isReady);
     }
 
     ensureCoopPlayer(id, name, character = 'police') {

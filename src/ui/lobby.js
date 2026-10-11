@@ -258,6 +258,13 @@ export class RoomLobby {
                     role.textContent = `${isHost ? '★ CHỦ PHÒNG' : 'ĐỒNG ĐỘI'} · ${charLabel}`;
                     slot.append(name, role);
 
+                    if (!isHost) {
+                        const readyBadge = document.createElement('span');
+                        readyBadge.className = `th_ready-badge ${p.th_ready ? 'is-ready' : 'not-ready'}`;
+                        readyBadge.textContent = p.th_ready ? '[ĐÃ SẴN SÀNG]' : '[CHỜ SẴN SÀNG]';
+                        slot.append(readyBadge);
+                    }
+
                     if (isYou) {
                         const switchBtn = document.createElement('button');
                         switchBtn.type = 'button';
@@ -284,7 +291,7 @@ export class RoomLobby {
                     }
                 } else {
                     slot.className = 'lobby-nameplate empty-slot slot-blue';
-                    slot.innerHTML = `<span>+ Chờ đồng đội</span>`;
+                    slot.innerHTML = `<span>+ Chờ đồng đội${data.fillBots ? ' (Tự bù Bot)' : ''}</span>`;
                     const me = players.find(pl => pl.id === data.you);
                     if (me && me.team === 'red' && bluePlayers.length < 4) {
                         slot.title = 'Bấm để đổi sang Đội Xanh';
@@ -295,10 +302,38 @@ export class RoomLobby {
             }
             bluePanel.append(blueHeader, blueSlots);
 
-            // Biểu tượng phân cách VS
+            // Biểu tượng phân cách VS và bộ điều khiển Bot trung tâm
             const vsDivider = document.createElement('div');
             vsDivider.className = 'lobby-vs-divider';
-            vsDivider.textContent = 'VS';
+
+            const vsText = document.createElement('span');
+            vsText.className = 'th_lobby-vs-text';
+            vsText.textContent = 'VS';
+            vsDivider.append(vsText);
+
+            // Nút bấm / Trạng thái Bổ sung BOT 4V4 trực quan
+            const botControl = document.createElement('div');
+            botControl.className = 'th_lobby-bot-control';
+            if (isHostMe) {
+                const botBtn = document.createElement('button');
+                botBtn.type = 'button';
+                botBtn.className = `th_lobby-bot-toggle-btn ${data.fillBots ? 'active' : ''}`;
+                botBtn.innerHTML = data.fillBots 
+                    ? '<span class="th_bot-txt-main">BỔ SUNG BOT: BẬT</span><span class="th_bot-txt-sub">Tự bù đủ 4v4</span>'
+                    : '<span class="th_bot-txt-main">BỔ SUNG BOT: TẮT</span><span class="th_bot-txt-sub">Chỉ người chơi</span>';
+                botBtn.title = 'Bấm để bật hoặc tắt phân bổ Bot bù vào 2 đội (4v4)';
+                botBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    this.onToggleFillBots?.();
+                };
+                botControl.append(botBtn);
+            } else {
+                const botStatus = document.createElement('div');
+                botStatus.className = `th_lobby-bot-status-tag ${data.fillBots ? 'active' : ''}`;
+                botStatus.textContent = data.fillBots ? 'BOT 4V4: BẬT' : 'BOT: TẮT';
+                botControl.append(botStatus);
+            }
+            vsDivider.append(botControl);
 
             // Cột Đội Đỏ (4 slots)
             const redPanel = document.createElement('div');
@@ -326,6 +361,13 @@ export class RoomLobby {
                     role.textContent = `${isHost ? '★ CHỦ PHÒNG' : 'ĐỒNG ĐỘI'} · ${charLabel}`;
                     slot.append(name, role);
 
+                    if (!isHost) {
+                        const readyBadge = document.createElement('span');
+                        readyBadge.className = `th_ready-badge ${p.th_ready ? 'is-ready' : 'not-ready'}`;
+                        readyBadge.textContent = p.th_ready ? '[ĐÃ SẴN SÀNG]' : '[CHỜ SẴN SÀNG]';
+                        slot.append(readyBadge);
+                    }
+
                     if (isYou) {
                         const switchBtn = document.createElement('button');
                         switchBtn.type = 'button';
@@ -352,7 +394,7 @@ export class RoomLobby {
                     }
                 } else {
                     slot.className = 'lobby-nameplate empty-slot slot-red';
-                    slot.innerHTML = `<span>+ Chờ đồng đội</span>`;
+                    slot.innerHTML = `<span>+ Chờ đồng đội${data.fillBots ? ' (Tự bù Bot)' : ''}</span>`;
                     const me = players.find(pl => pl.id === data.you);
                     if (me && me.team === 'blue' && redPlayers.length < 4) {
                         slot.title = 'Bấm để đổi sang Đội Đỏ';
@@ -385,6 +427,13 @@ export class RoomLobby {
                 const role = document.createElement('small');
                 role.textContent = `${isHost ? '★ CHỦ PHÒNG' : 'ĐỒNG ĐỘI'} · ${charLabel}`;
                 label.append(name, role);
+
+                if (!isHost) {
+                    const readyBadge = document.createElement('span');
+                    readyBadge.className = `th_ready-badge ${player.th_ready ? 'is-ready' : 'not-ready'}`;
+                    readyBadge.textContent = player.th_ready ? '[ĐÃ SẴN SÀNG]' : '[CHỜ SẴN SÀNG]';
+                    label.append(readyBadge);
+                }
 
                 if (isHostMe && !isYou && !isHost) {
                     const kickBtn = document.createElement('button');

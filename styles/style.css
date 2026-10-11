@@ -3083,5 +3083,437 @@ body, html {
     transform: scale(0.96);
 }
 
+/* Wrapper thẻ chế độ chơi và Popover chọn chế độ */
+.th_mode-card-wrapper {
+    position: relative;
+    display: inline-flex;
+}
 
+/* Danh sách chọn chế độ dạng Popover nổi phía trên */
+.th_mode-select-popover {
+    position: absolute;
+    bottom: calc(100% + 12px);
+    left: 0;
+    width: 360px;
+    max-width: 90vw;
+    background: linear-gradient(180deg, rgba(30, 21, 45, 0.98) 0%, rgba(18, 12, 28, 0.98) 100%);
+    border: 2px solid #8b5cf6;
+    border-radius: 16px;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.8), 0 0 20px rgba(139, 92, 246, 0.35);
+    padding: 12px;
+    z-index: 1000;
+    backdrop-filter: blur(14px);
+    box-sizing: border-box;
+    animation: th_popoverFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes th_popoverFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.th_popover-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.th_popover-title {
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    color: #e2e8f0;
+    text-transform: uppercase;
+}
+
+.th_popover-close {
+    padding: 3px 8px;
+    font-size: 9px;
+    font-weight: 800;
+    border-radius: 6px;
+    border: 1px solid #64748b;
+    background: rgba(51, 65, 85, 0.6);
+    color: #cbd5e1;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.th_popover-close:hover {
+    background: #475569;
+    color: #ffffff;
+    border-color: #94a3b8;
+}
+
+.th_popover-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.th_mode-item {
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.th_mode-item:hover {
+    background: rgba(139, 92, 246, 0.18);
+    border-color: #a78bfa;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
+}
+
+.th_mode-item.active {
+    border-color: #f59e0b !important;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(139, 92, 246, 0.22)) !important;
+    box-shadow: inset 0 0 12px rgba(245, 158, 11, 0.25), 0 4px 14px rgba(245, 158, 11, 0.3) !important;
+}
+
+.th_mode-item-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.th_mode-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 9px;
+    font-weight: 800;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.th_mode-badge.purple {
+    background: #7c3aed;
+    color: #ffffff;
+}
+
+.th_mode-badge.tdm {
+    background: #dc2626;
+    color: #ffffff;
+}
+
+.th_mode-badge.fps {
+    background: #0284c7;
+    color: #ffffff;
+}
+
+.th_mode-item-title {
+    font-size: 13px;
+    font-weight: 900;
+    color: #ffffff;
+}
+
+.th_mode-current-tag {
+    font-size: 9px;
+    font-weight: 900;
+    color: #fbbf24;
+    margin-left: auto;
+    letter-spacing: 0.5px;
+    display: none;
+}
+
+.th_mode-item.active .th_mode-current-tag {
+    display: inline-block;
+}
+
+.th_mode-item-desc {
+    font-size: 10px;
+    color: #94a3b8;
+    line-height: 1.4;
+    margin: 0;
+}
+
+/* Ẩn triệt để các nút và trạng thái phòng khi ở sảnh chính */
+#screen-menu:not(.party-menu) #room-start,
+#screen-menu:not(.party-menu) #th-room-ready,
+#screen-menu:not(.party-menu) #guest-wait {
+    display: none !important;
+}
+
+/* Khi ở trong phòng chờ:
+   Chủ phòng (.is-host) CHỈ thấy nút BẮT ĐẦU, TUYỆT ĐỐI ẩn nút SẴN SÀNG.
+   Thành viên (.is-guest) CHỈ thấy nút SẴN SÀNG, TUYỆT ĐỐI ẩn nút BẮT ĐẦU. */
+#screen-menu.party-menu.is-host #room-start {
+    display: flex !important;
+}
+#screen-menu.party-menu.is-host #th-room-ready,
+#screen-menu.party-menu.is-host #guest-wait {
+    display: none !important;
+}
+
+#screen-menu.party-menu.is-guest #th-room-ready {
+    display: flex !important;
+}
+#screen-menu.party-menu.is-guest #room-start,
+#screen-menu.party-menu.is-guest #guest-wait {
+    display: none !important;
+}
+
+/* Nút SẴN SÀNG dành cho Thành viên khách trong phòng chờ */
+#screen-menu.party-menu #th-room-ready {
+    align-items: center;
+    justify-content: center;
+    min-width: 170px;
+    font-size: 24px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    background: linear-gradient(180deg, #34d399 0%, #059669 52%, #047857 100%) !important;
+    border: 2px solid #064e3b !important;
+    box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.7), inset 0 -4px 0 rgba(0, 0, 0, 0.25), 0 6px 0 #064e3b, 0 14px 28px rgba(5, 150, 105, 0.45) !important;
+    color: #ffffff !important;
+    text-shadow: 0 2px 0 #064e3b, 0 3px 6px rgba(0, 0, 0, 0.45) !important;
+    border-radius: 20px;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+#screen-menu.party-menu #th-room-ready:hover {
+    transform: translateY(-3px);
+    box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.8), inset 0 -4px 0 rgba(0, 0, 0, 0.25), 0 8px 0 #064e3b, 0 18px 32px rgba(5, 150, 105, 0.6) !important;
+}
+
+#screen-menu.party-menu #th-room-ready:active {
+    transform: translateY(3px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -2px 0 rgba(0, 0, 0, 0.18), 0 2px 0 #064e3b, 0 4px 10px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Nút BẬT/TẮT Bot 4v4 tiện lợi trên thanh chính */
+.th_bot-bar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 14px;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    border-radius: 14px;
+    cursor: pointer;
+    user-select: none;
+    border: 2px solid #475569;
+    background: rgba(30, 41, 59, 0.92);
+    color: #cbd5e1;
+    transition: all 0.15s ease;
+    align-self: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    white-space: nowrap;
+}
+
+.th_bot-bar-btn:hover {
+    border-color: #94a3b8;
+    color: #ffffff;
+    transform: translateY(-2px);
+}
+
+.th_bot-bar-btn.active {
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+    border-color: #34d399 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Các nút chọn phe và bot bên trong popover */
+.th_popover-tdm-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 8px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.th_popover-team-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.th_popover-team-btn {
+    flex: 1;
+    padding: 4px 8px;
+    font-size: 10px;
+    font-weight: 800;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    transition: all 0.15s ease;
+}
+
+.th_popover-team-btn.blue.active {
+    background: #0284c7 !important;
+    border-color: #38bdf8 !important;
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+}
+
+.th_popover-team-btn.red.active {
+    background: #dc2626 !important;
+    border-color: #f87171 !important;
+    box-shadow: 0 0 8px rgba(248, 113, 113, 0.5);
+}
+
+.th_popover-bot-btn {
+    width: 100%;
+    padding: 5px 8px;
+    font-size: 10px;
+    font-weight: 800;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid #475569;
+    background: rgba(30, 41, 59, 0.85);
+    color: #cbd5e1;
+    transition: all 0.15s ease;
+}
+
+.th_popover-bot-btn.active {
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+    border-color: #34d399 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.4) !important;
+}
+
+/* Trạng thái đã sẵn sàng: chuyển sang màu cảnh báo để Hủy sẵn sàng */
+#screen-menu.party-menu #th-room-ready.ready-active {
+    background: linear-gradient(180deg, #f87171 0%, #dc2626 52%, #b91c1c 100%) !important;
+    border-color: #7f1d1d !important;
+    box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.7), inset 0 -4px 0 rgba(0, 0, 0, 0.25), 0 6px 0 #7f1d1d, 0 14px 28px rgba(220, 38, 38, 0.45) !important;
+    text-shadow: 0 2px 0 #7f1d1d, 0 3px 6px rgba(0, 0, 0, 0.45) !important;
+}
+
+/* Nhãn text trạng thái Sẵn sàng trên thẻ từng người chơi trong phòng */
+.th_ready-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    margin-top: 3px;
+}
+
+.th_ready-badge.is-ready {
+    background: #059669;
+    color: #ffffff;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+}
+
+.th_ready-badge.not-ready {
+    background: rgba(100, 116, 139, 0.6);
+    color: #cbd5e1;
+}
+
+/* Nút điều khiển Bot trung tâm giữa 2 đội Xanh và Đỏ trong phòng chờ TDM */
+.lobby-vs-divider {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    min-width: 124px !important;
+    gap: 8px !important;
+    z-index: 10 !important;
+}
+
+.th_lobby-vs-text {
+    font-family: var(--toy-font, sans-serif);
+    font-size: 22px;
+    font-weight: 1000;
+    color: #ffd166;
+    text-shadow: 0 0 12px rgba(255, 209, 102, 0.7);
+    letter-spacing: 1px;
+}
+
+.th_lobby-bot-control {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+.th_lobby-bot-toggle-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    background: rgba(30, 41, 59, 0.95);
+    border: 2px solid #64748b;
+    color: #cbd5e1;
+    font-family: var(--toy-font, sans-serif);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    text-align: center;
+    user-select: none;
+}
+
+.th_lobby-bot-toggle-btn:hover {
+    border-color: #94a3b8;
+    color: #ffffff;
+    transform: translateY(-2px);
+}
+
+.th_lobby-bot-toggle-btn.active {
+    background: linear-gradient(180deg, #10b981 0%, #059669 100%) !important;
+    border-color: #34d399 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+}
+
+.th_lobby-bot-toggle-btn .th_bot-txt-main {
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+}
+
+.th_lobby-bot-toggle-btn .th_bot-txt-sub {
+    font-size: 8px;
+    font-weight: 700;
+    opacity: 0.85;
+    margin-top: 2px;
+}
+
+.th_lobby-bot-status-tag {
+    display: inline-block;
+    padding: 4px 8px;
+    font-size: 9px;
+    font-weight: 800;
+    border-radius: 6px;
+    background: rgba(30, 41, 59, 0.9);
+    border: 1px solid #475569;
+    color: #94a3b8;
+    text-align: center;
+}
+
+.th_lobby-bot-status-tag.active {
+    background: #059669;
+    border-color: #34d399;
+    color: #ffffff;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
 
