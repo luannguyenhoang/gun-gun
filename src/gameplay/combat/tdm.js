@@ -494,6 +494,7 @@ export class TDMManager {
             entity.setInputEnabled?.(true);
             this.game.ui?.hideTDMRespawnCountdown?.();
             this.game.ui?.showPickupAlert('ĐÃ HỒI SINH! (1.5S KHIÊN BẤT TỬ)');
+            this.game.ui?.startWeaponSelectCountdown?.(10);
             sounds.play('powerup', { volume: 0.9 });
         }
     }

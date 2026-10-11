@@ -3,11 +3,11 @@ import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js?v=58';
 import { ParticleSystem } from '../rendering/particles.js?v=68';
 import { Arena, SurvivalArena, SpaceArena } from '../world/arena.js?v=25';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=71';
-import { PlayerController } from '../gameplay/player/player.js?v=74';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=72';
+import { PlayerController } from '../gameplay/player/player.js?v=75';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=69';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
-import { UIManager } from '../ui/ui.js?v=43';
+import { UIManager } from '../ui/ui.js?v=44';
 import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=71';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=37';
@@ -16,7 +16,7 @@ import { LootingSystem } from '../gameplay/loot/looting.js?v=70';
 import { RenderQuality } from '../rendering/performance.js?v=2';
 import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=49';
 import { VisionConeOverlay, getWeaponVisionConfig, applyVisibilityCulling } from '../gameplay/combat/vision-cone.js?v=72';
-import { TDMManager } from '../gameplay/combat/tdm.js?v=2';
+import { TDMManager } from '../gameplay/combat/tdm.js?v=3';
 import { FirstPersonView } from '../gameplay/player/first-person.js?v=2';
 
 class CyberArenaGame {
@@ -597,6 +597,7 @@ class CyberArenaGame {
         if (!this.network.active || this.network.host) this.waveManager.startWave(this.currentWave);
         else this.waveManager.clear();
         this.ui.showBanner('SỐNG SÓT · NHẶT ĐẠN · NÂNG CẤP');
+        this.ui?.startWeaponSelectCountdown(10);
     }
 
     startTDM(playerTeam = 'blue', options = {}) {
@@ -663,6 +664,7 @@ class CyberArenaGame {
             this.firstPersonView.requestLock();
             this.ui.showBanner('FPS · WASD DI CHUYỂN · CHUỘT NGẮM · R NẠP ĐẠN');
         }
+        this.ui?.startWeaponSelectCountdown(10);
     }
 
     pauseGame() {
@@ -1706,6 +1708,7 @@ class CyberArenaGame {
         const delta = Math.min(frameDelta, 0.05);
 
         if (this.state === 'PLAYING') {
+            this.ui?.updateWeaponSelectTimer(delta);
             if (render && this.renderQuality.sample(frameDelta)) this.renderer.setPixelRatio(this.renderQuality.ratio);
             // Shadow bounds follow the player to avoid clipping in large maps
             if (this.perfSettings.shadows && this.arena.sunLight && this.player) {

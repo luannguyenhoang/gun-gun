@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { LOOT_ITEMS, LOOT_TIERS } from '../gameplay/loot/looting.js?v=22';
 import { sounds } from '../audio/audio.js?v=52';
-import { ATTACHMENT_DEFS } from '../gameplay/combat/weapons.js?v=22';
+import { ATTACHMENT_DEFS, WEAPON_CONFIGS } from '../gameplay/combat/weapons.js?v=22';
 import { CHARACTER_CONFIGS } from '../gameplay/player/characters.js';
 
 const _tempMateWorldPos = new THREE.Vector3();
@@ -205,6 +205,24 @@ export class UIManager {
         this.thMedkitChannel = document.getElementById('th-medkit-channel');
         this.thMedkitCountdown = document.getElementById('th-medkit-countdown');
         this.thMedkitFill = document.getElementById('th-medkit-channel-fill');
+
+        // Hệ thống chọn súng trong trận bằng phím [B] (trong 10s sau hồi sinh)
+        this.th_weaponSelectTimer = 0;
+        this.th_weaponSelectModalOpen = false;
+        this.th_weaponSelectFilter = 'all';
+        this.thBSelectBanner = document.getElementById('th-b-select-banner');
+        this.thBTimerPill = document.getElementById('th-b-timer-pill');
+        this.thWeaponSelectModal = document.getElementById('th-weapon-select-modal');
+        this.thBTimerModal = document.getElementById('th-b-timer-modal');
+        this.thWsGunGrid = document.getElementById('th-ws-gun-grid');
+        this.thWsCloseBtn = document.getElementById('th-ws-close-btn');
+
+        if (this.thBSelectBanner) {
+            this.thBSelectBanner.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.toggleWeaponSelectMenu(window.game?.player);
+            });
+        }
 
         this.bannerTimeout = null;
         this.pickupTimeout = null;
@@ -2260,6 +2278,211 @@ export class UIManager {
             this.executeRadialAction(chosen, player, weapons);
         } else {
             this.closeRadialMenuOnly();
+        }
+    }
+
+    // =========================================================================
+    // HỆ THỐNG CHỌN SÚNG CHIẾN THUẬT TRONG TRẬN [PHÍM B] (10S SAU HỒI SINH)
+    // =========================================================================
+
+    initWeaponSelectDOM() {
+        if (this._weaponSelectDOMInitialized) return;
+        this._weaponSelectDOMInitialized = true;
+
+        this.thBSelectBanner = document.getElementById('th-b-select-banner');
+        this.thBTimerPill = document.getElementById('th-b-timer-pill');
+        this.thWeaponSelectModal = document.getElementById('th-weapon-select-modal');
+        this.thBTimerModal = document.getElementById('th-b-timer-modal');
+        this.thWsGunGrid = document.getElementById('th-ws-gun-grid');
+        this.thWsCloseBtn = document.getElementById('th-ws-close-btn');
+
+        // Bắt sự kiện cho các nút lọc danh mục súng
+        const filterBtns = document.querySelectorAll('.th-ws-filter-btn');
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const cat = btn.dataset.cat || 'all';
+                this.renderWeaponSelectList(cat);
+            });
+        });
+
+        // Bắt sự kiện nút đóng
+        this.thWsCloseBtn?.addEventListener('click', () => {
+            this.closeWeaponSelectMenu();
+        });
+
+        // Nhấp chuột ra ngoài vùng modal dialog để đóng
+        this.thWeaponSelectModal?.addEventListener('click', (e) => {
+            if (e.target === this.thWeaponSelectModal) {
+                this.closeWeaponSelectMenu();
+            }
+        });
+    }
+
+    startWeaponSelectCountdown(seconds = 10) {
+        this.initWeaponSelectDOM();
+        this.th_weaponSelectTimer = seconds;
+        this.th_updateWeaponSelectBadge();
+        if (this.thBSelectBanner) {
+            this.thBSelectBanner.style.display = 'flex';
+        }
+    }
+
+    updateWeaponSelectTimer(delta) {
+        if (this.th_weaponSelectTimer > 0) {
+            this.th_weaponSelectTimer = Math.max(0, this.th_weaponSelectTimer - delta);
+            this.th_updateWeaponSelectBadge();
+            if (this.th_weaponSelectTimer <= 0) {
+                if (this.thBSelectBanner) {
+                    this.thBSelectBanner.style.display = 'none';
+                }
+                if (this.th_weaponSelectModalOpen) {
+                    this.closeWeaponSelectMenu();
+                }
+            }
+        } else {
+            if (this.thBSelectBanner && this.thBSelectBanner.style.display !== 'none') {
+                this.thBSelectBanner.style.display = 'none';
+            }
+        }
+    }
+
+    th_updateWeaponSelectBadge() {
+        const sec = Math.ceil(this.th_weaponSelectTimer);
+        const text = `${sec}s`;
+        if (this.thBTimerPill) this.thBTimerPill.textContent = text;
+        if (this.thBTimerModal) this.thBTimerModal.textContent = text;
+    }
+
+    openWeaponSelectMenu(player = null) {
+        if (this.th_weaponSelectTimer <= 0) {
+            this.showPickupAlert('ĐÃ HẾT THỜI GIAN ĐỔI SÚNG (CHỈ TRONG 10S SAU HỒI SINH)');
+            return;
+        }
+        this.initWeaponSelectDOM();
+        if (!this.thWeaponSelectModal) return;
+
+        this.th_weaponSelectModalOpen = true;
+        this.thWeaponSelectModal.style.display = 'flex';
+        this.th_updateWeaponSelectBadge();
+        this.renderWeaponSelectList(this.th_weaponSelectFilter || 'all');
+
+        const activePlayer = player || window.game?.player;
+        if (activePlayer) {
+            activePlayer.th_isWeaponSelectOpen = true;
+            activePlayer.keys = {};
+            activePlayer.mouseButtons = { left: false, right: false };
+            if (activePlayer.domElement) activePlayer.domElement.style.cursor = 'default';
+        }
+        sounds.play('equip', { volume: 0.5 });
+    }
+
+    closeWeaponSelectMenu() {
+        if (!this.thWeaponSelectModal || !this.th_weaponSelectModalOpen) return;
+        this.th_weaponSelectModalOpen = false;
+        this.thWeaponSelectModal.style.display = 'none';
+
+        const player = window.game?.player;
+        if (player) {
+            player.th_isWeaponSelectOpen = false;
+            player.keys = {};
+            player.mouseButtons = { left: false, right: false };
+            if (player.domElement && !player.firstPerson?.active) {
+                player.domElement.style.cursor = 'crosshair';
+            }
+        }
+    }
+
+    toggleWeaponSelectMenu(player = null) {
+        if (this.th_weaponSelectModalOpen) {
+            this.closeWeaponSelectMenu();
+        } else {
+            this.openWeaponSelectMenu(player);
+        }
+    }
+
+    renderWeaponSelectList(filterCategory = 'all') {
+        this.initWeaponSelectDOM();
+        if (!this.thWsGunGrid) return;
+
+        this.th_weaponSelectFilter = filterCategory;
+        const weapons = WEAPON_CONFIGS.filter(w => {
+            if (filterCategory === 'all') return true;
+            if (filterCategory === 'primary') return w.slotType !== 'secondary';
+            if (filterCategory === 'secondary') return w.slotType === 'secondary';
+            if (filterCategory === 'rifle') return (w.category?.includes('TRƯỜNG') || w.category?.includes('TIỂU LIÊN') || w.category?.includes('CARBINE')) && w.slotType !== 'secondary';
+            if (filterCategory === 'shotgun') return w.category?.includes('SHOTGUN');
+            if (filterCategory === 'sniper') return w.category?.includes('BẮN TỈA') || w.category?.includes('XẠ THỦ');
+            if (filterCategory === 'heavy') return w.category?.includes('NẶNG') || w.category?.includes('GATLING') || w.category?.includes('PLASMA') || w.category?.includes('TẬN THẾ');
+            return true;
+        });
+
+        const player = window.game?.player;
+        const playerWeapons = player?.weapons;
+        const equippedPrimaryId = playerWeapons?.weaponSlots?.[0]?.id;
+        const equippedSecondaryId = playerWeapons?.weaponSlots?.[1]?.id;
+
+        this.thWsGunGrid.innerHTML = '';
+        for (const gun of weapons) {
+            const isSecondary = gun.slotType === 'secondary';
+            const isEquipped = isSecondary ? (equippedSecondaryId === gun.id) : (equippedPrimaryId === gun.id);
+
+            const card = document.createElement('div');
+            card.className = `th-ws-gun-card${isEquipped ? ' is-equipped' : ''}`;
+
+            const fireRateRps = (1 / (gun.fireRate || 0.3)).toFixed(1);
+            const tagClass = isSecondary ? 'secondary' : 'primary';
+            const tagText = isSecondary ? 'SÚNG PHỤ [2]' : 'SÚNG CHÍNH [1]';
+
+            card.innerHTML = `
+                <div class="th-ws-card-header">
+                    <span class="th-ws-slot-tag ${tagClass}">${tagText}</span>
+                    ${isEquipped ? '<span class="th-ws-equipped-badge">ĐANG DÙNG</span>' : ''}
+                </div>
+                <div class="th-ws-gun-preview">
+                    <img class="th-ws-gun-img" src="${gun.icon}" alt="${gun.name}">
+                </div>
+                <div class="th-ws-gun-info">
+                    <div class="th-ws-gun-name" title="${gun.name}">${gun.name}</div>
+                    <div class="th-ws-gun-cat">${gun.category || ''}</div>
+                </div>
+                <div class="th-ws-stats">
+                    <div class="th-ws-stat-row">
+                        <span class="th-ws-stat-lbl">Sát thương:</span>
+                        <span class="th-ws-stat-val">${gun.damage}</span>
+                    </div>
+                    <div class="th-ws-stat-row">
+                        <span class="th-ws-stat-lbl">Tốc độ:</span>
+                        <span class="th-ws-stat-val">${fireRateRps}/s</span>
+                    </div>
+                    <div class="th-ws-stat-row">
+                        <span class="th-ws-stat-lbl">Băng đạn:</span>
+                        <span class="th-ws-stat-val">${gun.magSize}</span>
+                    </div>
+                    <div class="th-ws-stat-row">
+                        <span class="th-ws-stat-lbl">Tầm bắn:</span>
+                        <span class="th-ws-stat-val">${gun.range || 20}m</span>
+                    </div>
+                </div>
+                <button class="th-ws-equip-btn${isEquipped ? ' equipped' : ''}">
+                    ${isEquipped ? 'ĐÃ TRANG BỊ' : 'TRANG BỊ'}
+                </button>
+            `;
+
+            const equipBtn = card.querySelector('.th-ws-equip-btn');
+            equipBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (isEquipped) return;
+                const ok = playerWeapons?.equipWeaponFromMenu(gun, player);
+                if (ok) {
+                    this.showPickupAlert(`ĐÃ TRANG BỊ: ${gun.name}`);
+                    sounds.play('equip', { volume: 0.8 });
+                    this.renderWeaponSelectList(this.th_weaponSelectFilter);
+                }
+            };
+
+            this.thWsGunGrid.appendChild(card);
         }
     }
 

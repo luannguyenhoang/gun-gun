@@ -385,6 +385,22 @@ export class PlayerController {
                 return;
             }
 
+            // Phím [B]: Bật/tắt Bảng chọn súng chiến thuật trong trận (trong 10s sau hồi sinh)
+            if (e.code === 'KeyB') {
+                e.preventDefault();
+                (this.ui || window.game?.ui)?.toggleWeaponSelectMenu(this);
+                return;
+            }
+
+            // Nếu bảng chọn súng đang mở thì bắt phím Escape để đóng và chặn các thao tác di chuyển/bắn
+            if (this.th_isWeaponSelectOpen) {
+                if (e.code === 'Escape') {
+                    e.preventDefault();
+                    (this.ui || window.game?.ui)?.closeWeaponSelectMenu();
+                }
+                return;
+            }
+
             if (this.isBackpackOpen) return;
             if (e.code === 'Space') {
                 e.preventDefault();
@@ -442,7 +458,7 @@ export class PlayerController {
         });
 
         window.addEventListener('mousedown', (e) => {
-            if (!this.inputEnabled) return;
+            if (!this.inputEnabled || this.th_isWeaponSelectOpen) return;
             if (this.firstPerson && !this.firstPerson.locked) return;
             // Chuột giữa (MMB): Kích hoạt Radial Menu
             if (e.button === 1) {
@@ -512,12 +528,13 @@ export class PlayerController {
         });
 
         window.addEventListener('wheel', (e) => {
-            if (!this.inputEnabled || this.th_isRadialMenuOpen) return;
+            if (!this.inputEnabled || this.th_isRadialMenuOpen || this.th_isWeaponSelectOpen) return;
             if (e.deltaY > 0) this.weapons.nextWeapon(this);
             else if (e.deltaY < 0) this.weapons.prevWeapon(this);
         });
 
         window.addEventListener('mousemove', (e) => {
+            if (this.th_isWeaponSelectOpen) return;
             if (this.firstPerson) { this.firstPerson.look(e); return; }
             if (this.th_isRadialMenuOpen) {
                 const ui = this.ui || window.game?.ui;
@@ -2721,6 +2738,7 @@ export class PlayerController {
         if (this.holdingAction) this.holdingAction.play();
         this.playAnimation('idle');
         sounds.play('powerup', { volume: 1.0 });
+        (this.ui || window.game?.ui)?.startWeaponSelectCountdown?.(10);
         return true;
     }
 

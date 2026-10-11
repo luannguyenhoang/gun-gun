@@ -2057,3 +2057,424 @@
 .overhead-shield > div { width: 100%; height: 100%; background: #f7da65; transition: width .12s linear; }
 .low-health .overhead-health > div { background: linear-gradient(#ffab80, #e34848); }
 .combat-vitals .combat-card-title { margin-bottom: 0; }
+
+/* ==========================================================================
+   BẢNG CHỌN SÚNG TRONG TRẬN [PHÍM B] VÀ HUY HIỆU ĐẾM NGƯỢC 10 GIÂY
+   ========================================================================== */
+
+/* 1. Huy hiệu đếm ngược chọn súng trên HUD */
+.pubg-b-select-banner {
+  position: absolute;
+  top: -38px;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(56, 189, 248, 0.6);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 12px rgba(56, 189, 248, 0.25);
+  animation: pulseGlowCyan 2s infinite ease-in-out;
+  transition: transform 0.15s ease, background 0.15s ease;
+  z-index: 25;
+}
+
+.pubg-b-select-banner:hover {
+  transform: translateY(-2px);
+  background: rgba(30, 41, 59, 0.96);
+  border-color: #38bdf8;
+}
+
+.pubg-b-select-banner .pubg-b-key {
+  background: #38bdf8;
+  color: #0f172a;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 1px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+
+.pubg-b-select-banner .pubg-b-title {
+  color: #f8fafc;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+}
+
+.pubg-b-select-banner .pubg-b-countdown {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  font-size: 11px;
+  font-weight: 900;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+@keyframes pulseGlowCyan {
+  0%, 100% { box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 8px rgba(56, 189, 248, 0.2); }
+  50% { box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 16px rgba(56, 189, 248, 0.45); }
+}
+
+/* 2. Modal Overlay chọn súng trong trận */
+.th-weapon-select-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 8, 16, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.th-weapon-select-dialog {
+  width: 96%;
+  max-width: 1080px;
+  max-height: 88vh;
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.96) 0%, rgba(11, 17, 30, 0.98) 100%);
+  border: 1.5px solid rgba(56, 189, 248, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(56, 189, 248, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: wsModalScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes wsModalScaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Header modal */
+.th-ws-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: rgba(15, 23, 42, 0.7);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.th-ws-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.th-ws-badge-key {
+  background: linear-gradient(135deg, #0284c7, #38bdf8);
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 3px 9px;
+  border-radius: 4px;
+  letter-spacing: 0.8px;
+  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.35);
+}
+
+.th-ws-title {
+  color: #f8fafc;
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.th-ws-timer-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  padding: 5px 14px;
+  border-radius: 6px;
+}
+
+.th-ws-timer-label {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+}
+
+.th-ws-timer-val {
+  color: #ef4444;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.th-ws-close-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #cbd5e1;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.th-ws-close-btn:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #ef4444;
+  color: #f87171;
+}
+
+/* Thanh bộ lọc danh mục súng */
+.th-ws-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: rgba(11, 17, 30, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  overflow-x: auto;
+}
+
+.th-ws-filter-btn {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  padding: 6px 14px;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.th-ws-filter-btn:hover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #e2e8f0;
+}
+
+.th-ws-filter-btn.active {
+  background: #38bdf8;
+  border-color: #38bdf8;
+  color: #0f172a;
+  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.35);
+}
+
+/* Lưới danh sách súng */
+.th-ws-grid {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+  gap: 14px;
+  max-height: calc(88vh - 190px);
+}
+
+.th-ws-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.th-ws-grid::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.th-ws-grid::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.3);
+  border-radius: 3px;
+}
+
+.th-ws-grid::-webkit-scrollbar-thumb:hover {
+  background: #38bdf8;
+}
+
+/* Card súng */
+.th-ws-gun-card {
+  background: rgba(23, 32, 50, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  position: relative;
+}
+
+.th-ws-gun-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(29, 41, 64, 0.9);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5), 0 0 14px rgba(56, 189, 248, 0.2);
+}
+
+.th-ws-gun-card.is-equipped {
+  border-color: #22c55e;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.25);
+}
+
+.th-ws-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.th-ws-slot-tag {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.th-ws-slot-tag.primary {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.th-ws-slot-tag.secondary {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.th-ws-equipped-badge {
+  font-size: 8.5px;
+  font-weight: 800;
+  color: #4ade80;
+  letter-spacing: 0.5px;
+}
+
+.th-ws-gun-preview {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 6px 0;
+  background: rgba(11, 17, 30, 0.45);
+  border-radius: 6px;
+  padding: 4px;
+}
+
+.th-ws-gun-img {
+  max-width: 85%;
+  max-height: 56px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7));
+}
+
+.th-ws-gun-info {
+  margin-bottom: 8px;
+}
+
+.th-ws-gun-name {
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.th-ws-gun-cat {
+  color: #94a3b8;
+  font-size: 9.5px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+/* Thông số súng */
+.th-ws-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 10px;
+  padding: 6px;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 5px;
+}
+
+.th-ws-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.th-ws-stat-lbl {
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.th-ws-stat-val {
+  color: #e2e8f0;
+  font-size: 9.5px;
+  font-weight: 800;
+}
+
+/* Nút trang bị */
+.th-ws-equip-btn {
+  margin-top: auto;
+  background: linear-gradient(135deg, #0284c7, #0ea5e9);
+  border: 1px solid #38bdf8;
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  padding: 7px 0;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.th-ws-equip-btn:hover {
+  background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+  color: #0f172a;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.45);
+}
+
+.th-ws-equip-btn.equipped {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.5);
+  color: #86efac;
+  cursor: default;
+}
+
+/* Footer modal */
+.th-ws-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 24px;
+  background: rgba(15, 23, 42, 0.7);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 10px;
+}
+
+.th-ws-note {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.th-ws-shortcut-hint {
+  color: #38bdf8;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}

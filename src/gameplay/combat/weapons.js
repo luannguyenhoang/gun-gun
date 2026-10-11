@@ -1751,6 +1751,76 @@ export class WeaponSystem {
         return true;
     }
 
+    /**
+     * Trang bị súng từ bảng chọn súng trong trận (phím B)
+     * Đảm bảo súng ở trạng thái gốc (tier 1, không cộng dồn nâng cấp từ bên ngoài sảnh)
+     * @param {string|object} weaponIdOrConfig - ID súng hoặc object config
+     * @param {object} player - Đối tượng người chơi (tùy chọn)
+     * @returns {boolean} Thành công hay không
+     */
+    equipWeaponFromMenu(weaponIdOrConfig, player = null) {
+        if (!weaponIdOrConfig) return false;
+        const config = typeof weaponIdOrConfig === 'string'
+            ? ([...WEAPON_CONFIGS, ...RARE_WEAPON_CONFIGS].find(w => w.id === weaponIdOrConfig || w.aliases?.includes(weaponIdOrConfig)) || getStartingWeapon(weaponIdOrConfig))
+            : weaponIdOrConfig;
+        if (!config) return false;
+
+        const isSecondary = config.slotType === 'secondary';
+        const targetSlot = isSecondary ? 1 : 0;
+        const previous = this.weaponSlots[targetSlot];
+
+        // Hủy thao tác nạp đạn hoặc sơ cứu dở dang
+        this.cancelReload();
+        if (this.isUsingMedkit) this.cancelMedkitUse();
+
+        // Xóa đạn cũ nếu đổi sang khẩu súng khác loại
+        if (previous && previous.id !== config.id) {
+            delete this.ammo[previous.id];
+            delete this.reserve[previous.id];
+        }
+
+        // Tạo instance súng mới với tier 1 tiêu chuẩn gốc (không nhận bonus bên ngoài)
+        const newInstance = {
+            ...config,
+            tier: 1,
+            instanceId: THREE.MathUtils.generateUUID()
+        };
+
+        this.weaponSlots[targetSlot] = newInstance;
+        if (isSecondary) {
+            this.secondaryWeapon = newInstance;
+            this.secondaryAttachments = { barrel: null, magazine: null, optic: null, grip: null };
+        } else {
+            this.startingWeaponId = config.id;
+            this.primaryAttachments = { barrel: null, magazine: null, optic: null, grip: null };
+        }
+
+        // Reset đạn và dự trữ vô hạn
+        this.ammo[config.id] = config.magSize;
+        this.reserve[config.id] = Infinity;
+
+        // Chuyển sang cầm ngay súng vừa chọn
+        this.currentSlotIndex = targetSlot;
+        this.attachments = isSecondary ? this.secondaryAttachments : this.primaryAttachments;
+        this.fireCooldown = 0.18;
+        this.recoilOffset = 0;
+        this.currentSpreadDeg = config.baseSpreadDegHip || 2.0;
+
+        if (this.handNode) {
+            this.attachToArm(this.handNode);
+        }
+        this.updateEquippedMesh();
+
+        // Đồng bộ lên mạng nhiều người chơi nếu đang kết nối phòng
+        if (globalThis.window?.game?.network) {
+            try {
+                globalThis.window.game.network.changeWeapon(config.id);
+            } catch {}
+        }
+
+        return true;
+    }
+
     getCurrentWeapon() {
         return this.weaponSlots[this.currentSlotIndex]
             || this.weaponSlots[0]

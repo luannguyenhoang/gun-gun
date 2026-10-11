@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="preload" href="assets/fonts/Nunito-Variable.ttf" as="font" type="font/ttf" crossorigin>
     <link rel="stylesheet" href="styles/style.css">
-    <link rel="stylesheet" href="styles/zappets.css?v=2"><link rel="stylesheet" href="styles/combat.css?v=44"><link rel="stylesheet" href="styles/showroom.css?v=47">
+    <link rel="stylesheet" href="styles/zappets.css?v=2"><link rel="stylesheet" href="styles/combat.css?v=45"><link rel="stylesheet" href="styles/showroom.css?v=47">
     <link rel="stylesheet" href="styles/ux.css?v=3">
     <link rel="stylesheet" href="styles/home-polish.css?v=3">
     <link rel="stylesheet" href="styles/home-reference.css?v=17">
@@ -173,6 +173,42 @@
           </div>
         </div>
       </div>
+      <!-- MODAL CHỌN SÚNG CHIẾN THUẬT TRONG TRẬN [PHÍM B] -->
+      <div id="th-weapon-select-modal" class="th-weapon-select-modal" style="display:none;" role="dialog" aria-modal="true" aria-label="Chọn vũ khí trong trận">
+        <div class="th-weapon-select-dialog">
+          <div class="th-ws-header">
+            <div class="th-ws-title-group">
+              <span class="th-ws-badge-key">PHÍM B</span>
+              <div class="th-ws-title">KHO VŨ KHÍ CHIẾN THUẬT</div>
+            </div>
+            <div class="th-ws-timer-wrap">
+              <span class="th-ws-timer-label">THỜI GIAN ĐỔI SÚNG:</span>
+              <span class="th-ws-timer-val" id="th-b-timer-modal">10s</span>
+            </div>
+            <button id="th-ws-close-btn" class="th-ws-close-btn" title="Đóng [Esc] hoặc [B]">✕</button>
+          </div>
+
+          <!-- BỘ LỌC DANH MỤC -->
+          <div class="th-ws-filter-bar">
+            <button class="th-ws-filter-btn active" data-cat="all">TẤT CẢ</button>
+            <button class="th-ws-filter-btn" data-cat="primary">SÚNG CHÍNH</button>
+            <button class="th-ws-filter-btn" data-cat="secondary">SÚNG PHỤ</button>
+            <button class="th-ws-filter-btn" data-cat="rifle">TRƯỜNG & SMG</button>
+            <button class="th-ws-filter-btn" data-cat="shotgun">SHOTGUN</button>
+            <button class="th-ws-filter-btn" data-cat="sniper">BẮN TỈA</button>
+            <button class="th-ws-filter-btn" data-cat="heavy">HẠNG NẶNG</button>
+          </div>
+
+          <!-- LƯỚI DANH SÁCH SÚNG -->
+          <div class="th-ws-grid" id="th-ws-gun-grid"></div>
+
+          <!-- FOOTER GHI CHÚ -->
+          <div class="th-ws-footer">
+            <span class="th-ws-note">Súng được cấp ở thông số tiêu chuẩn trong trận đấu. Súng chính vào ô [1], súng lục vào ô [2].</span>
+            <span class="th-ws-shortcut-hint">Bấm [B] hoặc [Esc] để đóng</span>
+          </div>
+        </div>
+      </div>
       <section class="combat-radar combat-panel"><span class="combat-kicker">BẢN ĐỒ</span><canvas id="radar-canvas" width="140" height="140"></canvas><span class="radar-key">● BẠN <i>● ZOMBIE</i></span></section>
       <div id="boss-health-container" class="combat-boss" style="display:none"><span>TRÙM ĐỘT BIẾN</span><div class="combat-meter health-meter"><div id="boss-health-fill"></div></div></div>
       <div id="team-roster" class="team-roster-panel" style="display:none"></div>
@@ -277,6 +313,13 @@
             <span id="pubg-fire-mode-text">AUTO</span>
             <span class="pubg-fire-mode-arrow">➔</span>
           </div>
+
+          <!-- Huy hiệu đếm ngược chọn súng phím B (chỉ hiện trong 10s đầu trận hoặc sau hồi sinh) -->
+          <button id="th-b-select-banner" class="pubg-b-select-banner" style="display:none;" title="Bấm phím B để đổi súng trong 10s">
+            <span class="pubg-b-key">B</span>
+            <span class="pubg-b-title">ĐỔI SÚNG</span>
+            <span class="pubg-b-countdown" id="th-b-timer-pill">10s</span>
+          </button>
 
           <!-- Hàng 4 Slot Trang Bị: Súng Chính [1], Súng Phụ [2], Bom 1 [3], Bom 2 [4] -->
           <div class="pubg-weapons-row">
@@ -542,8 +585,8 @@
         </div>
       </div>
 
-      <div class="fps-controls"><kbd>WASD</kbd> Di chuyển · <kbd>Shift</kbd> Đi chậm · <kbd>Space</kbd> Nhảy · Chuột phải ngắm · <kbd>R</kbd> Nạp đạn · <kbd>1–4 / V</kbd> Đổi vũ khí · <kbd>Esc</kbd> Tạm dừng</div>
-      <div class="combat-controls"><kbd>WASD</kbd> Di chuyển <kbd>R</kbd> Nạp đạn <kbd>Q</kbd> Né <kbd>F</kbd> Nhặt / Đổi đồ hòm <kbd>Alt / Chuột giữa / [1-4]</kbd> Thao tác nhanh <kbd>ESC</kbd> Tạm dừng</div>
+      <div class="fps-controls"><kbd>WASD</kbd> Di chuyển · <kbd>Shift</kbd> Đi chậm · <kbd>Space</kbd> Nhảy · <kbd>B</kbd> Đổi súng · Chuột phải ngắm · <kbd>R</kbd> Nạp đạn · <kbd>1–4 / V</kbd> Đổi vũ khí · <kbd>Esc</kbd> Tạm dừng</div>
+      <div class="combat-controls"><kbd>WASD</kbd> Di chuyển <kbd>R</kbd> Nạp đạn <kbd>B</kbd> Đổi súng [10s] <kbd>Q</kbd> Né <kbd>F</kbd> Nhặt / Đổi đồ hòm <kbd>Alt / Chuột giữa / [1-4]</kbd> Thao tác nhanh <kbd>ESC</kbd> Tạm dừng</div>
       <div id="teammate-indicators" class="teammate-indicators-container"></div>
     </div>
 
@@ -1629,7 +1672,7 @@
     </div>
 
     <!-- Main Game Script -->
-    <script src="vendor/qrcode.min.js"></script><script type="module" src="src/app/main.js?v=76"></script>
+    <script src="vendor/qrcode.min.js"></script><script type="module" src="src/app/main.js?v=77"></script>
     <script>
         // Vô hiệu hóa triệt để menu ngữ cảnh chuột phải mặc định của trình duyệt
         window.addEventListener('contextmenu', function(e) {
