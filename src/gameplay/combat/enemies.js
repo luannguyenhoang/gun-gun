@@ -426,6 +426,7 @@ export class Zombie {
         this.combatState = ZombieCombatState.CHASE;
         this.combatTimer = 0;
         this.flashTimer = 0;
+        this.hitPunch = 1.0;
         this.spitCharge = 0;
         this.rangedCooldown = 1.5;
         this.acidTarget = null;
@@ -443,6 +444,8 @@ export class Zombie {
         if (this.mesh) {
             this.mesh.position.copy(this.position);
             this.mesh.visible = true;
+            const s = this.scale || 1.0;
+            this.mesh.scale.set(s, s, s);
             this.setEmissiveColor(0x000000, 0);
             this.playAnimation(this.type === 'sprinter' && this.animations.sprint ? 'sprint' : 'walk', 0, true);
         }
@@ -547,6 +550,7 @@ export class Zombie {
             this.health -= healthDmg;
             this.armor = Math.max(0, this.armor - armorDmg);
             this.flashTimer = 0.12;
+            this.hitPunch = isCrit ? 1.20 : 1.12;
             sounds.play('enemyHurt', { volume: 0.5, pitchVariation: 0.2 });
             this.setEmissiveColor(isCrit ? 0xff0022 : 0xcc3300, 0.85);
         } else {
@@ -557,6 +561,7 @@ export class Zombie {
             this.health -= healthDmg;
             isBlunt = true;
             this.flashTimer = 0.08;
+            this.hitPunch = 1.06;
             sounds.playArmorDeflect();
             this.setEmissiveColor(0xffffff, 0.8);
         }
@@ -698,7 +703,18 @@ export class Zombie {
             this.knockbackVelocity.multiplyScalar(Math.max(0, 1.0 - delta * 12.0));
         }
 
-        // Reset hit flash sau khi trung dan
+        // Reset hit flash sau khi trung dan va xu ly hieu ung Squash & Stretch (Hit-Punch kieu Zappets)
+        if (this.hitPunch && this.hitPunch > 1.0) {
+            this.hitPunch += (1.0 - this.hitPunch) * Math.min(1.0, 18.0 * delta);
+            const s = this.scale || 1.0;
+            if (this.mesh) {
+                this.mesh.scale.set(s * this.hitPunch, s * Math.max(0.7, 2.0 - this.hitPunch), s * this.hitPunch);
+            }
+            if (Math.abs(this.hitPunch - 1.0) < 0.005) {
+                this.hitPunch = 1.0;
+                if (this.mesh) this.mesh.scale.set(s, s, s);
+            }
+        }
         if (this.flashTimer > 0) {
             this.flashTimer -= delta;
             if (this.flashTimer <= 0) {
@@ -739,7 +755,7 @@ export class Zombie {
         }
 
         // Màn khói mù mịt (Smoke Grenade) hoặc Tàng hình (Shadow Veil): quái mất dấu mục tiêu
-        const isZombieInSmoke = this.weapons?.isPositionInSmoke?.(this.position) || window.game?.weapons?.isPositionInSmoke?.(this.position);
+        const isZombieInSmoke = this.weapons?.isPositionInSmoke?.(this.position) || (typeof window !== 'undefined' && window.game?.weapons?.isPositionInSmoke?.(this.position));
         const isPlayerHidden = !player || player.isInSmoke || player.isStealthed || ((player.shadowVeilTimer || 0) > 0);
         if (isPlayerHidden || isZombieInSmoke) {
             this.combatState = ZombieCombatState.CHASE;
@@ -1138,8 +1154,10 @@ export class WaveManager {
     }
 
     // Chọn loại quái xuất hiện theo Phase của trận đấu để cân bằng độ khó
-    determineArchetype(survivalMinutes) {
+    determineArchetype(survivalMinutes = 0) {
         const roll = Math.random();
+        if ((this.currentPhase >= 3 || survivalMinutes >= 1.5) && roll < 0.10) return 'bomber';
+        if ((this.currentPhase >= 2 || survivalMinutes >= 0.75) && roll >= 0.10 && roll < 0.28) return 'spitter';
         const phase = this.currentPhase || 1;
 
         // Giai đoạn 1 (Round 1 - 2): Chỉ có zombie thường (85%) và zombie bò chậm (15%)

@@ -1268,12 +1268,14 @@ export class WeaponSystem {
         } else {
             entry.material.color.setHex(color);
         }
+        entry.mesh.scale.set(1, 1, 1);
         this.scene.add(entry.mesh);
         return entry;
     }
 
     recycleBulletMesh(entry) {
         if (!entry || !entry.mesh) return;
+        entry.mesh.scale.set(1, 1, 1);
         this.scene.remove(entry.mesh);
         const pool = this.bulletMeshPools[entry.bulletType] || this.bulletMeshPools.default;
         if (pool.length < 60) {
@@ -3449,7 +3451,11 @@ export class WeaponSystem {
 
             if (!hitFound) {
                 p.mesh.position.copy(_tempNextPos);
-                if (p.bulletType === 'explosive' || p.bulletType === 'plasma') {
+                // Hieu ung Motion Stretch kieu Zappets tao vet dan bay thanh thoat, muot ma
+                if (p.bulletType !== 'explosive' && p.bulletType !== 'plasma') {
+                    const stretch = Math.min(2.2, 1.0 + stepDist * 0.35);
+                    p.mesh.scale.set(1.0, 1.0, stretch);
+                } else {
                     p.mesh.rotation.z += 0.25;
                     p.mesh.rotation.y += 0.15;
                 }

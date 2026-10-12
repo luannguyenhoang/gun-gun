@@ -105,7 +105,7 @@ class CyberArenaGame {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderQuality = new RenderQuality(window.devicePixelRatio);
         this.renderQuality.configure(window.devicePixelRatio, window.innerWidth, window.innerHeight, this.perfSettings.mode);
-        this.renderer.setPixelRatio(1.0);
+        this.renderer.setPixelRatio(this.renderQuality.ratio);
         this.renderer.shadowMap.enabled = !!this.perfSettings.shadows;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1834,7 +1834,7 @@ class CyberArenaGame {
     }
 
     updateFrame(frameDelta, render = true) {
-        const delta = Math.min(frameDelta, 0.05);
+        const delta = Math.min(Math.max(frameDelta, 0.0001), 0.05);
 
         if (this.state === 'PLAYING') {
             this.ui?.updateWeaponSelectTimer(delta);

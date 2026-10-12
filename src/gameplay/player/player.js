@@ -27,8 +27,10 @@ const _aimColliderCandidates = [];
 // Bộ nạp và cache texture hiệu ứng hạt từ Kenney Particle Pack (bao gồm thư mục Rotated/)
 const _skillTextureLoader = new THREE.TextureLoader();
 const _skillTextureCache = new Map();
+const _dummyTexture = (typeof document === 'undefined') ? new THREE.Texture() : null;
 
 function getSkillTexture(relativePath) {
+    if (typeof document === 'undefined') return _dummyTexture;
     if (!_skillTextureCache.has(relativePath)) {
         const tex = _skillTextureLoader.load(relativePath);
         if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
@@ -2066,7 +2068,8 @@ export class PlayerController {
 
     updateActiveSkills(delta, arena, enemies = []) {
         if (['TDM', 'FPS_SOLO'].includes(globalThis.window?.game?.gameMode) || ['TDM', 'FPS_SOLO'].includes(this.game?.gameMode)) return;
-        const isClient = globalThis.window?.game?.network?.active && !window.game.network.host;
+        if (globalThis.window?.game?.network?.active && !window.game.network.host) return;
+        const isClient = false;
         this.activeSkillCooldownTimer = Math.max(0, (this.activeSkillCooldownTimer || 0) - delta);
         this.activeSkillDurationTimer = Math.max(0, (this.activeSkillDurationTimer || 0) - delta);
         if (!this.activeSkillDurationTimer) this.activeSkillEffect = null;
@@ -2737,6 +2740,7 @@ export class PlayerController {
         if (amount > 0) {
             this.health -= amount;
             this.painTimer = 4.0;
+            this.hitPunch = 1.08;
             sounds.play('enemyHurt', { volume: 0.6, rate: 1.1 });
 
             if (hitDir) {
@@ -3061,6 +3065,16 @@ export class PlayerController {
         if (this.model) {
             this.model.position.copy(this.position);
             this.healthBar?.update(this.position, this.health, this.maxHealth, true);
+
+            // Hieu ung Squash & Stretch Hit-Punch cho nhan vat giong Zappets
+            if (this.hitPunch && this.hitPunch > 1.0) {
+                this.hitPunch += (1.0 - this.hitPunch) * Math.min(1.0, 18.0 * delta);
+                this.model.scale.set(this.hitPunch, Math.max(0.85, 2.0 - this.hitPunch), this.hitPunch);
+                if (Math.abs(this.hitPunch - 1.0) < 0.005) {
+                    this.hitPunch = 1.0;
+                    this.model.scale.set(1, 1, 1);
+                }
+            }
 
             const targetModelYaw = this.aimYaw;
 
@@ -3402,6 +3416,8 @@ export class PlayerController {
         this.bulletFrenzyTimer = 0;
         this.shadowVeilTimer = 0;
         this.assassinCritReady = false;
+        this.hitPunch = 1.0;
+        if (this.model) this.model.scale.set(1, 1, 1);
 
         // Dọn dẹp các hiệu ứng đặc biệt khi reset
         if (this.riotShieldGroup) {

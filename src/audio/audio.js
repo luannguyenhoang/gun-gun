@@ -76,7 +76,20 @@ class SoundManager {
         this.ctx = new AudioContext();
         this.masterGain = this.ctx.createGain();
         this.masterGain.gain.value = this.masterVolume;
-        this.masterGain.connect(this.ctx.destination);
+
+        // Dynamics Compressor tuong tu Zappets de triet tieu audio clipping va on dinh audio thread khi nhieu am thanh don dap
+        try {
+            this.compressor = this.ctx.createDynamicsCompressor();
+            this.compressor.threshold.setValueAtTime(-24, this.ctx.currentTime);
+            this.compressor.knee.setValueAtTime(24, this.ctx.currentTime);
+            this.compressor.ratio.setValueAtTime(4, this.ctx.currentTime);
+            this.compressor.attack.setValueAtTime(0.003, this.ctx.currentTime);
+            this.compressor.release.setValueAtTime(0.2, this.ctx.currentTime);
+            this.masterGain.connect(this.compressor);
+            this.compressor.connect(this.ctx.destination);
+        } catch {
+            this.masterGain.connect(this.ctx.destination);
+        }
 
         this.musicGain = this.ctx.createGain();
         this.musicGain.gain.value = (this.musicEnabled && this.enabled) ? this.musicVolume : 0;
