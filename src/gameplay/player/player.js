@@ -171,6 +171,8 @@ export class PlayerController {
         this.isGrounded = true;
         this.radius = 0.55;
         this.height = 1.6;
+        this.baseScale = 1.7;
+        this.hitPunch = 1.0;
 
         // Stats
         this.maxHealth = 100;
@@ -3069,10 +3071,11 @@ export class PlayerController {
             // Hieu ung Squash & Stretch Hit-Punch cho nhan vat giong Zappets
             if (this.hitPunch && this.hitPunch > 1.0) {
                 this.hitPunch += (1.0 - this.hitPunch) * Math.min(1.0, 18.0 * delta);
-                this.model.scale.set(this.hitPunch, Math.max(0.85, 2.0 - this.hitPunch), this.hitPunch);
+                const s = this.baseScale || 1.7;
+                this.model.scale.set(s * this.hitPunch, s * Math.max(0.85, 2.0 - this.hitPunch), s * this.hitPunch);
                 if (Math.abs(this.hitPunch - 1.0) < 0.005) {
                     this.hitPunch = 1.0;
-                    this.model.scale.set(1, 1, 1);
+                    this.model.scale.set(s, s, s);
                 }
             }
 
@@ -3417,7 +3420,8 @@ export class PlayerController {
         this.shadowVeilTimer = 0;
         this.assassinCritReady = false;
         this.hitPunch = 1.0;
-        if (this.model) this.model.scale.set(1, 1, 1);
+        const s = this.baseScale || 1.7;
+        if (this.model) this.model.scale.set(s, s, s);
 
         // Dọn dẹp các hiệu ứng đặc biệt khi reset
         if (this.riotShieldGroup) {
