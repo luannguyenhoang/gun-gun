@@ -9,6 +9,14 @@
 }
 .solo-fps #vision-cone-canvas { display: none !important; }
 #mode-tab-fps { min-width: 110px; }
+.fps-settings { display: grid; gap: 12px; padding: 16px; margin-top: 12px; color: #d9e8f6; background: #132033; border: 1px solid #38506a; border-radius: 10px; text-align: left; font-size: 13px; }
+.fps-settings label { display: block; }
+.fps-settings output { float: right; color: #69e7dd; }
+.fps-settings input { display: block; width: 100%; margin-top: 8px; accent-color: #69e7dd; }
+.fps-settings small { color: #a7bdcf; }
+.pause-actions .fps-settings { display: none; }
+.solo-fps .pause-actions .fps-settings { display: grid; }
+.solo-fps .pause-card { max-height: calc(100dvh - 32px); overflow-y: auto; }
 .fps-controls { display: none; }
 .solo-fps .combat-controls { display: none; }
 .solo-fps .fps-controls { display: block; position: fixed; bottom: 8px; left: 20px; color: #b6c9db; font-size: 11px; pointer-events: none; }

@@ -4,7 +4,7 @@ import { sounds } from '../audio/audio.js?v=63';
 import { ParticleSystem } from '../rendering/particles.js?v=68';
 import { Arena, SurvivalArena, SpaceArena } from '../world/arena.js?v=25';
 import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=73';
-import { PlayerController } from '../gameplay/player/player.js?v=76';
+import { PlayerController } from '../gameplay/player/player.js?v=77';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=70';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
 import { UIManager } from '../ui/ui.js?v=47';
@@ -17,7 +17,7 @@ import { RenderQuality } from '../rendering/performance.js?v=3';
 import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=49';
 import { VisionConeOverlay, getWeaponVisionConfig, applyVisibilityCulling } from '../gameplay/combat/vision-cone.js?v=78';
 import { TDMManager } from '../gameplay/combat/tdm.js?v=3';
-import { FirstPersonView } from '../gameplay/player/first-person.js?v=2';
+import { FirstPersonView } from '../gameplay/player/first-person.js?v=3';
 import { TH_VersusLoadingScreen } from '../ui/th_versus_loading.js?v=2';
 import { th_preloadAllGameAssets } from './th_asset_preloader.js';
 

@@ -26,12 +26,45 @@ const root = path.resolve(__dirname, '../..');
         await page.route('https://**/*', r => r.abort());
         await page.goto(`http://127.0.0.1:${server.address().port}`);
         await page.waitForFunction(() => window.game?.state === 'MENU');
-        await page.locator('#mode-tab-fps').click();
+        await page.locator('.mode-card').click();
+        await page.locator('.th_mode-item[data-mode="FPS_SOLO"]').click();
         await page.locator('#btn-start').click();
         await page.waitForFunction(() => game.firstPersonView.active && game.tdmManager.bots.length === 7);
         if (!await page.evaluate(() => game.firstPersonView.locked)) await page.locator('#fps-capture').click();
         await page.waitForFunction(() => game.firstPersonView.locked);
         assert.equal(await page.evaluate(() => game.camera.isPerspectiveCamera), true);
+        const controls = await page.evaluate(() => {
+            const view = game.firstPersonView, p = game.player;
+            const slider = document.querySelector('[data-fps-setting="sensitivity"]');
+            slider.value = '1.5'; slider.dispatchEvent(new Event('input', {bubbles:true}));
+            p.isADS = false;
+            const yaw = view.yaw;
+            view.look({movementX:100, movementY:0});
+            const turn = yaw - view.yaw;
+            const arena = game.arena, originalMove = arena.moveCharacter;
+            arena.moveCharacter = (position, x, z) => { position.x += x; position.z += z; };
+            const results = [];
+            try {
+                for (const hz of [30, 60, 144]) {
+                    view.yaw = 0; p.position.set(0,0,0); p.velocity.set(0,0,0);
+                    p.keys = {KeyW:true,KeyD:true}; p.mouseButtons.right = false; p.th_toggleADS = false;
+                    for (let i=0;i<hz;i++) p.update(1/hz,arena,[]);
+                    results.push(Math.hypot(p.velocity.x,p.velocity.z));
+                    p.keys = {};
+                    for (let i=0;i<Math.ceil(hz*0.2);i++) p.update(1/hz,arena,[]);
+                    results.push(Math.hypot(p.velocity.x,p.velocity.z));
+                }
+            } finally { arena.moveCharacter = originalMove; p.keys = {}; }
+            return {turn, results, speed:p.speed*0.6, saved:JSON.parse(localStorage.getItem('fps-controls')).sensitivity,
+                copies:[...document.querySelectorAll('[data-fps-setting="sensitivity"]')].map(e=>e.value)};
+        });
+        assert.ok(Math.abs(controls.turn-0.225)<1e-8);
+        assert.equal(controls.saved,1.5);
+        assert.deepEqual(controls.copies,['1.5','1.5']);
+        for(let i=0;i<controls.results.length;i+=2) {
+            assert.ok(Math.abs(controls.results[i]-controls.speed)<1e-6, 'Diagonal speed must stay capped at every frame rate');
+            assert.ok(controls.results[i+1]<0.02, 'Releasing movement must stop promptly');
+        }
         await page.evaluate(() => { game.player.invulnerability = 999; game.player.position.set(0,0,0); });
         const yaw = await page.evaluate(() => game.firstPersonView.yaw);
         await page.mouse.move(800, 360);
@@ -76,6 +109,8 @@ const root = path.resolve(__dirname, '../..');
         await page.screenshot({path:path.join(root,'tests/artifacts/solo-fps.png')});
         await page.keyboard.press('Escape');
         await page.waitForFunction(() => game.state === 'PAUSED');
+        assert.equal(await page.locator('.pause-actions .fps-settings').isVisible(), true);
+        await page.screenshot({path:path.join(root,'tests/artifacts/fps-settings.png')});
         assert.equal(await page.evaluate(() => game.player.mouseButtons.left), false);
         await page.locator('#btn-resume').click();
         await page.waitForFunction(() => game.state === 'PLAYING' && game.firstPersonView.locked);
@@ -90,6 +125,9 @@ const root = path.resolve(__dirname, '../..');
         assert.equal(await page.evaluate(() => game.camera.isOrthographicCamera && !game.firstPersonView.active), true);
         await page.evaluate(() => { game.selectedGameMode = 'SURVIVAL'; game.startGame(); });
         await page.waitForFunction(() => game.waveManager.enemies.length > 0);
+        await page.reload();
+        await page.waitForFunction(() => window.game?.state === 'MENU');
+        assert.equal(await page.evaluate(() => game.firstPersonView.sensitivity), 1.5);
         assert.deepEqual(errors, []);
         console.log('PASS: solo FPS menu, 7 bots, pointer lock, look, movement, ADS, firing, reload, jump, resize, pause and overhead restoration.');
     } finally { await browser?.close(); await new Promise(r => server.close(r)); }

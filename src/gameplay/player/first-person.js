@@ -10,6 +10,34 @@ export class FirstPersonView {
         this.direction = new THREE.Vector3();
         this.yaw = 0;
         this.pitch = 0;
+        this.sensitivity = 1;
+        this.adsSensitivity = 0.8;
+        try {
+            const saved = JSON.parse(localStorage.getItem('fps-controls') || '{}');
+            for (const key of ['sensitivity', 'adsSensitivity']) {
+                if (Number.isFinite(saved[key])) this[key] = THREE.MathUtils.clamp(saved[key], 0.1, 3);
+            }
+        } catch {}
+        this.settingsPanels = [];
+        for (const parent of [document.querySelector('[data-panel="settings"]'), document.querySelector('.pause-actions')]) {
+            if (!parent) continue;
+            const panel = document.createElement('section');
+            panel.className = 'fps-settings';
+            panel.innerHTML = `<strong>ĐIỀU KHIỂN GÓC NHÌN THỨ NHẤT</strong>
+                <label>Độ nhạy chuột <output></output><input aria-label="Độ nhạy chuột FPS" data-fps-setting="sensitivity" type="range" min="0.1" max="3" step="0.05"></label>
+                <label>Độ nhạy khi ngắm <output></output><input aria-label="Độ nhạy khi ngắm FPS" data-fps-setting="adsSensitivity" type="range" min="0.1" max="3" step="0.05"></label>
+                <small>Áp dụng ngay · Tự lưu trên máy · Giữ Shift để đi chậm</small>`;
+            parent.append(panel);
+            this.settingsPanels.push(panel);
+            panel.addEventListener('input', event => {
+                const key = event.target.dataset.fpsSetting;
+                if (!['sensitivity', 'adsSensitivity'].includes(key)) return;
+                this[key] = THREE.MathUtils.clamp(Number(event.target.value), 0.1, 3);
+                this.syncSettings();
+                try { localStorage.setItem('fps-controls', JSON.stringify({sensitivity:this.sensitivity, adsSensitivity:this.adsSensitivity})); } catch {}
+            });
+        }
+        this.syncSettings();
         this.viewScene = new THREE.Scene();
         this.viewScene.add(new THREE.HemisphereLight(0xffffff, 0x667080, 2.5));
         this.rig = new THREE.Group();
@@ -37,6 +65,13 @@ export class FirstPersonView {
     }
 
     get locked() { return document.pointerLockElement === this.game.canvas; }
+
+    syncSettings() {
+        for (const panel of this.settingsPanels) for (const input of panel.querySelectorAll('input')) {
+            input.value = this[input.dataset.fpsSetting];
+            input.previousElementSibling.textContent = `${Number(input.value).toFixed(2)}×`;
+        }
+    }
 
     requestLock() {
         if (!this.active || this.locked || this.game.state !== 'PLAYING') return;
@@ -70,16 +105,21 @@ export class FirstPersonView {
 
     look(event) {
         if (!this.locked || !this.game.player.inputEnabled) return;
-        this.yaw -= event.movementX * 0.002;
-        this.pitch = THREE.MathUtils.clamp(this.pitch - event.movementY * 0.002, -1.45, 1.45);
+        const scale = 0.0015 * this.sensitivity * (this.game.player.isADS ? this.adsSensitivity : 1);
+        this.yaw -= event.movementX * scale;
+        this.pitch = THREE.MathUtils.clamp(this.pitch - event.movementY * scale, -1.45, 1.45);
+        // Apply input immediately, without mouse smoothing or frame-rate scaling.
+        this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
     }
 
-    updateCamera() {
+    updateCamera(delta = 1 / 60) {
         const p = this.game.player;
         this.camera.position.copy(p.position);
         this.camera.position.y += p.isDead ? 0.6 : 1.55;
         this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
-        const fov = p.isADS ? 58 : 80;
+        const targetFov = p.isADS ? 58 : 80;
+        const nextFov = THREE.MathUtils.lerp(this.camera.fov, targetFov, 1 - Math.exp(-22 * Math.max(0, delta)));
+        const fov = Math.abs(nextFov - targetFov) < 0.02 ? targetFov : nextFov;
         if (this.camera.fov !== fov) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
         this.camera.updateMatrixWorld(true);
         p.pointer.set(0, 0);

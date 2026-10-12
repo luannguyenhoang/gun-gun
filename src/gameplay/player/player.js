@@ -2682,7 +2682,7 @@ export class PlayerController {
     }
 
     getMovementInput() {
-        const input = new THREE.Vector3();
+        const input = (this._movementInput ||= new THREE.Vector3()).set(0, 0, 0);
         if (this.firstPerson && !this.firstPerson.locked) return input;
         if (this.keys['KeyW']) input.z -= 1;
         if (this.keys['KeyS']) input.z += 1;
@@ -2692,7 +2692,7 @@ export class PlayerController {
         if (input.lengthSq() > 0) {
             input.normalize();
         }
-        if (this.firstPerson) input.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.firstPerson.yaw);
+        if (this.firstPerson) input.applyAxisAngle(_aimPlaneNormal, this.firstPerson.yaw);
         return input;
     }
 
@@ -2972,7 +2972,7 @@ export class PlayerController {
         this.isADS = this.mouseButtons.right || !!this.th_toggleADS;
 
         // Locomotion input
-        let currentSpeed = this.speed;
+        let currentSpeed = this.speed * (this.firstPerson ? 0.6 : 1);
         if (this.firstPerson && (this.keys.ShiftLeft || this.keys.ShiftRight)) currentSpeed *= 0.5;
         if (this.isADS) {
             currentSpeed *= 0.65;
@@ -3008,8 +3008,9 @@ export class PlayerController {
                     this.stepTimer = Math.max(0.28, 0.40 / speedRatio);
                 }
             } else {
-                this.velocity.x *= Math.pow(0.001, delta);
-                this.velocity.z *= Math.pow(0.001, delta);
+                const braking = Math.exp(-(this.firstPerson ? 30 : Math.log(1000)) * delta);
+                this.velocity.x *= braking;
+                this.velocity.z *= braking;
                 this.stepTimer = 0.16;
                 sounds.th_stopFootstep?.();
             }
@@ -3263,7 +3264,7 @@ export class PlayerController {
     }
 
     updateCamera(delta) {
-        if (this.firstPerson) { this.firstPerson.updateCamera(); return; }
+        if (this.firstPerson) { this.firstPerson.updateCamera(delta); return; }
         const target = _cameraTarget.set(this.position.x, 0.7, this.position.z);
         let targetFov = 50; // Default FOV
         let targetZoom = 1.0;
