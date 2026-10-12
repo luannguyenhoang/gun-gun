@@ -576,7 +576,6 @@ export class TDMManager {
 
     endMatch(winningTeam) {
         this.state = 'MATCH_OVER';
-        if (this.game.firstPersonView?.active) this.game.player.setInputEnabled(false);
         const isVictory = winningTeam === this.playerTeam;
 
         if (isVictory) {
@@ -596,7 +595,6 @@ export class TDMManager {
             onRestart: () => {
                 if (this.game.network.active) { this.game.restartGame(); return; }
                 this.startMatch(this.playerTeam, { fillBots: this.lastFillBots, teamSize: 4 });
-                if (this.game.firstPersonView?.active) this.game.player.setInputEnabled(true);
             },
             onHome: () => this.game.returnToMenu()
         });

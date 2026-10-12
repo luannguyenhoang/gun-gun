@@ -335,7 +335,7 @@ export class PlayerController {
             if (e.code === 'Tab') {
                 e.preventDefault();
                 if (e.repeat) return;
-                const tdm = window.game?.tdmManager;
+                const tdm = window.game?.matchManager;
                 const ui = this.ui || window.game?.ui;
                 if (tdm && (tdm.isActive || tdm.state === 'ACTIVE')) {
                     this._thTabPressTime = performance.now();
@@ -420,7 +420,7 @@ export class PlayerController {
 
             // Phím [B]: Chỉ khả dụng ở chế độ Đối Kháng TDM (trong 10s sau hồi sinh)
             if (e.code === 'KeyB') {
-                if (window.game?.gameMode === 'TDM') {
+                if (['TDM', 'FPS_SOLO'].includes(window.game?.gameMode)) {
                     e.preventDefault();
                     (this.ui || window.game?.ui)?.toggleWeaponSelectMenu(this);
                 }
@@ -458,7 +458,7 @@ export class PlayerController {
             if (e.code === 'Digit3') this.weapons.switchWeapon(2, this);
             if (e.code === 'Digit4') this.weapons.switchWeapon(3, this);
             if (e.code === 'Digit5') {
-                if (window.game?.gameMode !== 'TDM') {
+                if (!['TDM', 'FPS_SOLO'].includes(window.game?.gameMode)) {
                     this.weapons.startMedkitUse(this);
                 }
             }
@@ -466,7 +466,7 @@ export class PlayerController {
 
             // Kích hoạt Kỹ năng chủ động (phím Q) - chỉ trong chế độ Zombie Survival
             if (e.code === 'KeyQ') {
-                if (window.game?.gameMode !== 'TDM') {
+                if (!['TDM', 'FPS_SOLO'].includes(window.game?.gameMode)) {
                     this.tryActiveSkill();
                 }
             }
@@ -808,7 +808,7 @@ export class PlayerController {
 
     tryActiveSkill() {
         // Chế độ Đối kháng TDM là đấu súng chiến thuật thuần túy, không sử dụng kỹ năng zombie
-        if (globalThis.window?.game?.gameMode === 'TDM' || this.game?.gameMode === 'TDM') return false;
+        if (['TDM', 'FPS_SOLO'].includes(globalThis.window?.game?.gameMode) || ['TDM', 'FPS_SOLO'].includes(this.game?.gameMode)) return false;
         if (this.isDead || this.isDowned) return false;
         if (this.activeSkillCooldownTimer > 0) return false;
 
@@ -2065,7 +2065,7 @@ export class PlayerController {
     }
 
     updateActiveSkills(delta, arena, enemies = []) {
-        if (globalThis.window?.game?.gameMode === 'TDM' || this.game?.gameMode === 'TDM') return;
+        if (['TDM', 'FPS_SOLO'].includes(globalThis.window?.game?.gameMode) || ['TDM', 'FPS_SOLO'].includes(this.game?.gameMode)) return;
         const isClient = globalThis.window?.game?.network?.active && !window.game.network.host;
         this.activeSkillCooldownTimer = Math.max(0, (this.activeSkillCooldownTimer || 0) - delta);
         this.activeSkillDurationTimer = Math.max(0, (this.activeSkillDurationTimer || 0) - delta);
@@ -2638,6 +2638,8 @@ export class PlayerController {
     }
 
     applyKickbackAndShake(kickStrength = 3.5, shakeStrength = 0.16) {
+        // FPS recoil is applied once per accepted shot to the camera angles.
+        if (this.firstPerson) return;
         if (!this.cursorKick) this.cursorKick = new THREE.Vector2(0, 0);
         const recoilM = this.recoilMult || 1.0;
         const kick = (typeof kickStrength === 'number' ? kickStrength : (kickStrength?.x || 3.5)) * recoilM;
@@ -2750,8 +2752,8 @@ export class PlayerController {
 
         if (this.health <= 0) {
             this.health = 0;
-            if (window.game?.gameMode === 'TDM') {
-                window.game.tdmManager?.onEntityKilled(this, attacker || this.lastAttacker);
+            if (['TDM', 'FPS_SOLO'].includes(window.game?.gameMode)) {
+                window.game.matchManager?.onEntityKilled(this, attacker || this.lastAttacker);
                 this.die(true);
             } else {
                 this.die();
@@ -2760,7 +2762,7 @@ export class PlayerController {
     }
 
     heal(amount) {
-        if (globalThis.window?.game?.gameMode === 'TDM' || this.game?.gameMode === 'TDM') return;
+        if (['TDM', 'FPS_SOLO'].includes(globalThis.window?.game?.gameMode) || ['TDM', 'FPS_SOLO'].includes(this.game?.gameMode)) return;
         this.health = Math.min(this.maxHealth, this.health + amount);
     }
 
@@ -2775,7 +2777,7 @@ export class PlayerController {
         if (this.developerMode || window.developerMode) return;
 
         // Kiểm tra nếu có đồng đội hoặc bot trong trận (ngoại trừ chế độ TDM)
-        const isTDM = window.game?.gameMode === 'TDM';
+        const isTDM = ['TDM', 'FPS_SOLO'].includes(window.game?.gameMode);
         const hasTeammates = !isTDM && (this.cooperative || (window.game?.coopPlayers && window.game.coopPlayers.length > 1));
         if (hasTeammates && !forceDead) {
             // Chuyển sang trạng thái gục (Downed), chờ đồng đội bước vào vòng cứu
@@ -2825,7 +2827,7 @@ export class PlayerController {
         if (this.holdingAction) this.holdingAction.play();
         this.playAnimation('idle');
         sounds.play('powerup', { volume: 1.0 });
-        if (window.game?.gameMode === 'TDM') {
+        if (['TDM', 'FPS_SOLO'].includes(window.game?.gameMode)) {
             (this.ui || window.game?.ui)?.startWeaponSelectCountdown?.(10);
         }
         return true;
@@ -2972,8 +2974,7 @@ export class PlayerController {
         this.isADS = this.mouseButtons.right || !!this.th_toggleADS;
 
         // Locomotion input
-        let currentSpeed = this.speed * (this.firstPerson ? 0.6 : 1);
-        if (this.firstPerson && (this.keys.ShiftLeft || this.keys.ShiftRight)) currentSpeed *= 0.5;
+        let currentSpeed = this.firstPerson ? this.firstPerson.movementSpeed(this.speed, this.keys) : this.speed;
         if (this.isADS) {
             currentSpeed *= 0.65;
         }
@@ -3008,9 +3009,12 @@ export class PlayerController {
                     this.stepTimer = Math.max(0.28, 0.40 / speedRatio);
                 }
             } else {
-                const braking = Math.exp(-(this.firstPerson ? 30 : Math.log(1000)) * delta);
-                this.velocity.x *= braking;
-                this.velocity.z *= braking;
+                if (this.firstPerson) this.firstPerson.brakeVelocity(this.velocity, delta);
+                else {
+                    const braking = Math.pow(0.001, delta);
+                    this.velocity.x *= braking;
+                    this.velocity.z *= braking;
+                }
                 this.stepTimer = 0.16;
                 sounds.th_stopFootstep?.();
             }
@@ -3233,7 +3237,7 @@ export class PlayerController {
             const dmgMult = (this.damageMult || 1.0) * (this.activeSkillEffect === 'overdrive' ? 1.25 : 1.0);
             const fired = this.weapons.shoot(_th_muzzlePos, this.aimPoint, this.isADS, true, dmgMult, this);
             if (fired && this.firstPerson && !w.isKnife) {
-                this.firstPerson.pitch = Math.min(1.45, this.firstPerson.pitch + (this.isADS ? 0.003 : 0.006));
+                this.firstPerson.applyRecoil(this.weapons.recoilOffset || 0);
             }
         } else {
             if (!this.mouseButtons.left && sounds?.stopContinuousFire) {

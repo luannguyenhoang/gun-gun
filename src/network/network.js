@@ -29,7 +29,7 @@ const PEER_CONFIG = {
 };
 
 const MAX_ROOM_PLAYERS = 8;
-const PROTOCOL_VERSION = 4;
+const PROTOCOL_VERSION = 5;
 
 export class NetworkRoom {
     constructor(game) {
@@ -705,14 +705,14 @@ export class NetworkRoom {
         this.snapshotSeq = 0;
         this.lastSnapshotSeq = 0;
         this.pollTimer = 0;
-        if (config.mode === 'TDM') {
+        if (config.mode === 'TDM' || config.mode === 'FPS_SOLO') {
             const myPlayer = (config.players || []).find(p => p.id === this.playerId);
             for (const p of config.players || []) {
                 if (p.id === this.playerId || p.id.startsWith('bot_')) continue;
                 const remote = this.game.ensureCoopPlayer(p.id, p.name, p.character);
                 if (remote) remote.team = p.team || 'blue';
             }
-            this.game.startTDM(myPlayer?.team || 'red', { fillBots: !!config.fillBots, firstPerson: !!config.firstPerson, isCoop: true });
+            (config.mode === 'FPS_SOLO' ? this.game.startFPS : this.game.startTDM).call(this.game, myPlayer?.team || 'red', { fillBots: !!config.fillBots, isCoop: true });
         } else this.game.startGame(true);
         return true;
     }
@@ -720,8 +720,7 @@ export class NetworkRoom {
     async start() {
         if (!this.host) return;
         const selected = this.game.selectedGameMode || this.game.gameMode || 'SURVIVAL';
-        const firstPerson = selected === 'FPS_SOLO';
-        const mode = firstPerson ? 'TDM' : selected;
+        const mode = selected;
         const hostPlayer = this.players.find(p => p.id === 'host');
         const hostTeam = hostPlayer?.team || (this.game.selectedTDMTeam || 'blue');
         this.epoch = Math.max(Date.now(), (this.epoch || 0) + 1);
@@ -739,15 +738,15 @@ export class NetworkRoom {
             startDbRoom(this.code, this.epoch);
         }
 
-        const data = { type: 'start', epoch: this.epoch, mode, firstPerson, fillBots: this.fillBots, players: this.players };
+        const data = { type: 'start', epoch: this.epoch, mode, fillBots: this.fillBots, players: this.players };
         for (const c of this.connections) {
             if (c.joined && c.conn.open) {
                 try { c.conn.send(data); } catch (e) { console.warn('[NetworkHost] Lỗi gửi start:', e); }
             }
         }
 
-        if (mode === 'TDM') {
-            this.game.startTDM(hostTeam, { fillBots: this.fillBots, firstPerson, isCoop: true });
+        if (mode === 'TDM' || mode === 'FPS_SOLO') {
+            (mode === 'FPS_SOLO' ? this.game.startFPS : this.game.startTDM).call(this.game, hostTeam, { fillBots: this.fillBots, isCoop: true });
         } else {
             this.game.startGame(true);
         }
@@ -829,7 +828,7 @@ export class NetworkRoom {
             if (id === this.playerId) continue;
             const player = this.game.getCoopPlayer(id);
             if (!player || !Array.isArray(input?.position)) continue;
-            const currentSpawn = this.game.gameMode !== 'TDM' || (input.spawnSeq || 0) === (player.spawnSeq || 0);
+            const currentSpawn = !['TDM', 'FPS_SOLO'].includes(this.game.gameMode) || (input.spawnSeq || 0) === (player.spawnSeq || 0);
             if (currentSpawn && !player.isDead && input.position.length === 3 && input.position.every(Number.isFinite)) player.position.fromArray(input.position);
             if (Number.isFinite(input.aim)) player.aimYaw = input.aim;
             if (Array.isArray(input.aimPoint) && input.aimPoint.length === 3 && input.aimPoint.every(Number.isFinite)) (player.aimPoint ||= new THREE.Vector3()).fromArray(input.aimPoint);
@@ -955,8 +954,8 @@ export class NetworkRoom {
                     const weapon = getStartingWeapon(player.weapon);
                     remote.weapons.resetRun(weapon.id, remote.loadout?.secondary, remote.loadout?.bomb1, remote.loadout?.bomb2);
                 }
-                if (isNew && this.host && this.game.gameMode === 'TDM' && this.game.state === 'PLAYING') {
-                    const manager = this.game.tdmManager;
+                if (isNew && this.host && ['TDM', 'FPS_SOLO'].includes(this.game.gameMode) && this.game.state === 'PLAYING') {
+                    const manager = this.game.matchManager;
                     const bot = manager.bots.find(b => b.team === remote.team);
                     if (bot) {
                         this.game.removeCoopPlayer(bot.id);
@@ -969,9 +968,9 @@ export class NetworkRoom {
         for (const [id] of this.game.remotePlayers) {
             if (!ids.has(id) && !id.startsWith('bot_')) this.game.removeCoopPlayer(id);
         }
-        if (this.game.gameMode === 'TDM' && this.game.state === 'PLAYING') {
-            this.game.tdmManager.teamBlue = this.game.coopPlayers.filter(p => p.team === 'blue');
-            this.game.tdmManager.teamRed = this.game.coopPlayers.filter(p => p.team === 'red');
+        if (['TDM', 'FPS_SOLO'].includes(this.game.gameMode) && this.game.state === 'PLAYING') {
+            this.game.matchManager.teamBlue = this.game.coopPlayers.filter(p => p.team === 'blue');
+            this.game.matchManager.teamRed = this.game.coopPlayers.filter(p => p.team === 'red');
         }
     }
 
@@ -1339,15 +1338,16 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
             this.health -= amount - absorbed;
             if (this.health <= 0) {
                 this.health = 0;
-                if (game?.gameMode === 'TDM') {
+                if (['TDM', 'FPS_SOLO'].includes(game?.gameMode)) {
                     this.isDead = true;
                     this.isDowned = false;
-                    game.tdmManager?.onEntityKilled(this, attacker);
+                    game.matchManager?.onEntityKilled(this, attacker);
                     // Hồi sinh sau 3 giây cho người chơi đối kháng từ xa
                     const roomEpoch = game.network?.epoch;
+                    const manager = game.matchManager;
                     setTimeout(() => {
-                        if (game.gameMode === 'TDM' && game.network?.epoch === roomEpoch && game.remotePlayers?.get(this.id) === this && this.isDead) {
-                            game.tdmManager?.respawnEntity(this);
+                        if (game.matchManager === manager && manager?.state === 'ACTIVE' && game.network?.epoch === roomEpoch && game.remotePlayers?.get(this.id) === this && this.isDead) {
+                            manager.respawnEntity(this);
                         }
                     }, 3000);
                 } else {

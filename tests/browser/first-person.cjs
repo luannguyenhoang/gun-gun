@@ -29,10 +29,11 @@ const root = path.resolve(__dirname, '../..');
         await page.locator('.mode-card').click();
         await page.locator('.th_mode-item[data-mode="FPS_SOLO"]').click();
         await page.locator('#btn-start').click();
-        await page.waitForFunction(() => game.firstPersonView.active && game.tdmManager.bots.length === 7);
+        await page.waitForFunction(() => game.firstPersonView.active && game.fpsManager.bots.length === 7);
         if (!await page.evaluate(() => game.firstPersonView.locked)) await page.locator('#fps-capture').click();
         await page.waitForFunction(() => game.firstPersonView.locked);
         assert.equal(await page.evaluate(() => game.camera.isPerspectiveCamera), true);
+        assert.equal(await page.evaluate(() => game.gameMode === 'FPS_SOLO' && game.tdmManager.state === 'IDLE' && game.fpsManager !== game.tdmManager), true);
         const controls = await page.evaluate(() => {
             const view = game.firstPersonView, p = game.player;
             const slider = document.querySelector('[data-fps-setting="sensitivity"]');
@@ -66,6 +67,37 @@ const root = path.resolve(__dirname, '../..');
             assert.ok(controls.results[i+1]<0.02, 'Releasing movement must stop promptly');
         }
         await page.evaluate(() => { game.player.invulnerability = 999; game.player.position.set(0,0,0); });
+        const recoil = await page.evaluate(() => {
+            const p = game.player, view = game.firstPersonView, w = game.weapons;
+            const results = [];
+            for (const ads of [false,true]) {
+                p.isADS = ads; p.mouseButtons.right = ads; p.mouseButtons.left = true;
+                view.yaw = 0; view.pitch = 0; view.lastShotTime = undefined;
+                let rise = 0;
+                for (let i=0;i<12;i++) {
+                    w.fireCooldown = 0;
+                    w.ammo[w.getCurrentWeapon().id] = w.getModifiedStats(w.getCurrentWeapon()).magSize;
+                    view.updateCamera(); view.updateAim();
+                    const before = w.ammo[w.getCurrentWeapon().id];
+                    p.handleShooting();
+                    if(w.ammo[w.getCurrentWeapon().id] !== before-1) throw Error('Shot was not accepted');
+                    rise += view.pitch;
+                    const scale = 0.0015 * view.sensitivity * (ads ? view.adsSensitivity : 1);
+                    view.look({movementX:view.yaw/scale, movementY:view.pitch/scale});
+                    view.updateAim();
+                }
+                game.ui.updateStats(p,game.waveManager,game.score);
+                results.push({rise,pitch:view.pitch,yaw:view.yaw,aimY:p.aimPoint.y-view.camera.position.y,
+                    reticle:!game.ui.crosshair.classList.contains('th_reticle_hidden')});
+            }
+            p.mouseButtons = {left:false,right:false}; p.isADS = false;
+            return results;
+        });
+        for (const result of recoil) {
+            assert.ok(result.rise>0, 'Firing must produce recoil');
+            assert.ok(Math.abs(result.pitch)<1e-9 && Math.abs(result.yaw)<1e-9 && Math.abs(result.aimY)<1e-7, 'Mouse compensation must restore the actual firing direction');
+            assert.equal(result.reticle,true,'FPS needs a hip-fire and ADS reticle');
+        }
         const yaw = await page.evaluate(() => game.firstPersonView.yaw);
         await page.mouse.move(800, 360);
         await page.mouse.move(950, 390);
@@ -90,10 +122,10 @@ const root = path.resolve(__dirname, '../..');
         await page.waitForFunction(() => game.player.isGrounded);
         // An actual center-screen projectile must hit the opponent, not merely consume ammo.
         await page.evaluate(() => {
-            for (const bot of game.tdmManager.bots) bot.update = () => {};
+            for (const bot of game.fpsManager.bots) bot.update = () => {};
             game.player.position.set(-12,0,0); game.player.velocity.set(0,0,0);
             game.firstPersonView.yaw = 0; game.firstPersonView.pitch = 0;
-            game.testFpsTarget = game.tdmManager.teamRed[0];
+            game.testFpsTarget = game.fpsManager.teamRed[0];
             game.testFpsTarget.position.set(-12,0,-4);
             game.testFpsTarget.invulnerability = 0;
             game.testFpsTarget.health = 100; game.testFpsTarget.shield = 0;
@@ -117,10 +149,15 @@ const root = path.resolve(__dirname, '../..');
         await page.evaluate(() => { game.player.die(true); });
         await page.waitForFunction(() => !game.player.isDead);
         assert.equal(await page.evaluate(() => game.camera.isPerspectiveCamera), true);
-        await page.evaluate(() => game.tdmManager.endMatch('blue'));
+        await page.evaluate(() => game.fpsManager.endMatch('blue'));
         await page.waitForFunction(() => !game.firstPersonView.locked);
         assert.equal(await page.evaluate(() => game.state), 'PLAYING');
         assert.equal(await page.evaluate(() => game.player.inputEnabled), false);
+        await page.evaluate(() => game.returnToMenu());
+        await page.evaluate(() => game.startTDM('blue', {fillBots:true}));
+        assert.equal(await page.evaluate(() => game.gameMode === 'TDM' && !game.firstPersonView.active && game.fpsManager.state === 'IDLE' && game.fpsManager.bots.length === 0 && game.tdmManager.bots.length === 7), true);
+        await page.evaluate(() => game.startFPS('blue', {fillBots:true}));
+        assert.equal(await page.evaluate(() => game.gameMode === 'FPS_SOLO' && game.tdmManager.state === 'IDLE' && game.tdmManager.bots.length === 0 && game.fpsManager.bots.length === 7 && game.fpsManager.scoreBlue === 0), true);
         await page.evaluate(() => game.returnToMenu());
         assert.equal(await page.evaluate(() => game.camera.isOrthographicCamera && !game.firstPersonView.active), true);
         await page.evaluate(() => { game.selectedGameMode = 'SURVIVAL'; game.startGame(); });

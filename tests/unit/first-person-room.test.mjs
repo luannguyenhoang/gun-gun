@@ -11,12 +11,12 @@ test('FPS late join starts the host mode once and ignores duplicate or older epo
     const calls = [], remotes = new Map();
     const game = {
         ensureCoopPlayer(id) { if (!remotes.has(id)) remotes.set(id, {}); return remotes.get(id); },
-        startTDM(team, options) { calls.push({ team, options }); }
+        startFPS(team, options) { calls.push({ team, options }); }
     };
     const room = new NetworkRoom(game); room.playerId = 'guest';
-    const config = { mode: 'TDM', firstPerson: true, fillBots: true, players: [{id:'host',team:'blue'}, {id:'guest',team:'red'}] };
+    const config = { mode: 'FPS_SOLO', fillBots: true, players: [{id:'host',team:'blue'}, {id:'guest',team:'red'}] };
     assert.equal(room.beginMatch(10, config), true);
-    assert.deepEqual(calls, [{team:'red',options:{fillBots:true,firstPerson:true,isCoop:true}}]);
+    assert.deepEqual(calls, [{team:'red',options:{fillBots:true,isCoop:true}}]);
     assert.equal(remotes.get('host').team, 'blue');
     assert.equal(room.beginMatch(10, config), true);
     assert.equal(room.beginMatch(9, config), false);
@@ -25,7 +25,7 @@ test('FPS late join starts the host mode once and ignores duplicate or older epo
 
 test('FPS respawn ignores positions from an earlier life until the guest acknowledges its spawn', () => {
     const player = { position: new THREE.Vector3(3,0,20), spawnSeq: 2 };
-    const room = new NetworkRoom({gameMode:'TDM',getCoopPlayer:()=>player});
+    const room = new NetworkRoom({gameMode:'FPS_SOLO',getCoopPlayer:()=>player});
     room.playerId = 'host';
     room.applyInputs({guest:{position:[9,0,-5],spawnSeq:1}});
     assert.deepEqual(player.position.toArray(), [3,0,20]);

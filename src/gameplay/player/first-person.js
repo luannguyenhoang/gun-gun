@@ -54,7 +54,7 @@ export class FirstPersonView {
             if (!this.active) return;
             this.game.player.mouseButtons = { left: false, right: false };
             this.game.player.keys = {};
-            if (!this.locked && this.game.state === 'PLAYING' && this.game.tdmManager.state === 'ACTIVE') this.game.pauseGame();
+            if (!this.locked && this.game.state === 'PLAYING' && this.game.fpsManager.state === 'ACTIVE') this.game.pauseGame();
             this.syncHint();
         });
         document.addEventListener('pointerlockerror', () => this.syncHint());
@@ -65,6 +65,16 @@ export class FirstPersonView {
     }
 
     get locked() { return document.pointerLockElement === this.game.canvas; }
+
+    movementSpeed(baseSpeed, keys) {
+        return baseSpeed * 0.6 * (keys.ShiftLeft || keys.ShiftRight ? 0.5 : 1);
+    }
+
+    brakeVelocity(velocity, delta) {
+        const decay = Math.exp(-30 * delta);
+        velocity.x *= decay;
+        velocity.z *= decay;
+    }
 
     syncSettings() {
         for (const panel of this.settingsPanels) for (const input of panel.querySelectorAll('input')) {
@@ -80,7 +90,7 @@ export class FirstPersonView {
     }
 
     syncHint() {
-        this.hint.style.display = this.active && !this.locked && !this.game.pauseMenuOpen && this.game.state === 'PLAYING' && this.game.tdmManager.state === 'ACTIVE' ? 'block' : 'none';
+        this.hint.style.display = this.active && !this.locked && !this.game.pauseMenuOpen && this.game.state === 'PLAYING' && this.game.fpsManager.state === 'ACTIVE' ? 'block' : 'none';
     }
 
     setEnabled(enabled) {
@@ -90,6 +100,7 @@ export class FirstPersonView {
         document.body.classList.toggle('solo-fps', enabled);
         if (enabled) {
             this.yaw = 0; this.pitch = 0;
+            this.lastShotTime = undefined; this.sprayShot = 0;
             this.updateCamera();
         } else {
             if (this.locked) document.exitPointerLock();
@@ -125,6 +136,21 @@ export class FirstPersonView {
         p.pointer.set(0, 0);
         p.pointerScreen.set(innerWidth / 2, innerHeight / 2);
         p.pointerInCanvas = this.locked;
+    }
+
+    applyRecoil(strength, now = performance.now()) {
+        if (this.lastShotTime === undefined || now - this.lastShotTime > 280) this.sprayShot = 0;
+        this.lastShotTime = now;
+        const shot = ++this.sprayShot;
+        const p = this.game.player;
+        const kick = Math.max(0, strength) * 0.35 * (p.recoilMult || 1) * (p.isADS ? 0.65 : 1);
+        // A repeatable rise then lateral drift, applied to the same angles as mouse input.
+        // No separate recoil offset pulls the aim back after the player compensates.
+        const horizontal = shot <= 4 ? 0 : shot <= 10 ? 0.35 : shot <= 20 ? -0.35 : Math.sin(shot * 0.8) * 0.3;
+        this.pitch = THREE.MathUtils.clamp(this.pitch + kick, -1.45, 1.45);
+        this.yaw -= kick * horizontal;
+        this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
+        this.updateAim();
     }
 
     updateAim() {

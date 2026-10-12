@@ -41,7 +41,8 @@ const assert = require('node:assert/strict');
             results.push(await page.evaluate(async mode => {
                 const g = window.game;
                 if (mode === 'SURVIVAL') await g.startGame();
-                else await g.startTDM('blue', {fillBots:true, firstPerson:mode === 'FPS_TDM'});
+                else if (mode === 'FPS_TDM') await g.startFPS('blue', {fillBots:true});
+                else await g.startTDM('blue', {fillBots:true});
                 g.player.setInputEnabled(false);
                 g.player.invulnerability = 1000;
                 g.ui.updateOverheadVitals(g.player, g.camera, g.canvas);
@@ -64,7 +65,7 @@ const assert = require('node:assert/strict');
                     [g.renderer, 'render', 'render'], [g.ui, 'updateStats', 'hud'],
                     [g.ui, 'updateTeammateIndicators', 'indicators'],
                     [g.visionCone, 'render', 'vision'], [g.waveManager, 'update', 'enemies'],
-                    [g.lootingSystem, 'update', 'loot'], [g.tdmManager, 'update', 'bots']
+                    [g.lootingSystem, 'update', 'loot'], [g.matchManager, 'update', 'bots']
                 ]) {
                     const original = object[name];
                     object[name] = function (...args) {
@@ -91,7 +92,7 @@ const assert = require('node:assert/strict');
                 const result = { mode, elapsedMs: Math.round(elapsed), timings, hudMutations: mutations,
                     drawCalls: g.renderer.info.render.calls, triangles: g.renderer.info.render.triangles,
                     ratio: g.renderer.getPixelRatio(), state: g.state,
-                    unchangedVitalsMutations, hiddenHudUpdates, hiddenSimulationAdvanced, bots:g.tdmManager.bots.length };
+                    unchangedVitalsMutations, hiddenHudUpdates, hiddenSimulationAdvanced, bots:g.matchManager.bots.length };
                 if (mode === 'SURVIVAL') {
                     for (let i = 0; i < 20; i++) g.waveManager.spawnSingleEnemy(g.player, 0, 'walker');
                     result.stressEnemyCount = g.waveManager.enemies.length;
@@ -103,6 +104,31 @@ const assert = require('node:assert/strict');
                         if (muzzle) g.weapons.shoot(muzzle, target, false, true, 1, g.player);
                         g.updateFrame(1 / 60);
                     }
+                }
+                if (mode === 'FPS_TDM') {
+                    for (const bot of g.matchManager.bots) bot.update = () => {};
+                    const target = g.matchManager.teamRed[0];
+                    target.isDead = false;
+                    const render = g.renderer.render;
+                    let missingLiving = 0, visibleDead = 0;
+                    g.renderer.render = function(scene, camera) {
+                        if (scene === g.scene) {
+                            if (!target.isDead && !target.mesh.visible) missingLiving++;
+                            if (target.isDead && target.mesh.visible) visibleDead++;
+                        }
+                        return render.call(this, scene, camera);
+                    };
+                    try {
+                        for (let i = 0; i < 24; i++) {
+                            target.isVisibleToObserver = false;
+                            target.mesh.visible = false;
+                            g.firstPersonView.yaw = i * Math.PI / 12;
+                            g.updateFrame(1 / 60);
+                        }
+                        target.isDead = true;
+                        for (let i = 0; i < 12; i++) g.updateFrame(1 / 60);
+                    } finally { g.renderer.render = render; }
+                    result.fpsVisibility = {missingLiving, visibleDead};
                 }
                 g.state = 'PAUSED';
                 return result;
@@ -116,6 +142,7 @@ const assert = require('node:assert/strict');
         assert.ok(results.every(result => result.unchangedVitalsMutations === 0 && result.hiddenHudUpdates === 0 && result.hiddenSimulationAdvanced));
         assert.ok(results[0].stressEnemyCount >= 20);
         assert.ok(results.slice(1).every(result=>result.bots===7));
+        assert.deepEqual(results.find(result=>result.mode==='FPS_TDM').fpsVisibility, {missingLiving:0, visibleDead:0});
         console.log(JSON.stringify({ results, errors }, null, 2));
     } finally {
         await browser?.close();

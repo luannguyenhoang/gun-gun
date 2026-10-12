@@ -503,7 +503,7 @@ export class UIManager {
             const curW = player.weapons?.getCurrentWeapon?.() || player.weapons?.currentWeapon;
             const isPistolOrShotgun = this.th_isPistolOrShotgun(curW);
             const isADS = !!(player.isADS || player.th_toggleADS);
-            const shouldShowReticle = isPistolOrShotgun || isADS;
+            const shouldShowReticle = !!player.firstPerson || isPistolOrShotgun || isADS;
 
             if (this._lastReticleShown !== shouldShowReticle) {
                 this._lastReticleShown = shouldShowReticle;
@@ -880,7 +880,7 @@ export class UIManager {
 
             // Cập nhật Widget Kỹ năng chủ động Nhân vật (phím Q)
             if (this.skillWidget) {
-                if (window.game?.gameMode === 'TDM') {
+                if (['TDM', 'FPS_SOLO'].includes(window.game?.gameMode)) {
                     this.skillWidget.style.display = 'none';
                 } else if (player) {
                     this.skillWidget.style.display = 'flex';
@@ -1118,7 +1118,7 @@ export class UIManager {
             const medQty = Math.max(totalMeds, inv.medkits || 0);
             if (this.thQtyMedkit) this.thQtyMedkit.textContent = `x${medQty}`;
             if (this.thSlot3) {
-                if (window.game?.gameMode === 'TDM') {
+                if (['TDM', 'FPS_SOLO'].includes(window.game?.gameMode)) {
                     this.thSlot3.style.display = 'none';
                 } else {
                     this.thSlot3.style.display = 'flex';
@@ -2479,7 +2479,7 @@ export class UIManager {
     }
 
     startWeaponSelectCountdown(seconds = 10) {
-        if (window.game?.gameMode !== 'TDM') return;
+        if (!['TDM', 'FPS_SOLO'].includes(window.game?.gameMode)) return;
         this.initWeaponSelectDOM();
         this.th_weaponSelectTimer = seconds;
         this.th_updateWeaponSelectBadge();
@@ -2489,7 +2489,7 @@ export class UIManager {
     }
 
     updateWeaponSelectTimer(delta) {
-        if (window.game?.gameMode !== 'TDM') {
+        if (!['TDM', 'FPS_SOLO'].includes(window.game?.gameMode)) {
             if (this.thBSelectBanner && this.thBSelectBanner.style.display !== 'none') {
                 this.thBSelectBanner.style.display = 'none';
             }
@@ -2524,7 +2524,7 @@ export class UIManager {
     }
 
     openWeaponSelectMenu(player = null) {
-        if (window.game?.gameMode !== 'TDM') return;
+        if (!['TDM', 'FPS_SOLO'].includes(window.game?.gameMode)) return;
         if (this.th_weaponSelectTimer <= 0) {
             this.showPickupAlert('ĐÃ HẾT THỜI GIAN ĐỔI SÚNG (CHỈ TRONG 10S SAU HỒI SINH)');
             return;

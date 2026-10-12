@@ -3,12 +3,12 @@ import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js?v=63';
 import { ParticleSystem } from '../rendering/particles.js?v=68';
 import { Arena, SurvivalArena, SpaceArena } from '../world/arena.js?v=25';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=73';
-import { PlayerController } from '../gameplay/player/player.js?v=77';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=74';
+import { PlayerController } from '../gameplay/player/player.js?v=79';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=70';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
-import { UIManager } from '../ui/ui.js?v=47';
-import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=75';
+import { UIManager } from '../ui/ui.js?v=49';
+import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=76';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=40';
 import { HomeMenu } from '../ui/home.js?v=63';
@@ -16,12 +16,15 @@ import { LootingSystem } from '../gameplay/loot/looting.js?v=70';
 import { RenderQuality } from '../rendering/performance.js?v=3';
 import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=49';
 import { VisionConeOverlay, getWeaponVisionConfig, applyVisibilityCulling } from '../gameplay/combat/vision-cone.js?v=78';
-import { TDMManager } from '../gameplay/combat/tdm.js?v=3';
-import { FirstPersonView } from '../gameplay/player/first-person.js?v=3';
+import { FPSMatchManager } from '../gameplay/combat/fps-match.js';
+import { TDMManager } from '../gameplay/combat/tdm.js?v=4';
+import { FirstPersonView } from '../gameplay/player/first-person.js?v=5';
 import { TH_VersusLoadingScreen } from '../ui/th_versus_loading.js?v=2';
 import { th_preloadAllGameAssets } from './th_asset_preloader.js';
 
 class CyberArenaGame {
+    get matchManager() { return this.gameMode === 'FPS_SOLO' ? this.fpsManager : this.tdmManager; }
+
     constructor() {
         this.canvas = document.getElementById('game-canvas');
         this.state = 'LOADING'; // LOADING, MENU, PLAYING, PAUSED, GAMEOVER
@@ -146,6 +149,7 @@ class CyberArenaGame {
         // Khởi tạo hệ thống Tầm nhìn hình quạt, Chế độ đối kháng TDM và Màn hình tải trận 4v4 LoL
         this.visionCone = new VisionConeOverlay(document.getElementById('vision-cone-canvas'), this.camera);
         this.tdmManager = new TDMManager(this);
+        this.fpsManager = new FPSMatchManager(this);
         this.firstPersonView = new FirstPersonView(this);
         this.th_versusLoading = new TH_VersusLoadingScreen();
 
@@ -242,7 +246,7 @@ class CyberArenaGame {
                 if (this.selectedGameMode === 'FPS_SOLO') {
                     if (this.network.active) {
                         if (this.network.host) this.network.start();
-                    } else this.startTDM('blue', { fillBots: true });
+                    } else this.startFPS('blue', { fillBots: true });
                 } else if (this.selectedGameMode === 'TDM') {
                     this.startTDM(this.selectedTDMTeam || 'blue', { fillBots: this.soloFillBots !== false });
                 } else {
@@ -476,7 +480,7 @@ class CyberArenaGame {
     }
 
     switchArena(targetMode) {
-        const isTDM = targetMode === 'TDM';
+        const isTDM = targetMode === 'TDM' || targetMode === 'FPS_SOLO';
         const targetArena = isTDM ? this.spaceArena : this.survivalArena;
 
         // Cập nhật môi trường không gian và sương mù theo chế độ
@@ -507,7 +511,7 @@ class CyberArenaGame {
         // Cập nhật tham chiếu bản đồ mới vào các subsystem
         if (this.player) this.player.arena = this.arena;
         if (this.waveManager) this.waveManager.arena = this.arena;
-        if (this.tdmManager) this.tdmManager.arena = this.arena;
+        if (this.matchManager) this.matchManager.arena = this.arena;
     }
 
     async loadAssetsAndStart() {
@@ -624,12 +628,13 @@ class CyberArenaGame {
     }
 
     startTDM(playerTeam = 'blue', options = {}) {
+        if (this.gameMode !== 'TDM') this.matchManager?.cleanup();
         const fillBots = typeof options === 'boolean' ? options : !!options.fillBots;
 
         // Ẩn màn hình chờ nếu còn hiển thị
         this.th_versusLoading?.close?.();
 
-        this.firstPersonView?.setEnabled(options.firstPerson ?? (this.selectedGameMode === 'FPS_SOLO'));
+        this.firstPersonView?.setEnabled(false);
         this.gameMode = 'TDM';
         this.selectedTDMTeam = playerTeam;
         this.switchArena('TDM');
@@ -687,6 +692,74 @@ class CyberArenaGame {
 
         // Bắt đầu trận đấu đối kháng TDM với cờ fillBots được chỉ định
         this.tdmManager?.startMatch(playerTeam, { fillBots, teamSize: 4 });
+        this.ui?.startWeaponSelectCountdown(10);
+    }
+
+    startFPS(playerTeam = 'blue', options = {}) {
+        if (this.gameMode !== 'FPS_SOLO') this.matchManager?.cleanup();
+        const fillBots = typeof options === 'boolean' ? options : !!options.fillBots;
+
+        // Ẩn màn hình chờ nếu còn hiển thị
+        this.th_versusLoading?.close?.();
+
+        this.firstPersonView?.setEnabled(true);
+        this.gameMode = 'FPS_SOLO';
+        this.selectedTDMTeam = playerTeam;
+        this.switchArena('FPS_SOLO');
+        this.homeMenu?.showroom?.dialog?.close?.();
+        this.homeMenu?.dialog?.close?.();
+        sounds.init();
+        sounds.startMusic();
+
+        this.state = 'PLAYING';
+        this.pauseMenuOpen = false;
+        this.networkEvents = [];
+        this.hitEventSeq = 0;
+        this.lastHitEventId = 0;
+        if (this.screenMenu) this.screenMenu.style.display = 'none';
+        if (this.screenPause) this.screenPause.style.display = 'none';
+        if (this.screenGameOver) this.screenGameOver.style.display = 'none';
+        if (this.hud) this.hud.style.display = 'block';
+
+        this.score = 0;
+        this.currentWave = 1;
+        this.nextWaveTimer = 0;
+
+        const currentLoadout = this.getLoadout();
+        this.weapons.resetRun(currentLoadout.primary, currentLoadout.secondary, currentLoadout.bomb1, currentLoadout.bomb2);
+
+        // Reset các remote players nếu có trong trận đấu Co-op
+        for (const remote of this.remotePlayers.values()) {
+            remote.health = remote.maxHealth;
+            remote.motion?.reset();
+            remote.shield = remote.maxShield;
+            remote.isDead = false;
+            remote.isDowned = false;
+            remote.invulnerability = 2.0;
+            if (remote.weapons) {
+                const weaponId = remote.loadout?.primary || remote.weapons.startingWeaponId || 'repeater';
+                remote.weapons.resetRun(weaponId);
+            }
+        }
+
+        this.player.reset();
+        this.player.team = playerTeam;
+        if (this.developerMode) {
+            this.player.developerMode = true;
+            this.player.health = this.player.maxHealth;
+            this.player.shield = this.player.maxShield;
+        }
+        this.pickups.clear();
+        this.particles.clear();
+        this.waveManager.clear();
+        this.lootingSystem?.clearAll?.();
+
+        this.player.setInputEnabled(true);
+        this.player.cooperative = this.network.active;
+        document.getElementById('hud-pause').disabled = false;
+
+        // Bắt đầu trận đấu đối kháng TDM với cờ fillBots được chỉ định
+        this.fpsManager?.startMatch(playerTeam, { fillBots, teamSize: 4 });
         if (this.firstPersonView?.active) {
             this.firstPersonView.updateCamera();
             this.firstPersonView.requestLock();
@@ -705,7 +778,7 @@ class CyberArenaGame {
         this.homeMenu?.syncAudio();
         this.syncPerformanceUI?.();
         const pWave = (typeof document !== 'undefined') ? document.getElementById('pause-wave-badge') : null;
-        if (pWave) pWave.textContent = this.gameMode === 'TDM' ? 'ĐỐI KHÁNG TDM' : `ĐỢT ${this.currentWave || 1}`;
+        if (pWave) pWave.textContent = ['TDM', 'FPS_SOLO'].includes(this.gameMode) ? (this.gameMode === 'FPS_SOLO' ? 'GÓC NHÌN THỨ NHẤT' : 'ĐỐI KHÁNG TDM') : `ĐỢT ${this.currentWave || 1}`;
         if (this.screenPause) this.screenPause.style.display = 'flex';
     }
 
@@ -721,8 +794,8 @@ class CyberArenaGame {
             if (this.network.host) this.network.start();
             return;
         }
-        if (this.gameMode === 'TDM') {
-            this.startTDM(this.selectedTDMTeam || 'blue', { fillBots: this.tdmManager?.lastFillBots ?? !!this.soloFillBots });
+        if (['TDM', 'FPS_SOLO'].includes(this.gameMode)) {
+            (this.gameMode === 'FPS_SOLO' ? this.startFPS : this.startTDM).call(this, this.selectedTDMTeam || 'blue', { fillBots: this.matchManager?.lastFillBots ?? !!this.soloFillBots });
         } else {
             this.startGame();
         }
@@ -743,8 +816,8 @@ class CyberArenaGame {
         this.pickups.clear();
         this.particles.clear();
         this.ui.clearTeammateIndicators();
-        if (this.tdmManager) {
-            this.tdmManager.cleanup();
+        if (this.matchManager) {
+            this.matchManager.cleanup();
         }
         if (this.visionCone) {
             this.visionCone.clear();
@@ -760,7 +833,7 @@ class CyberArenaGame {
     }
 
     gameOver() {
-        if (this.gameMode === 'TDM') return false;
+        if (['TDM', 'FPS_SOLO'].includes(this.gameMode)) return false;
         // A player's death never ends a cooperative match while somebody can still play.
         if (this.network.active && (!this.coopPlayers.length || this.coopPlayers.some(p => !p.isDead && !p.isDowned))) return false;
         this.pauseMenuOpen = false;
@@ -1504,9 +1577,8 @@ class CyberArenaGame {
             bombs: this.waveManager.bombs.snapshot(),
             state: this.state,
             mode: this.gameMode,
-            tdmSpawns: this.gameMode === 'TDM' ? this.coopPlayers.map(p => ({ id: p.id || this.network.playerId, seq: p.spawnSeq || 0, position: p.position.toArray() })) : undefined,
-            firstPerson: !!this.firstPersonView?.active,
-            fillBots: !!this.tdmManager?.lastFillBots,
+            matchSpawns: ['TDM', 'FPS_SOLO'].includes(this.gameMode) ? this.coopPlayers.map(p => ({ id: p.id || this.network.playerId, seq: p.spawnSeq || 0, position: p.position.toArray() })) : undefined,
+            fillBots: !!this.matchManager?.lastFillBots,
             wave: this.currentWave,
             nextWaveTimer: this.nextWaveTimer,
             score: this.score,
@@ -1514,7 +1586,7 @@ class CyberArenaGame {
             looting: this.lootingSystem?.snapshot ? this.lootingSystem.snapshot() : null,
             projectiles: this.coopPlayers.flatMap(player => (player.weapons?.projectiles || []).filter(p => p.mesh).map(p => ({ id: `${player.id || this.network.playerId}:${p.id}`, owner: player.id || this.network.playerId, position: p.mesh.position.toArray(), direction: p.direction.toArray(), speed: p.speed, color: p.color }))),
             players: this.coopPlayers.map(player => ({ id: player.id || this.network.playerId, name: player.name || 'Bạn', character: player.characterId || this.characterId, team: player.team || (player === this.player ? this.selectedTDMTeam : 'blue'), position: player.position.toArray(), health: player.health, shield: player.shield, maxHealth: player.maxHealth, maxShield: player.maxShield, isDead: player.isDead, isDowned: player.isDowned, isInSmoke: !!player.isInSmoke, bleedOutTimer: player.bleedOutTimer, reviveProgress: player.reviveProgress || 0, isBeingRevived: !!player.isBeingRevived, invulnerability: player.invulnerability || 0, lootInventory: (player === this.player ? this.lootingSystem?.inventory : player.lootInventory)?.slots || null, aim: player.aimYaw, ads: !!player.isADS, moving: player === this.player ? player.velocity.lengthSq() > 0.1 : player.moving, skills: player.getSharedSkillState?.(), weapons: player.weapons?.getNetworkState(), processedSeq: player.processedSeq || 0 })),
-            tdm: (this.gameMode === 'TDM' && this.tdmManager) ? { scoreBlue: this.tdmManager.scoreBlue, scoreRed: this.tdmManager.scoreRed, targetKills: this.tdmManager.targetKills, state: this.tdmManager.state } : null,
+            [this.gameMode === 'FPS_SOLO' ? 'fps' : 'tdm']: (['TDM', 'FPS_SOLO'].includes(this.gameMode) && this.matchManager) ? { scoreBlue: this.matchManager.scoreBlue, scoreRed: this.matchManager.scoreRed, targetKills: this.matchManager.targetKills, state: this.matchManager.state } : null,
             enemies: this.waveManager.enemies.filter(enemy => !enemy.isDead).map(enemy => ({ id: enemy.id, type: enemy.type, position: enemy.position.toArray(), health: enemy.health, maxHealth: enemy.maxHealth, armor: enemy.armor ?? 0, status: {burnTimer: enemy.burnTimer || 0, burnDamage: enemy.burnDamage || 0, freezeTimer: enemy.freezeTimer || 0, vulnerableTimer: enemy.vulnerableTimer || 0, vulnerableMult: enemy.vulnerableMult || 1, combatState: enemy.combatState, combatTimer: enemy.combatTimer || 0}, animation: enemy.animationName || null, animationSeq: enemy.animationSeq || 0, animationTime: Number.isFinite(enemy.currentAction?.time) ? enemy.currentAction.time : null, animationRate: Number.isFinite(enemy.currentAction?.getEffectiveTimeScale()) ? enemy.currentAction.getEffectiveTimeScale() : null, animationPaused: typeof enemy.currentAction?.paused === 'boolean' ? enemy.currentAction.paused : null, yaw: enemy.mesh?.rotation.y || 0 })),
             pickups: this.pickups.pickups.map(pickup => ({ id: pickup.id, type: pickup.type, position: pickup.mesh.position.toArray(), weaponSlot: pickup.weaponSlot, life: pickup.life }))
         };
@@ -1522,6 +1594,7 @@ class CyberArenaGame {
 
     applyCoopSnapshot(snapshot, localId) {
         if (!snapshot) return;
+        if (snapshot.mode && snapshot.mode !== this.gameMode) return;
         this.waveManager.bombs.applySnapshot(snapshot.bombs || []);
         if (snapshot.worldEffects) this.weapons.applyWorldState?.(snapshot.worldEffects);
 
@@ -1529,15 +1602,16 @@ class CyberArenaGame {
             this.lootingSystem.applySnapshot(snapshot.looting);
         }
 
-        // Đồng bộ tỷ số và trạng thái TDM từ Host sang Client
-        if (snapshot.tdm && this.tdmManager) {
-            const ended = snapshot.tdm.state === 'MATCH_OVER' && this.tdmManager.state !== 'MATCH_OVER';
-            this.tdmManager.scoreBlue = snapshot.tdm.scoreBlue;
-            this.tdmManager.scoreRed = snapshot.tdm.scoreRed;
-            this.tdmManager.targetKills = snapshot.tdm.targetKills;
-            this.tdmManager.state = snapshot.tdm.state;
-            if (ended) this.tdmManager.endMatch(snapshot.tdm.scoreBlue >= snapshot.tdm.targetKills ? 'blue' : 'red');
-            this.ui?.updateTDMScore?.(this.tdmManager.scoreBlue, this.tdmManager.scoreRed, this.tdmManager.targetKills);
+        // Route match state only to its owning gameplay mode.
+        const matchState = this.gameMode === 'FPS_SOLO' ? snapshot.fps : snapshot.tdm;
+        if (matchState && this.matchManager) {
+            const ended = matchState.state === 'MATCH_OVER' && this.matchManager.state !== 'MATCH_OVER';
+            this.matchManager.scoreBlue = matchState.scoreBlue;
+            this.matchManager.scoreRed = matchState.scoreRed;
+            this.matchManager.targetKills = matchState.targetKills;
+            this.matchManager.state = matchState.state;
+            if (ended) this.matchManager.endMatch(matchState.scoreBlue >= matchState.targetKills ? 'blue' : 'red');
+            this.ui?.updateTDMScore?.(this.matchManager.scoreBlue, this.matchManager.scoreRed, this.matchManager.targetKills);
         }
 
         // Đồng bộ hiệu ứng đường đạn, ánh chớp nòng và âm thanh khi người chơi khác bắn
@@ -1621,7 +1695,7 @@ class CyberArenaGame {
         this.nextWaveTimer = snapshot.nextWaveTimer ?? this.nextWaveTimer;
         for (const state of snapshot.players || []) {
             if (state.id === localId) {
-                const spawn = snapshot.tdmSpawns?.find(p => p.id === localId);
+                const spawn = snapshot.matchSpawns?.find(p => p.id === localId);
                 if (spawn && spawn.seq > (this.player.spawnSeq || 0)) {
                     this.player.spawnSeq = spawn.seq;
                     this.player.position.fromArray(spawn.position);
@@ -1669,20 +1743,20 @@ class CyberArenaGame {
             remote.aimYaw = state.aim; remote.isADS = !!state.ads; remote.moving = !!state.moving;
             if (state.team) {
                 remote.team = state.team;
-                if (!remote.teamRing && this.tdmManager) {
-                    this.tdmManager.attachPlayerTeamIndicator(remote);
+                if (!remote.teamRing && this.matchManager) {
+                    this.matchManager.attachPlayerTeamIndicator(remote);
                 }
             }
             remote.applySharedSkillState?.(state.skills);
             remote.weapons.applyNetworkState(state.weapons);
         }
         const byId = new Map(this.waveManager.enemies.map(enemy => [enemy.id, enemy]));
-        if (snapshot.tdm) {
+        if (matchState) {
             const ids = new Set((snapshot.players || []).map(p => p.id));
             for (const [id] of this.remotePlayers) if (id.startsWith('bot_') && !ids.has(id)) this.removeCoopPlayer(id);
             for (const remote of this.remotePlayers.values()) remote.isBot = remote.id.startsWith('bot_');
-            this.tdmManager.teamBlue = this.coopPlayers.filter(p => p.team === 'blue');
-            this.tdmManager.teamRed = this.coopPlayers.filter(p => p.team === 'red');
+            this.matchManager.teamBlue = this.coopPlayers.filter(p => p.team === 'blue');
+            this.matchManager.teamRed = this.coopPlayers.filter(p => p.team === 'red');
         }
         const snapshotEnemyIds = new Set((snapshot.enemies || []).map(enemy => enemy.id));
         for (const state of snapshot.enemies || []) {
@@ -1774,10 +1848,10 @@ class CyberArenaGame {
             // Update arena portals and grass ambience.
             this.arena.update(delta);
 
-            if (this.gameMode === 'TDM') {
+            if (['TDM', 'FPS_SOLO'].includes(this.gameMode)) {
                 // Chế độ Đối kháng 4v4 TDM
-                if (!this.network.active || this.network.host) this.tdmManager?.update(delta);
-                this.visionCone?.update(this.player, delta);
+                if (!this.network.active || this.network.host) this.matchManager?.update(delta);
+                if (this.gameMode === 'TDM') this.visionCone?.update(this.player, delta);
             } else {
                 if ((!this.network.active || this.network.host) && this.nextWaveTimer > 0) {
                     this.nextWaveTimer -= delta;
@@ -1793,7 +1867,7 @@ class CyberArenaGame {
             }
 
             // Update Player
-            this.player.update(delta, this.arena, this.gameMode === 'TDM' ? (this.player.team === 'blue' ? this.tdmManager.teamRed : this.tdmManager.teamBlue) : this.waveManager.enemies);
+            this.player.update(delta, this.arena, ['TDM', 'FPS_SOLO'].includes(this.gameMode) ? (this.player.team === 'blue' ? this.matchManager.teamRed : this.matchManager.teamBlue) : this.waveManager.enemies);
             if (this.player.reviveRequested) {
                 if (this.network.active && !this.network.host) this.network.sendCommand({ type: 'revive' });
                 else this.reviveNearest(this.player);
@@ -1823,8 +1897,8 @@ class CyberArenaGame {
 
             // Update Weapons & Projectiles
             if (!this.network.active || this.network.host) {
-                if (this.gameMode === 'TDM') {
-                    const opponentEntities = this.player.team === 'blue' ? this.tdmManager.teamRed : this.tdmManager.teamBlue;
+                if (['TDM', 'FPS_SOLO'].includes(this.gameMode)) {
+                    const opponentEntities = this.player.team === 'blue' ? this.matchManager.teamRed : this.matchManager.teamBlue;
                     this.weapons.enemyTargets = opponentEntities;
                     this.weapons.update(delta, this.arena, opponentEntities, this.player,
                         (dmg, crit, pt, hitResult, target) => {
@@ -1836,8 +1910,8 @@ class CyberArenaGame {
                         (dmg, crit, pt, hitResult) => this.onHitEnemy(dmg, crit, pt, hitResult));
                 }
                 for (const remote of this.remotePlayers.values()) {
-                    if (this.gameMode === 'TDM') {
-                        const botOpponents = remote.team === 'blue' ? this.tdmManager?.teamRed : this.tdmManager?.teamBlue;
+                    if (['TDM', 'FPS_SOLO'].includes(this.gameMode)) {
+                        const botOpponents = remote.team === 'blue' ? this.matchManager?.teamRed : this.matchManager?.teamBlue;
                         remote.weapons.enemyTargets = botOpponents || [];
                         if (!remote.isBot) {
                             this.network.processCommands(remote);
@@ -1883,7 +1957,7 @@ class CyberArenaGame {
             }
 
             // Update Infinite Phases & Zombies (Chỉ chạy ở chế độ Sinh Tồn)
-            if (this.gameMode !== 'TDM') {
+            if (!['TDM', 'FPS_SOLO'].includes(this.gameMode)) {
                 const waveFinished = (!this.network.active || this.network.host) && this.waveManager.update(
                     delta, this.coopPlayers, this.arena, (enemy) => this.onEnemyKilled(enemy));
 
@@ -1905,7 +1979,7 @@ class CyberArenaGame {
             this.particles.update(delta);
 
             // Update Looting & Airdrop Ecosystem
-            if (this.gameMode !== 'TDM') {
+            if (!['TDM', 'FPS_SOLO'].includes(this.gameMode)) {
                 this.lootingSystem.update(delta);
             }
 
@@ -1913,8 +1987,8 @@ class CyberArenaGame {
             if (!render) return;
 
             // Update UI & Radar with 4 Portals, Teammates, and Tactical Airdrop Zone
-            const teammates = this.gameMode === 'TDM'
-                ? ((this.player.team === 'blue' ? this.tdmManager?.teamBlue : this.tdmManager?.teamRed) || []).filter(p => p !== this.player)
+            const teammates = ['TDM', 'FPS_SOLO'].includes(this.gameMode)
+                ? ((this.player.team === 'blue' ? this.matchManager?.teamBlue : this.matchManager?.teamRed) || []).filter(p => p !== this.player)
                 : Array.from(this.remotePlayers.values());
 
             this.ui.updateStats(this.player, this.waveManager, this.score);
@@ -1927,26 +2001,21 @@ class CyberArenaGame {
                 this.th_cullingElapsed = (this.th_cullingElapsed || 0) + delta;
                 if (this.th_cullingElapsed >= 0.06) {
                     this.th_cullingElapsed = 0;
-                    const teamMembers = (this.player.team === 'blue' ? this.tdmManager?.teamBlue : this.tdmManager?.teamRed) || [this.player];
-                    const opponents = (this.player.team === 'blue' ? this.tdmManager?.teamRed : this.tdmManager?.teamBlue) || [];
+                    const teamMembers = (this.player.team === 'blue' ? this.matchManager?.teamBlue : this.matchManager?.teamRed) || [this.player];
+                    const opponents = (this.player.team === 'blue' ? this.matchManager?.teamRed : this.matchManager?.teamBlue) || [];
                     applyVisibilityCulling(teamMembers, opponents, null, this.arena);
-                    if (this.firstPersonView?.active) {
-                        for (const opponent of opponents) {
-                            opponent.mesh.visible = true;
-                        }
-                    }
                 }
             }
 
             this.radarElapsed += delta;
             if (this.radarElapsed >= 0.05) {
                 this.radarElapsed %= 0.05;
-                const radarEnemies = this.gameMode === 'TDM'
-                    ? (this.player.team === 'blue' ? this.tdmManager?.teamRed : this.tdmManager?.teamBlue) || []
+                const radarEnemies = ['TDM', 'FPS_SOLO'].includes(this.gameMode)
+                    ? (this.player.team === 'blue' ? this.matchManager?.teamRed : this.matchManager?.teamBlue) || []
                     : this.waveManager.enemies;
                 // Trong TDM, chỉ những đối thủ đang nhìn thấy mới hiện trên radar
-                const visibleRadarEnemies = this.gameMode === 'TDM'
-                    ? radarEnemies.filter(e => e && !e.isDead && e.isVisibleToObserver)
+                const visibleRadarEnemies = ['TDM', 'FPS_SOLO'].includes(this.gameMode)
+                    ? radarEnemies.filter(e => e && !e.isDead && (this.gameMode === 'FPS_SOLO' || e.isVisibleToObserver))
                     : radarEnemies;
                 this.ui.drawRadar(this.player, visibleRadarEnemies, this.pickups.pickups, this.arena.getPortals(), teammates, this.lootingSystem.activeAirdropZone);
             }
@@ -1967,15 +2036,18 @@ class CyberArenaGame {
         const ownVisible = ownModel?.visible;
         if (this.firstPersonView?.active && ownModel) ownModel.visible = false;
         if (this.firstPersonView?.active) {
-            for (const entity of [this.player, ...this.tdmManager.teamBlue, ...this.tdmManager.teamRed]) {
+            for (const entity of [this.player, ...this.matchManager.teamBlue, ...this.matchManager.teamRed]) {
+                // FPS uses the depth buffer for world occlusion. Radar visibility is
+                // throttled independently and must never hide a living character.
+                if (entity !== this.player && entity.mesh) entity.mesh.visible = !entity.isDead;
                 if (entity.healthBar?.group) entity.healthBar.group.visible = false;
             }
         }
         this.renderer.render(this.scene, this.camera);
         if (ownModel) ownModel.visible = ownVisible;
         if (this.firstPersonView?.active) this.firstPersonView.render(this.renderer);
-        if (this.state === 'PLAYING' && this.gameMode === 'TDM' && !this.firstPersonView?.active) {
-            const myTeammates = ((this.player.team === 'blue' ? this.tdmManager?.teamBlue : this.tdmManager?.teamRed) || []).filter(p => p !== this.player);
+        if (this.state === 'PLAYING' && this.gameMode === 'TDM') {
+            const myTeammates = ((this.player.team === 'blue' ? this.matchManager?.teamBlue : this.matchManager?.teamRed) || []).filter(p => p !== this.player);
             this.visionCone?.render(this.player, true, myTeammates, this.arena);
         } else {
             this.visionCone?.clear();
