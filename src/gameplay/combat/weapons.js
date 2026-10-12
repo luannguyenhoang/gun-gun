@@ -2334,7 +2334,9 @@ export class WeaponSystem {
             const charExtraPen = playerRef?.penetrationBonus || 0;
             const charCritBonus = playerRef?.critChanceBonus || 0;
             const isGuaranteedCrit = playerRef?.activeSkillEffect === 'guaranteed_crit';
-            const finalCritChance = isGuaranteedCrit ? 1.0 : Math.min(1.0, 0.12 + (effective.extraCritChance || 0) + charCritBonus);
+            const isTDM = globalThis.window?.game?.gameMode === 'TDM';
+            const baseCritRate = isTDM ? 0.0 : 0.12;
+            const finalCritChance = isGuaranteedCrit ? 1.0 : Math.min(1.0, baseCritRate + (effective.extraCritChance || 0) + charCritBonus);
 
             this.projectiles.push({
                 meshEntry: entry,
@@ -3223,7 +3225,8 @@ export class WeaponSystem {
                         if (blocked) continue;
 
                         hitCount++;
-                        const isCrit = dot > 0.82 && (Math.random() < 0.35);
+                        const isTDM = globalThis.window?.game?.gameMode === 'TDM';
+                        const isCrit = isTDM ? (dot > 0.95) : (dot > 0.82 && (Math.random() < 0.35));
                         const finalDamage = p.damage * (isCrit ? p.critMultiplier : 1.0);
 
                         if (enemy.velocity) {
@@ -3326,8 +3329,28 @@ export class WeaponSystem {
                             currentBaseDmg = Math.round(currentBaseDmg * dropFactor);
                         }
 
-                        // Tính tỷ lệ bạo kích theo Phụ kiện Kính ngắm hoặc Kỹ năng Ám sát
-                        let isCrit = hitInfo.isCrit || (Math.random() < (p.critChance || 0.12));
+                        // Tính tỷ lệ bạo kích:
+                        // Trong chế độ PvP (TDM / Battle Top-down): Áp dụng cơ chế Bắn trúng tâm (Bullseye / Center Hit)
+                        // Trong chế độ PvE Zombie: Áp dụng Headshot theo chiều cao hình học hoặc tỷ lệ bạo kích ngẫu nhiên
+                        const isTDM = globalThis.window?.game?.gameMode === 'TDM';
+                        let isCrit = false;
+
+                        if (isTDM) {
+                            // Tính khoảng cách vuông góc từ tâm đối thủ tới tia đạn trong mặt phẳng ngang XZ
+                            const enemyPos = enemy.mesh ? enemy.mesh.position : enemy.position;
+                            const vx = enemyPos.x - startPos.x;
+                            const vz = enemyPos.z - startPos.z;
+                            const dirX = p.direction.x;
+                            const dirZ = p.direction.z;
+                            const dirLen2D = Math.hypot(dirX, dirZ);
+                            const centerDist = dirLen2D > 0.0001 ? Math.abs(vx * dirZ - vz * dirX) / dirLen2D : 0;
+
+                            // Đạn bắn trúng tâm hẹp (<= 0.22m) được tính là Bạo kích (CRITICAL). Loại bỏ random crit trong PvP.
+                            isCrit = (centerDist <= 0.22);
+                        } else {
+                            isCrit = hitInfo.isCrit || (Math.random() < (p.critChance || 0.12));
+                        }
+
                         let critMult = isCrit ? (p.critMultiplier || 1.8) : 1.0;
                         if (p.owner?.assassinCritReady) {
                             isCrit = true;

@@ -1280,7 +1280,9 @@ export class UIManager {
             // Xuyên giáp hoặc trúng máu trực tiếp
             el.className = isCrit ? 'damage-popup crit' : 'damage-popup';
             const displayDmg = hitResult ? hitResult.healthDamage : Math.round(amount);
-            el.textContent = `${displayDmg}${isCrit ? ' HEADSHOT' : ''}`;
+            const isTDM = window.game?.gameMode === 'TDM';
+            const critLabel = isCrit ? (isTDM ? ' CRITICAL' : ' HEADSHOT') : '';
+            el.textContent = `${displayDmg}${critLabel}`;
         }
 
         el.style.left = `${Math.round(x + (Math.random() - 0.5) * 16)}px`;
