@@ -484,8 +484,8 @@ class CyberArenaGame {
         let targetArena;
         if (targetMode === 'FPS_SOLO') {
             targetArena = this.fpsArena;
-            this.scene.fog = new THREE.FogExp2(0xa5d8c5, 0.007); // Sương mù thung lũng rừng thông nhẹ mát
-            this.scene.background = new THREE.Color(0x78c2e6); // Bầu trời xanh ban ngày trong lành, xanh mát
+            this.scene.fog = new THREE.FogExp2(0xcbdadd, 0.004); // Light atmospheric depth across the courtyard.
+            this.scene.background = new THREE.Color(0xcbdadd);
         } else if (targetMode === 'TDM') {
             targetArena = this.spaceArena;
             this.scene.fog = null; // Tắt sương mù để chế độ 4vs4 TDM nhìn từ trên cao xuống sáng rõ rực rỡ toàn bộ asset trạm không gian

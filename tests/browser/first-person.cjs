@@ -66,7 +66,7 @@ const root = path.resolve(__dirname, '../..');
             assert.ok(Math.abs(controls.results[i]-controls.speed)<1e-6, 'Diagonal speed must stay capped at every frame rate');
             assert.ok(controls.results[i+1]<0.02, 'Releasing movement must stop promptly');
         }
-        await page.evaluate(() => { game.player.invulnerability = 999; game.player.position.set(0,0,0); });
+        await page.evaluate(() => { game.player.invulnerability = 999; game.player.position.set(3.5,0,0); });
         const recoil = await page.evaluate(() => {
             const p = game.player, view = game.firstPersonView, w = game.weapons;
             const results = [];
@@ -123,10 +123,10 @@ const root = path.resolve(__dirname, '../..');
         // An actual center-screen projectile must hit the opponent, not merely consume ammo.
         await page.evaluate(() => {
             for (const bot of game.fpsManager.bots) bot.update = () => {};
-            game.player.position.set(-12,0,0); game.player.velocity.set(0,0,0);
+            game.player.position.set(-19,0,0); game.player.velocity.set(0,0,0);
             game.firstPersonView.yaw = 0; game.firstPersonView.pitch = 0;
             game.testFpsTarget = game.fpsManager.teamRed[0];
-            game.testFpsTarget.position.set(-12,0,-4);
+            game.testFpsTarget.position.set(-19,0,-4);
             game.testFpsTarget.invulnerability = 0;
             game.testFpsTarget.health = 100; game.testFpsTarget.shield = 0;
             game.weapons.fireCooldown = 0;

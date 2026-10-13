@@ -460,7 +460,9 @@ export class BaseArena {
         const maxX = Math.max(from.x, to.x) + 8;
         const minZ = Math.min(from.z, to.z) - 8;
         const maxZ = Math.max(from.z, to.z) + 8;
-        const localBoxes = this.getCollidersInAABB(minX, minZ, maxX, maxZ, _tempNearbyColliders);
+        // Corner probes call checkCollision, which reuses _tempNearbyColliders.
+        // Keep this candidate list stable while building the navigation graph.
+        const localBoxes = this.getCollidersInAABB(minX, minZ, maxX, maxZ, _tempNearbyColliders).slice();
 
         for (let i = 0; i < localBoxes.length; i++) {
             const box = localBoxes[i];

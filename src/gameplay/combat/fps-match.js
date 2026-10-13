@@ -86,6 +86,14 @@ export class FPSBot {
     }
 
     pickNewPatrolTarget() {
+        const landmarks = this.game?.arena?.patrolPoints;
+        if (landmarks?.length) {
+            const candidates = landmarks.filter(point => point.distanceTo(this.remote.position) > 5);
+            this.patrolTarget.copy(candidates[Math.floor(Math.random() * candidates.length)] || landmarks[0]);
+            this.patrolPath = null;
+            this.patrolPathTimer = 0;
+            return;
+        }
         // Tuần tra chiến thuật dọc theo 3 làn đường chính (Mid, Long A, Site B)
         const laneChoice = Math.random();
         let targetX = 0;
@@ -259,16 +267,27 @@ export class FPSBot {
             }
         } else {
             // Không có kẻ địch trong tầm: Tuần tra đến điểm chốt
-            _th_toPatrol.subVectors(this.patrolTarget, this.remote.position);
+            const arena = this.game?.arena;
+            this.patrolPathTimer = (this.patrolPathTimer || 0) - delta;
+            if (arena?.findNavigationPath && (!this.patrolPath || this.patrolPathTimer <= 0)) {
+                this.patrolPath = arena.findNavigationPath(this.remote.position, this.patrolTarget, 0.5);
+                this.patrolPathTimer = 1.2 + Math.random() * 0.3;
+                if (!this.patrolPath.length) this.pickNewPatrolTarget();
+            }
+            while (this.patrolPath?.length > 1 && this.remote.position.distanceTo(this.patrolPath[0]) < 0.35) {
+                this.patrolPath.shift();
+            }
+            const waypoint = this.patrolPath?.[0] || this.patrolTarget;
+            _th_toPatrol.subVectors(waypoint, this.remote.position);
             _th_toPatrol.y = 0;
             const distPatrol = _th_toPatrol.length();
 
-            if (distPatrol < 2.0) {
+            if (this.remote.position.distanceTo(this.patrolTarget) < 1.0) {
                 this.pickNewPatrolTarget();
                 this.remote.moving = false;
             } else {
-                _th_toPatrol.multiplyScalar(1 / distPatrol);
-                const step = 4.2 * delta;
+                _th_toPatrol.multiplyScalar(1 / Math.max(distPatrol, 0.001));
+                const step = Math.min(4.2 * delta, distPatrol);
                 this.moveBot(_th_toPatrol.x * step, _th_toPatrol.z * step);
                 this.remote.aimYaw = Math.atan2(_th_toPatrol.x, _th_toPatrol.z);
                 this.remote.moving = true;
