@@ -23,7 +23,8 @@ export async function th_preloadAllGameAssets(game, onProgress = null) {
     try {
         await Promise.all([
             game.survivalArena ? game.survivalArena.loadModels() : Promise.resolve(),
-            game.spaceArena ? game.spaceArena.loadModels() : Promise.resolve()
+            game.spaceArena ? game.spaceArena.loadModels() : Promise.resolve(),
+            game.fpsArena ? game.fpsArena.loadModels() : Promise.resolve()
         ]);
     } catch (e) {
         console.warn('[TH_AssetPreloader] Nạp models đấu trường có cảnh báo:', e);

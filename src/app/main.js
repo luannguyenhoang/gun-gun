@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js?v=63';
 import { ParticleSystem } from '../rendering/particles.js?v=68';
-import { Arena, SurvivalArena, SpaceArena } from '../world/arena.js?v=25';
+import { Arena, SurvivalArena, SpaceArena, FPSArena } from '../world/arena.js?v=26';
 import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=74';
 import { PlayerController } from '../gameplay/player/player.js?v=79';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=70';
@@ -132,6 +132,7 @@ class CyberArenaGame {
         this.particles.setQuality(this.perfSettings);
         this.survivalArena = new SurvivalArena(this.scene, this.gltfLoader);
         this.spaceArena = new SpaceArena(this.scene, this.gltfLoader);
+        this.fpsArena = new FPSArena(this.scene, this.gltfLoader);
         this.arena = this.survivalArena;
         this.weapons = new WeaponSystem(this.scene, this.gltfLoader, this.particles);
         const initialLoadout = this.getLoadout();
@@ -480,14 +481,17 @@ class CyberArenaGame {
     }
 
     switchArena(targetMode) {
-        const isTDM = targetMode === 'TDM' || targetMode === 'FPS_SOLO';
-        const targetArena = isTDM ? this.spaceArena : this.survivalArena;
-
-        // Cập nhật môi trường không gian và sương mù theo chế độ
-        if (isTDM) {
-            this.scene.fog = null; // Tắt sương mù Zombie để trạm không gian hiển thị sáng rõ rực rỡ
-            this.scene.background = new THREE.Color(0x0a101d);
+        let targetArena;
+        if (targetMode === 'FPS_SOLO') {
+            targetArena = this.fpsArena;
+            this.scene.fog = new THREE.FogExp2(0xa5d8c5, 0.007); // Sương mù thung lũng rừng thông nhẹ mát
+            this.scene.background = new THREE.Color(0x78c2e6); // Bầu trời xanh ban ngày trong lành, xanh mát
+        } else if (targetMode === 'TDM') {
+            targetArena = this.spaceArena;
+            this.scene.fog = null; // Tắt sương mù để chế độ 4vs4 TDM nhìn từ trên cao xuống sáng rõ rực rỡ toàn bộ asset trạm không gian
+            this.scene.background = new THREE.Color(0x0a101d); // Nền trạm không gian sâu
         } else {
+            targetArena = this.survivalArena;
             this.scene.fog = new THREE.FogExp2(0x161a24, 0.022); // Sương mù Zombie
             this.scene.background = new THREE.Color(0x0c1017);
         }
@@ -526,7 +530,8 @@ class CyberArenaGame {
         updateLoading(15, 'Loading Arena Modules & Portals...');
         await Promise.all([
             this.survivalArena.loadModels(),
-            this.spaceArena.loadModels()
+            this.spaceArena.loadModels(),
+            this.fpsArena.loadModels()
         ]);
 
         updateLoading(40, 'Building Arena & Portals...');
