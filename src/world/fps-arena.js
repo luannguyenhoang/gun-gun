@@ -123,17 +123,31 @@ export class FPSArena extends BaseArena {
     }
 
     buildGround() {
-        this.box('foundation', 0, -0.22, 0, 57, 0.2, 57, 'joint');
-        // Quiet paving grid, with broad light routes and darker planted edges.
-        for (let x = -27; x <= 27; x += 2) for (let z = -27; z <= 27; z += 2) {
-            this.box('paving', x, -0.02, z, 1.97, 0.02, 1.97, 'paving');
+        this.box('foundation', 0, -0.24, 0, 57, 0.2, 57, 'joint');
+        // One continuous surface: subpixel geometry gaps used to flicker at eye level.
+        // Mipmaps filter distant mortar, anisotropy preserves detail at grazing angles.
+        const size = 128;
+        const pixels = new Uint8Array(size * size * 4);
+        for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+            const offset = (y * size + x) * 4;
+            const shade = x < 2 || y < 2 ? 210 : 255;
+            pixels.set([shade, shade, shade, 255], offset);
         }
-        for (const x of [-15, -4.5, 4.5, 15]) {
-            this.box('lane-inlay', x, 0.005, 0, 0.12, 0.012, 38, 'trim');
-        }
-        for (const z of [-19, -4, 4, 19]) {
-            this.box('crossing-inlay', 0, 0.006, z, 48, 0.012, 0.12, 'trim');
-        }
+        const texture = this.own(new THREE.DataTexture(pixels, size, size));
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(28, 28);
+        texture.generateMipmaps = true;
+        texture.minFilter = THREE.LinearMipmapLinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.anisotropy = 8;
+        texture.needsUpdate = true;
+        const floor = new THREE.Mesh(this.own(new THREE.PlaneGeometry(56, 56)),
+            this.own(new THREE.MeshStandardMaterial({ color: PALETTE.paving, map: texture, roughness: 0.92 })));
+        floor.name = 'courtyard-paving';
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        this.addSceneObject(floor);
     }
 
     buildPerimeter() {

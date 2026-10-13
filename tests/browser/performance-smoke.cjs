@@ -35,7 +35,7 @@ const assert = require('node:assert/strict');
             g.applyPerformanceSettings({ mode: 'optimized', shadows: false });
             return { ...initial, fullLights, optimizedLights: g.arena.tacticalLights.filter(light => light.visible).length };
         });
-        assert.deepEqual(quality, { antialias: false, lights: 0, fullLights: 5, optimizedLights: 0 });
+        assert.deepEqual(quality, { antialias: true, lights: 0, fullLights: 5, optimizedLights: 0 });
         const results = [];
         for (const mode of ['SURVIVAL', 'TDM', 'FPS_TDM']) {
             results.push(await page.evaluate(async mode => {

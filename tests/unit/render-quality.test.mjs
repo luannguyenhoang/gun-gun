@@ -45,6 +45,26 @@ test('optimized resolution bounds 4K/DPR work and recovers after resize and pres
     assert.equal(quality.ratio, 0.4);
 });
 
+test('FPS keeps native detail under sustained load, including resize and preset changes', () => {
+    const quality = new RenderQuality(1);
+    quality.configure(1, 1920, 1080, 'optimized');
+    for (let i = 0; i < 600; i++) quality.sample(1 / 30);
+    assert.equal(quality.ratio, 0.5);
+    quality.configure(1, 1920, 1080, 'optimized', true);
+    for (let i = 0; i < 600; i++) quality.sample(1 / 30);
+    assert.equal(quality.ratio, 1);
+    quality.configure(2, 1280, 720, 'full', true);
+    for (let i = 0; i < 600; i++) quality.sample(1 / 30);
+    assert.equal(quality.ratio, 1);
+    quality.configure(2, 3840, 2160, 'optimized', true);
+    assert.equal(quality.ratio, 0.5, '4K still respects the 1080p pixel budget');
+    quality.configure(1, 1280, 720, 'optimized', true);
+    assert.equal(quality.ratio, 1, 'resizing immediately restores native detail');
+    quality.configure(1, 1280, 720, 'optimized', false);
+    for (let i = 0; i < 600; i++) quality.sample(1 / 30);
+    assert.equal(quality.ratio, 0.5, 'overhead modes retain their original scaling');
+});
+
 test('presets omit decorative lights from rendering and restore them without reallocating', () => {
     const scene = new THREE.Scene();
     const arena = new Arena(scene);

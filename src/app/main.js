@@ -99,7 +99,8 @@ class CyberArenaGame {
         // High-Performance WebGL Renderer tối ưu hóa hiệu năng
         this.renderer = new THREE.WebGLRenderer({
             canvas: this.canvas,
-            antialias: this.perfSettings.mode !== 'optimized',
+            // Context antialiasing cannot be enabled later by changing a preset.
+            antialias: true,
             powerPreference: 'high-performance'
         });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -117,7 +118,7 @@ class CyberArenaGame {
             this.camera.left = -this.viewHeight * aspect / 2;
             this.camera.right = this.viewHeight * aspect / 2;
             this.camera.updateProjectionMatrix();
-            this.renderQuality.configure(window.devicePixelRatio, window.innerWidth, window.innerHeight, this.perfSettings.mode);
+            this.renderQuality.configure(window.devicePixelRatio, window.innerWidth, window.innerHeight, this.perfSettings.mode, !!this.firstPersonView?.active);
             this.renderer.setPixelRatio(this.renderQuality.ratio);
             this.renderer.setSize(window.innerWidth, window.innerHeight);
             this.visionCone?.initCanvasSize?.();
@@ -398,7 +399,7 @@ class CyberArenaGame {
             localStorage.setItem('arena_perf_settings', JSON.stringify(this.perfSettings));
         } catch { }
 
-        this.renderQuality?.configure(window.devicePixelRatio, window.innerWidth, window.innerHeight, this.perfSettings.mode);
+        this.renderQuality?.configure(window.devicePixelRatio, window.innerWidth, window.innerHeight, this.perfSettings.mode, !!this.firstPersonView?.active);
         if (this.renderer && this.renderQuality) this.renderer.setPixelRatio(this.renderQuality.ratio);
         this.arena?.setQuality(this.perfSettings);
 

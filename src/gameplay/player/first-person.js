@@ -95,6 +95,11 @@ export class FirstPersonView {
 
     setEnabled(enabled) {
         this.active = enabled;
+        const { renderQuality, renderer, perfSettings } = this.game;
+        if (renderQuality && renderer) {
+            renderQuality.configure(window.devicePixelRatio, innerWidth, innerHeight, perfSettings.mode, enabled);
+            renderer.setPixelRatio(renderQuality.ratio);
+        }
         this.game.player.firstPerson = enabled ? this : null;
         this.game.camera = this.game.player.camera = enabled ? this.camera : this.overhead;
         document.body.classList.toggle('solo-fps', enabled);

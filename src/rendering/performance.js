@@ -14,13 +14,15 @@ export class RenderQuality {
         this.fastWindows = 0;
     }
 
-    configure(pixelRatio, width, height, mode = 'optimized') {
+    configure(pixelRatio, width, height, mode = 'optimized', firstPerson = false) {
         // Gioi han ngan sach pixel tren man hinh do phan giai cao (1440p / 4K)
         const optimized = mode === 'optimized';
         const pixelBudget = optimized ? 1920 * 1080 : 2560 * 1440;
         const screenLimit = Math.sqrt(pixelBudget / Math.max(1, width * height));
         this.maxRatio = Math.min(pixelRatio || 1, optimized ? 1 : 1.5, screenLimit);
-        this.minRatio = Math.min(this.maxRatio, optimized ? 0.5 : 0.75);
+        // Eye-level silhouettes need stable detail. Keep FPS at native CSS resolution
+        // within the pixel budget, while overhead modes retain their wider DRS range.
+        this.minRatio = Math.min(this.maxRatio, firstPerson ? 1 : (optimized ? 0.5 : 0.75));
         this.ratio = Math.max(this.minRatio, Math.min(this.ratio, this.maxRatio));
         this.reset();
     }
