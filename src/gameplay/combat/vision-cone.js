@@ -140,7 +140,7 @@ export function checkEntityVisibility(observer, target, visionConfig, arena = nu
  * @param {object} defaultVisionConfig - Cấu hình tầm nhìn mặc định (tùy chọn)
  * @param {object} arena - Bản đồ đấu trường để kiểm tra tia Line of Sight (tùy chọn)
  */
-export function applyVisibilityCulling(teamOrObserver, entities, defaultVisionConfig = null, arena = null) {
+export function applyVisibilityCulling(teamOrObserver, entities, defaultVisionConfig = null, arena = null, configForObserver = null) {
     if (!entities || !Array.isArray(entities)) return;
 
     // Chuẩn hóa danh sách thành viên quan sát cùng phe
@@ -148,7 +148,7 @@ export function applyVisibilityCulling(teamOrObserver, entities, defaultVisionCo
     const activeObservers = observers.filter(o => o && !o.isDead);
     const configs = activeObservers.map(obs => {
         const weapon = obs.weapons?.currentGun || obs.weapons?.getCurrentWeapon?.();
-        return (obs === teamOrObserver && defaultVisionConfig) || getWeaponVisionConfig(weapon, !!obs.isADS, obs.weapons?.getOpticTier?.() || 1);
+        return configForObserver?.(obs) || (obs === teamOrObserver && defaultVisionConfig) || getWeaponVisionConfig(weapon, !!obs.isADS, obs.weapons?.getOpticTier?.() || 1);
     });
 
     for (let i = 0; i < entities.length; i++) {
@@ -193,42 +193,93 @@ export function applyVisibilityCulling(teamOrObserver, entities, defaultVisionCo
     }
 }
 
-/**
- * Lớp quản lý vẽ mặt nạ bóng tối 2D Canvas và khoét luồng sáng hình quạt cho toàn đội
- */
+// Sample wall corners as well as the arc so shadows stay attached while aim rotates.
+export function buildVisionPolygon(position, yaw, range, angle, arena, points = [], candidates = []) {
+    const half = angle * Math.PI / 360;
+    const fullCircle = angle >= 360;
+    const boxes = arena?.getCollidersInAABB
+        ? arena.getCollidersInAABB(position.x - range, position.z - range,
+            position.x + range, position.z + range, candidates)
+        : (arena?.colliders || []);
+    const angles = [];
+    const steps = fullCircle ? 64 : Math.max(16, Math.ceil(angle / 1.5));
+    for (let i = 0; i <= steps; i++) angles.push(-half + angle * Math.PI / 180 * i / steps);
+    for (const box of boxes) {
+        if (box.max.y <= 1 || box.min.y >= 1) continue;
+        for (const x of [box.min.x, box.max.x]) for (const z of [box.min.z, box.max.z]) {
+            let relative = Math.atan2(x - position.x, z - position.z) - yaw;
+            relative = Math.atan2(Math.sin(relative), Math.cos(relative));
+            for (const epsilon of [-0.0001, 0, 0.0001]) {
+                const a = relative + epsilon;
+                if (a > -half && a < half) angles.push(a);
+            }
+        }
+    }
+    angles.sort((a, b) => a - b);
+    let count = 0;
+    if (!fullCircle) {
+        const origin = points[count++] ||= { x: 0, z: 0 };
+        origin.x = position.x; origin.z = position.z;
+    }
+    let previousAngle = -Infinity;
+    for (const relative of angles) {
+        if (relative - previousAngle < 0.000001) continue;
+        previousAngle = relative;
+        const dx = Math.sin(yaw + relative), dz = Math.cos(yaw + relative);
+        let distance = range;
+        for (const box of boxes) {
+            if (box.max.y <= 1 || box.min.y >= 1) continue;
+            let near = 0, far = distance;
+            if (Math.abs(dx) < 1e-9) {
+                if (position.x < box.min.x || position.x > box.max.x) continue;
+            } else {
+                const a = (box.min.x - position.x) / dx, b = (box.max.x - position.x) / dx;
+                near = Math.max(near, Math.min(a, b)); far = Math.min(far, Math.max(a, b));
+            }
+            if (Math.abs(dz) < 1e-9) {
+                if (position.z < box.min.z || position.z > box.max.z) continue;
+            } else {
+                const a = (box.min.z - position.z) / dz, b = (box.max.z - position.z) / dz;
+                near = Math.max(near, Math.min(a, b)); far = Math.min(far, Math.max(a, b));
+            }
+            if (near <= far && far >= 0) distance = Math.max(0, near - 0.005);
+        }
+        const point = points[count++] ||= { x: 0, z: 0 };
+        point.x = position.x + dx * distance;
+        point.z = position.z + dz * distance;
+    }
+    points.length = count;
+    return points;
+}
+
+/** World-space visibility projected into the overhead camera, never a screen-space circle. */
 export class VisionConeOverlay {
     constructor(canvas, camera) {
         this.canvas = canvas;
         this.ctx = canvas?.getContext('2d');
         this.camera = camera;
-        this.enabled = false;
         this._hasContent = false;
-
-        // Các thông số được nội suy (lerp) mượt mà cho người chơi chính
-        this.currentRange = 20.0;
-        this.currentAngle = 50.0;
-        this.currentProximity = 2.0;
-
-        // Vector và Ray tạm để tính toán chiếu tọa độ và cắt tường tránh Garbage Collection
-        this._tempV1 = new THREE.Vector3();
-        this._tempV2 = new THREE.Vector3();
-        this._tempV3 = new THREE.Vector3();
-        this._coneRay = new THREE.Ray();
-        this._coneHit = new THREE.Vector3();
-        this._coneRayDir = new THREE.Vector3();
-        this._rayTarget3D = new THREE.Vector3();
-
+        this.currentRange = 20;
+        this.currentAngle = 50;
+        this.currentProximity = 2;
+        this.mask = document.createElement('canvas');
+        this.maskCtx = this.mask.getContext('2d');
+        this._origin = new THREE.Vector3();
+        this._axisX = new THREE.Vector3();
+        this._axisZ = new THREE.Vector3();
+        this._points = [];
+        this._candidates = [];
         this.initCanvasSize();
         window.addEventListener('resize', () => this.initCanvasSize());
     }
 
     initCanvasSize() {
         if (!this.canvas) return;
-        // Đặt kích thước canvas sắc nét chuẩn 100% theo màn hình thật
-        this.width = window.innerWidth;
-        this.height = window.innerHeight;
-        this.canvas.width = this.width;
-        this.canvas.height = this.height;
+        const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
+        this.width = Math.round(window.innerWidth * ratio);
+        this.height = Math.round(window.innerHeight * ratio);
+        this.canvas.width = this.mask.width = this.width;
+        this.canvas.height = this.mask.height = this.height;
         this._hasContent = false;
     }
 
@@ -236,283 +287,97 @@ export class VisionConeOverlay {
         if (!this.ctx || !this.canvas || !this._hasContent) return;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this._hasContent = false;
+        this._player = null;
     }
 
-    /**
-     * Cập nhật thông số tầm nhìn theo thời gian thực (nội suy mượt mà) cho người chơi chính
-     */
+    getConfig() {
+        return { visionRange: this.currentRange, visionAngle: this.currentAngle, proximityRadius: this.currentProximity };
+    }
+
     update(player, delta) {
         if (!player) return;
-
-        const weapon = player.weapons?.getCurrentWeapon?.() || player.weapons?.currentGun || player.weapons?.weaponSlots?.[player.weapons?.currentSlotIndex];
-        const isADS = !!player.isADS;
-        const opticTier = player.weapons?.getOpticTier ? player.weapons.getOpticTier() : 1;
-        const targetCfg = getWeaponVisionConfig(weapon, isADS, opticTier);
-
-        const cat = (weapon?.category || '').toUpperCase();
-        const id = (weapon?.id || '').toLowerCase();
-        const name = (weapon?.name || '').toUpperCase();
-        const aliases = Array.isArray(weapon?.aliases) ? weapon.aliases.join(' ').toLowerCase() : '';
-        const isSniper = cat.includes('NGẮM') || cat.includes('SNIPER') || cat.includes('TỈA') || cat.includes('DMR') || 
-                         name.includes('SNIPER') || name.includes('DMR') || id === 'awp' || 
-                         id.includes('blaster_n') || id.includes('blaster_o') || 
-                         aliases.includes('blaster_n') || aliases.includes('blaster_o');
-
-        // Hiệu ứng thu hẹp dần dần góc nhìn khi bật ngắm Sniper (đồng bộ nhịp nhàng với quá trình tâm ngắm co nhỏ lại)
-        let angleSpeed = 10.0;
-        let rangeSpeed = 12.0;
-        let proxSpeed = 10.0;
-
-        if (isSniper) {
-            if (isADS) {
-                // Khi bật ngắm: Góc nhìn từ từ khép lại mượt mà trong ~0.4s và tầm nhìn vươn dài ra phía trước
-                angleSpeed = 5.2;
-                rangeSpeed = 6.2;
-                proxSpeed = 5.5;
-            } else {
-                // Khi nhả ngắm: Mở rộng nhanh chóng để khôi phục tầm quan sát bao quát
-                angleSpeed = 9.5;
-                rangeSpeed = 12.0;
-                proxSpeed = 9.0;
-            }
-        } else if (isADS) {
-            angleSpeed = 12.0;
-            rangeSpeed = 14.0;
-        }
-
-        const lerpAngle = Math.min(1.0, angleSpeed * delta);
-        const lerpRange = Math.min(1.0, rangeSpeed * delta);
-        const lerpProx = Math.min(1.0, proxSpeed * delta);
-
-        this.currentAngle += (targetCfg.visionAngle - this.currentAngle) * lerpAngle;
-        this.currentRange += (targetCfg.visionRange - this.currentRange) * lerpRange;
-        this.currentProximity += (targetCfg.proximityRadius - this.currentProximity) * lerpProx;
+        const weapon = player.weapons?.getCurrentWeapon?.() || player.weapons?.currentGun;
+        const cfg = getWeaponVisionConfig(weapon, !!player.isADS, player.weapons?.getOpticTier?.() || 1);
+        // Initialise each match without sweeping from the previous weapon's light cone.
+        const amount = this._player === player ? 1 - Math.exp(-12 * Math.max(0, delta)) : 1;
+        this._player = player;
+        this.currentRange += (cfg.visionRange - this.currentRange) * amount;
+        this.currentAngle += (cfg.visionAngle - this.currentAngle) * amount;
+        this.currentProximity += (cfg.proximityRadius - this.currentProximity) * amount;
     }
 
-    /**
-     * Hàm khoét lỗ hình quạt và quầng cận cảnh cho một chiến binh cụ thể (bị chặn lại bởi vách tường 3D)
-     * @param {object} spotter - Người chơi hoặc bot quan sát
-     * @param {number} rangeVal - Tầm chiếu xa
-     * @param {number} angleVal - Góc mở hình quạt
-     * @param {number} proxVal - Bán kính cận cảnh
-     * @param {object} arena - Bản đồ đấu trường để kiểm tra va chạm tường
-     */
-    _renderSpotterCutout(spotter, rangeVal, angleVal, proxVal, arena = null, isLocalPlayer = true) {
-        const width = this.canvas.width;
-        const height = this.canvas.height;
-        const ctx = this.ctx;
-
-        // 1. Tính tọa độ màn hình của chiến binh
-        this._tempV1.copy(spotter.position);
-        this._tempV1.project(this.camera);
-
-        // Kiểm tra xem chiến binh có nằm quá xa khỏi khung hình không
-        if (this._tempV1.z > 1.0 || this._tempV1.x < -1.5 || this._tempV1.x > 1.5 || this._tempV1.y < -1.5 || this._tempV1.y > 1.5) {
-            return;
-        }
-
-        const screenX = (this._tempV1.x * 0.5 + 0.5) * width;
-        const screenY = (-(this._tempV1.y * 0.5) + 0.5) * height;
-
-        // 2. Tính bán kính điểm ảnh tương ứng trên màn hình cho gradient
-        this._tempV3.set(spotter.position.x + rangeVal, spotter.position.y, spotter.position.z);
-        this._tempV3.project(this.camera);
-        const rScreenX = (this._tempV3.x * 0.5 + 0.5) * width;
-        const screenRadius = Math.max(20, Math.abs(rScreenX - screenX));
-
-        this._tempV3.set(spotter.position.x + proxVal, spotter.position.y, spotter.position.z);
-        this._tempV3.project(this.camera);
-        const pScreenX = (this._tempV3.x * 0.5 + 0.5) * width;
-        const screenProxRadius = Math.max(12, Math.abs(pScreenX - screenX));
-
-        const yaw = spotter.aimYaw || 0;
-        const halfAngleRad = ((angleVal * Math.PI) / 180) / 2;
-
-        if (!isLocalPlayer) {
-            // Đối với đồng đội bot: Khoét quầng sáng tròn tĩnh chia sẻ tầm nhìn (Zero CPU Raycast)
-            // Giúp giải phóng hoàn toàn chi phí raycast đa giác cho toàn bộ bot đồng đội
-            ctx.save();
-            ctx.globalCompositeOperation = 'destination-out';
-            const mateRadius = Math.max(30, screenProxRadius * 2.4);
-            const mateGrad = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, mateRadius);
-            mateGrad.addColorStop(0, 'rgba(0, 0, 0, 1.0)');
-            mateGrad.addColorStop(0.72, 'rgba(0, 0, 0, 0.85)');
-            mateGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
-
-            ctx.fillStyle = mateGrad;
-            ctx.beginPath();
-            ctx.arc(screenX, screenY, mateRadius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-            return;
-        }
-
-        // Người chơi chính: Bắn tia tạo Đa Giác Tầm Nhìn sắc nét (Tối ưu hóa: 10 tia + 5 tia cận cảnh)
-        const numRays = 10;
-        const polyPoints = (this._localPolyPoints ||= []);
-        polyPoints.length = numRays + 1;
-        const range = Math.max(rangeVal, proxVal) + 0.5;
-        const candidates = arena?.getCollidersInAABB?.(spotter.position.x - range, spotter.position.z - range,
-            spotter.position.x + range, spotter.position.z + range, this._candidates ||= []);
-
-        for (let s = 0; s <= numRays; s++) {
-            const relAngle = -halfAngleRad + (s / numRays) * (halfAngleRad * 2);
-            const rayAngle = yaw + relAngle;
-            const dirX = Math.sin(rayAngle);
-            const dirZ = Math.cos(rayAngle);
-
-            this._coneRayDir.set(dirX, 0, dirZ);
-            this._coneRay.origin.set(spotter.position.x, 1.0, spotter.position.z);
-            this._coneRay.direction.copy(this._coneRayDir);
-
-            let hitDist = rangeVal;
-            if (arena && typeof arena.raycastClosestDistance === 'function') {
-                hitDist = arena.raycastClosestDistance(this._coneRay, rangeVal, spotter.position.x, spotter.position.z, candidates);
-            } else if (arena && arena.colliders) {
-                for (let c = 0; c < arena.colliders.length; c++) {
-                    const col = arena.colliders[c];
-                    if (col.max.y <= 0.4 || col.min.y >= 3.0) continue;
-                    const hit = this._coneRay.intersectBox(col, this._coneHit);
-                    if (hit) {
-                        const d = Math.hypot(hit.x - spotter.position.x, hit.z - spotter.position.z);
-                        if (d < hitDist) {
-                            hitDist = Math.max(0.1, d - 0.05);
-                        }
-                    }
-                }
-            }
-
-            this._rayTarget3D.set(
-                spotter.position.x + dirX * hitDist,
-                spotter.position.y,
-                spotter.position.z + dirZ * hitDist
-            );
-            this._rayTarget3D.project(this.camera);
-
-            const px = (this._rayTarget3D.x * 0.5 + 0.5) * width;
-            const py = (-(this._rayTarget3D.y * 0.5) + 0.5) * height;
-            const point = polyPoints[s] ||= { x: 0, y: 0 }; point.x = px; point.y = py;
-        }
-
-        // Bắn tia cho quầng cận cảnh quanh chân để không bị lọt qua vách tường sát bên
-        const proxRays = 5;
-        const proxPoints = (this._localProxPoints ||= []);
-        proxPoints.length = proxRays;
-        for (let s = 0; s < proxRays; s++) {
-            const circleAngle = (s / proxRays) * Math.PI * 2;
-            const dirX = Math.sin(circleAngle);
-            const dirZ = Math.cos(circleAngle);
-
-            this._coneRayDir.set(dirX, 0, dirZ);
-            this._coneRay.origin.set(spotter.position.x, 1.0, spotter.position.z);
-            this._coneRay.direction.copy(this._coneRayDir);
-
-            let hitDist = proxVal;
-            if (arena && typeof arena.raycastClosestDistance === 'function') {
-                hitDist = arena.raycastClosestDistance(this._coneRay, proxVal, spotter.position.x, spotter.position.z, candidates);
-            } else if (arena && arena.colliders) {
-                for (let c = 0; c < arena.colliders.length; c++) {
-                    const col = arena.colliders[c];
-                    if (col.max.y <= 0.4 || col.min.y >= 3.0) continue;
-                    const hit = this._coneRay.intersectBox(col, this._coneHit);
-                    if (hit) {
-                        const d = Math.hypot(hit.x - spotter.position.x, hit.z - spotter.position.z);
-                        if (d < hitDist) {
-                            hitDist = Math.max(0.1, d - 0.05);
-                        }
-                    }
-                }
-            }
-
-            this._rayTarget3D.set(
-                spotter.position.x + dirX * hitDist,
-                spotter.position.y,
-                spotter.position.z + dirZ * hitDist
-            );
-            this._rayTarget3D.project(this.camera);
-
-            const px = (this._rayTarget3D.x * 0.5 + 0.5) * width;
-            const py = (-(this._rayTarget3D.y * 0.5) + 0.5) * height;
-            const point = proxPoints[s] ||= { x: 0, y: 0 }; point.x = px; point.y = py;
-        }
-
-        // 4. Khoét thủng bóng tối bằng destination-out
-        ctx.save();
-        ctx.globalCompositeOperation = 'destination-out';
-
-        // Khoét hình quạt tầm nhìn phía trước bằng Đa Giác Tầm Nhìn
-        const fanGrad = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, screenRadius);
-        fanGrad.addColorStop(0, 'rgba(0, 0, 0, 1.0)');
-        fanGrad.addColorStop(0.78, 'rgba(0, 0, 0, 0.95)');
-        fanGrad.addColorStop(0.92, 'rgba(0, 0, 0, 0.5)');
-        fanGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
-
-        ctx.fillStyle = fanGrad;
+    _clip(points) {
+        const ctx = this.maskCtx;
         ctx.beginPath();
-        ctx.moveTo(screenX, screenY);
-        for (let i = 0; i < polyPoints.length; i++) {
-            ctx.lineTo(polyPoints[i].x, polyPoints[i].y);
-        }
+        points.forEach((point, i) => i ? ctx.lineTo(point.x, point.z) : ctx.moveTo(point.x, point.z));
         ctx.closePath();
-        ctx.fill();
+        ctx.clip();
+    }
 
-        // Khoét quầng sáng cận cảnh xung quanh chân
-        const proxGrad = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, screenProxRadius);
-        proxGrad.addColorStop(0, 'rgba(0, 0, 0, 1.0)');
-        proxGrad.addColorStop(0.65, 'rgba(0, 0, 0, 0.85)');
-        proxGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
-
-        ctx.fillStyle = proxGrad;
-        ctx.beginPath();
-        if (proxPoints.length > 0) {
-            ctx.moveTo(proxPoints[0].x, proxPoints[0].y);
-            for (let i = 1; i < proxPoints.length; i++) {
-                ctx.lineTo(proxPoints[i].x, proxPoints[i].y);
+    _renderSpotterCutout(spotter, range, angle, proximity, arena) {
+        const ctx = this.maskCtx, pos = spotter.position, yaw = spotter.aimYaw || 0;
+        ctx.save();
+        this._clip(buildVisionPolygon(pos, yaw, range, angle, arena, this._points, this._candidates));
+        const half = angle * Math.PI / 360;
+        // Feather only inside the cone. The occlusion clip stays sharp at walls.
+        for (let i = 1; i <= 8; i++) {
+            const edge = half * (1 - (i - 1) * 0.025);
+            const gradient = ctx.createRadialGradient(pos.x, pos.z, 0, pos.x, pos.z, range);
+            for (const [stop, strength] of [[0, 1], [0.65, 0.96], [0.9, 0.6], [1, 0]]) {
+                const gray = Math.round(255 * strength * i / 8);
+                gradient.addColorStop(stop, `rgb(${gray},${gray},${gray})`);
             }
-            ctx.closePath();
-            ctx.fill();
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.z);
+            ctx.arc(pos.x, pos.z, range, Math.PI / 2 - yaw - edge, Math.PI / 2 - yaw + edge);
+            ctx.closePath(); ctx.fill();
         }
-
+        ctx.restore();
+        ctx.save();
+        this._clip(buildVisionPolygon(pos, 0, proximity, 360, arena, this._points, this._candidates));
+        const near = ctx.createRadialGradient(pos.x, pos.z, 0, pos.x, pos.z, proximity);
+        near.addColorStop(0, 'white');
+        near.addColorStop(0.55, 'rgb(230,230,230)');
+        near.addColorStop(1, 'black');
+        ctx.fillStyle = near;
+        ctx.fillRect(pos.x - proximity, pos.z - proximity, proximity * 2, proximity * 2);
         ctx.restore();
     }
 
-    /**
-     * Vẽ lớp mặt nạ bóng tối và khoét lỗ hình quạt cho người chơi chính cùng toàn bộ đồng đội
-     */
     render(player, isEnabled = true, teammates = [], arena = null) {
-        if (!this.ctx || !this.canvas || !this.camera || !isEnabled || !player) {
-            this.clear();
-            return;
+        if (!this.ctx || !this.camera || !isEnabled || !player) { this.clear(); return; }
+        const { width, height } = this.canvas;
+        const mask = this.maskCtx;
+        mask.setTransform(1, 0, 0, 1, 0, 0);
+        // An opaque black mask makes lighten a true maximum, so overlapping beams
+        // do not accumulate brightness or punch extra light through walls.
+        mask.globalCompositeOperation = 'source-over';
+        mask.fillStyle = 'black'; mask.fillRect(0, 0, width, height);
+        const origin = this._origin.set(0, 0, 0).project(this.camera);
+        const x = this._axisX.set(1, 0, 0).project(this.camera);
+        const z = this._axisZ.set(0, 0, 1).project(this.camera);
+        mask.setTransform((x.x - origin.x) * width / 2, -(x.y - origin.y) * height / 2,
+            (z.x - origin.x) * width / 2, -(z.y - origin.y) * height / 2,
+            (origin.x + 1) * width / 2, (1 - origin.y) * height / 2);
+        mask.globalCompositeOperation = 'lighten';
+        if (!player.isDead) this._renderSpotterCutout(player, this.currentRange, this.currentAngle, this.currentProximity, arena);
+        for (const mate of teammates) {
+            if (!mate || mate === player || mate.isDead) continue;
+            const cfg = getWeaponVisionConfig(mate.weapons?.getCurrentWeapon?.() || mate.weapons?.currentGun,
+                !!mate.isADS, mate.weapons?.getOpticTier?.() || 1);
+            this._renderSpotterCutout(mate, cfg.visionRange, cfg.visionAngle, cfg.proximityRadius, arena);
         }
-
-        const width = this.canvas.width;
-        const height = this.canvas.height;
+        // Multiply the scene by the light mask: neutral ambient darkness remains
+        // outside vision; inside the beam the original material colours are preserved.
         const ctx = this.ctx;
-
-        // 1. Xóa khung hình cũ
-        ctx.clearRect(0, 0, width, height);
-
-        // 2. Phủ lớp bóng tối mờ nhẹ toàn màn hình (Fog of War mờ 40%)
-        ctx.fillStyle = 'rgba(8, 14, 24, 0.40)';
-        ctx.fillRect(0, 0, width, height);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = '#8c8c8c'; ctx.fillRect(0, 0, width, height);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.45;
+        ctx.drawImage(this.mask, 0, 0);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
         this._hasContent = true;
-
-        // 3. Khoét luồng sáng cho người chơi chính (nếu còn sống)
-        if (!player.isDead) {
-            this._renderSpotterCutout(player, this.currentRange, this.currentAngle, this.currentProximity, arena, true);
-        }
-
-        // 4. Khoét luồng sáng cho tất cả đồng đội cùng phe (nếu còn sống)
-        if (teammates && Array.isArray(teammates)) {
-            for (let i = 0; i < teammates.length; i++) {
-                const mate = teammates[i];
-                if (!mate || mate.isDead || mate === player) continue;
-                const weapon = mate.weapons?.currentGun || mate.weapons?.getCurrentWeapon?.();
-                const isADS = !!mate.isADS;
-                const opticTier = mate.weapons?.getOpticTier ? mate.weapons.getOpticTier() : 1;
-                const cfg = getWeaponVisionConfig(weapon, isADS, opticTier);
-                this._renderSpotterCutout(mate, cfg.visionRange, cfg.visionAngle, cfg.proximityRadius, arena, false);
-            }
-        }
     }
 }

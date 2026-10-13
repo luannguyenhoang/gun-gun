@@ -90,8 +90,23 @@ export class BaseArena {
 
         if (addCollider) {
             clone.updateMatrixWorld(true);
-            const box = new THREE.Box3().setFromObject(clone);
-            this.colliders.push(box);
+            if (modelName === 'space/gate' || modelName === 'space/gate-lasers') {
+                // Tạo 2 hộp va chạm cho 2 cột trụ hai bên để khoảng trống ở giữa người chơi và bot đi qua được
+                const leftBox = new THREE.Box3(
+                    new THREE.Vector3(-2.1, 0, -0.7),
+                    new THREE.Vector3(-1.2, 4.62, 0.7)
+                ).applyMatrix4(clone.matrixWorld);
+
+                const rightBox = new THREE.Box3(
+                    new THREE.Vector3(1.2, 0, -0.7),
+                    new THREE.Vector3(2.1, 4.62, 0.7)
+                ).applyMatrix4(clone.matrixWorld);
+
+                this.colliders.push(leftBox, rightBox);
+            } else {
+                const box = new THREE.Box3().setFromObject(clone);
+                this.colliders.push(box);
+            }
         }
 
         return clone;

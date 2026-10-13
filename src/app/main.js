@@ -1857,7 +1857,6 @@ class CyberArenaGame {
             if (['TDM', 'FPS_SOLO'].includes(this.gameMode)) {
                 // Chế độ Đối kháng 4v4 TDM
                 if (!this.network.active || this.network.host) this.matchManager?.update(delta);
-                if (this.gameMode === 'TDM') this.visionCone?.update(this.player, delta);
             } else {
                 if ((!this.network.active || this.network.host) && this.nextWaveTimer > 0) {
                     this.nextWaveTimer -= delta;
@@ -1874,6 +1873,7 @@ class CyberArenaGame {
 
             // Update Player
             this.player.update(delta, this.arena, ['TDM', 'FPS_SOLO'].includes(this.gameMode) ? (this.player.team === 'blue' ? this.matchManager.teamRed : this.matchManager.teamBlue) : this.waveManager.enemies);
+            if (this.gameMode === 'TDM') this.visionCone?.update(this.player, delta);
             if (this.player.reviveRequested) {
                 if (this.network.active && !this.network.host) this.network.sendCommand({ type: 'revive' });
                 else this.reviveNearest(this.player);
@@ -2003,14 +2003,11 @@ class CyberArenaGame {
             this.ui.updateTeamRoster(teammates, this.player);
 
             if (this.gameMode === 'TDM') {
-                // Áp dụng Culling tầm nhìn chia sẻ toàn đội tối ưu hóa (16Hz) giảm 75% tải CPU
-                this.th_cullingElapsed = (this.th_cullingElapsed || 0) + delta;
-                if (this.th_cullingElapsed >= 0.06) {
-                    this.th_cullingElapsed = 0;
-                    const teamMembers = (this.player.team === 'blue' ? this.matchManager?.teamBlue : this.matchManager?.teamRed) || [this.player];
-                    const opponents = (this.player.team === 'blue' ? this.matchManager?.teamRed : this.matchManager?.teamBlue) || [];
-                    applyVisibilityCulling(teamMembers, opponents, null, this.arena);
-                }
+                // Resolve visibility on the same frame and with the same ADS cone as the light.
+                const teamMembers = (this.player.team === 'blue' ? this.matchManager?.teamBlue : this.matchManager?.teamRed) || [this.player];
+                const opponents = (this.player.team === 'blue' ? this.matchManager?.teamRed : this.matchManager?.teamBlue) || [];
+                applyVisibilityCulling(teamMembers, opponents, null, this.arena,
+                    observer => observer === this.player ? this.visionCone.getConfig() : null);
             }
 
             this.radarElapsed += delta;

@@ -3213,7 +3213,7 @@ export class PlayerController {
             const gunName = (currentWeapon?.name || '').toUpperCase();
             const isSniper = gunId === 'awp' || gunId.includes('blaster_n') || gunId.includes('blaster_o') || gunCat.includes('TỈA') || gunCat.includes('SNIPER') || gunCat.includes('NGẮM') || gunName.includes('SNIPER') || gunName.includes('DMR');
 
-            if (this.isADS && isSniper) {
+            if (this.isADS && isSniper && window.game?.gameMode !== 'TDM') {
                 // Khi ngắm bắn tỉa (ADS Sniper): Làm mượt góc lia tâm đầm tay, êm dịu, không bị văng tâm quá nhanh
                 let diff = (rawYaw - this.aimYaw) % (Math.PI * 2);
                 if (diff < -Math.PI) diff += Math.PI * 2;
@@ -3326,27 +3326,39 @@ export class PlayerController {
                 const ui = this.ui || window.game?.ui;
                 ui?.hideSpectatorHUD?.();
             }
-            // Camera lead theo huong ngam chuot va tam ban cua vu khi
-            _tempAimVec.subVectors(this.aimPoint, this.position);
-            _tempAimVec.y = 0;
-
-            if (this.isADS) {
-                const maxLead = isSniper ? 18.0 : (isRifle ? 10.0 : 6.0);
-                const leadFactor = isSniper ? 0.60 : 0.55;
-                _tempAimVec.clampLength(0, maxLead);
-                target.addScaledVector(_tempAimVec, leadFactor); // Dich camera xa ve huong ngam khi ADS
-                targetZoom = isSniper ? 0.74 : (isRifle ? 0.95 : 1.0); // Súng tỉa: thu nhỏ màn hình (zoom out 0.74) để nhìn bao quát cực xa
-                targetFov = isSniper ? 64 : 50;
+            if (window.game?.gameMode === 'TDM') {
+                // Derive camera lead from this frame's screen input, not an aim point
+                // unprojected through the previous camera (a feedback loop near centre).
+                const strength = Math.min(1, Math.max(0, (this.pointer.length() - 0.12) / 0.88));
+                const aspect = (this.camera.right - this.camera.left) / (this.camera.top - this.camera.bottom);
+                const tilt = this.cameraOffset.y / this.cameraOffset.length();
+                _tempAimVec.set(this.pointer.x * aspect, 0, -this.pointer.y / tilt).normalize();
+                const lead = this.isADS ? (isSniper ? 8 : (isRifle ? 4 : 2.5)) : 1.4;
+                target.addScaledVector(_tempAimVec, lead * strength * strength * (3 - 2 * strength));
+                targetZoom = this.isADS ? (isSniper ? 0.85 : (isRifle ? 0.95 : 1)) : 1;
             } else {
-                // Khi ban thuong: camera lead nhe 3.5m giup nguoi choi bao quat ve phia truoc
-                _tempAimVec.clampLength(0, 3.5);
-                target.addScaledVector(_tempAimVec, 0.4);
-                targetZoom = 1.0;
-                targetFov = 50;
+                // Camera lead theo huong ngam chuot va tam ban cua vu khi
+                _tempAimVec.subVectors(this.aimPoint, this.position);
+                _tempAimVec.y = 0;
+
+                if (this.isADS) {
+                    const maxLead = isSniper ? 18.0 : (isRifle ? 10.0 : 6.0);
+                    const leadFactor = isSniper ? 0.60 : 0.55;
+                    _tempAimVec.clampLength(0, maxLead);
+                    target.addScaledVector(_tempAimVec, leadFactor); // Dich camera xa ve huong ngam khi ADS
+                    targetZoom = isSniper ? 0.74 : (isRifle ? 0.95 : 1.0); // Súng tỉa: thu nhỏ màn hình (zoom out 0.74) để nhìn bao quát cực xa
+                    targetFov = isSniper ? 64 : 50;
+                } else {
+                    // Khi ban thuong: camera lead nhe 3.5m giup nguoi choi bao quat ve phia truoc
+                    _tempAimVec.clampLength(0, 3.5);
+                    target.addScaledVector(_tempAimVec, 0.4);
+                    targetZoom = 1.0;
+                    targetFov = 50;
+                }
             }
         }
 
-        const lerpSpeed = this.isDead ? 6 : (this.isADS && isSniper ? 12 : 24);
+        const lerpSpeed = this.isDead ? 6 : (window.game?.gameMode === 'TDM' ? 10 : (this.isADS && isSniper ? 12 : 24));
         this.cameraFocus.lerp(target, 1 - Math.exp(-lerpSpeed * Math.max(0, delta)));
         this.camera.position.copy(this.cameraFocus).add(this.cameraOffset);
 
