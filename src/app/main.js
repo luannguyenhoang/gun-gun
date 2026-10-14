@@ -639,6 +639,7 @@ class CyberArenaGame {
     startTDM(playerTeam = 'blue', options = {}) {
         if (this.gameMode !== 'TDM') this.matchManager?.cleanup();
         const fillBots = typeof options === 'boolean' ? options : !!options.fillBots;
+        const is1v1 = (typeof options === 'object' && options?.teamSize === 1) || (!fillBots && (!this.network.active || this.remotePlayers.size <= 1));
 
         // Ẩn màn hình chờ nếu còn hiển thị
         this.th_versusLoading?.close?.();
@@ -692,6 +693,10 @@ class CyberArenaGame {
         this.player.reset();
         this.player.spawnSeq = 0;
         this.player.team = playerTeam;
+        if (is1v1) {
+            this.player.maxShield = 0;
+            this.player.shield = 0;
+        }
         if (this.developerMode) {
             this.player.developerMode = true;
             this.player.health = this.player.maxHealth;
@@ -768,9 +773,13 @@ class CyberArenaGame {
         this.player.reset();
         this.player.spawnSeq = 0;
         this.player.team = playerTeam;
+        // Chế độ 1vs1: loại bỏ giáp hoàn toàn cho người chơi
+        this.player.maxShield = 0;
+        this.player.shield = 0;
         if (this.developerMode) {
             this.player.developerMode = true;
             this.player.health = this.player.maxHealth;
+            this.player.maxShield = 0;
             this.player.shield = 0;
         }
         this.pickups.clear();

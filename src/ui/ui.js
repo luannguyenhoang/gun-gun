@@ -70,6 +70,7 @@ function getCharacterAvatarSvg(characterId) {
 export class UIManager {
     constructor() {
         this.overheadVitals = document.getElementById('player-overhead-vitals');
+        this.overheadShield = this.overheadVitals?.querySelector('.overhead-shield');
         this.teammateVitals = new Map();
         this.healthFill = document.getElementById('health-fill');
         this.healthText = document.getElementById('health-text');
@@ -461,6 +462,7 @@ export class UIManager {
             const vitalsKey = `${health}|${shield}|${subject.maxHealth}|${subject.maxShield}|${subject.isDead}|${subject.isDowned}|${subject.name}`;
             if (meter._vitalsKey === vitalsKey) continue;
             meter._vitalsKey = vitalsKey;
+            meter.querySelector('.overhead-health > div').style.width = `${Math.min(100, health / (subject.maxHealth || 100) * 100)}%`;
             const overheadShield = meter.querySelector('.overhead-shield');
             if (overheadShield) overheadShield.style.display = 'none';
             meter.querySelector('.overhead-health strong').textContent = subject.isDead ? 'ĐÃ CHẾT' : subject.isDowned ? 'GỤC' : `${Math.ceil(health)}`;
@@ -533,6 +535,7 @@ export class UIManager {
         // 2. Shield Bar (Da loai bo co che giap)
         if (this.shieldFill) this.shieldFill.style.width = '0%';
         if (this.shieldText) this.shieldText.textContent = '';
+        if (this.overheadShield) this.overheadShield.style.display = 'none';
 
         // Weapon & Ammo info
         const ammoInfo = player.weapons.getCurrentAmmo();
@@ -3031,9 +3034,10 @@ export class UIManager {
         // 2. CỘT 2 (45% - LOADOUT & WEAPON MODDING): PHÒNG THỦ & 2 KHẨU SÚNG
         // Cập nhật Mũ và Giáp phòng thủ
         if (player) {
-            const shieldPct = Math.max(0, Math.min(100, Math.round((player.shield / player.maxShield) * 100)));
+            const hasShield = (player.maxShield || 0) > 0;
+            const shieldPct = hasShield ? Math.max(0, Math.min(100, Math.round((player.shield / player.maxShield) * 100))) : 0;
             if (this.armorDurabilityFill) this.armorDurabilityFill.style.width = `${shieldPct}%`;
-            if (this.armorDurabilityVal) this.armorDurabilityVal.textContent = `${shieldPct}% (${Math.round(player.shield)}/100)`;
+            if (this.armorDurabilityVal) this.armorDurabilityVal.textContent = hasShield ? `${shieldPct}% (${Math.round(player.shield)}/${player.maxShield})` : '0% (Không dùng giáp)';
 
 
             // Mũ bảo vệ FAST-MT

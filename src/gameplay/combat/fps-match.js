@@ -32,6 +32,7 @@ export class FPSBot {
         this.remote.position.copy(spawnPos);
         this.remote.health = 100;
         this.remote.maxHealth = 100;
+
         this.remote.shield = 0;
         this.remote.maxShield = 0;
         this.remote.isDead = false;
@@ -395,6 +396,9 @@ export class FPSMatchManager {
             remote.th_kills = 0;
             remote.th_deaths = 0;
             remote.th_score = 0;
+            // Chế độ 1vs1: loại bỏ giáp hoàn toàn cho remote players
+            remote.maxShield = 0;
+            remote.shield = 0;
             if (remote.isBot) continue;
             const team = remote.team || (playerTeam === 'blue' ? 'red' : 'blue');
             remote.team = team;
@@ -574,6 +578,7 @@ export class FPSMatchManager {
         const spawnPos = this.getRandomSpawnPoint(entity.team);
         entity.position.copy(spawnPos);
         entity.health = entity.maxHealth || 100;
+
         entity.shield = 0;
         entity.maxShield = 0;
         entity.isDead = false;

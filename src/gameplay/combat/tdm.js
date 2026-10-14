@@ -343,6 +343,8 @@ export class TDMManager {
         this.matchTimer = 0;
         this.playerRespawnTimer = 0;
         this.targetKills = fillBots ? 20 : 10;
+        // Kiểm tra xem trận đấu có phải thể thức 1vs1 không (tắt bot hoặc kích thước đội 1 người)
+        this.is1v1 = (teamSize === 1) || (!fillBots && (!this.game.network.active || this.game.remotePlayers.size <= 1));
 
         const player = this.game.player;
         player.team = playerTeam;
@@ -378,6 +380,10 @@ export class TDMManager {
             remote.th_kills = 0;
             remote.th_deaths = 0;
             remote.th_score = 0;
+            if (this.is1v1) {
+                remote.maxShield = 0;
+                remote.shield = 0;
+            }
             if (remote.isBot) continue;
             const team = remote.team || (playerTeam === 'blue' ? 'red' : 'blue');
             remote.team = team;
