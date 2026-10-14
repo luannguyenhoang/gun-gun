@@ -947,9 +947,9 @@ export class NetworkRoom {
                     if (slotIdx !== -1) weapons.switchWeapon(slotIdx, player);
                 }
                 const activeWeapon = weapons.getCurrentWeapon();
-                const origin = this.game.firstPersonView?.active
-                    ? player.position.clone().add(new THREE.Vector3(0, 1.55, 0))
-                    : weapons.getMuzzlePosition?.() || player.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+                const origin = (validVector(command.origin) && new THREE.Vector3().fromArray(command.origin))
+                    || weapons.getMuzzlePosition?.()
+                    || player.position.clone().add(new THREE.Vector3(0, 0.68, 0));
                 const target = new THREE.Vector3().fromArray(command.target);
                 player.isADS = !!command.ads;
                 if (weapons.shoot(origin, target, player.isADS, true, 1, player)) {
