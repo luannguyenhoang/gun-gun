@@ -404,6 +404,7 @@ export class UIManager {
                 this.hideTDMMatchResult();
                 options.onHome?.();
             };
+        }
         if (document.pointerLockElement) {
             document.exitPointerLock?.();
         }
