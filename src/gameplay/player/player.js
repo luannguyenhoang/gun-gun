@@ -3307,7 +3307,11 @@ export class PlayerController {
         if (shouldShoot) {
             // Compute muzzle origin from character right arm (Zero Allocation GC)
             if (this.firstPerson) {
+                // Ở chế độ FPS, hạ vị trí phát đạn xuống ngang tầm súng/vai thay vì xuất phát từ trán
                 _th_muzzlePos.copy(this.camera.position);
+                this.camera.getWorldDirection(_th_shootForward);
+                _th_muzzlePos.addScaledVector(_th_shootForward, 0.35);
+                _th_muzzlePos.y -= 0.35;
             } else if (this.weapons.getMuzzlePosition?.(_th_muzzlePos)) {
                 // The projectile and flash now originate at the visible barrel.
             } else if (this.handBone) {
@@ -3319,7 +3323,7 @@ export class PlayerController {
                 _th_muzzlePos.y += 0.05;
             } else {
                 _th_muzzlePos.copy(this.position);
-                _th_muzzlePos.y += 1.2;
+                _th_muzzlePos.y += 0.68;
             }
 
             const dmgMult = (this.damageMult || 1.0) * (this.activeSkillEffect === 'overdrive' ? 1.25 : 1.0);

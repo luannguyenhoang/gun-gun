@@ -244,8 +244,10 @@ export class TDMBot {
                     if (gunId === 'scatter') this.shootCooldown = 0.95;
                     if (gunId === 'sniper') this.shootCooldown = 1.4;
 
-                    _th_shootOrigin.copy(this.remote.position);
-                    _th_shootOrigin.y += 1.15;
+                    if (!this.remote.weapons?.getMuzzlePosition?.(_th_shootOrigin)) {
+                        _th_shootOrigin.copy(this.remote.position);
+                        _th_shootOrigin.y += 0.68;
+                    }
 
                     const spreadX = (Math.random() - 0.5) * 0.8;
                     const spreadZ = (Math.random() - 0.5) * 0.8;
