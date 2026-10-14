@@ -1438,7 +1438,7 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
                 this.isDead = false;
             }
         },
-        rechargeShield(amount) { this.shield = Math.min(this.maxShield, this.shield + amount); },
+        rechargeShield(amount) { if (this.maxShield <= 0) return; this.shield = Math.min(this.maxShield, this.shield + amount); },
         revive() {
             if (!this.isDowned && !this.isDead) return false;
             this.health = 60;

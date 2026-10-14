@@ -70,6 +70,7 @@ function getCharacterAvatarSvg(characterId) {
 export class UIManager {
     constructor() {
         this.overheadVitals = document.getElementById('player-overhead-vitals');
+        this.overheadShield = this.overheadVitals?.querySelector('.overhead-shield');
         this.teammateVitals = new Map();
         this.healthFill = document.getElementById('health-fill');
         this.healthText = document.getElementById('health-text');
@@ -462,10 +463,21 @@ export class UIManager {
             if (meter._vitalsKey === vitalsKey) continue;
             meter._vitalsKey = vitalsKey;
             meter.querySelector('.overhead-health > div').style.width = `${Math.min(100, health / (subject.maxHealth || 100) * 100)}%`;
-            meter.querySelector('.overhead-shield > div').style.width = `${Math.min(100, shield / (subject.maxShield || 100) * 100)}%`;
+            const shieldBar = meter.querySelector('.overhead-shield');
+            if (shieldBar) {
+                if ((subject.maxShield || 0) > 0) {
+                    shieldBar.style.display = '';
+                    const fill = shieldBar.querySelector('div');
+                    if (fill) fill.style.width = `${Math.min(100, shield / subject.maxShield * 100)}%`;
+                } else {
+                    shieldBar.style.display = 'none';
+                }
+            }
             meter.querySelector('.overhead-health strong').textContent = subject.isDead ? 'ĐÃ CHẾT' : subject.isDowned ? 'GỤC' : `${Math.ceil(health)}`;
             meter.classList.toggle('low-health', health <= subject.maxHealth * 0.3);
-            meter.title = `${subject.name || 'Bạn'} · Máu: ${Math.ceil(health)}/${subject.maxHealth} · Giáp: ${Math.ceil(shield)}/${subject.maxShield}`;
+            meter.title = (subject.maxShield || 0) > 0
+                ? `${subject.name || 'Bạn'} · Máu: ${Math.ceil(health)}/${subject.maxHealth} · Giáp: ${Math.ceil(shield)}/${subject.maxShield}`
+                : `${subject.name || 'Bạn'} · Máu: ${Math.ceil(health)}/${subject.maxHealth}`;
             meter.setAttribute('aria-label', meter.title);
         }
     }
@@ -542,9 +554,10 @@ export class UIManager {
         if (shVal !== this._lastShVal || player.maxShield !== this._lastMaxSh) {
             this._lastShVal = shVal;
             this._lastMaxSh = player.maxShield;
-            const shPercent = Math.max(0, Math.min(100, (player.shield / player.maxShield) * 100));
+            const shPercent = player.maxShield > 0 ? Math.max(0, Math.min(100, (player.shield / player.maxShield) * 100)) : 0;
             if (this.shieldFill) this.shieldFill.style.width = `${shPercent}%`;
-            if (this.shieldText) this.shieldText.textContent = `${shVal} / ${player.maxShield}`;
+            if (this.shieldText) this.shieldText.textContent = player.maxShield > 0 ? `${shVal} / ${player.maxShield}` : '0';
+            if (this.overheadShield) this.overheadShield.style.display = player.maxShield > 0 ? '' : 'none';
         }
 
         // Weapon & Ammo info
@@ -1112,9 +1125,14 @@ export class UIManager {
                 helmetBars.forEach((bar, idx) => bar.classList.toggle('active', idx < helmetLevel));
             }
             if (this.pubgHudVest) {
-                const vestBars = this.pubgHudVest.querySelectorAll('.pubg-gear-bar-seg');
-                const vestLevel = player.maxShield > 0 ? Math.ceil((player.shield / player.maxShield) * 3) : 0;
-                vestBars.forEach((bar, idx) => bar.classList.toggle('active', idx < vestLevel));
+                if ((player.maxShield || 0) <= 0) {
+                    this.pubgHudVest.style.display = 'none';
+                } else {
+                    this.pubgHudVest.style.display = '';
+                    const vestBars = this.pubgHudVest.querySelectorAll('.pubg-gear-bar-seg');
+                    const vestLevel = Math.ceil((player.shield / player.maxShield) * 3);
+                    vestBars.forEach((bar, idx) => bar.classList.toggle('active', idx < vestLevel));
+                }
             }
 
             // Cập nhật ô vật phẩm hồi máu [5] (Medkit & Vật phẩm y tế)
@@ -3048,9 +3066,10 @@ export class UIManager {
         // 2. CỘT 2 (45% - LOADOUT & WEAPON MODDING): PHÒNG THỦ & 2 KHẨU SÚNG
         // Cập nhật Mũ và Giáp phòng thủ
         if (player) {
-            const shieldPct = Math.max(0, Math.min(100, Math.round((player.shield / player.maxShield) * 100)));
+            const hasShield = (player.maxShield || 0) > 0;
+            const shieldPct = hasShield ? Math.max(0, Math.min(100, Math.round((player.shield / player.maxShield) * 100))) : 0;
             if (this.armorDurabilityFill) this.armorDurabilityFill.style.width = `${shieldPct}%`;
-            if (this.armorDurabilityVal) this.armorDurabilityVal.textContent = `${shieldPct}% (${Math.round(player.shield)}/100)`;
+            if (this.armorDurabilityVal) this.armorDurabilityVal.textContent = hasShield ? `${shieldPct}% (${Math.round(player.shield)}/${player.maxShield})` : '0% (Không dùng giáp)';
 
 
             // Mũ bảo vệ FAST-MT

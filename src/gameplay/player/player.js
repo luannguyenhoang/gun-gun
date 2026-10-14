@@ -788,10 +788,20 @@ export class PlayerController {
     applyCharacterStats() {
         const cfg = CHARACTER_CONFIGS[this.characterId] || CHARACTER_CONFIGS.police;
         const passives = cfg?.passives || {};
+        const currentGameMode = globalThis.window?.game?.gameMode || this.game?.gameMode;
+        const isFPS = currentGameMode === 'FPS_SOLO';
+        const isTDM1v1 = currentGameMode === 'TDM' && !!globalThis.window?.game?.matchManager?.is1v1;
+        const is1v1Mode = isFPS || isTDM1v1;
+
         this.maxHealth = 100 + (passives.healthBonus || 0);
         this.health = Math.min(this.health || this.maxHealth, this.maxHealth);
-        this.maxShield = 100 + (passives.armorBonus || 0);
-        this.shield = Math.min(this.shield || this.maxShield, this.maxShield);
+        if (is1v1Mode) {
+            this.maxShield = 0;
+            this.shield = 0;
+        } else {
+            this.maxShield = 100 + (passives.armorBonus || 0);
+            this.shield = Math.min(this.shield || this.maxShield, this.maxShield);
+        }
         this.speed = 7.5 * (passives.speedMult || 1.0);
         this.recoilMult = passives.recoilMult || 1.0;
         this.dodgeDistMult = passives.dodgeDistMult || 1.0;
@@ -2844,6 +2854,7 @@ export class PlayerController {
     }
 
     rechargeShield(amount) {
+        if (this.maxShield <= 0) return;
         // Tính thêm hệ số cường hóa nạp giáp nếu có
         const boost = this.shieldBatteryBoost || 1.0;
         this.shield = Math.min(this.maxShield, this.shield + Math.round(amount * boost));

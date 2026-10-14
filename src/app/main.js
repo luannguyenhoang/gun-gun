@@ -639,6 +639,7 @@ class CyberArenaGame {
     startTDM(playerTeam = 'blue', options = {}) {
         if (this.gameMode !== 'TDM') this.matchManager?.cleanup();
         const fillBots = typeof options === 'boolean' ? options : !!options.fillBots;
+        const is1v1 = (typeof options === 'object' && options?.teamSize === 1) || (!fillBots && (!this.network.active || this.remotePlayers.size <= 1));
 
         // Ẩn màn hình chờ nếu còn hiển thị
         this.th_versusLoading?.close?.();
@@ -678,7 +679,12 @@ class CyberArenaGame {
             remote.netVelocity?.set(0, 0, 0);
             remote.spawnSeq = 0;
             remote.isVisibleToObserver = true;
-            remote.shield = remote.maxShield;
+            if (is1v1) {
+                remote.maxShield = 0;
+                remote.shield = 0;
+            } else {
+                remote.shield = remote.maxShield;
+            }
             remote.isDead = false;
             remote.isDowned = false;
             remote.invulnerability = 2.0;
@@ -691,6 +697,10 @@ class CyberArenaGame {
         this.player.reset();
         this.player.spawnSeq = 0;
         this.player.team = playerTeam;
+        if (is1v1) {
+            this.player.maxShield = 0;
+            this.player.shield = 0;
+        }
         if (this.developerMode) {
             this.player.developerMode = true;
             this.player.health = this.player.maxHealth;
@@ -753,7 +763,9 @@ class CyberArenaGame {
             remote.netVelocity?.set(0, 0, 0);
             remote.spawnSeq = 0;
             remote.isVisibleToObserver = true;
-            remote.shield = remote.maxShield;
+            // Chế độ 1vs1: loại bỏ giáp hoàn toàn
+            remote.maxShield = 0;
+            remote.shield = 0;
             remote.isDead = false;
             remote.isDowned = false;
             remote.invulnerability = 2.0;
@@ -766,10 +778,14 @@ class CyberArenaGame {
         this.player.reset();
         this.player.spawnSeq = 0;
         this.player.team = playerTeam;
+        // Chế độ 1vs1: loại bỏ giáp hoàn toàn cho người chơi
+        this.player.maxShield = 0;
+        this.player.shield = 0;
         if (this.developerMode) {
             this.player.developerMode = true;
             this.player.health = this.player.maxHealth;
-            this.player.shield = this.player.maxShield;
+            this.player.maxShield = 0;
+            this.player.shield = 0;
         }
         this.pickups.clear();
         this.particles.clear();

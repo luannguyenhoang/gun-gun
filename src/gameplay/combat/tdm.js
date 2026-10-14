@@ -107,9 +107,9 @@ export class TDMBot {
     takeDamage(amount, penPower, isCrit, direction, attacker) {
         if (this.remote.isDead || this.remote.invulnerability > 0) return;
 
-        // Trừ giáp trước, trừ máu sau
-        const absorbed = Math.min(this.remote.shield, amount);
-        this.remote.shield -= absorbed;
+        // Trừ giáp trước (nếu có), trừ máu sau
+        const absorbed = Math.min(this.remote.shield || 0, amount);
+        this.remote.shield = Math.max(0, (this.remote.shield || 0) - absorbed);
         this.remote.health -= (amount - absorbed);
 
         if (this.remote.health <= 0) {
@@ -344,11 +344,18 @@ export class TDMManager {
         this.matchTimer = 0;
         this.playerRespawnTimer = 0;
         this.targetKills = fillBots ? 20 : 10;
+        // Kiểm tra xem trận đấu có phải thể thức 1vs1 không (tắt bot hoặc kích thước đội 1 người)
+        this.is1v1 = (teamSize === 1) || (!fillBots && (!this.game.network.active || this.game.remotePlayers.size <= 1));
 
         const player = this.game.player;
         player.team = playerTeam;
         player.health = player.maxHealth;
-        player.shield = player.maxShield;
+        if (this.is1v1) {
+            player.maxShield = 0;
+            player.shield = 0;
+        } else {
+            player.shield = player.maxShield;
+        }
         player.isDead = false;
         player.isDowned = false;
         player.invulnerability = 2.0;
@@ -378,6 +385,10 @@ export class TDMManager {
             remote.th_kills = 0;
             remote.th_deaths = 0;
             remote.th_score = 0;
+            if (this.is1v1) {
+                remote.maxShield = 0;
+                remote.shield = 0;
+            }
             if (remote.isBot) continue;
             const team = remote.team || (playerTeam === 'blue' ? 'red' : 'blue');
             remote.team = team;
@@ -557,7 +568,12 @@ export class TDMManager {
         const spawnPos = this.getRandomSpawnPoint(entity.team);
         entity.position.copy(spawnPos);
         entity.health = entity.maxHealth || 100;
-        entity.shield = entity.maxShield || 100;
+        if (this.is1v1) {
+            entity.maxShield = 0;
+            entity.shield = 0;
+        } else {
+            entity.shield = entity.maxShield || 100;
+        }
         entity.isDead = false;
         entity.isDowned = false;
         entity.invulnerability = 1.5;
