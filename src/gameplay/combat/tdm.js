@@ -31,8 +31,8 @@ export class TDMBot {
         this.remote.position.copy(spawnPos);
         this.remote.health = 100;
         this.remote.maxHealth = 100;
-        this.remote.shield = 100;
-        this.remote.maxShield = 100;
+        this.remote.shield = 0;
+        this.remote.maxShield = 0;
         this.remote.isDead = false;
         this.remote.isDowned = false;
         this.remote.invulnerability = 1.5;
@@ -107,10 +107,9 @@ export class TDMBot {
     takeDamage(amount, penPower, isCrit, direction, attacker) {
         if (this.remote.isDead || this.remote.invulnerability > 0) return;
 
-        // Trừ giáp trước, trừ máu sau
-        const absorbed = Math.min(this.remote.shield, amount);
-        this.remote.shield -= absorbed;
-        this.remote.health -= (amount - absorbed);
+        // Da loai bo co che giap: Tru thang vao mau
+        this.remote.shield = 0;
+        this.remote.health -= amount;
 
         if (this.remote.health <= 0) {
             this.remote.health = 0;
@@ -348,7 +347,8 @@ export class TDMManager {
         const player = this.game.player;
         player.team = playerTeam;
         player.health = player.maxHealth;
-        player.shield = player.maxShield;
+        player.shield = 0;
+        player.maxShield = 0;
         player.isDead = false;
         player.isDowned = false;
         player.invulnerability = 2.0;
@@ -557,7 +557,8 @@ export class TDMManager {
         const spawnPos = this.getRandomSpawnPoint(entity.team);
         entity.position.copy(spawnPos);
         entity.health = entity.maxHealth || 100;
-        entity.shield = entity.maxShield || 100;
+        entity.shield = 0;
+        entity.maxShield = 0;
         entity.isDead = false;
         entity.isDowned = false;
         entity.invulnerability = 1.5;

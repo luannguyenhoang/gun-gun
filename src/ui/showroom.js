@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import * as SkeletonUtils from '../../vendor/SkeletonUtils.js';
 import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { CHARACTER_CONFIGS, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
-import { WEAPON_CONFIGS, getStartingWeapon, updateHeldWeaponPose, BOMB_CONFIGS, getBombConfig, MEDICAL_CONFIGS, th_getWeaponParts, th_getPartTier, TH_PART_META, ATTACHMENT_DEFS } from '../gameplay/combat/weapons.js?v=75';
+import { WEAPON_CONFIGS, getStartingWeapon, updateHeldWeaponPose, BOMB_CONFIGS, getBombConfig, MEDICAL_CONFIGS, th_getWeaponParts, th_getPartTier, TH_PART_META, ATTACHMENT_DEFS } from '../gameplay/combat/weapons.js?v=76';
 
 export class CharacterShowroom {
     constructor(game) {
@@ -1064,10 +1064,11 @@ export class CharacterShowroom {
 
         const weapon = this.getItem(this.weaponId);
         const baseHp = 100 + (charCfg.passives?.healthBonus || 0);
-        const baseShield = 100 + (charCfg.passives?.armorBonus || 0);
+        const baseShield = 0;
         const speedVal = (7.5 * (charCfg.passives?.speedMult || 1.0)).toFixed(1);
         document.getElementById('character-health').textContent = baseHp;
-        document.getElementById('character-shield').textContent = baseShield;
+        const shieldEl = document.getElementById('character-shield');
+        if (shieldEl) shieldEl.textContent = baseShield;
         document.getElementById('character-damage').textContent = weapon.damage || 30;
         document.getElementById('character-speed').textContent = speedVal;
         document.getElementById('character-weapon-detail').textContent = weapon.isBomb 

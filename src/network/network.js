@@ -1363,7 +1363,7 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
     let disposed = false;
     let initialized = false;
     const remote = { id, name, characterId: normalizeCharacter(characterId), position: new THREE.Vector3(0, 0, 8), velocity: new THREE.Vector3(), netTarget: null, netVelocity: new THREE.Vector3(), netSampleTime: 0, aimYaw: Math.PI, isADS: false,
-        isDead: false, isDowned: false, bleedOutTimer: 30.0, health: 100, maxHealth: 100, shield: 100, maxShield: 100,
+        isDead: false, isDowned: false, bleedOutTimer: 30.0, health: 100, maxHealth: 100, shield: 0, maxShield: 0,
         radius: 0.55, height: 1.6, mesh: group, healthBar,
         activeTurrets: [], activeVortexes: [], activeGrenades: [], activeBeacons: [],
         activeSkillCooldownTimer: 0, activeSkillDurationTimer: 0, activeSkillMaxCooldown: 0,
@@ -1433,10 +1433,9 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
         takeDamage(amount, penPower = 1, isCrit = false, direction = null, attacker = null) {
             const game = globalThis.window?.game;
             if (this.isDead || this.isDowned || this.isDodging || this.invulnerability > 0) return;
-            this.shieldRegenTimer = 4;
-            const absorbed = Math.min(this.shield, amount);
-            this.shield -= absorbed;
-            this.health -= amount - absorbed;
+            this.shieldRegenTimer = 0;
+            this.shield = 0;
+            this.health -= amount;
             if (this.health <= 0) {
                 this.health = 0;
                 if (['TDM', 'FPS_SOLO'].includes(game?.gameMode)) {
@@ -1468,7 +1467,7 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
                 this.isDead = false;
             }
         },
-        rechargeShield(amount) { this.shield = Math.min(this.maxShield, this.shield + amount); },
+        rechargeShield(amount) { this.shield = 0; },
         revive() {
             if (!this.isDowned && !this.isDead) return false;
             this.health = 60;

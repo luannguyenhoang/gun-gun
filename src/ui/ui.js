@@ -461,11 +461,11 @@ export class UIManager {
             const vitalsKey = `${health}|${shield}|${subject.maxHealth}|${subject.maxShield}|${subject.isDead}|${subject.isDowned}|${subject.name}`;
             if (meter._vitalsKey === vitalsKey) continue;
             meter._vitalsKey = vitalsKey;
-            meter.querySelector('.overhead-health > div').style.width = `${Math.min(100, health / (subject.maxHealth || 100) * 100)}%`;
-            meter.querySelector('.overhead-shield > div').style.width = `${Math.min(100, shield / (subject.maxShield || 100) * 100)}%`;
+            const overheadShield = meter.querySelector('.overhead-shield');
+            if (overheadShield) overheadShield.style.display = 'none';
             meter.querySelector('.overhead-health strong').textContent = subject.isDead ? 'ĐÃ CHẾT' : subject.isDowned ? 'GỤC' : `${Math.ceil(health)}`;
             meter.classList.toggle('low-health', health <= subject.maxHealth * 0.3);
-            meter.title = `${subject.name || 'Bạn'} · Máu: ${Math.ceil(health)}/${subject.maxHealth} · Giáp: ${Math.ceil(shield)}/${subject.maxShield}`;
+            meter.title = `${subject.name || 'Bạn'} · Máu: ${Math.ceil(health)}/${subject.maxHealth}`;
             meter.setAttribute('aria-label', meter.title);
         }
     }
@@ -503,21 +503,14 @@ export class UIManager {
             if (this.hitmarker) this.hitmarker.style.display = shouldDisplay;
         }
 
-        // Cập nhật nón tản đạn mở rộng / co hẹp trực quan trên Crosshair
+        // Cap nhat non tan dan mo rong / co hep truc quan tren Crosshair
         if (this.crosshair) {
-            // Cơ chế ngắm bắn chiến thuật (Phương án B): Chỉ Súng lục và Shotgun mới có tâm khi không ADS
-            const curW = player.weapons?.getCurrentWeapon?.() || player.weapons?.currentWeapon;
-            const isPistolOrShotgun = this.th_isPistolOrShotgun(curW);
-            const isADS = !!(player.isADS || player.th_toggleADS);
-            const shouldShowReticle = !!player.firstPerson || isPistolOrShotgun || isADS;
+            // Tam ngam luon luon hien thi cho moi loai sung theo yeu cau
+            const shouldShowReticle = true;
 
             if (this._lastReticleShown !== shouldShowReticle) {
                 this._lastReticleShown = shouldShowReticle;
-                if (shouldShowReticle) {
-                    this.crosshair.classList.remove('th_reticle_hidden');
-                } else {
-                    this.crosshair.classList.add('th_reticle_hidden');
-                }
+                this.crosshair.classList.remove('th_reticle_hidden');
             }
 
             const spreadGap = Math.round(6 + (player.weapons?.currentSpreadDeg || 2) * 3.4);
@@ -537,15 +530,9 @@ export class UIManager {
             if (this.healthText) this.healthText.textContent = `${Math.max(0, hpVal)}`;
         }
 
-        // 2. Shield Bar (Xanh lam) - Dirty check
-        const shVal = Math.ceil(player.shield);
-        if (shVal !== this._lastShVal || player.maxShield !== this._lastMaxSh) {
-            this._lastShVal = shVal;
-            this._lastMaxSh = player.maxShield;
-            const shPercent = Math.max(0, Math.min(100, (player.shield / player.maxShield) * 100));
-            if (this.shieldFill) this.shieldFill.style.width = `${shPercent}%`;
-            if (this.shieldText) this.shieldText.textContent = `${shVal} / ${player.maxShield}`;
-        }
+        // 2. Shield Bar (Da loai bo co che giap)
+        if (this.shieldFill) this.shieldFill.style.width = '0%';
+        if (this.shieldText) this.shieldText.textContent = '';
 
         // Weapon & Ammo info
         const ammoInfo = player.weapons.getCurrentAmmo();
@@ -1112,9 +1099,7 @@ export class UIManager {
                 helmetBars.forEach((bar, idx) => bar.classList.toggle('active', idx < helmetLevel));
             }
             if (this.pubgHudVest) {
-                const vestBars = this.pubgHudVest.querySelectorAll('.pubg-gear-bar-seg');
-                const vestLevel = player.maxShield > 0 ? Math.ceil((player.shield / player.maxShield) * 3) : 0;
-                vestBars.forEach((bar, idx) => bar.classList.toggle('active', idx < vestLevel));
+                this.pubgHudVest.style.display = 'none';
             }
 
             // Cập nhật ô vật phẩm hồi máu [5] (Medkit & Vật phẩm y tế)
@@ -1727,10 +1712,8 @@ export class UIManager {
                 marker.healthCircle.style.stroke = '#ff2a5f';
             }
 
-            // Vòng tròn khiên: chu vi 157.08
-            const shOffset = 157.08 * (1 - shRatio);
-            marker.shieldCircle.style.strokeDashoffset = shOffset.toFixed(2);
-            marker.shieldCircle.style.display = curSh > 0 ? 'block' : 'none';
+            // Da bo co che giap: an vong tron khien
+            marker.shieldCircle.style.display = 'none';
 
             // Khoảng cách tới đồng đội (mét)
             const dist = Math.max(0, localPlayer.position.distanceTo(matePos));

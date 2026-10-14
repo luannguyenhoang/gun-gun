@@ -2281,22 +2281,28 @@ export class WeaponSystem {
             this.ammo[w.id]--;
         }
 
-        // Xử lý chế độ Bắn Tăng Cường (Overclock / Bullet Frenzy): Tốc độ xả đạn cực nhanh, độ giật triệt tiêu
+        // Xu ly che do Ban Tang Cuong (Overclock / Bullet Frenzy): Toc do xa dan cuc nhanh, do giat triet tieu
         const isOverclockActive = this.overclockTimer > 0 || isBulletFrenzy;
         const speedFactor = isBulletFrenzy ? 0.40 : (isOverclockActive ? 0.55 : 1.0);
         this.fireCooldown = (w.fireRate / this.fireRateBoost) * speedFactor;
-        this.recoilOffset = isOverclockActive ? (effective.recoilPitch * 0.2) : effective.recoilPitch;
 
-        // Tăng nón tản đạn sau mỗi phát bắn (Recoil Spread có tính phụ kiện giảm giật)
-        const recoilSpread = isOverclockActive ? 0.05 : ((w.recoilSpreadPerShot || 0.8) * (effective.recoilPitch / Math.max(0.001, w.recoilPitch)));
-        this.currentSpreadDeg = Math.min(w.maxSpreadDeg, this.currentSpreadDeg + recoilSpread);
+        // Khi khong giu chuot phai de ngam (Hipfire), do giat sung nay len rat manh; khi ngam (ADS) thi sung dam chac
+        const isADSActive = !!(isADS || playerRef?.isADS || playerRef?.th_toggleADS);
+        const recoilPitchMult = isADSActive ? 0.65 : 2.45;
+        this.recoilOffset = isOverclockActive ? (effective.recoilPitch * 0.2) : (effective.recoilPitch * recoilPitchMult);
 
-        // Phản lực con trỏ và rung màn hình (Cursor Kickback & Screen Shake)
+        // Tang non tan dan sau moi phat ban (Khong ngam se bung tan dan rat rong, khi ngam se chụm tam)
+        const spreadMult = isADSActive ? 0.45 : 2.6;
+        const recoilSpread = isOverclockActive ? 0.05 : ((w.recoilSpreadPerShot || 0.8) * spreadMult * (effective.recoilPitch / Math.max(0.001, w.recoilPitch)));
+        const maxSpreadCap = isADSActive ? (w.maxSpreadDeg * 0.7) : (w.maxSpreadDeg * 1.85);
+        this.currentSpreadDeg = Math.min(maxSpreadCap, this.currentSpreadDeg + recoilSpread);
+
+        // Phan luc con tro va rung man hinh (Cursor Kickback & Screen Shake)
         if (playerRef?.applyKickbackAndShake && !isOverclockActive) {
             playerRef.applyKickbackAndShake(effective.cursorKick, effective.screenShake);
         }
 
-        // Hiệu ứng âm thanh bắn
+        // Hieu ung am thanh ban
         sounds.playShot(w.id, { category: w.category, weapon: w, isOverclock: isOverclockActive });
 
         // Phụt tia lửa nòng (Chỉ chạy khi bật hiệu ứng để tránh lag)
@@ -3145,7 +3151,7 @@ export class WeaponSystem {
         if (mainPlayer && !currentW.isKnife && !currentW.isUtility) {
             const effective = this.getModifiedStats(currentW);
             const isMoving = mainPlayer.velocity && (mainPlayer.velocity.x * mainPlayer.velocity.x + mainPlayer.velocity.z * mainPlayer.velocity.z > 0.05);
-            const isADS = mainPlayer.isADS;
+            const isADS = !!(mainPlayer.isADS || mainPlayer.th_toggleADS);
             const targetMinSpread = (isADS ? effective.baseSpreadDegADS : effective.baseSpreadDegHip) + (isMoving ? effective.moveSpreadPenalty : 0);
 
             // Tự động co nhỏ lại về mức tối thiểu theo spreadRecoveryRate

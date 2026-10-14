@@ -3,22 +3,22 @@ import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js?v=63';
 import { ParticleSystem } from '../rendering/particles.js?v=68';
 import { Arena, SurvivalArena, SpaceArena, FPSArena } from '../world/arena.js?v=26';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=75';
-import { PlayerController } from '../gameplay/player/player.js?v=80';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=76';
+import { PlayerController } from '../gameplay/player/player.js?v=81';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=70';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
-import { UIManager } from '../ui/ui.js?v=49';
-import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=80';
+import { UIManager } from '../ui/ui.js?v=50';
+import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=81';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=40';
-import { HomeMenu } from '../ui/home.js?v=70';
+import { HomeMenu } from '../ui/home.js?v=71';
 import { LootingSystem } from '../gameplay/loot/looting.js?v=70';
 import { RenderQuality } from '../rendering/performance.js?v=3';
 import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=55';
 import { VisionConeOverlay, getWeaponVisionConfig, applyVisibilityCulling } from '../gameplay/combat/vision-cone.js?v=78';
-import { FPSMatchManager } from '../gameplay/combat/fps-match.js';
-import { TDMManager } from '../gameplay/combat/tdm.js?v=4';
-import { FirstPersonView } from '../gameplay/player/first-person.js?v=5';
+import { FPSMatchManager } from '../gameplay/combat/fps-match.js?v=2';
+import { TDMManager } from '../gameplay/combat/tdm.js?v=5';
+import { FirstPersonView } from '../gameplay/player/first-person.js?v=6';
 import { TH_VersusLoadingScreen } from '../ui/th_versus_loading.js?v=2';
 import { th_preloadAllGameAssets } from './th_asset_preloader.js';
 
@@ -599,7 +599,7 @@ class CyberArenaGame {
             remote.clearSharedSkills?.();
             remote.motion?.reset();
             remote.applyCharacterStats?.();
-            remote.weapons.resetRun(remote.loadout?.primary, remote.loadout?.secondary, remote.loadout?.bomb1, remote.loadout?.bomb2); remote.health = remote.maxHealth; remote.shield = remote.maxShield;
+            remote.weapons.resetRun(remote.loadout?.primary, remote.loadout?.secondary, remote.loadout?.bomb1, remote.loadout?.bomb2); remote.health = remote.maxHealth; remote.shield = 0; remote.maxShield = 0;
             remote.isDead = false; remote.isDowned = false; remote.commandQueue = [];
             remote.bleedOutTimer = 30; remote.reviveProgress = 0; remote.isBeingRevived = false; remote.invulnerability = 0;
             remote.lootInventory = null;
@@ -611,7 +611,7 @@ class CyberArenaGame {
         if (this.developerMode) {
             this.player.developerMode = true;
             this.player.health = this.player.maxHealth;
-            this.player.shield = this.player.maxShield;
+            this.player.shield = 0;
         }
         this.pickups.clear();
         this.particles.clear();
@@ -678,7 +678,8 @@ class CyberArenaGame {
             remote.netVelocity?.set(0, 0, 0);
             remote.spawnSeq = 0;
             remote.isVisibleToObserver = true;
-            remote.shield = remote.maxShield;
+            remote.shield = 0;
+            remote.maxShield = 0;
             remote.isDead = false;
             remote.isDowned = false;
             remote.invulnerability = 2.0;
@@ -694,7 +695,7 @@ class CyberArenaGame {
         if (this.developerMode) {
             this.player.developerMode = true;
             this.player.health = this.player.maxHealth;
-            this.player.shield = this.player.maxShield;
+            this.player.shield = 0;
         }
         this.pickups.clear();
         this.particles.clear();
@@ -753,7 +754,8 @@ class CyberArenaGame {
             remote.netVelocity?.set(0, 0, 0);
             remote.spawnSeq = 0;
             remote.isVisibleToObserver = true;
-            remote.shield = remote.maxShield;
+            remote.shield = 0;
+            remote.maxShield = 0;
             remote.isDead = false;
             remote.isDowned = false;
             remote.invulnerability = 2.0;
@@ -769,7 +771,7 @@ class CyberArenaGame {
         if (this.developerMode) {
             this.player.developerMode = true;
             this.player.health = this.player.maxHealth;
-            this.player.shield = this.player.maxShield;
+            this.player.shield = 0;
         }
         this.pickups.clear();
         this.particles.clear();
@@ -1434,7 +1436,7 @@ class CyberArenaGame {
             this.player.developerMode = this.developerMode;
             if (this.developerMode) {
                 this.player.health = this.player.maxHealth;
-                this.player.shield = this.player.maxShield;
+                this.player.shield = 0;
                 this.player.isDead = false;
                 this.player.isDowned = false;
             }
