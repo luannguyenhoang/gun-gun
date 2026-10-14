@@ -639,22 +639,30 @@ export class PlayerController {
     }
 
     async loadModel(loader, scene, characterId = this.characterId) {
-        this.characterId = normalizeCharacter(characterId);
+        const next = normalizeCharacter(characterId);
+        if (this._loadingCharacterId === next && this._modelLoadPromise) return this._modelLoadPromise;
+        if (!this._loadingCharacterId && this._loadedCharacterId === next && this.model?.parent === scene) return;
+        const request = this._modelLoadRequest = (this._modelLoadRequest || 0) + 1;
+        this.characterId = next;
+        this._loadingCharacterId = next;
         this.loader = loader;
         this.scene = scene;
-        this.handBone = null;
-        this.mixer = null;
-        this.animations = {};
-        this.currentAction = null;
-        this.holdingAction = null;
-        return new Promise((resolve) => {
-            if (this.model) {
-                this.model.removeFromParent();
-                this.healthBar?.dispose();
-                this.healthBar = null;
-            }
-            const config = CHARACTER_CONFIGS[this.characterId];
+        this._modelLoadPromise = new Promise((resolve) => {
+            const config = CHARACTER_CONFIGS[next];
             loader.load(`assets/models/${config.modelFile}`, (gltf) => {
+                // Only the latest selection owns the scene. Superseded loads
+                // must never leave a second, motionless character behind.
+                if (request !== this._modelLoadRequest) { resolve(); return; }
+                this._loadingCharacterId = null;
+                this._loadedCharacterId = next;
+                this.mixer?.stopAllAction();
+                if (this.model) this.mixer?.uncacheRoot(this.model);
+                this.model?.removeFromParent();
+                this.healthBar?.dispose();
+                this.handBone = null;
+                this.animations = {};
+                this.currentAction = null;
+                this.holdingAction = null;
                 this.model = gltf.scene;
                 this.model.scale.set(1.7, 1.7, 1.7);
                 this.model.position.copy(this.position);
@@ -702,8 +710,12 @@ export class PlayerController {
 
                 this.playAnimation('idle');
                 resolve();
-            }, undefined, () => resolve());
+            }, undefined, () => {
+                if (request === this._modelLoadRequest) this._loadingCharacterId = null;
+                resolve();
+            });
         });
+        return this._modelLoadPromise;
     }
 
     setCharacter(characterId) {

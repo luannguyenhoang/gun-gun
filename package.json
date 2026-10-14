@@ -12,6 +12,7 @@
     "test:browser": "node tests/browser/structure-smoke.cjs",
     "test:invites": "node --test tests/unit/invitations.test.mjs",
     "test:invites:browser": "node tests/browser/invitations.cjs",
+    "test:tdm:sync": "node tests/browser/tdm-player-sync.cjs",
     "test:fps": "node tests/browser/first-person.cjs",
     "test:fps:room": "node tests/browser/first-person-room.cjs",
     "test:multiplayer": "node tests/browser/multiplayer-browser.cjs",

@@ -24,7 +24,7 @@ export function getClientUserId() {
 }
 
 /**
- * Khử trùng lặp danh sách người chơi trong phòng dựa theo user_id, id hoặc tên hiển thị
+ * Khử trùng lặp theo định danh; tên hiển thị không phải định danh người chơi.
  * @param {Array} players Danh sách người chơi
  * @returns {Array} Danh sách đã lọc bỏ bản sao
  */
@@ -42,12 +42,12 @@ export function deduplicatePlayers(players) {
         const key = p.user_id || p.id;
         const name = (p.name || '').trim().toLowerCase();
 
-        // Nếu trùng key định danh hoặc trùng tên trong cùng một phòng thì bỏ qua bản sao
+        // Distinct accounts may have identical display names.
         if (key && seenKeys.has(key)) continue;
-        if (name && seenNames.has(name)) continue;
+        if (!key && name && seenNames.has(name)) continue;
 
         if (key) seenKeys.add(key);
-        if (name) seenNames.add(name);
+        if (!key && name) seenNames.add(name);
         result.push(p);
     }
     return result;
@@ -203,14 +203,14 @@ export async function joinDbRoom({ code, playerName, character = 'soldier', team
 
     let currentPlayers = deduplicatePlayers(room.players || []);
 
-    // 2. Kiểm tra xem người chơi này đã có sẵn trong phòng chưa (Check theo User ID, ID hoặc Tên)
+    // 2. Rejoin only the same identity; names are not unique.
     const existingIndex = currentPlayers.findIndex(p => {
         if (!p || typeof p !== 'object') return false;
         if (p.user_id && p.user_id === currentUserId) return true;
         if (p.id && p.id === currentUserId) return true;
         const pName = (p.name || '').trim().toLowerCase();
-        // Nếu cùng tên với một người chơi đã có trong phòng
-        if (pName && pName === cleanName.toLowerCase()) return true;
+        // Legacy rows without any identity may still be recovered by name.
+        if (!p.user_id && !p.id && pName && pName === cleanName.toLowerCase()) return true;
         return false;
     });
 
@@ -244,9 +244,7 @@ export async function joinDbRoom({ code, playerName, character = 'soldier', team
     }
 
     // 3. Nếu là chủ phòng (Host) vào lại phòng của chính mình
-    const isHostUser = room.host_id === currentUserId ||
-        (room.host_name && room.host_name.trim().toLowerCase() === cleanName.toLowerCase()) ||
-        (currentPlayers.length > 0 && (currentPlayers[0].name || '').trim().toLowerCase() === cleanName.toLowerCase() && currentPlayers[0].is_host);
+    const isHostUser = room.host_id === currentUserId;
 
     if (isHostUser) {
         const hostPlayer = currentPlayers.find(p => p.is_host) || currentPlayers[0] || { id: 'host', is_host: true };

@@ -4,14 +4,14 @@ import { sounds } from '../audio/audio.js?v=63';
 import { ParticleSystem } from '../rendering/particles.js?v=68';
 import { Arena, SurvivalArena, SpaceArena, FPSArena } from '../world/arena.js?v=26';
 import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=74';
-import { PlayerController } from '../gameplay/player/player.js?v=79';
+import { PlayerController } from '../gameplay/player/player.js?v=80';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=70';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
 import { UIManager } from '../ui/ui.js?v=49';
-import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=77';
+import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=78';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=40';
-import { HomeMenu } from '../ui/home.js?v=64';
+import { HomeMenu } from '../ui/home.js?v=65';
 import { LootingSystem } from '../gameplay/loot/looting.js?v=70';
 import { RenderQuality } from '../rendering/performance.js?v=3';
 import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=49';
@@ -670,6 +670,11 @@ class CyberArenaGame {
         for (const remote of this.remotePlayers.values()) {
             remote.health = remote.maxHealth;
             remote.motion?.reset();
+            remote.netTarget = null;
+            remote.netSampleTime = 0;
+            remote.netVelocity?.set(0, 0, 0);
+            remote.spawnSeq = 0;
+            remote.isVisibleToObserver = true;
             remote.shield = remote.maxShield;
             remote.isDead = false;
             remote.isDowned = false;
@@ -681,6 +686,7 @@ class CyberArenaGame {
         }
 
         this.player.reset();
+        this.player.spawnSeq = 0;
         this.player.team = playerTeam;
         if (this.developerMode) {
             this.player.developerMode = true;
@@ -738,6 +744,11 @@ class CyberArenaGame {
         for (const remote of this.remotePlayers.values()) {
             remote.health = remote.maxHealth;
             remote.motion?.reset();
+            remote.netTarget = null;
+            remote.netSampleTime = 0;
+            remote.netVelocity?.set(0, 0, 0);
+            remote.spawnSeq = 0;
+            remote.isVisibleToObserver = true;
             remote.shield = remote.maxShield;
             remote.isDead = false;
             remote.isDowned = false;
@@ -749,6 +760,7 @@ class CyberArenaGame {
         }
 
         this.player.reset();
+        this.player.spawnSeq = 0;
         this.player.team = playerTeam;
         if (this.developerMode) {
             this.player.developerMode = true;
@@ -1773,10 +1785,16 @@ class CyberArenaGame {
             remote.applySharedSkillState?.(state.skills);
             remote.weapons.applyNetworkState(state.weapons);
         }
+        // Snapshots contain the authoritative roster, including bots. Remove
+        // departed players and old local aliases as well as obsolete bots.
+        if (Array.isArray(snapshot.players)) {
+            const ids = new Set(snapshot.players.map(p => p.id));
+            for (const [id] of this.remotePlayers) {
+                if (id === localId || !ids.has(id)) this.removeCoopPlayer?.(id);
+            }
+        }
         const byId = new Map(this.waveManager.enemies.map(enemy => [enemy.id, enemy]));
         if (matchState) {
-            const ids = new Set((snapshot.players || []).map(p => p.id));
-            for (const [id] of this.remotePlayers) if (id.startsWith('bot_') && !ids.has(id)) this.removeCoopPlayer(id);
             for (const remote of this.remotePlayers.values()) remote.isBot = remote.id.startsWith('bot_');
             this.matchManager.teamBlue = this.coopPlayers.filter(p => p.team === 'blue');
             this.matchManager.teamRed = this.coopPlayers.filter(p => p.team === 'red');
@@ -2022,8 +2040,7 @@ class CyberArenaGame {
             if (this.gameMode === 'TDM') {
                 // Resolve visibility on the same frame and with the same ADS cone as the light.
                 const teamMembers = (this.player.team === 'blue' ? this.matchManager?.teamBlue : this.matchManager?.teamRed) || [this.player];
-                const opponents = (this.player.team === 'blue' ? this.matchManager?.teamRed : this.matchManager?.teamBlue) || [];
-                applyVisibilityCulling(teamMembers, opponents, null, this.arena,
+                applyVisibilityCulling(teamMembers, Array.from(this.remotePlayers.values()), null, this.arena,
                     observer => observer === this.player ? this.visionCone.getConfig() : null);
             }
 

@@ -63,13 +63,15 @@ const unifiedMockClient = {
 globalThis.document = { addEventListener() {} };
 globalThis.window = {
     addEventListener() {},
+    localStorage: { getItem: () => 'guest_uid_1' },
     supabase: { createClient: () => unifiedMockClient }
 };
 
 const {
     createDbRoom,
     joinDbRoom,
-    leaveDbRoom
+    leaveDbRoom,
+    deduplicatePlayers
 } = await import('../../src/network/supabase-room.js?v=2');
 
 test('createDbRoom tao phong thanh cong voi du lieu mac dinh', async () => {
@@ -197,18 +199,36 @@ test('joinDbRoom nhan dien nguoi choi da co trong phong (rejoin) va khong nhan b
         ]
     };
 
-    // Trường hợp 1: Người chơi 'Ngợi Trần' thoát ra vào lại với cùng tên
-    const rejoinByName = await joinDbRoom({
+    // Rejoin with the same stable identity.
+    const rejoinById = await joinDbRoom({
         code: 'REJOIN01',
         playerName: 'Ngợi Trần',
         character: 'assassin',
         team: 'red'
     });
 
-    assert.equal(rejoinByName.rejoined, true);
-    assert.equal(rejoinByName.player.name, 'Ngợi Trần');
-    assert.equal(rejoinByName.player.character, 'assassin');
+    assert.equal(rejoinById.rejoined, true);
+    assert.equal(rejoinById.player.name, 'Ngợi Trần');
+    assert.equal(rejoinById.player.character, 'assassin');
     // Danh sách không bị tăng kích thước (vẫn là 2 người, không bị nhân bản thành 3)
     assert.equal(updatedPayload.players.length, 2);
     assert.equal(updatedPayload.players.filter(p => p.name === 'Ngợi Trần').length, 1);
+});
+
+test('different identities with the same name retain separate slots and cannot impersonate the host', async () => {
+    mockData = {
+        code: 'SAME', status: 'waiting', host_id: 'host_uid', host_name: 'Người chơi',
+        players: [{ id: 'host', user_id: 'host_uid', name: 'Người chơi', is_host: true, team: 'blue' }]
+    };
+    const result = await joinDbRoom({ code: 'SAME', playerName: 'Người chơi', team: 'red' });
+    assert.equal(result.rejoined, false);
+    assert.equal(result.player.is_host, false);
+    assert.equal(result.player.id, 'guest_uid_1');
+    assert.equal(updatedPayload.players.length, 2);
+    const players = [
+        ...updatedPayload.players,
+        { id: 'guest2', user_id: 'guest_uid_2', name: 'Người chơi' },
+        { id: 'duplicate', user_id: 'guest_uid_2', name: 'Another name' }
+    ];
+    assert.equal(deduplicatePlayers(players).length, 3);
 });

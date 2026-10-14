@@ -15,7 +15,7 @@ import {
     unsubscribeDbRoom,
     getClientUserId,
     deduplicatePlayers
-} from './supabase-room.js?v=3';
+} from './supabase-room.js?v=4';
 
 // Cấu hình STUN Server của Google giúp đục lỗ NAT khi chơi qua mạng Internet (4G, Wifi khác nhà)
 const PEER_CONFIG = {
@@ -150,8 +150,7 @@ export class NetworkRoom {
                     for (const p of dbPlayers) {
                         const existing = this.players.find(pl =>
                             (p.user_id && (pl.user_id === p.user_id || pl.id === p.user_id)) ||
-                            pl.id === p.id ||
-                            (pl.name && p.name && pl.name.trim().toLowerCase() === p.name.trim().toLowerCase())
+                            pl.id === p.id
                         );
                         if (!existing) {
                             this.players.push(p);
@@ -264,12 +263,10 @@ export class NetworkRoom {
                         const clientChar = data.character || 'police';
                         const roomMode = this.game.selectedGameMode || 'TDM';
 
-                        // Kiểm tra xem người chơi này đã có sẵn trong phòng chưa (Check theo user_id, id hoặc Tên)
+                        // Reconnect by stable identity, never by display name.
                         let existingPlayer = this.players.find(p => {
                             if (!p || typeof p !== 'object' || p.id === 'host' || p.is_host) return false;
                             if (clientUserId && (p.user_id === clientUserId || p.id === clientUserId)) return true;
-                            const pName = (p.name || '').trim().toLowerCase();
-                            if (pName && pName === clientName.toLowerCase()) return true;
                             return false;
                         });
 
@@ -1036,7 +1033,7 @@ export class NetworkRoom {
             }
         }
         for (const [id] of this.game.remotePlayers) {
-            if (!ids.has(id) && !id.startsWith('bot_')) this.game.removeCoopPlayer(id);
+            if (id === this.playerId || (!ids.has(id) && !id.startsWith('bot_'))) this.game.removeCoopPlayer(id);
         }
         if (['TDM', 'FPS_SOLO'].includes(this.game.gameMode) && this.game.state === 'PLAYING') {
             this.game.matchManager.teamBlue = this.game.coopPlayers.filter(p => p.team === 'blue');
