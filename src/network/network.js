@@ -1067,6 +1067,36 @@ export class NetworkRoom {
         }
     }
 
+    changeWeapon(weaponId) {
+        if (!this.active) return;
+        const loadout = this.game.getLoadout?.();
+        const weapon = getStartingWeapon(weaponId).id;
+        if (this.host) {
+            const hostPlayer = this.players.find(p => p.id === 'host');
+            if (hostPlayer) {
+                hostPlayer.weapon = weapon;
+                hostPlayer.loadout = loadout;
+                this.broadcastRoster();
+                if (this.code) {
+                    updateDbRoomRoster(this.code, { players: this.players });
+                }
+            }
+        } else {
+            const me = this.players.find(p => p.id === this.playerId);
+            if (me) {
+                me.weapon = weapon;
+                me.loadout = loadout;
+                this.updateRoster(this.players);
+                if (this.code) {
+                    updateDbRoomRoster(this.code, { players: this.players });
+                }
+            }
+            if (this.conn && this.conn.open) {
+                this.conn.send({ type: 'weapon', weapon, loadout });
+            }
+        }
+    }
+
     handleHostDisconnect() {
         if (!this.active) return;
 

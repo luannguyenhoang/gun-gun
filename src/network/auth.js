@@ -373,20 +373,27 @@ export function applyProfileProgressToGame(profile, game) {
         try { localStorage.setItem('cyber_arena_unlocked_characters', JSON.stringify(profile.unlocked_characters)); } catch {}
     }
 
-    if (profile.loadout && typeof profile.loadout === 'object') {
+    if (profile.loadout && typeof profile.loadout === 'object' && profile.loadout.primary) {
         try {
             localStorage.setItem('cyber_arena_loadout', JSON.stringify(profile.loadout));
-            if (profile.loadout.primary) {
-                localStorage.setItem('cyber_arena_weapon', profile.loadout.primary);
-                if (game.weapons) game.weapons.startingWeaponId = profile.loadout.primary;
+            localStorage.setItem('cyber_arena_weapon', profile.loadout.primary);
+            if (game.weapons) {
+                game.weapons.startingWeaponId = profile.loadout.primary;
+                if (game.state === 'MENU') {
+                    game.weapons.resetRun(
+                        profile.loadout.primary,
+                        profile.loadout.secondary || 'blaster',
+                        profile.loadout.bomb1 || 'grenade_a',
+                        profile.loadout.bomb2 || 'grenade_b'
+                    );
+                }
             }
         } catch {}
         if (game.homeMenu?.showroom) {
-            game.homeMenu.showroom.loadout = (typeof game.homeMenu.showroom.getSavedLoadout === 'function')
-                ? game.homeMenu.showroom.getSavedLoadout()
-                : { ...profile.loadout };
-            game.homeMenu.showroom.weaponId = game.homeMenu.showroom.loadout?.primary;
+            game.homeMenu.showroom.loadout = { ...profile.loadout };
+            game.homeMenu.showroom.weaponId = profile.loadout.primary;
             game.homeMenu.showroom.syncLoadoutUI?.();
+            game.homeMenu.showroom.syncSelection?.();
         }
     }
 
@@ -428,8 +435,8 @@ export function resetGameProgressToGuest(game) {
         localStorage.setItem('th_weapon_parts', '{}');
         localStorage.setItem('cyber_arena_character', 'police');
         localStorage.setItem('cyber_arena_unlocked_characters', JSON.stringify(['police']));
-        localStorage.setItem('cyber_arena_loadout', JSON.stringify({ primary: 'blaster_c', knife: 'tactical_knife' }));
-        localStorage.setItem('cyber_arena_weapon', 'blaster_c');
+        localStorage.setItem('cyber_arena_loadout', JSON.stringify({ primary: 'repeater', secondary: 'blaster', bomb1: 'grenade_a', bomb2: 'grenade_b' }));
+        localStorage.setItem('cyber_arena_weapon', 'repeater');
         localStorage.setItem('cyber_arena_highscore', '0');
     } catch {}
 
