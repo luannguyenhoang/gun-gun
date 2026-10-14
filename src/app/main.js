@@ -3,18 +3,18 @@ import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js?v=63';
 import { ParticleSystem } from '../rendering/particles.js?v=68';
 import { Arena, SurvivalArena, SpaceArena, FPSArena } from '../world/arena.js?v=26';
-import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=74';
+import { WeaponSystem, getStartingWeapon, WEAPON_CONFIGS, getBombConfig, th_getWeaponParts, th_computeWeaponFinalStats, TH_PART_META } from '../gameplay/combat/weapons.js?v=75';
 import { PlayerController } from '../gameplay/player/player.js?v=80';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=70';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
 import { UIManager } from '../ui/ui.js?v=49';
-import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=78';
+import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=80';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=40';
-import { HomeMenu } from '../ui/home.js?v=65';
+import { HomeMenu } from '../ui/home.js?v=70';
 import { LootingSystem } from '../gameplay/loot/looting.js?v=70';
 import { RenderQuality } from '../rendering/performance.js?v=3';
-import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=49';
+import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=55';
 import { VisionConeOverlay, getWeaponVisionConfig, applyVisibilityCulling } from '../gameplay/combat/vision-cone.js?v=78';
 import { FPSMatchManager } from '../gameplay/combat/fps-match.js';
 import { TDMManager } from '../gameplay/combat/tdm.js?v=4';
@@ -991,7 +991,7 @@ class CyberArenaGame {
             if (raw) {
                 const parsed = JSON.parse(raw);
                 return {
-                    primary: parsed.primary || 'blaster_c',
+                    primary: parsed.primary || 'repeater',
                     secondary: parsed.secondary || 'blaster',
                     bomb1: parsed.bomb1 || 'grenade_a',
                     bomb2: parsed.bomb2 || 'grenade_b'
@@ -999,7 +999,7 @@ class CyberArenaGame {
             }
         } catch {}
         return {
-            primary: localStorage.getItem('cyber_arena_weapon') || 'blaster_c',
+            primary: localStorage.getItem('cyber_arena_weapon') || 'repeater',
             secondary: 'blaster',
             bomb1: 'grenade_a',
             bomb2: 'grenade_b'

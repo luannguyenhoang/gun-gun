@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import * as SkeletonUtils from '../../vendor/SkeletonUtils.js';
 import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { CHARACTER_CONFIGS, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
-import { WEAPON_CONFIGS, getStartingWeapon, updateHeldWeaponPose, BOMB_CONFIGS, getBombConfig, MEDICAL_CONFIGS, th_getWeaponParts, th_getPartTier, TH_PART_META, ATTACHMENT_DEFS } from '../gameplay/combat/weapons.js?v=46';
+import { WEAPON_CONFIGS, getStartingWeapon, updateHeldWeaponPose, BOMB_CONFIGS, getBombConfig, MEDICAL_CONFIGS, th_getWeaponParts, th_getPartTier, TH_PART_META, ATTACHMENT_DEFS } from '../gameplay/combat/weapons.js?v=75';
 
 export class CharacterShowroom {
     constructor(game) {
@@ -65,7 +65,17 @@ export class CharacterShowroom {
                 <strong class="weapon-card-name">${item.name}</strong>
                 <span class="character-card-status weapon-card-status"></span>
             `;
-            card.onclick = () => this.previewWeapon(item.id);
+            card.onclick = () => {
+                const isAlreadyPreviewing = (this.weaponId === item.id);
+                const isUnlocked = this.game.isWeaponUnlocked(item.id);
+                if (isAlreadyPreviewing && isUnlocked && !item.isBomb && item.slotType !== 'medical') {
+                    // Nhấn vào thẻ súng đang xem để tự động trang bị vào slot tương ứng
+                    const targetSlot = item.slotType === 'secondary' ? 'secondary' : 'primary';
+                    this.equipToSlot(targetSlot, item.id);
+                } else {
+                    this.previewWeapon(item.id);
+                }
+            };
             this.weaponCards.append(card);
         }
 
@@ -200,6 +210,14 @@ export class CharacterShowroom {
                 if (!isUnlocked) {
                     const bought = this.game.buyWeapon(item.id);
                     if (bought) {
+                        // Tự động trang bị súng ngay sau khi mua thành công
+                        if (item.slotType === 'secondary') {
+                            this.equipToSlot('secondary', item.id);
+                        } else if (item.isBomb) {
+                            this.equipToSlot('bomb1', item.id);
+                        } else {
+                            this.equipToSlot('primary', item.id);
+                        }
                         this.syncSelection();
                     }
                     return;
@@ -819,18 +837,8 @@ export class CharacterShowroom {
             const raw = localStorage.getItem('cyber_arena_loadout');
             if (raw) {
                 const parsed = JSON.parse(raw);
-                let primary = parsed.primary || 'repeater';
-                let secondary = parsed.secondary || 'blaster';
-
-                // Tương thích ngược: Nếu súng chính cũ là súng lục (blaster_c, blaster_i, v.v.), tự động hoán đổi sang slot phụ
-                if (SECONDARY_WEAPON_IDS.has(primary)) {
-                    secondary = primary;
-                    primary = 'repeater';
-                }
-                // Nếu slot phụ đang gắn nhầm súng chính, đặt lại về súng lục cơ bản
-                if (!SECONDARY_WEAPON_IDS.has(secondary)) {
-                    secondary = 'blaster';
-                }
+                const primary = parsed.primary || localStorage.getItem('cyber_arena_weapon') || 'repeater';
+                const secondary = parsed.secondary || 'blaster';
 
                 return {
                     primary,
@@ -841,7 +849,7 @@ export class CharacterShowroom {
             }
         } catch {}
         return {
-            primary: 'repeater',
+            primary: localStorage.getItem('cyber_arena_weapon') || 'repeater',
             secondary: 'blaster',
             bomb1: 'grenade_a',
             bomb2: 'grenade_b'
@@ -858,6 +866,13 @@ export class CharacterShowroom {
         if (this.game.weapons) {
             this.game.weapons.startingWeaponId = this.loadout.primary;
             this.game.startingLoadout = { ...this.loadout };
+            // Cập nhật lại ngay trạng thái vũ khí trong hệ thống chiến đấu của người chơi
+            this.game.weapons.resetRun(
+                this.loadout.primary,
+                this.loadout.secondary,
+                this.loadout.bomb1,
+                this.loadout.bomb2
+            );
         }
         if (this.game.network?.active && this.loadout?.primary) {
             this.game.network.changeWeapon?.(this.loadout.primary);
@@ -877,18 +892,26 @@ export class CharacterShowroom {
             if (!bought) return;
         }
 
-        // Tự động điều chỉnh slot nếu người chơi chọn loại súng đặc thù
-        let targetSlot = slotName;
-        if (item.slotType === 'secondary' && (targetSlot === 'primary')) {
-            targetSlot = 'secondary';
-        } else if (item.slotType === 'primary' && (targetSlot === 'secondary')) {
-            targetSlot = 'primary';
-        }
+        // Người chơi chọn slot nào thì gắn chính xác vào slot đó (không tự ý đổi slot)
+        const targetSlot = slotName;
 
         this.loadout[targetSlot] = itemId;
         this.saveLoadout();
         this.syncSelection();
         this.syncLoadoutUI();
+
+        // Âm thanh và thông báo xác nhận trang bị thành công
+        sounds.play('equip', { volume: 0.8 });
+        const slotTitles = {
+            primary: 'SÚNG CHÍNH [1]',
+            secondary: 'SÚNG PHỤ [2]',
+            bomb1: 'BOM 1 [3]',
+            bomb2: 'BOM 2 [4]'
+        };
+        const slotNameVi = slotTitles[targetSlot] || targetSlot.toUpperCase();
+        if (this.game.ui?.showPickupAlert) {
+            this.game.ui.showPickupAlert(`ĐÃ TRANG BỊ [${item.name}] VÀO ${slotNameVi}!`);
+        }
     }
 
     syncLoadoutUI() {
@@ -1176,22 +1199,17 @@ export class CharacterShowroom {
                             this.btnBomb2.style.display = '';
                             this.btnBomb2.textContent = (this.loadout.bomb2 === curItem.id) ? '✓ ĐANG TRANG BỊ BOM 2' : 'TRANG BỊ VÀO BOM 2 [4]';
                         }
-                    } else if (curItem.slotType === 'secondary') {
-                        if (this.btnPrimary) this.btnPrimary.style.display = 'none';
-                        if (this.btnBomb1) this.btnBomb1.style.display = 'none';
-                        if (this.btnBomb2) this.btnBomb2.style.display = 'none';
-                        if (this.btnSecondary) {
-                            this.btnSecondary.style.display = '';
-                            this.btnSecondary.textContent = (this.loadout.secondary === curItem.id) ? '✓ ĐANG LÀ SÚNG PHỤ' : 'TRANG BỊ SÚNG PHỤ [2]';
-                        }
                     } else {
-                        // Súng chính
-                        if (this.btnSecondary) this.btnSecondary.style.display = 'none';
+                        // Vũ khí (Súng chính hoặc Súng phụ): Hiển thị cả 2 lựa chọn để người chơi tùy ý gán vào Slot [1] hoặc Slot [2]
                         if (this.btnBomb1) this.btnBomb1.style.display = 'none';
                         if (this.btnBomb2) this.btnBomb2.style.display = 'none';
                         if (this.btnPrimary) {
                             this.btnPrimary.style.display = '';
                             this.btnPrimary.textContent = (this.loadout.primary === curItem.id) ? '✓ ĐANG LÀ SÚNG CHÍNH' : 'TRANG BỊ SÚNG CHÍNH [1]';
+                        }
+                        if (this.btnSecondary) {
+                            this.btnSecondary.style.display = '';
+                            this.btnSecondary.textContent = (this.loadout.secondary === curItem.id) ? '✓ ĐANG LÀ SÚNG PHỤ' : 'TRANG BỊ SÚNG PHỤ [2]';
                         }
                     }
                 }

@@ -646,13 +646,13 @@ export class Zombie {
         const posX = this.mesh ? this.mesh.position.x : this.position.x;
         const posY = this.mesh ? this.mesh.position.y : this.position.y;
         const posZ = this.mesh ? this.mesh.position.z : this.position.z;
-        
+
         // Dung Bounding Box co bu tru ban kinh dan (0.18m) de bao quat ca vat the dan bay qua
         const bulletRadius = 0.18;
         const effRadius = this.radius + bulletRadius;
         const boxMin = new THREE.Vector3(posX - effRadius, posY, posZ - effRadius);
         const boxMax = new THREE.Vector3(posX + effRadius, posY + height + bulletRadius, posZ + effRadius);
-        
+
         // Dùng biến tạm để tránh rác bộ nhớ (Zero GC)
         if (!this._hitBox) this._hitBox = new THREE.Box3();
         this._hitBox.min.copy(boxMin);
@@ -834,14 +834,14 @@ export class Zombie {
                 this.spitCharge -= delta;
                 this.setEmissiveColor(0x99ff22, .9);
                 if (this.spitCharge <= 0) {
-                    const origin = this.position.clone().add(new THREE.Vector3(0,1.2,0));
-                    if (!arena?.hasLineOfSight || arena.hasLineOfSight(origin,this.acidTarget))
-                        this.weapons.shootEnemyBolt(origin,this.acidTarget,this.damage,12,true);
-                    this.rangedCooldown = 2.8; this.setEmissiveColor(0,0);
+                    const origin = this.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+                    if (!arena?.hasLineOfSight || arena.hasLineOfSight(origin, this.acidTarget))
+                        this.weapons.shootEnemyBolt(origin, this.acidTarget, this.damage, 12, true);
+                    this.rangedCooldown = 2.8; this.setEmissiveColor(0, 0);
                 }
             } else if (this.rangedCooldown <= 0 && dist >= 3 && dist <= 18 &&
-                (!arena?.hasLineOfSight || arena.hasLineOfSight(this.position,player.position))) {
-                this.acidTarget = player.position.clone().add(new THREE.Vector3(0,.8,0));
+                (!arena?.hasLineOfSight || arena.hasLineOfSight(this.position, player.position))) {
+                this.acidTarget = player.position.clone().add(new THREE.Vector3(0, .8, 0));
                 this.spitCharge = .65;
             }
         }
@@ -981,7 +981,7 @@ export class Zombie {
             if (this.bossSkillTimer <= 0) {
                 this.bossSkillTimer = 5.0 - Math.min(2.5, this.bossPhase * 0.1); // Cooldown decreases as phases go up
                 const skillRoll = Math.random();
-                
+
                 if (skillRoll < 0.33) {
                     // Skill 1: Bloodlust Sprint
                     this.speed += 4.0;
@@ -1042,7 +1042,7 @@ export class Zombie {
             const slamRadius = 6.0 + (this.bossPhase || 1) * 0.5;
             this.particles?.createImpactSparks(this.position, new THREE.Vector3(0, 1, 0), 0xffaa00, 30);
             sounds.play('enemyDestroy', { volume: 1.0 });
-            
+
             const targets = Array.isArray(player) ? player : [player];
             for (const t of targets) {
                 if (t.isDead || t.isDowned) continue;
@@ -1070,7 +1070,7 @@ export class Zombie {
         if (isPlayerHidden || this.weapons?.isPositionInSmoke?.(this.position) || window.game?.weapons?.isPositionInSmoke?.(this.position)) return;
         sounds.play('enemyAttack', { volume: 0.7, pitchVariation: 0.15 });
         _tempMeleeHitDir.subVectors(player.position, this.position).normalize();
-        
+
         // Tru mau nguoi choi
         player.takeDamage(this.damage, _tempMeleeHitDir);
 
@@ -1333,15 +1333,15 @@ export class WaveManager {
             // Chỉ sinh thêm quái nếu số quái trên sân chưa chạm trần maxOnField và còn quái trong hàng đợi của đợt
             if (this.remainingToSpawn > 0 && activeCount < this.maxOnField && this.batchSpawnTimer >= this.batchInterval) {
                 this.batchSpawnTimer = 0;
-                
+
                 // Kiem tra spawn Boss moi 5 phase
                 if (this.currentPhase % 5 === 0 && !this.hasSpawnedBoss) {
                     this.hasSpawnedBoss = true;
                     this.spawnSingleEnemy(primaryPlayer, survivalMinutes, 'boss');
                     this.remainingToSpawn--;
                 }
-                
-                 const canSpawn = Math.min(4, this.maxOnField - activeCount, this.remainingToSpawn);
+
+                const canSpawn = Math.min(4, this.maxOnField - activeCount, this.remainingToSpawn);
                 for (let i = 0; i < canSpawn; i++) {
                     this.spawnSingleEnemy(primaryPlayer, survivalMinutes);
                     this.remainingToSpawn--;
