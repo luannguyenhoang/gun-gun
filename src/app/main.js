@@ -8,10 +8,10 @@ import { PlayerController } from '../gameplay/player/player.js?v=79';
 import { WaveManager, Zombie } from '../gameplay/combat/enemies.js?v=70';
 import { PickupManager } from '../gameplay/loot/pickups.js?v=40';
 import { UIManager } from '../ui/ui.js?v=49';
-import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=76';
+import { NetworkRoom, makeRemotePlayer } from '../network/network.js?v=77';
 import { normalizeCharacter, isCharacterUnlocked, unlockCharacter } from '../gameplay/player/characters.js';
 import { RoomLobby } from '../ui/lobby.js?v=40';
-import { HomeMenu } from '../ui/home.js?v=63';
+import { HomeMenu } from '../ui/home.js?v=64';
 import { LootingSystem } from '../gameplay/loot/looting.js?v=70';
 import { RenderQuality } from '../rendering/performance.js?v=3';
 import { saveGameProgressToCloud, flushGameProgress } from '../network/auth.js?v=49';
@@ -808,13 +808,14 @@ class CyberArenaGame {
     }
 
     returnToMenu() {
+        // Always discard the room URL, even after a failed/disconnected join.
+        this.network.leave();
         this.firstPersonView?.setEnabled(false);
         this.pauseMenuOpen = false;
         this.lootingSystem.closeContainerUI();
         this.player.setInputEnabled(false);
         this.player.reset();
         this.state = 'MENU';
-        if (this.network.active) this.network.leave();
         for (const id of [...this.remotePlayers.keys()]) this.removeCoopPlayer(id);
         this.practiceBot = null;
         this.waveManager.clear();
@@ -911,13 +912,29 @@ class CyberArenaGame {
     }
 
     async createRoom() {
-        try { const data = await this.network.create(this.roomName?.value || 'Chủ phòng', this.characterId); this.showRoomState(data); }
-        catch (error) { this.showRoomError(error.message); }
+        if (this.roomActionPending || this.network.active) return null;
+        this.roomActionPending = true;
+        try { return await this.network.create(this.roomName?.value || 'Chủ phòng', this.characterId); }
+        catch (error) { this.showRoomError(error.message); return null; }
+        finally { this.roomActionPending = false; }
     }
 
-    async joinRoom() {
-        try { const data = await this.network.join(this.roomCode?.value || '', this.roomName?.value || 'Đồng đội', this.characterId); this.showRoomState(data); }
-        catch (error) { this.showRoomError(error.message); }
+    async joinRoom(code = this.roomCode?.value || '') {
+        if (this.roomActionPending) {
+            this.showRoomError('Đang kết nối phòng. Vui lòng chờ một chút rồi thử lại.');
+            return null;
+        }
+        code = code.trim().toUpperCase();
+        if (this.network.active && this.network.code === code) return { code };
+        this.roomActionPending = true;
+        try {
+            if (this.state !== 'MENU') this.returnToMenu();
+            else if (this.network.active) this.network.leave();
+            if (this.roomCode) this.roomCode.value = code;
+            this.showRoomError('Đang kết nối phòng…');
+            return await this.network.join(code, this.roomName?.value || 'Đồng đội', this.characterId);
+        } catch (error) { this.showRoomError(error.message); return null; }
+        finally { this.roomActionPending = false; }
     }
 
     selectCharacter(characterId) {

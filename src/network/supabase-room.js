@@ -171,6 +171,7 @@ export async function joinDbRoom({ code, playerName, character = 'soldier', team
             joined_at: new Date().toISOString()
         };
         return {
+            offline: true,
             room: {
                 code: cleanCode,
                 status: 'waiting',
@@ -193,11 +194,11 @@ export async function joinDbRoom({ code, playerName, character = 'soldier', team
     }
 
     if (room.status === 'closed') {
-        throw new Error('Phòng này đã đóng hoặc chủ phòng đã hủy phòng.');
+        throw Object.assign(new Error('Phòng này đã đóng hoặc chủ phòng đã hủy phòng.'), { code: 'ROOM_UNAVAILABLE' });
     }
 
     if (room.status === 'playing') {
-        throw new Error('Trận đấu đã bắt đầu. Vui lòng chờ trận mới hoặc chọn phòng khác.');
+        throw Object.assign(new Error('Trận đấu đã bắt đầu. Vui lòng chờ trận mới hoặc chọn phòng khác.'), { code: 'ROOM_UNAVAILABLE' });
     }
 
     let currentPlayers = deduplicatePlayers(room.players || []);
@@ -229,13 +230,15 @@ export async function joinDbRoom({ code, playerName, character = 'soldier', team
 
         currentPlayers = deduplicatePlayers(currentPlayers);
 
-        await client
+        const { error: rejoinError } = await client
             .from('rooms')
             .update({
                 players: currentPlayers,
                 updated_at: new Date().toISOString()
             })
             .eq('code', cleanCode);
+
+        if (rejoinError) throw new Error('Không thể ghi danh lại vào phòng trên hệ thống.');
 
         return { room: { ...room, players: currentPlayers }, player: existing, rejoined: true };
     }
@@ -254,7 +257,7 @@ export async function joinDbRoom({ code, playerName, character = 'soldier', team
 
         currentPlayers = deduplicatePlayers(currentPlayers);
 
-        await client
+        const { error: rejoinError } = await client
             .from('rooms')
             .update({
                 host_id: currentUserId,
@@ -263,12 +266,14 @@ export async function joinDbRoom({ code, playerName, character = 'soldier', team
             })
             .eq('code', cleanCode);
 
+        if (rejoinError) throw new Error('Không thể ghi danh lại vào phòng trên hệ thống.');
+
         return { room: { ...room, players: currentPlayers }, player: hostPlayer, rejoined: true };
     }
 
     // 4. Nếu là người chơi mới hoàn toàn: kiểm tra giới hạn số lượng
     if (currentPlayers.length >= (room.max_players || 8)) {
-        throw new Error(`Phòng đã đủ số lượng tối đa (${room.max_players || 8} người).`);
+        throw Object.assign(new Error(`Phòng đã đủ số lượng tối đa (${room.max_players || 8} người).`), { code: 'ROOM_UNAVAILABLE' });
     }
 
     // Tính toán phân bổ đội cân bằng

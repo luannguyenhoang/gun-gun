@@ -15,7 +15,7 @@ import {
     unsubscribeDbRoom,
     getClientUserId,
     deduplicatePlayers
-} from './supabase-room.js?v=2';
+} from './supabase-room.js?v=3';
 
 // Cấu hình STUN Server của Google giúp đục lỗ NAT khi chơi qua mạng Internet (4G, Wifi khác nhà)
 const PEER_CONFIG = {
@@ -110,6 +110,7 @@ export class NetworkRoom {
     }
 
     async create(name, character = 'police') {
+        const session = this.session = (this.session || 0) + 1;
         const code = Math.random().toString(36).substring(2, 6).toUpperCase();
         const mode = this.game.selectedGameMode || 'SURVIVAL';
         const hostTeam = (mode === 'TDM' || mode === 'FPS_SOLO') ? (this.game.selectedTDMTeam || 'blue') : null;
@@ -129,6 +130,10 @@ export class NetworkRoom {
         } catch (err) {
             console.warn('[NetworkHost] Cảnh báo lưu phòng DB:', err);
         }
+        if (this.session !== session) {
+            void leaveDbRoom(code, getClientUserId());
+            throw new Error('Đã hủy tạo phòng.');
+        }
 
         // 2. Lắng nghe thay đổi phòng qua Supabase Realtime
         if (this.dbChannel) {
@@ -138,7 +143,7 @@ export class NetworkRoom {
         this.dbChannel = subscribeDbRoom(
             code,
             (updatedRecord) => {
-                if (!this.active || !this.host) return;
+                if (this.session !== session || !this.active || !this.host) return;
                 if (Array.isArray(updatedRecord.players)) {
                     let hasChange = false;
                     const dbPlayers = deduplicatePlayers(updatedRecord.players);
@@ -167,10 +172,35 @@ export class NetworkRoom {
         );
 
         // 3. Khởi tạo PeerJS để đồng bộ mô phỏng chuyển động tốc độ cao trong trận
-        return new Promise((resolve) => {
-            this.peer = new window.Peer('gungun-room-' + code, PEER_CONFIG);
+        return new Promise((resolve, reject) => {
+            let activated = false;
+            const timeout = setTimeout(() => {
+                this.cancelRoomConnection = null;
+                this.leave();
+                void leaveDbRoom(code, getClientUserId());
+                reject(new Error('Kết nối tạo phòng quá lâu. Vui lòng thử lại.'));
+            }, 10000);
+            this.cancelRoomConnection = () => {
+                clearTimeout(timeout);
+                void leaveDbRoom(code, getClientUserId());
+                reject(new Error('Đã hủy tạo phòng.'));
+            };
+            try {
+                this.peer = new window.Peer('gungun-room-' + code, PEER_CONFIG);
+            } catch (error) {
+                clearTimeout(timeout);
+                this.cancelRoomConnection = null;
+                this.leave();
+                void leaveDbRoom(code, getClientUserId());
+                reject(error);
+                return;
+            }
             
             const activateHost = () => {
+                if (this.session !== session || activated) return;
+                activated = true;
+                clearTimeout(timeout);
+                this.cancelRoomConnection = null;
                 this.active = true;
                 this.host = true;
                 this.code = code;
@@ -204,17 +234,24 @@ export class NetworkRoom {
             });
 
             this.peer.on('error', (err) => {
-                console.warn('[NetworkHost] Cảnh báo PeerJS, tiếp tục với DB Room:', err.message);
-                if (!this.active) {
-                    activateHost();
+                if (this.session !== session) return;
+                console.warn('[NetworkHost] Lỗi kết nối PeerJS:', err.message);
+                if (!activated) {
+                    clearTimeout(timeout);
+                    this.cancelRoomConnection = null;
+                    this.leave();
+                    void leaveDbRoom(code, getClientUserId());
+                    reject(new Error('Chưa thể mở kết nối phòng. Vui lòng thử lại.'));
                 }
             });
             
             this.peer.on('connection', (conn) => {
+                if (this.session !== session) { conn.close(); return; }
                 let clientState = { id: null, conn, input: {}, commands: [], ack: 0, joined: false };
                 this.connections.push(clientState);
                 
                 conn.on('data', (data) => {
+                    if (this.session !== session) return;
                     if (data.type === 'join') {
                         if (data.protocol !== PROTOCOL_VERSION) {
                             conn.send({ type: 'reject', reason: 'Khác phiên bản game. Hãy tải lại trang trên tất cả máy rồi tạo phòng mới.' });
@@ -361,6 +398,7 @@ export class NetworkRoom {
                 });
                 
                 conn.on('close', () => {
+                    if (this.session !== session) return;
                     this.connections = this.connections.filter(c => c.conn !== conn);
                     if (clientState.id && clientState.id !== 'host') {
                         if (this.startedEpoch === null) {
@@ -487,6 +525,7 @@ export class NetworkRoom {
         if (!code) {
             throw new Error('Vui lòng nhập mã phòng hợp lệ.');
         }
+        const session = this.session = (this.session || 0) + 1;
 
         this.userId = getClientUserId();
         const isTdmJoin = this.game.selectedGameMode === 'TDM' || this.game.selectedGameMode === 'FPS_SOLO';
@@ -503,11 +542,17 @@ export class NetworkRoom {
                 loadout: this.game.getLoadout?.()
             });
         } catch (err) {
+            if (err.code === 'ROOM_UNAVAILABLE') throw err;
             console.warn('[NetworkClient] Cảnh báo ghi danh DB, tiếp tục với P2P:', err.message);
             dbResult = {
+                offline: true,
                 room: { code, players: [], host_id: 'host' },
                 player: { id: this.userId, name, character, team: isTdmJoin ? (this.game.selectedTDMTeam || 'red') : null }
             };
+        }
+        if (this.session !== session) {
+            if (!dbResult.offline) void leaveDbRoom(code, dbResult.player.id);
+            throw new Error('Đã hủy vào phòng.');
         }
 
         const myPlayerId = dbResult.player.id || this.userId;
@@ -535,7 +580,7 @@ export class NetworkRoom {
             isHost: false,
             mode: dbResult.room.mode || 'TDM'
         };
-        this.game.showRoomState(roomData);
+        let accepted = false;
         this.startTicker();
 
         // 2. Lắng nghe cập nhật phòng thời gian thực qua Supabase Realtime
@@ -546,7 +591,7 @@ export class NetworkRoom {
         this.dbChannel = subscribeDbRoom(
             code,
             (updatedRecord) => {
-                if (!this.active || this.host) return;
+                if (this.session !== session || !this.active || this.host) return;
                 this.fillBots = !!updatedRecord.fill_bots;
                 if (updatedRecord.mode) this.game.selectedGameMode = updatedRecord.mode;
                 if (Array.isArray(updatedRecord.players)) {
@@ -561,6 +606,7 @@ export class NetworkRoom {
                     this.players = deduplicatePlayers(updatedRecord.players);
                     this.updateRoster(this.players);
                 }
+                if (!accepted) return;
                 if (updatedRecord.status === 'playing' && this.startedEpoch === null) {
                     this.beginMatch(updatedRecord.epoch, updatedRecord);
                 }
@@ -575,26 +621,45 @@ export class NetworkRoom {
                 });
             },
             () => {
+                if (this.session !== session) return;
                 this.handleHostDisconnect();
             }
         );
 
         // 3. Khởi tạo PeerJS để đồng bộ mô phỏng chuyển động trong trận
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             let resolved = false;
             const completeJoin = () => {
-                if (resolved) return;
+                if (resolved || this.session !== session) return;
                 resolved = true;
-                resolve(roomData);
+                clearTimeout(fallbackTimeout);
+                this.cancelRoomConnection = null;
+                resolve({ ...roomData, you: this.playerId, players: this.players, mode: this.game.selectedGameMode });
             };
-
-            const fallbackTimeout = setTimeout(completeJoin, 2500);
+            const failJoin = message => {
+                if (this.session !== session) return;
+                clearTimeout(fallbackTimeout);
+                this.cancelRoomConnection = null;
+                this.leave();
+                this.game.showRoomError(message);
+                reject(new Error(message));
+            };
+            // Database membership alone cannot establish the game's P2P connection.
+            const fallbackTimeout = setTimeout(() => {
+                failJoin('Không thể kết nối tới chủ phòng. Hãy kiểm tra mã phòng hoặc nhờ bạn mời lại.');
+            }, 10000);
+            this.cancelRoomConnection = () => {
+                clearTimeout(fallbackTimeout);
+                reject(new Error('Đã hủy vào phòng.'));
+            };
 
             try {
                 this.peer = new window.Peer(PEER_CONFIG);
                 this.peer.on('open', () => {
+                    if (this.session !== session) return;
                     this.conn = this.peer.connect('gungun-room-' + code, { reliable: true });
                     this.conn.on('open', () => {
+                        if (this.session !== session) return;
                         const myTeam = dbResult.player.team || 'red';
                         this.conn.send({
                             type: 'join',
@@ -610,13 +675,13 @@ export class NetworkRoom {
                     });
 
                     this.conn.on('data', (data) => {
+                        if (this.session !== session) return;
                         if (data.type === 'reject') {
-                            clearTimeout(fallbackTimeout);
-                            this.game.showRoomError(data.reason || 'Không thể vào phòng!');
-                            completeJoin();
+                            failJoin(data.reason || 'Không thể vào phòng!');
                             return;
                         }
                         if (data.type === 'accept') {
+                            accepted = true;
                             clearTimeout(fallbackTimeout);
                             if (data.mode) {
                                 this.game.selectedGameMode = data.mode;
@@ -677,19 +742,24 @@ export class NetworkRoom {
                     });
 
                     this.conn.on('close', () => {
+                        if (this.session !== session) return;
+                        if (!resolved) {
+                            failJoin('Kết nối tới chủ phòng đã đóng. Vui lòng thử lại.');
+                            return;
+                        }
                         this.handleHostDisconnect();
                     });
                 });
 
                 this.peer.on('error', (err) => {
-                    console.warn('[NetworkClient] Cảnh báo kết nối PeerJS (vẫn duy trì DB Room):', err.message);
-                    clearTimeout(fallbackTimeout);
-                    completeJoin();
+                    if (this.session !== session) return;
+                    console.warn('[NetworkClient] Lỗi kết nối PeerJS:', err.message);
+                    if (!accepted) failJoin('Không thể kết nối tới chủ phòng. Vui lòng thử lại.');
                 });
             } catch (e) {
                 console.warn('[NetworkClient] Ngoại lệ PeerJS:', e);
                 clearTimeout(fallbackTimeout);
-                completeJoin();
+                failJoin('Không thể kết nối tới chủ phòng. Vui lòng thử lại.');
             }
         });
     }
@@ -1005,11 +1075,8 @@ export class NetworkRoom {
 
         // Nếu trận đấu chưa bắt đầu (đang ở phòng chờ MENU)
         if (this.game.state === 'MENU' || this.game.state === 'LOADING') {
-            this.active = false;
-            this.stopTicker?.();
-            this.stopTicker = null;
+            this.leave();
             this.game.showRoomError('Chủ phòng đã rời phòng.');
-            this.game.resetRoomUI?.();
             return;
         }
 
@@ -1220,9 +1287,11 @@ export class NetworkRoom {
     }
 
     leave() {
+        this.session = (this.session || 0) + 1;
+        this.cancelRoomConnection?.();
+        this.cancelRoomConnection = null;
         this.stopTicker?.();
         this.stopTicker = null;
-        if (!this.active) return;
         const currentCode = this.code;
         const currentPid = this.playerId || this.userId;
         this.active = false;
@@ -1232,6 +1301,11 @@ export class NetworkRoom {
         this.game.weapons.onCommand = null;
         if (this.conn) { try { this.conn.close(); } catch {} }
         if (this.peer) { try { this.peer.destroy(); } catch {} }
+        this.conn = null;
+        this.peer = null;
+        this.code = '';
+        this.playerId = '';
+        this.host = false;
         this.connections = [];
         this.players = [];
         if (this.dbChannel) {

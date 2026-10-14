@@ -3,6 +3,9 @@ import { getSupabaseClient, getCurrentUser, getCurrentProfile } from './auth.js?
 
 let _presenceChannel = null;
 let _inviteChannel = null;
+let _friendshipsChannel = null;
+let _friendsUserId = null;
+const _sendingInvites = new Map();
 let _onlineUserIds = new Set();
 let _friendsList = [];
 let _pendingRequests = [];
@@ -21,8 +24,12 @@ export function initFriendsSystem() {
         return;
     }
 
-    setupPresenceChannel(client, user);
+    // Profile saves/token refreshes must not interrupt the invitation listener.
+    if (_friendsUserId === user.id) return;
+    cleanupFriendsSystem();
+    _friendsUserId = user.id;
     setupInviteChannel(client, user);
+    setupPresenceChannel(client, user);
     setupRealtimeFriendships(client, user);
     refreshFriendsData();
 }
@@ -31,6 +38,7 @@ export function initFriendsSystem() {
  * Hủy các kênh realtime khi đăng xuất
  */
 export function cleanupFriendsSystem() {
+    _friendsUserId = null;
     if (_presenceChannel) {
         _presenceChannel.unsubscribe();
         _presenceChannel = null;
@@ -38,6 +46,10 @@ export function cleanupFriendsSystem() {
     if (_inviteChannel) {
         _inviteChannel.unsubscribe();
         _inviteChannel = null;
+    }
+    if (_friendshipsChannel) {
+        _friendshipsChannel.unsubscribe();
+        _friendshipsChannel = null;
     }
     _onlineUserIds.clear();
     _friendsList = [];
@@ -88,7 +100,7 @@ function setupInviteChannel(client, user) {
     _inviteChannel = client.channel(`gun-invites-${user.id}`);
     _inviteChannel
         .on('broadcast', { event: 'room-invite' }, ({ payload }) => {
-            if (payload && payload.roomCode) {
+            if (_friendsUserId === user.id && typeof payload?.roomCode === 'string' && payload.roomCode.trim()) {
                 notifyInviteListeners(payload);
             }
         })
@@ -99,7 +111,8 @@ function setupInviteChannel(client, user) {
  * Lắng nghe thay đổi dữ liệu bảng friendships thời gian thực (Postgres changes)
  */
 function setupRealtimeFriendships(client, user) {
-    client.channel(`friendships-changes-${user.id}`)
+    _friendshipsChannel = client.channel(`friendships-changes-${user.id}`);
+    _friendshipsChannel
         .on('postgres_changes', {
             event: '*',
             schema: 'public',
@@ -313,35 +326,45 @@ export async function sendGameInvite(targetFriendId, roomCode) {
     const client = getSupabaseClient();
     const user = getCurrentUser();
     const profile = getCurrentProfile();
-    if (!client || !user || !roomCode) {
+    const code = (roomCode || '').trim().toUpperCase();
+    if (!client || !user || !code || !targetFriendId || targetFriendId === user.id) {
         return { error: new Error('Thiếu thông tin phòng hoặc chưa đăng nhập.') };
     }
 
-    try {
-        const senderName = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Chiến binh';
-        const senderAvatar = profile?.avatar_url || '';
+    const key = `${user.id}:${targetFriendId}:${code}`;
+    if (_sendingInvites.has(key)) return _sendingInvites.get(key);
+    const sending = (async () => {
+        let targetChannel;
+        try {
+            const senderName = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Chiến binh';
+            const senderAvatar = profile?.avatar_url || '';
 
-        const targetChannel = client.channel(`gun-invites-${targetFriendId}`);
-        await targetChannel.subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-                await targetChannel.send({
-                    type: 'broadcast',
-                    event: 'room-invite',
-                    payload: {
-                        fromId: user.id,
-                        fromName: senderName,
-                        fromAvatar: senderAvatar,
-                        roomCode: roomCode,
-                        timestamp: Date.now()
-                    }
-                });
+            targetChannel = client.channel(`gun-invites-${targetFriendId}`);
+            const payload = {
+                fromId: user.id, fromName: senderName, fromAvatar: senderAvatar,
+                roomCode: code, timestamp: Date.now()
+            };
+            // Send via HTTP immediately; subscribe() is not a Promise and waiting for
+            // a fresh WebSocket channel on every click delayed or lost invitations.
+            const result = typeof targetChannel.httpSend === 'function'
+                ? await targetChannel.httpSend('room-invite', payload, { timeout: 8000 })
+                : await targetChannel.send({ type: 'broadcast', event: 'room-invite', payload }, { timeout: 8000 });
+            if (result !== 'ok' && result?.success !== true) {
+                throw new Error('Chưa gửi được lời mời. Vui lòng thử lại.');
             }
-        });
 
-        return { success: true };
-    } catch (err) {
-        return { error: err };
-    }
+            return { success: true };
+        } catch (err) {
+            return { error: err };
+        } finally {
+            if (targetChannel) {
+                try { await client.removeChannel(targetChannel); } catch {}
+            }
+        }
+    })();
+    _sendingInvites.set(key, sending);
+    try { return await sending; }
+    finally { _sendingInvites.delete(key); }
 }
 
 /**

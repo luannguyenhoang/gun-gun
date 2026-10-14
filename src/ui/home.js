@@ -3,7 +3,7 @@ import { CharacterShowroom } from './showroom.js?v=51';
 import { CHARACTER_CONFIGS, isCharacterUnlocked } from '../gameplay/player/characters.js';
 import { getStartingWeapon } from '../gameplay/combat/weapons.js?v=32';
 import { initAuth, signIn, signUp, signInWithGoogle, signOut, onAuthStateChange, applyProfileProgressToGame, resetGameProgressToGuest, refreshCurrentProfile } from '../network/auth.js?v=49';
-import { listPublicRooms } from '../network/supabase-room.js?v=1';
+import { listPublicRooms } from '../network/supabase-room.js?v=3';
 import {
     initFriendsSystem,
     cleanupFriendsSystem,
@@ -18,7 +18,7 @@ import {
     onGameInvite,
     getFriendsList,
     getPendingRequests
-} from '../network/friends.js';
+} from '../network/friends.js?v=2';
 
 export class HomeMenu {
     constructor(game) {
@@ -782,19 +782,28 @@ export class HomeMenu {
                     btnInvite.className = 'toy-button orange btn-friend-invite';
                     btnInvite.textContent = 'MỜI CHƠI';
                     btnInvite.addEventListener('click', async () => {
-                        if (this.currentRoomCode) {
-                            btnInvite.disabled = true;
-                            btnInvite.textContent = 'ĐÃ MỜI!';
-                            await sendGameInvite(friend.targetUserId, this.currentRoomCode);
+                        btnInvite.disabled = true;
+                        try {
+                            let code = this.currentRoomCode;
+                            if (!code) {
+                                btnInvite.textContent = 'TẠO PHÒNG…';
+                                const room = await this.game.createRoom();
+                                if (!room) throw new Error(this.game.roomStatus?.textContent || 'Không thể tạo phòng.');
+                                code = room.code;
+                            }
+                            btnInvite.textContent = 'ĐANG GỬI…';
+                            const { error } = await sendGameInvite(friend.targetUserId, code);
+                            if (error) throw error;
+                            btnInvite.textContent = 'ĐÃ GỬI!';
+                        } catch (error) {
+                            btnInvite.textContent = 'THỬ LẠI';
+                            this.game.showRoomError(error.message);
+                            this.game.ui?.showPickupAlert?.(error.message);
+                        } finally {
                             setTimeout(() => {
                                 btnInvite.disabled = false;
                                 btnInvite.textContent = 'MỜI CHƠI';
-                            }, 2500);
-                        } else {
-                            btnInvite.disabled = true;
-                            btnInvite.textContent = 'TẠO PHÒNG…';
-                            this.pendingInviteFriendId = friend.targetUserId;
-                            this.game.roomCreate.click();
+                            }, 2000);
                         }
                     });
                     right.appendChild(btnInvite);
@@ -905,34 +914,12 @@ export class HomeMenu {
         });
 
         // Xử lý Lời Mời Chơi Thời Gian Thực (In-game Toast Modal)
-        onGameInvite((invite) => {
-            if (!this.inviteModal) return;
-            this.incomingRoomCode = invite.roomCode;
-            if (this.inviteSenderName) this.inviteSenderName.textContent = (invite.fromName || 'ĐỒNG ĐỘI').toUpperCase();
-            if (this.inviteTargetRoom) this.inviteTargetRoom.textContent = invite.roomCode;
-            if (this.inviteSenderAvatar) {
-                if (invite.fromAvatar) this.inviteSenderAvatar.innerHTML = `<img src="${invite.fromAvatar}" alt="Avatar">`;
-                else this.inviteSenderAvatar.textContent = (invite.fromName || '★').charAt(0).toUpperCase();
-            }
-            sounds.play('switchWeapon', { volume: 1.0 });
-            this.inviteModal.style.display = 'block';
-        });
+        onGameInvite(invite => this.showGameInvite(invite));
 
         // Nút trong Toast Lời Mời Chơi
-        this.btnInviteAccept?.addEventListener('click', () => {
-            if (this.inviteModal) this.inviteModal.style.display = 'none';
-            if (this.dialog.open) this.dialog.close();
-            if (this.incomingRoomCode) {
-                this.game.roomCode.value = this.incomingRoomCode;
-                this.game.roomJoin.click();
-            }
-        });
-        this.btnInviteDecline?.addEventListener('click', () => {
-            if (this.inviteModal) this.inviteModal.style.display = 'none';
-        });
-        this.btnInviteClose?.addEventListener('click', () => {
-            if (this.inviteModal) this.inviteModal.style.display = 'none';
-        });
+        this.btnInviteAccept?.addEventListener('click', () => this.acceptGameInvite());
+        this.btnInviteDecline?.addEventListener('click', () => this.hideGameInvite());
+        this.btnInviteClose?.addEventListener('click', () => this.hideGameInvite());
 
         // Lắng nghe thay đổi trạng thái xác thực
         onAuthStateChange(({ user, profile }) => {
@@ -1112,6 +1099,73 @@ export class HomeMenu {
         document.getElementById('home-character-count').textContent = `${characters.filter(isCharacterUnlocked).length} / ${characters.length} ĐÃ MỞ`;
     }
 
+    showGameInvite(invite) {
+        if (!this.inviteModal) return;
+        const code = (invite.roomCode || '').trim().toUpperCase();
+        if (!code || (this.game.network.active && this.game.network.code === code)) return;
+        if (invite.timestamp && Date.now() - invite.timestamp > 120000) return;
+        if (this.acceptingInvite) {
+            this.queuedInvite = invite;
+            return;
+        }
+        this.incomingRoomCode = code;
+        this.incomingInviteTime = invite.timestamp || Date.now();
+        if (this.inviteSenderName) this.inviteSenderName.textContent = (invite.fromName || 'ĐỒNG ĐỘI').toUpperCase();
+        if (this.inviteTargetRoom) this.inviteTargetRoom.textContent = code;
+        if (this.inviteSenderAvatar) {
+            this.inviteSenderAvatar.replaceChildren();
+            if (invite.fromAvatar) {
+                const avatar = document.createElement('img');
+                avatar.src = invite.fromAvatar;
+                avatar.alt = 'Avatar';
+                this.inviteSenderAvatar.appendChild(avatar);
+            } else this.inviteSenderAvatar.textContent = (invite.fromName || '★').charAt(0).toUpperCase();
+        }
+        const status = document.getElementById('invite-status');
+        if (status) status.textContent = '';
+        // A normal z-index cannot put the invitation above an open modal dialog.
+        if (this.dialog.open) this.dialog.close();
+        this.inviteModal.style.display = 'block';
+        sounds.play('switchWeapon', { volume: 1.0 });
+    }
+
+    hideGameInvite() {
+        if (this.acceptingInvite) return;
+        if (this.inviteModal) this.inviteModal.style.display = 'none';
+        this.incomingRoomCode = '';
+    }
+
+    async acceptGameInvite() {
+        if (this.acceptingInvite || !this.incomingRoomCode) return;
+        const status = document.getElementById('invite-status');
+        if (Date.now() - this.incomingInviteTime > 120000) {
+            if (status) status.textContent = 'Lời mời đã hết hạn. Hãy nhờ bạn gửi lại.';
+            return;
+        }
+        this.acceptingInvite = true;
+        this.btnInviteAccept.disabled = true;
+        this.btnInviteAccept.textContent = 'ĐANG VÀO PHÒNG…';
+        if (status) status.textContent = '';
+        try {
+            if (this.dialog.open) this.dialog.close();
+            const room = await this.game.joinRoom(this.incomingRoomCode);
+            if (!room) throw new Error(this.game.roomStatus?.textContent || 'Không thể vào phòng. Vui lòng thử lại.');
+            this.inviteModal.style.display = 'none';
+            this.incomingRoomCode = '';
+        } catch (error) {
+            if (status) status.textContent = error.message;
+        } finally {
+            this.acceptingInvite = false;
+            this.btnInviteAccept.disabled = false;
+            this.btnInviteAccept.textContent = 'THAM GIA NGAY';
+            if (this.queuedInvite) {
+                const invite = this.queuedInvite;
+                this.queuedInvite = null;
+                this.showGameInvite(invite);
+            }
+        }
+    }
+
     room(data) {
         const code = data?.code || '';
         const active = !!code;
@@ -1122,18 +1176,12 @@ export class HomeMenu {
             this.applyModeSilent(data.mode);
         }
 
-        // Nếu vừa tạo phòng tự động để mời bạn bè
-        if (active && this.pendingInviteFriendId) {
-            sendGameInvite(this.pendingInviteFriendId, code);
-            this.pendingInviteFriendId = null;
-        }
-
         document.getElementById('share-room').hidden = !active;
         document.getElementById('share-link-row').hidden = !active;
         this.game.roomCreate.hidden = active;
         document.getElementById('share-code').textContent = code;
         const isHost = active && (data.host === data.you || !!data.isHost);
-        const currentRoomMode = data.mode || this.game.selectedGameMode || 'SURVIVAL';
+        const currentRoomMode = data?.mode || this.game.selectedGameMode || 'SURVIVAL';
         const isTDM = currentRoomMode === 'TDM' || currentRoomMode === 'FPS_SOLO';
         const maxSlots = isTDM ? 8 : 4;
         const modeLabel = isTDM ? 'ĐỐI KHÁNG' : 'SINH TỒN';
