@@ -294,6 +294,8 @@ class CyberArenaGame {
                     return;
                 }
                 if (this.pauseMenuOpen) {
+                    // Tránh đóng menu ngay nếu vừa mở trong vòng 180ms do sự kiện nhả pointer lock
+                    if (performance.now() - (this._lastPauseTime || 0) < 180) return;
                     this.resumeGame();
                 } else if (this.state === 'PLAYING') {
                     this.pauseGame();
@@ -626,6 +628,7 @@ class CyberArenaGame {
 
         this.player.setInputEnabled(true);
         this.player.cooperative = this.network.active;
+        this.player.requestPointerLock?.();
         document.getElementById('hud-pause').disabled = false;
         if (!this.network.active || this.network.host) this.waveManager.startWave(this.currentWave);
         else this.waveManager.clear();
@@ -700,6 +703,7 @@ class CyberArenaGame {
 
         this.player.setInputEnabled(true);
         this.player.cooperative = this.network.active;
+        this.player.requestPointerLock?.();
         document.getElementById('hud-pause').disabled = false;
 
         // Bắt đầu trận đấu đối kháng TDM với cờ fillBots được chỉ định
@@ -788,10 +792,14 @@ class CyberArenaGame {
 
     pauseGame() {
         if (this.state !== 'PLAYING') return;
+        this._lastPauseTime = performance.now();
         this.pauseMenuOpen = true;
         this.lootingSystem?.closeContainerUI();
         if (!this.network.active) this.state = 'PAUSED';
         this.player.setInputEnabled(false);
+        if (document.pointerLockElement) {
+            document.exitPointerLock?.();
+        }
         this.ui.clearTeammateIndicators();
         this.homeMenu?.syncAudio();
         this.syncPerformanceUI?.();
@@ -805,6 +813,11 @@ class CyberArenaGame {
         this.state = 'PLAYING';
         if (this.screenPause) this.screenPause.style.display = 'none';
         this.player.setInputEnabled(true);
+        if (this.firstPersonView?.active) {
+            this.firstPersonView.requestLock();
+        } else {
+            this.player.requestPointerLock?.();
+        }
     }
 
     restartGame() {
@@ -823,6 +836,9 @@ class CyberArenaGame {
         // Always discard the room URL, even after a failed/disconnected join.
         this.network.leave();
         this.firstPersonView?.setEnabled(false);
+        if (document.pointerLockElement) {
+            document.exitPointerLock?.();
+        }
         this.pauseMenuOpen = false;
         this.lootingSystem.closeContainerUI();
         this.player.setInputEnabled(false);

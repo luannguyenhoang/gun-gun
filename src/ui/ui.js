@@ -404,6 +404,11 @@ export class UIManager {
                 this.hideTDMMatchResult();
                 options.onHome?.();
             };
+        if (document.pointerLockElement) {
+            document.exitPointerLock?.();
+        }
+        if (window.game?.player) {
+            window.game.player.setInputEnabled(false);
         }
         this.tdmResultModal.style.display = 'flex';
     }
@@ -2545,6 +2550,9 @@ export class UIManager {
             activePlayer.keys = {};
             activePlayer.mouseButtons = { left: false, right: false };
             if (activePlayer.domElement) activePlayer.domElement.style.cursor = 'default';
+            if (document.pointerLockElement) {
+                document.exitPointerLock?.();
+            }
         }
         sounds.play('equip', { volume: 0.5 });
     }

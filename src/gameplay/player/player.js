@@ -538,6 +538,11 @@ export class PlayerController {
             }
             if (e.target !== this.domElement) return;
 
+            // Tự động khóa chuột ngay khi nhấn chuột vào màn hình trong trận đấu
+            if (!this.firstPerson && !this.isPointerLocked) {
+                this.requestPointerLock();
+            }
+
             // Nếu người chơi đã chết: Cho phép nhấp chuột trái / phải để chuyển đổi người xem
             if (this.isDead) {
                 if (e.button === 0) {
@@ -591,19 +596,48 @@ export class PlayerController {
         window.addEventListener('mousemove', (e) => {
             if (this.th_isWeaponSelectOpen) return;
             if (this.firstPerson) { this.firstPerson.look(e); return; }
+
+            const bounds = this.domElement.getBoundingClientRect();
+            const isLocked = document.pointerLockElement === this.domElement;
+
+            if (isLocked) {
+                // Khóa chuột trong màn hình: cộng dồn độ dịch chuyển chuột và giới hạn trong khung hình
+                const nextX = Math.max(0, Math.min(bounds.width, this.pointerScreen.x + (e.movementX || 0)));
+                const nextY = Math.max(0, Math.min(bounds.height, this.pointerScreen.y + (e.movementY || 0)));
+                this.pointerScreen.set(nextX, nextY);
+                this.pointer.set((nextX / bounds.width) * 2 - 1, 1 - (nextY / bounds.height) * 2);
+                this.pointerInCanvas = true;
+            } else {
+                this.pointer.set((e.clientX - bounds.left) / bounds.width * 2 - 1,
+                    1 - (e.clientY - bounds.top) / bounds.height * 2);
+                this.pointerScreen.set(e.clientX, e.clientY);
+                this.pointerInCanvas = Math.abs(this.pointer.x) <= 1 && Math.abs(this.pointer.y) <= 1;
+            }
+
             if (this.th_isRadialMenuOpen) {
                 const ui = this.ui || window.game?.ui;
-                ui?.updateRadialMenuPointer(e.clientX, e.clientY);
+                ui?.updateRadialMenuPointer(this.pointerScreen.x, this.pointerScreen.y);
             }
-            const bounds = this.domElement.getBoundingClientRect();
-            this.pointer.set((e.clientX - bounds.left) / bounds.width * 2 - 1,
-                1 - (e.clientY - bounds.top) / bounds.height * 2);
-            this.pointerScreen.set(e.clientX, e.clientY);
-            this.pointerInCanvas = Math.abs(this.pointer.x) <= 1 && Math.abs(this.pointer.y) <= 1;
         });
         this.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
         window.addEventListener('contextmenu', (e) => e.preventDefault(), { capture: true, passive: false });
         document.addEventListener('contextmenu', (e) => e.preventDefault(), { capture: true, passive: false });
+        this.domElement.addEventListener('click', () => {
+            if (this.firstPerson) return;
+            this.requestPointerLock();
+        });
+        document.addEventListener('pointerlockchange', () => {
+            if (this.firstPerson) return;
+            const isLocked = document.pointerLockElement === this.domElement;
+            this.mouseButtons = { left: false, right: false };
+            this.keys = {};
+            if (!isLocked) {
+                const game = window.game;
+                if (game && game.state === 'PLAYING' && !game.pauseMenuOpen && !this.th_isWeaponSelectOpen && !game.lootingSystem?.isBackpackOpen) {
+                    game.pauseGame();
+                }
+            }
+        });
         window.addEventListener('blur', () => {
             if (this.th_isRadialMenuOpen) {
                 (this.ui || window.game?.ui)?.closeRadialMenuOnly();
@@ -611,6 +645,27 @@ export class PlayerController {
             this.keys = {};
             this.mouseButtons = { left: false, right: false };
         });
+    }
+
+    get isPointerLocked() {
+        return document.pointerLockElement === this.domElement;
+    }
+
+    requestPointerLock() {
+        if (!this.inputEnabled || !this.domElement || this.firstPerson) return;
+        const game = window.game;
+        if (game && (game.state !== 'PLAYING' || game.pauseMenuOpen)) return;
+        if (this.th_isWeaponSelectOpen || game?.lootingSystem?.isBackpackOpen) return;
+        if (document.pointerLockElement !== this.domElement) {
+            const result = this.domElement.requestPointerLock?.();
+            result?.catch?.(() => {});
+        }
+    }
+
+    exitPointerLock() {
+        if (document.pointerLockElement === this.domElement) {
+            document.exitPointerLock?.();
+        }
     }
 
     th_openRadialMenu() {
@@ -635,6 +690,10 @@ export class PlayerController {
             if (!enabled && this.firstPerson.locked) document.exitPointerLock();
             if (enabled) this.firstPerson.requestLock();
             this.firstPerson.syncHint();
+        } else {
+            if (!enabled && this.isPointerLocked) {
+                this.exitPointerLock();
+            }
         }
     }
 

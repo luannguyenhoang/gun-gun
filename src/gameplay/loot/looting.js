@@ -1826,6 +1826,9 @@ export class LootingSystem {
         if (this.player) {
             this.player.isBackpackOpen = true;
             this.player.domElement.style.cursor = 'default';
+            if (document.pointerLockElement) {
+                document.exitPointerLock?.();
+            }
         }
     }
 
