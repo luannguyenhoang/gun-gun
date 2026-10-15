@@ -157,6 +157,12 @@
         </div>
       </section>
       <div id="tdm-killfeed" class="tdm-killfeed"></div>
+      <section id="duel-hud" hidden aria-label="Tỷ số đấu đối kháng">
+        <div class="duel-scoreline"><span>BẠN</span><b id="duel-score-you">0</b><i>–</i><b id="duel-score-enemy">0</b><span>ĐỐI THỦ</span></div>
+        <div class="duel-meta">CHẠM <b id="duel-target">10</b> MẠNG <span>· SHIFT CHẠY · CTRL/C NGỒI</span></div>
+        <div id="duel-enemy-vitals" hidden><span id="duel-enemy-hp"></span><div class="duel-health-track"><i id="duel-enemy-fill"></i></div></div>
+        <div id="duel-protection" hidden></div>
+      </section>
       <div id="tdm-respawn-modal" class="tdm-respawn-modal" style="display:none;">
         <div class="tdm-respawn-card">
           <div class="tdm-respawn-title">BẠN ĐÃ BỊ HẠ GỤC</div>
@@ -587,7 +593,7 @@
         </div>
       </div>
 
-      <div class="fps-controls"><kbd>WASD</kbd> Di chuyển · <kbd>Shift</kbd> Đi chậm · <kbd>Space</kbd> Nhảy · <kbd>Tab</kbd> Bảng điểm · <kbd>B</kbd> Đổi súng · Chuột phải ngắm · <kbd>R</kbd> Nạp đạn · <kbd>1–4 / V</kbd> Đổi vũ khí · <kbd>Esc</kbd> Tạm dừng</div>
+      <div class="fps-controls"><kbd>WASD</kbd> Di chuyển · <kbd>Shift</kbd> Chạy nhanh · <kbd>Ctrl/C</kbd> Ngồi · <kbd>Space</kbd> Nhảy · <kbd>Tab</kbd> Bảng điểm · <kbd>B</kbd> Đổi súng · Chuột phải ngắm · <kbd>R</kbd> Nạp đạn · <kbd>1–4 / V</kbd> Đổi vũ khí · <kbd>Esc</kbd> Tạm dừng</div>
       <div class="combat-controls"><kbd>WASD</kbd> Di chuyển <kbd>Tab</kbd> Bảng điểm <kbd>R</kbd> Nạp đạn <kbd>B</kbd> Đổi súng [10s] <kbd>Q</kbd> Né <kbd>F</kbd> Nhặt / Đổi đồ hòm <kbd>Alt / Chuột giữa / [1-4]</kbd> Thao tác nhanh <kbd>ESC</kbd> Tạm dừng</div>
       <div id="teammate-indicators" class="teammate-indicators-container"></div>
     </div>

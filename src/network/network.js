@@ -877,6 +877,7 @@ export class NetworkRoom {
                     ads: !!local.isADS,
                     revive: !!local.reviveRequested,
                     moving: local.velocity.lengthSq() > 0.1,
+                    sprinting: !!local.isSprinting, crouching: !!local.isCrouching,
                     isDodging: !!local.isDodging
                 },
                 commands: this.pendingCommands.slice(0, 30)
@@ -901,7 +902,9 @@ export class NetworkRoom {
             if (Array.isArray(input.aimPoint) && input.aimPoint.length === 3 && input.aimPoint.every(Number.isFinite)) (player.aimPoint ||= new THREE.Vector3()).fromArray(input.aimPoint);
             player.isADS = !!input.ads;
             player.isDodging = !!input.isDodging;
-            player.moving = !!input.moving;
+            player.moving = currentSpawn && !player.isDead && !!input.moving;
+            player.isCrouching = !player.isDead && !!input.crouching;
+            player.isSprinting = player.moving && !player.isCrouching && !player.isADS && !!input.sprinting;
             if (input.revive) { input.revive = false; }
         }
     }
@@ -1400,6 +1403,7 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
             if (sampledYaw !== null) group.rotation.y = sampledYaw;
             else group.rotation.y += angle * blend;
             group.visible = this.isVisibleToObserver !== false;
+            group.scale.y = this.isCrouching && !this.isDead ? 0.65 : 1;
             if (this.isDowned || this.isDead) {
                 group.rotation.x = -Math.PI / 2.2;
             } else {
@@ -1421,7 +1425,7 @@ export function makeRemotePlayer(scene, loader, id, name, characterId = 'police'
             const effRadius = 0.55 + bulletRadius;
             const box = new THREE.Box3(
                 this.position.clone().add(new THREE.Vector3(-effRadius, 0, -effRadius)),
-                this.position.clone().add(new THREE.Vector3(effRadius, 1.6 + bulletRadius, effRadius))
+                this.position.clone().add(new THREE.Vector3(effRadius, (this.isCrouching ? 1.05 : 1.6) + bulletRadius, effRadius))
             );
             if (box.containsPoint(start)) return { hit: true, point: start.clone() };
             if (box.containsPoint(end)) return { hit: true, point: end.clone() };

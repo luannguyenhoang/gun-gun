@@ -20,3 +20,18 @@
 .fps-controls { display: none; }
 .solo-fps .combat-controls { display: none; }
 .solo-fps .fps-controls { display: block; position: fixed; bottom: 8px; left: 20px; color: #b6c9db; font-size: 11px; pointer-events: none; }
+
+#duel-hud { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); width: 290px; max-width: calc(100vw - 200px); padding: 9px 14px; border: 1px solid #91b4c43d; border-radius: 10px; background: #0b1625e8; color: #e9f1f7; text-align: center; pointer-events: none; z-index: 55; font-family: Arial, sans-serif; box-shadow: 0 5px 22px #0004; }
+#duel-hud[hidden], #duel-hud [hidden] { display: none !important; }
+.duel-scoreline { display: flex; align-items: center; justify-content: center; gap: 15px; white-space: nowrap; }
+.duel-scoreline span { font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+.duel-scoreline span:first-child, #duel-score-you { color: #75d8ff; }
+.duel-scoreline span:last-child, #duel-score-enemy { color: #ff8f89; }
+.duel-scoreline b { font-size: 27px; font-variant-numeric: tabular-nums; }
+.duel-scoreline i { color: #7b90a4; font-style: normal; }
+.duel-meta { margin-top: 3px; font-size: 9px; color: #a7bdcf; }
+#duel-enemy-vitals { margin: 9px auto 1px; max-width: 220px; font-size: 10px; color: #ffc0ba; }
+.duel-health-track { height: 5px; margin-top: 5px; background: #ffffff20; border-radius: 4px; overflow: hidden; }
+#duel-enemy-fill { display: block; height: 100%; background: #ff7e75; transition: width .1s; }
+#duel-protection { margin-top: 8px; font-size: 10px; color: #81e9f0; }
+@media (max-width: 700px) { #duel-hud { top: 10px; width: 190px; padding: 7px 8px; max-width: calc(100vw - 220px); } .duel-scoreline { gap: 7px; } .duel-scoreline span { font-size: 9px; letter-spacing: 0; } .duel-scoreline b { font-size: 22px; } .duel-meta span { display: none; } }

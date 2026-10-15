@@ -1,4 +1,5 @@
 import * as THREE from '../../../vendor/three.module.js';
+import { duelMovement } from '../combat/duel-rules.js';
 
 // Solo camera and cosmetic viewmodel. Combat continues through WeaponSystem.
 export class FirstPersonView {
@@ -26,7 +27,7 @@ export class FirstPersonView {
             panel.innerHTML = `<strong>ĐIỀU KHIỂN GÓC NHÌN THỨ NHẤT</strong>
                 <label>Độ nhạy chuột <output></output><input aria-label="Độ nhạy chuột FPS" data-fps-setting="sensitivity" type="range" min="0.1" max="3" step="0.05"></label>
                 <label>Độ nhạy khi ngắm <output></output><input aria-label="Độ nhạy khi ngắm FPS" data-fps-setting="adsSensitivity" type="range" min="0.1" max="3" step="0.05"></label>
-                <small>Áp dụng ngay · Tự lưu trên máy · Giữ Shift để đi chậm</small>`;
+                <small>Áp dụng ngay · Tự lưu trên máy · Shift chạy nhanh · Ctrl/C ngồi</small>`;
             parent.append(panel);
             this.settingsPanels.push(panel);
             panel.addEventListener('input', event => {
@@ -66,8 +67,8 @@ export class FirstPersonView {
 
     get locked() { return document.pointerLockElement === this.game.canvas; }
 
-    movementSpeed(baseSpeed, keys) {
-        return baseSpeed * 0.6 * (keys.ShiftLeft || keys.ShiftRight ? 0.5 : 1);
+    movementSpeed(baseSpeed, keys, ads = false) {
+        return baseSpeed * 0.6 * duelMovement(keys, true, ads).multiplier;
     }
 
     brakeVelocity(velocity, delta) {
@@ -131,7 +132,7 @@ export class FirstPersonView {
     updateCamera(delta = 1 / 60) {
         const p = this.game.player;
         this.camera.position.copy(p.position);
-        this.camera.position.y += p.isDead ? 0.6 : 1.55;
+        this.camera.position.y += p.isDead ? 0.6 : p.isCrouching ? 1.0 : 1.55;
         this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
         const targetFov = p.isADS ? 58 : 80;
         const nextFov = THREE.MathUtils.lerp(this.camera.fov, targetFov, 1 - Math.exp(-22 * Math.max(0, delta)));

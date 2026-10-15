@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { isDuelMode, duelMovement } from '../combat/duel-rules.js';
 import { sounds } from '../../audio/audio.js?v=63';
 import { HealthBar3D } from '../../rendering/healthbar.js';
 import { CHARACTER_CONFIGS, normalizeCharacter } from './characters.js';
@@ -683,6 +684,8 @@ export class PlayerController {
 
     setInputEnabled(enabled) {
         this.inputEnabled = enabled;
+        this.isSprinting = false;
+        this.isCrouching = false;
         this.domElement.style.cursor = enabled ? 'none' : 'default';
         this.keys = {};
         this.mouseButtons = { left: false, right: false };
@@ -2924,7 +2927,7 @@ export class PlayerController {
     checkHit(startPos, endPos, ray) {
         const bulletRadius = 0.18;
         const effRadius = (this.radius || 0.55) + bulletRadius;
-        const effHeight = (this.height || 1.6) + bulletRadius;
+        const effHeight = (this.isCrouching ? 1.05 : this.height || 1.6) + bulletRadius;
         _tempBoxMin.set(this.position.x - effRadius, this.position.y, this.position.z - effRadius);
         _tempBoxMax.set(this.position.x + effRadius, this.position.y + effHeight, this.position.z + effRadius);
         _tempPlayerBox.min.copy(_tempBoxMin);
@@ -3062,7 +3065,12 @@ export class PlayerController {
         this.isADS = this.mouseButtons.right || !!this.th_toggleADS;
 
         // Locomotion input
-        let currentSpeed = this.firstPerson ? this.firstPerson.movementSpeed(this.speed, this.keys) : this.speed;
+        const duel = isDuelMode();
+        const stance = duelMovement(this.keys, this.getMovementInput().lengthSq() > 0.01, this.isADS);
+        this.isCrouching = duel && stance.crouching;
+        this.isSprinting = duel && stance.sprinting && !this.isSearching && !this.isDodging && !this.weapons?.isUsingMedkit && !this.isBackpackOpen;
+        let currentSpeed = this.firstPerson ? this.speed * 0.6 : this.speed;
+        if (duel) currentSpeed *= this.isCrouching ? 0.45 : this.isSprinting ? 1.5 : 1;
         if (this.isADS) {
             currentSpeed *= 0.65;
         }
@@ -3093,7 +3101,7 @@ export class PlayerController {
                 this.stepTimer -= delta;
                 if (this.stepTimer <= 0 && this.isGrounded) {
                     const speedRatio = Math.max(0.65, Math.min(1.35, currentSpeed / (this.moveSpeed || 7.5)));
-                    sounds.play('step', { volume: 0.35, rate: 0.95 + speedRatio * 0.08 });
+                    sounds.play('step', { volume: !duel ? 0.35 : this.isCrouching ? 0.08 : this.isSprinting ? 0.4 : 0.22, rate: 0.95 + speedRatio * 0.08 });
                     this.stepTimer = Math.max(0.28, 0.40 / speedRatio);
                 }
             } else {
@@ -3161,6 +3169,7 @@ export class PlayerController {
                 }
             }
 
+            if (duel) this.model.scale.y = (this.baseScale || 1.7) * (this.isCrouching ? 0.65 : 1);
             const targetModelYaw = this.aimYaw;
 
             // Shortest arc angle interpolation

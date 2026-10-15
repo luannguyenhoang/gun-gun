@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { protectSpawn } from './duel-rules.js';
 import { sounds } from '../../audio/audio.js?v=63';
 import { WEAPON_CONFIGS } from './weapons.js';
 
@@ -146,7 +147,7 @@ export class TDMBot {
 
         // Đếm ngược thời gian khiên bất tử
         if (this.remote.invulnerability > 0) {
-            this.remote.invulnerability = Math.max(0, this.remote.invulnerability - delta);
+            // Remote simulation owns the protection clock.
             // Nhấp nháy model khi bất tử (chỉ khi đang trong tầm nhìn)
             if (this.remote.mesh && this.remote.isVisibleToObserver !== false) {
                 this.remote.mesh.visible = Math.floor(Date.now() / 120) % 2 === 0;
@@ -358,7 +359,8 @@ export class TDMManager {
         }
         player.isDead = false;
         player.isDowned = false;
-        player.invulnerability = 2.0;
+        if (this.is1v1) protectSpawn(player);
+        else player.invulnerability = 2.0;
         player.th_kills = 0;
         player.th_deaths = 0;
         player.th_score = 0;
@@ -576,7 +578,8 @@ export class TDMManager {
         }
         entity.isDead = false;
         entity.isDowned = false;
-        entity.invulnerability = 1.5;
+        if (this.is1v1) protectSpawn(entity);
+        else entity.invulnerability = 1.5;
 
         if (entity === this.game.player) {
             if (entity.model) {
@@ -586,7 +589,7 @@ export class TDMManager {
             entity.playAnimation?.('idle', 0.1);
             entity.setInputEnabled?.(true);
             this.game.ui?.hideTDMRespawnCountdown?.();
-            this.game.ui?.showPickupAlert('ĐÃ HỒI SINH! (1.5S KHIÊN BẤT TỬ)');
+            this.game.ui?.showPickupAlert(this.is1v1 ? 'BẢO VỆ 5 GIÂY · TẤN CÔNG SẼ HỦY BẢO VỆ' : 'ĐÃ HỒI SINH! (1.5S KHIÊN BẤT TỬ)');
             this.game.ui?.startWeaponSelectCountdown?.(10);
             sounds.play('powerup', { volume: 0.9 });
         }

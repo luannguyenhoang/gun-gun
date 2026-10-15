@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { isDuelMode, isRevealedOnRadar, protectSpawn } from '../gameplay/combat/duel-rules.js';
 import { GLTFLoader } from '../../vendor/loaders/GLTFLoader.js';
 import { sounds } from '../audio/audio.js?v=63';
 import { ParticleSystem } from '../rendering/particles.js?v=68';
@@ -23,6 +24,46 @@ import { TH_VersusLoadingScreen } from '../ui/th_versus_loading.js?v=2';
 import { th_preloadAllGameAssets } from './th_asset_preloader.js';
 
 class CyberArenaGame {
+
+    updateDuelPresentation(delta) {
+        const duel = isDuelMode(this);
+        if (!duel) { this.ui.updateDuelHUD?.(null); return; }
+        const player = this.player;
+        sounds.updateSpatialListener(this.camera, player.position);
+        this._duelRay ||= new THREE.Ray();
+        this._duelPoint ||= new THREE.Vector3();
+        this._duelHit ||= new THREE.Vector3();
+        this._duelNdc ||= new THREE.Vector3();
+        let visibleEnemy = null;
+        for (const entity of this.remotePlayers.values()) {
+            const pos = entity.mesh?.position || entity.position;
+            const last = entity._footstepPosition;
+            const travelled = last ? Math.hypot(pos.x - last.x, pos.z - last.z) : 0;
+            (entity._footstepPosition ||= new THREE.Vector3()).copy(pos);
+            entity._footstepClock = Math.max(0, (entity._footstepClock || 0) - delta);
+            if (!entity.isDead && !entity.isDowned && pos.y < 0.2 && travelled > 0.002 && travelled < 2 &&
+                !player.isDead && entity.position.distanceTo(player.position) < (entity.isCrouching ? 7 : entity.isSprinting ? 28 : 18) && !entity._footstepClock) {
+                sounds.playSpatialFootstep(pos, { sprinting: entity.isSprinting, crouching: entity.isCrouching,
+                    occluded: !this.arena.hasLineOfSight(player.position, entity.position) });
+                entity._footstepClock = entity.isCrouching ? 0.65 : entity.isSprinting ? 0.28 : 0.44;
+            }
+            if (entity.team === player.team || player.isDead || entity.isDead || entity.isInSmoke) continue;
+            let seen = entity.isVisibleToObserver === true;
+            if (this.firstPersonView?.active) {
+                this._duelPoint.copy(pos).y += entity.isCrouching ? 0.7 : 1.25;
+                this._duelNdc.copy(this._duelPoint).project(this.camera);
+                seen = Math.abs(this._duelNdc.x) < 0.95 && Math.abs(this._duelNdc.y) < 0.95 && this._duelNdc.z > -1 && this._duelNdc.z < 1;
+                if (seen) {
+                    this._duelRay.origin.copy(this.camera.position);
+                    this._duelRay.direction.subVectors(this._duelPoint, this.camera.position).normalize();
+                    const distance = this.camera.position.distanceTo(this._duelPoint);
+                    seen = !this.arena.colliders.some(box => this._duelRay.intersectBox(box, this._duelHit) && this._duelHit.distanceTo(this.camera.position) < distance - 0.1);
+                }
+            }
+            if (seen && (!visibleEnemy || entity.position.distanceToSquared(player.position) < visibleEnemy.position.distanceToSquared(player.position))) visibleEnemy = entity;
+        }
+        this.ui.updateDuelHUD?.({ player, enemy: visibleEnemy, manager: this.matchManager });
+    }
     get matchManager() { return this.gameMode === 'FPS_SOLO' ? this.fpsManager : this.tdmManager; }
 
     constructor() {
@@ -485,7 +526,7 @@ class CyberArenaGame {
 
     switchArena(targetMode) {
         let targetArena;
-        if (targetMode === 'FPS_SOLO') {
+        if (targetMode === 'FPS_SOLO' || (targetMode === 'TDM' && this.duelArenaMode)) {
             targetArena = this.fpsArena;
             this.scene.fog = new THREE.FogExp2(0xcbdadd, 0.004); // Light atmospheric depth across the courtyard.
             this.scene.background = new THREE.Color(0xcbdadd);
@@ -647,6 +688,7 @@ class CyberArenaGame {
         this.firstPersonView?.setEnabled(false);
         this.gameMode = 'TDM';
         this.selectedTDMTeam = playerTeam;
+        this.duelArenaMode = is1v1;
         this.switchArena('TDM');
         this.homeMenu?.showroom?.dialog?.close?.();
         this.homeMenu?.dialog?.close?.();
@@ -687,7 +729,8 @@ class CyberArenaGame {
             }
             remote.isDead = false;
             remote.isDowned = false;
-            remote.invulnerability = 2.0;
+            if (this.gameMode === 'FPS_SOLO' || this.duelArenaMode && this.gameMode === 'TDM') protectSpawn(remote);
+            else remote.invulnerability = 2.0;
             if (remote.weapons) {
                 const weaponId = remote.loadout?.primary || remote.weapons.startingWeaponId || 'repeater';
                 remote.weapons.resetRun(weaponId);
@@ -717,7 +760,7 @@ class CyberArenaGame {
         document.getElementById('hud-pause').disabled = false;
 
         // Bắt đầu trận đấu đối kháng TDM với cờ fillBots được chỉ định
-        this.tdmManager?.startMatch(playerTeam, { fillBots, teamSize: 4 });
+        this.tdmManager?.startMatch(playerTeam, { fillBots, teamSize: options?.teamSize || 4 });
         this.ui?.startWeaponSelectCountdown(10);
     }
 
@@ -768,7 +811,8 @@ class CyberArenaGame {
             remote.shield = 0;
             remote.isDead = false;
             remote.isDowned = false;
-            remote.invulnerability = 2.0;
+            if (this.gameMode === 'FPS_SOLO' || this.duelArenaMode && this.gameMode === 'TDM') protectSpawn(remote);
+            else remote.invulnerability = 2.0;
             if (remote.weapons) {
                 const weaponId = remote.loadout?.primary || remote.weapons.startingWeaponId || 'repeater';
                 remote.weapons.resetRun(weaponId);
@@ -1652,8 +1696,8 @@ class CyberArenaGame {
             events,
             looting: this.lootingSystem?.snapshot ? this.lootingSystem.snapshot() : null,
             projectiles: this.coopPlayers.flatMap(player => (player.weapons?.projectiles || []).filter(p => p.mesh).map(p => ({ id: `${player.id || this.network.playerId}:${p.id}`, owner: player.id || this.network.playerId, position: p.mesh.position.toArray(), direction: p.direction.toArray(), speed: p.speed, color: p.color }))),
-            players: this.coopPlayers.map(player => ({ id: player.id || this.network.playerId, name: player.name || 'Bạn', character: player.characterId || this.characterId, team: player.team || (player === this.player ? this.selectedTDMTeam : 'blue'), position: player.position.toArray(), health: player.health, shield: player.shield, maxHealth: player.maxHealth, maxShield: player.maxShield, isDead: player.isDead, isDowned: player.isDowned, isInSmoke: !!player.isInSmoke, bleedOutTimer: player.bleedOutTimer, reviveProgress: player.reviveProgress || 0, isBeingRevived: !!player.isBeingRevived, invulnerability: player.invulnerability || 0, lootInventory: (player === this.player ? this.lootingSystem?.inventory : player.lootInventory)?.slots || null, aim: player.aimYaw, ads: !!player.isADS, moving: player === this.player ? player.velocity.lengthSq() > 0.1 : player.moving, skills: player.getSharedSkillState?.(), weapons: player.weapons?.getNetworkState(), processedSeq: player.processedSeq || 0 })),
-            [this.gameMode === 'FPS_SOLO' ? 'fps' : 'tdm']: (['TDM', 'FPS_SOLO'].includes(this.gameMode) && this.matchManager) ? { scoreBlue: this.matchManager.scoreBlue, scoreRed: this.matchManager.scoreRed, targetKills: this.matchManager.targetKills, state: this.matchManager.state } : null,
+            players: this.coopPlayers.map(player => ({ id: player.id || this.network.playerId, name: player.name || 'Bạn', character: player.characterId || this.characterId, team: player.team || (player === this.player ? this.selectedTDMTeam : 'blue'), position: player.position.toArray(), health: player.health, shield: player.shield, maxHealth: player.maxHealth, maxShield: player.maxShield, isDead: player.isDead, isDowned: player.isDowned, isInSmoke: !!player.isInSmoke, bleedOutTimer: player.bleedOutTimer, reviveProgress: player.reviveProgress || 0, isBeingRevived: !!player.isBeingRevived, invulnerability: player.invulnerability || 0, spawnProtected: !!player.spawnProtected, radarRevealTimer: player.radarRevealTimer || 0, sprinting: !!player.isSprinting, crouching: !!player.isCrouching, lootInventory: (player === this.player ? this.lootingSystem?.inventory : player.lootInventory)?.slots || null, aim: player.aimYaw, ads: !!player.isADS, moving: player === this.player ? player.velocity.lengthSq() > 0.1 : player.moving, skills: player.getSharedSkillState?.(), weapons: player.weapons?.getNetworkState(), processedSeq: player.processedSeq || 0 })),
+            [this.gameMode === 'FPS_SOLO' ? 'fps' : 'tdm']: (['TDM', 'FPS_SOLO'].includes(this.gameMode) && this.matchManager) ? { scoreBlue: this.matchManager.scoreBlue, scoreRed: this.matchManager.scoreRed, targetKills: this.matchManager.targetKills, state: this.matchManager.state, is1v1: !!this.matchManager.is1v1 } : null,
             enemies: this.waveManager.enemies.filter(enemy => !enemy.isDead).map(enemy => ({ id: enemy.id, type: enemy.type, position: enemy.position.toArray(), health: enemy.health, maxHealth: enemy.maxHealth, armor: enemy.armor ?? 0, status: {burnTimer: enemy.burnTimer || 0, burnDamage: enemy.burnDamage || 0, freezeTimer: enemy.freezeTimer || 0, vulnerableTimer: enemy.vulnerableTimer || 0, vulnerableMult: enemy.vulnerableMult || 1, combatState: enemy.combatState, combatTimer: enemy.combatTimer || 0}, animation: enemy.animationName || null, animationSeq: enemy.animationSeq || 0, animationTime: Number.isFinite(enemy.currentAction?.time) ? enemy.currentAction.time : null, animationRate: Number.isFinite(enemy.currentAction?.getEffectiveTimeScale()) ? enemy.currentAction.getEffectiveTimeScale() : null, animationPaused: typeof enemy.currentAction?.paused === 'boolean' ? enemy.currentAction.paused : null, yaw: enemy.mesh?.rotation.y || 0 })),
             pickups: this.pickups.pickups.map(pickup => ({ id: pickup.id, type: pickup.type, position: pickup.mesh.position.toArray(), weaponSlot: pickup.weaponSlot, life: pickup.life }))
         };
@@ -1672,6 +1716,15 @@ class CyberArenaGame {
         // Route match state only to its owning gameplay mode.
         const matchState = this.gameMode === 'FPS_SOLO' ? snapshot.fps : snapshot.tdm;
         if (matchState && this.matchManager) {
+            // Late joiners must use the host's original duel rules and arena,
+            // even when the current room roster has grown since match start.
+            if (this.gameMode === 'TDM' && typeof matchState.is1v1 === 'boolean') {
+                this.matchManager.is1v1 = matchState.is1v1;
+                if (this.duelArenaMode !== matchState.is1v1) {
+                    this.duelArenaMode = matchState.is1v1;
+                    this.switchArena('TDM');
+                }
+            }
             const ended = matchState.state === 'MATCH_OVER' && this.matchManager.state !== 'MATCH_OVER';
             this.matchManager.scoreBlue = matchState.scoreBlue;
             this.matchManager.scoreRed = matchState.scoreRed;
@@ -1773,6 +1826,7 @@ class CyberArenaGame {
                 this.player.reviveProgress = state.reviveProgress || 0;
                 this.player.isBeingRevived = !!state.isBeingRevived;
                 this.player.invulnerability = state.invulnerability || 0;
+                this.player.spawnProtected = !!state.spawnProtected;
                 if (state.lootInventory && this.lootingSystem) this.lootingSystem.inventory.slots = state.lootInventory.map(s => s ? { ...s } : null);
                 if ((state.isDowned || state.isDead) && this.player.model) this.player.model.rotation.x = -Math.PI / 2.2;
                 this.player.maxHealth = state.maxHealth ?? this.player.maxHealth;
@@ -1808,6 +1862,10 @@ class CyberArenaGame {
             remote.bleedOutTimer = state.bleedOutTimer ?? 30; remote.reviveProgress = state.reviveProgress || 0;
             remote.isBeingRevived = !!state.isBeingRevived;
             remote.aimYaw = state.aim; remote.isADS = !!state.ads; remote.moving = !!state.moving;
+            remote.isSprinting = !!state.sprinting; remote.isCrouching = !!state.crouching;
+            remote.radarRevealTimer = Math.max(0, state.radarRevealTimer || 0);
+            remote.invulnerability = Math.max(0, state.invulnerability || 0);
+            remote.spawnProtected = !!state.spawnProtected;
             if (state.team) {
                 remote.team = state.team;
                 if (!remote.teamRing && this.matchManager) {
@@ -1938,6 +1996,10 @@ class CyberArenaGame {
                 }
             }
 
+            for (const entity of this.coopPlayers) {
+                entity.radarRevealTimer = Math.max(0, (entity.radarRevealTimer || 0) - delta);
+                if (!(entity.invulnerability > 0)) entity.spawnProtected = false;
+            }
             // Update Player
             this.player.update(delta, this.arena, ['TDM', 'FPS_SOLO'].includes(this.gameMode) ? (this.player.team === 'blue' ? this.matchManager.teamRed : this.matchManager.teamBlue) : this.waveManager.enemies);
             if (this.gameMode === 'TDM') this.visionCone?.update(this.player, delta);
@@ -2076,6 +2138,7 @@ class CyberArenaGame {
                     observer => observer === this.player ? this.visionCone.getConfig() : null);
             }
 
+            this.updateDuelPresentation(delta);
             this.radarElapsed += delta;
             if (this.radarElapsed >= 0.05) {
                 this.radarElapsed %= 0.05;
@@ -2084,9 +2147,9 @@ class CyberArenaGame {
                     : this.waveManager.enemies;
                 // Trong TDM, chỉ những đối thủ đang nhìn thấy mới hiện trên radar
                 const visibleRadarEnemies = ['TDM', 'FPS_SOLO'].includes(this.gameMode)
-                    ? radarEnemies.filter(e => e && !e.isDead && (this.gameMode === 'FPS_SOLO' || e.isVisibleToObserver))
+                    ? radarEnemies.filter(e => isDuelMode(this) ? isRevealedOnRadar(e) : e && !e.isDead && e.isVisibleToObserver)
                     : radarEnemies;
-                this.ui.drawRadar(this.player, visibleRadarEnemies, this.pickups.pickups, this.arena.getPortals(), teammates, this.lootingSystem.activeAirdropZone);
+                this.ui.drawRadar(this.player, visibleRadarEnemies, this.pickups.pickups, this.arena.getPortals(), teammates, this.lootingSystem.activeAirdropZone, isDuelMode(this) ? this.arena : null);
             }
         } else if (this.state === 'MENU' || this.state === 'LOADING') {
             this.renderQuality.reset();

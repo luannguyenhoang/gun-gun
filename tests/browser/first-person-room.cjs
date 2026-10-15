@@ -50,6 +50,17 @@ const root = path.resolve(__dirname, '../..');
         }),true);
         assert.equal(await guest.evaluate(()=>game.player.team),'red');
         assert.equal(await host.evaluate(()=>game.fpsManager.bots.length),0);
+        // Silent walking/crouching and noisy sprinting must replicate to the host.
+        await guest.evaluate(() => {
+            Object.defineProperty(game.firstPersonView, 'locked', { configurable: true, get: () => true });
+            game.player.keys = { KeyW: true, ShiftLeft: true };
+        });
+        await host.waitForFunction(id => game.remotePlayers.get(id).isSprinting, guestId);
+        await guest.evaluate(() => { game.player.keys = { KeyW: true, ShiftLeft: true, ControlLeft: true }; });
+        await host.waitForFunction(id => game.remotePlayers.get(id).isCrouching && !game.remotePlayers.get(id).isSprinting, guestId);
+        await guest.evaluate(() => { game.player.keys = {}; delete game.firstPersonView.locked; });
+        await host.waitForFunction(id => !game.remotePlayers.get(id).isSprinting, guestId);
+        console.log('PASS: sprint/crouch state replicates and crouching overrides sprint.');
         const candidates=await host.evaluate(()=>{
             const result=[], probe=game.player.position.clone();
             for(let x=-20;x<=20;x+=2) for(let z=-16;z<=16;z+=2) {
@@ -79,13 +90,18 @@ const root = path.resolve(__dirname, '../..');
         await guest.evaluate(v=>{game.player.position.set(v[0],0,v[2]+4);game.player.velocity.set(0,0,0);},origin);
         await host.waitForFunction(({id,v})=>game.remotePlayers.get(id).position.distanceTo({x:v[0],y:0,z:v[2]+4})<0.1,{id:guestId,v:origin});
         await guest.evaluate(v=>{
+            game.player.spawnProtected=true; game.player.invulnerability=5;
             game.weapons.fireCooldown=0;
             game.weapons.shoot(game.player.position.clone().add({x:0,y:1.55,z:0}),game.player.position.clone().set(v[0],1.55,v[2]),false,true,1,game.player);
         },origin);
+        await host.waitForFunction(id => game.remotePlayers.get(id).radarRevealTimer > 0, guestId);
+        assert.equal(await guest.evaluate(() => game.player.spawnProtected), false);
+        assert.equal(await host.evaluate(id => game.remotePlayers.get(id).invulnerability, guestId), 0);
         await host.waitForFunction(()=>game.player.health<1000);
         await guest.waitForFunction(()=>game.remotePlayers.get('host').health<1000);
         assert.equal(await host.evaluate(()=>Number.isFinite(game.player.position.x)&&Number.isFinite(game.player.velocity.x)),true);
-        console.log('PASS: FPS room joins on opposite teams; guest shot damages host without corrupting movement.');
+        await host.waitForFunction(id => game.remotePlayers.get(id).radarRevealTimer === 0, guestId);
+        console.log('PASS: FPS guest fire cancels protection, reveals radar temporarily and damages host.');
         await host.evaluate(id=>{
             const p=game.remotePlayers.get(id);p.health=1000;p.shield=0;p.invulnerability=0;
             game.weapons.fireCooldown=0;
@@ -99,6 +115,10 @@ const root = path.resolve(__dirname, '../..');
         await guest.waitForFunction(()=>!game.player.isDead && game.player.spawnSeq>0);
         await host.waitForFunction(id=>game.remotePlayers.get(id).position.z<0,guestId);
         assert.equal(await guest.evaluate(()=>game.fpsManager.scoreBlue),1);
+        assert.ok(await guest.evaluate(() => game.player.spawnProtected && game.player.invulnerability > 3.5 && game.player.invulnerability <= 5));
+        assert.equal(await guest.locator('#duel-score-enemy').textContent(), '1');
+        assert.equal(await guest.locator('#duel-score-you').textContent(), '0');
+        console.log('PASS: five-second respawn protection and score from the red player perspective.');
         await guest.evaluate(()=>game.pauseGame());
         assert.equal(await guest.evaluate(()=>game.state),'PLAYING');
         const tick=await host.evaluate(()=>game.fpsManager.matchTimer);

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { registerDuelAttack } from './duel-rules.js';
 import { sounds } from '../../audio/audio.js?v=63';
 
 // Bộ nạp và cache texture hiệu ứng hạt từ Kenney Particle Pack
@@ -2241,6 +2242,7 @@ export class WeaponSystem {
             const direction = new THREE.Vector3().subVectors(targetPoint, origin);
             if (direction.lengthSq() < 0.001) direction.set(0, 0, -1);
             direction.normalize();
+            registerDuelAttack(playerRef, 'knife');
             this.fireCooldown = w.fireRate;
             sounds.play('enemyAttack', { volume: 0.5, rate: 1.45 });
             this.particles?.createKnifeSlash?.(origin, direction, w.color, w.range);
@@ -2277,6 +2279,7 @@ export class WeaponSystem {
 
         if (this.fireCooldown > 0) return false;
 
+        registerDuelAttack(playerRef, 'gun');
         if (!isBulletFrenzy) {
             this.ammo[w.id]--;
         }
@@ -2414,6 +2417,7 @@ export class WeaponSystem {
         const w = this.getCurrentWeapon();
         if (!w || !w.isBomb) return false;
         if ((w.count || 0) <= 0) return false;
+        registerDuelAttack(playerRef, 'bomb');
 
         if (this.onCommand) {
             this.onCommand({ type: 'throw_bomb', origin: origin.toArray(), target: targetPoint.toArray(), weaponId: w.id });

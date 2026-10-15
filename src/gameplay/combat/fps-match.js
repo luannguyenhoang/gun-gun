@@ -1,5 +1,6 @@
 // Independent FPS match rules and bot AI. Do not inherit TDM gameplay.
 import * as THREE from 'three';
+import { protectSpawn } from './duel-rules.js';
 import { sounds } from '../../audio/audio.js?v=63';
 import { WEAPON_CONFIGS } from './weapons.js';
 
@@ -37,7 +38,7 @@ export class FPSBot {
         this.remote.maxShield = 0;
         this.remote.isDead = false;
         this.remote.isDowned = false;
-        this.remote.invulnerability = 1.5;
+        protectSpawn(this.remote);
         this.remote.th_kills = 0;
         this.remote.th_deaths = 0;
         this.remote.th_score = 0;
@@ -155,10 +156,7 @@ export class FPSBot {
         }
 
         // Đếm ngược thời gian khiên bất tử
-        if (this.remote.invulnerability > 0) {
-            this.remote.invulnerability = Math.max(0, this.remote.invulnerability - delta);
-
-        }
+        // Remote simulation owns the protection clock (including bots).
 
         this.shootCooldown = Math.max(0, this.shootCooldown - delta);
         this.th_scanTimer = (this.th_scanTimer || 0) - delta;
@@ -371,7 +369,7 @@ export class FPSMatchManager {
         player.shield = 0;
         player.isDead = false;
         player.isDowned = false;
-        player.invulnerability = 2.0;
+        protectSpawn(player);
         player.th_kills = 0;
         player.th_deaths = 0;
         player.th_score = 0;
@@ -585,7 +583,7 @@ export class FPSMatchManager {
         entity.maxShield = 0;
         entity.isDead = false;
         entity.isDowned = false;
-        entity.invulnerability = 1.5;
+        protectSpawn(entity);
 
         if (entity === this.game.player) {
             if (entity.model) {
@@ -595,7 +593,7 @@ export class FPSMatchManager {
             entity.playAnimation?.('idle', 0.1);
             entity.setInputEnabled?.(true);
             this.game.ui?.hideTDMRespawnCountdown?.();
-            this.game.ui?.showPickupAlert('ĐÃ HỒI SINH! (1.5S KHIÊN BẤT TỬ)');
+            this.game.ui?.showPickupAlert('BẢO VỆ 5 GIÂY · TẤN CÔNG SẼ HỦY BẢO VỆ');
             this.game.ui?.startWeaponSelectCountdown?.(10);
             sounds.play('powerup', { volume: 0.9 });
         }

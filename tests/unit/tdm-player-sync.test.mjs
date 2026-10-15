@@ -7,6 +7,7 @@ registerHooks({ resolve(s, c, next) {
     return s === 'three' ? { url: new URL('../../vendor/three.module.js', import.meta.url).href, shortCircuit: true } : next(s, c);
 } });
 const THREE = await import('three');
+const { protectSpawn } = await import('../../src/gameplay/combat/duel-rules.js');
 const { PlayerController } = await import('../../src/gameplay/player/player.js');
 const { applyVisibilityCulling } = await import('../../src/gameplay/combat/vision-cone.js');
 
@@ -99,11 +100,30 @@ test('authoritative snapshots remove departed humans and local aliases as well a
     assert.equal(remotes.size, 0);
 });
 
+test('late TDM joins inherit the host duel arena without rebuilding it every snapshot', () => {
+    const source = readFileSync(new URL('../../src/app/main.js', import.meta.url), 'utf8')
+        .replace(/^import .*;\r?\n/gm, '').split('// Instantiate game on page load')[0];
+    const Game = vm.runInNewContext(source + '\nCyberArenaGame;', { THREE, performance });
+    let switches = 0;
+    const game = {
+        gameMode: 'TDM', duelArenaMode: false, matchManager: { state: 'ACTIVE' }, coopPlayers: [],
+        remotePlayers: new Map(), remoteProjectiles: new Map(), player: {}, weapons: {},
+        waveManager: { bombs: { applySnapshot() {} }, enemies: [] }, pickups: { pickups: [] },
+        switchArena(mode) { assert.equal(mode, 'TDM'); switches++; }
+    };
+    const snapshot = { mode: 'TDM', tdm: { is1v1: true, state: 'ACTIVE', scoreBlue: 1, scoreRed: 0, targetKills: 10 }, players: [], enemies: [], pickups: [] };
+    Game.prototype.applyCoopSnapshot.call(game, snapshot, 'guest');
+    Game.prototype.applyCoopSnapshot.call(game, snapshot, 'guest');
+    assert.equal(game.matchManager.is1v1, true);
+    assert.equal(game.duelArenaMode, true);
+    assert.equal(switches, 1);
+});
+
 for (const mode of ['TDM', 'FPS_SOLO']) test(`${mode} clears previous-life counters and stale motion when starting another match`, () => {
     const source = readFileSync(new URL('../../src/app/main.js', import.meta.url), 'utf8')
         .replace(/^import .*;\r?\n/gm, '').split('// Instantiate game on page load')[0];
     const Game = vm.runInNewContext(source + '\nCyberArenaGame;', {
-        document: { getElementById: () => ({}) }, sounds: { init() {}, startMusic() {} }
+        protectSpawn, document: { getElementById: () => ({}) }, sounds: { init() {}, startMusic() {} }
     });
     const remote = {
         spawnSeq: 7, health: 0, maxHealth: 100, maxShield: 100,

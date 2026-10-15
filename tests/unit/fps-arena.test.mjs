@@ -64,6 +64,16 @@ test('returning to FPS rebuilds once without retaining scene objects or generate
     assert.equal(arena.colliders.length, colliders);
 });
 
+test('duel spawns and long lanes have solid sightline breaks', () => {
+    const arena = fixture();
+    for (const x of [-6, -2, 2, 6]) for (const enemyX of [-6, -2, 2, 6]) {
+        assert.equal(arena.hasLineOfSight(new THREE.Vector3(x, 0, 23), new THREE.Vector3(enemyX, 0, -23)), false);
+    }
+    for (const x of [-25, -19, 0, 19, 25]) {
+        assert.equal(arena.hasLineOfSight(new THREE.Vector3(x, 0, 17), new THREE.Vector3(x, 0, -17)), false, `unbroken lane at ${x}`);
+    }
+});
+
 test('a patrolling FPS bot actually walks around spawn screens and pavilions', () => {
     const arena = fixture();
     for (const [x, z] of [[-19, 0], [19, 17], [3.5, 0]]) {

@@ -105,6 +105,7 @@ export class FPSArena extends BaseArena {
         for (const x of [-9, 9]) for (const z of [-10, 10]) this.buildPavilion(x, z);
         this.buildBases();
         this.buildCourts();
+        this.buildDuelCover();
         this.flushArchitecture();
         this.optimizeColliders();
         this.buildSpatialGrid();
@@ -272,6 +273,21 @@ export class FPSArena extends BaseArena {
         this.sign('B  /  ARCADE', 27.45, 2.15, 0, -Math.PI / 2, '#985f47');
         for (const z of [-10, 10]) {
             this.sign('COURTYARD', -5.44, 3.1, z, Math.PI / 2);
+        }
+    }
+
+    buildDuelCover() {
+        // Rotational symmetry keeps approach distances equal. Each screen has two
+        // exits; the transverse paths at z=+/-17 still connect all three lanes.
+        for (const side of [-1, 1]) {
+            this.box('mid-screen', 0, 0, side * 14, 5, 3.1, 1.1, 'plaster', true);
+            this.box('mid-screen-cap', 0, 3.1, side * 14, 5.2, 0.15, 1.3, 'trim');
+            for (const x of [-19, 19]) {
+                this.box('flank-screen', x, 0, side * 12, 8, 3.1, 1, 'plaster', true);
+                this.box('flank-cap', x, 3.1, side * 12, 8.2, 0.15, 1.2, 'trim');
+            }
+            // Outer flank must turn back inward before it can cross midfield.
+            this.box('outer-return', side * 25, 0, side * 2, 5, 3.1, 1, 'stone', true);
         }
     }
 

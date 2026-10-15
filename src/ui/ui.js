@@ -332,6 +332,7 @@ export class UIManager {
     }
 
     hideTDMScoreboard() {
+        this.updateDuelHUD(null);
         if (this.tdmScoreboard) this.tdmScoreboard.style.display = 'none';
         if (this.combatWave) this.combatWave.style.display = '';
         if (this.tdmKillFeed) this.tdmKillFeed.innerHTML = '';
@@ -349,6 +350,29 @@ export class UIManager {
             const pct = Math.min(100, (scoreRed / Math.max(1, target)) * 100);
             this.tdmBarRed.style.width = `${pct}%`;
         }
+    }
+
+    updateDuelHUD(state) {
+        const hud = document.getElementById('duel-hud');
+        if (!hud) return;
+        hud.hidden = !state;
+        const radarKey = document.querySelector('.radar-key i');
+        if (radarKey) radarKey.textContent = state ? '● TIẾNG ĐỘNG' : window.game?.gameMode === 'SURVIVAL' ? '● ZOMBIE' : '● ĐỐI THỦ';
+        if (!state) return;
+        if (this.tdmScoreboard) this.tdmScoreboard.style.display = 'none';
+        const { player, enemy, manager } = state;
+        const blue = player.team === 'blue';
+        document.getElementById('duel-score-you').textContent = blue ? manager.scoreBlue : manager.scoreRed;
+        document.getElementById('duel-score-enemy').textContent = blue ? manager.scoreRed : manager.scoreBlue;
+        document.getElementById('duel-target').textContent = manager.targetKills;
+        document.getElementById('duel-enemy-vitals').hidden = !enemy;
+        if (enemy) {
+            document.getElementById('duel-enemy-hp').textContent = `ĐỐI THỦ · ${Math.ceil(enemy.health)} / ${enemy.maxHealth} HP`;
+            document.getElementById('duel-enemy-fill').style.width = `${Math.max(0, Math.min(100, enemy.health / Math.max(1, enemy.maxHealth) * 100))}%`;
+        }
+        const protection = document.getElementById('duel-protection');
+        protection.hidden = !player.spawnProtected || !(player.invulnerability > 0) || player.isDead;
+        protection.textContent = protection.hidden ? '' : `BẢO VỆ ${player.invulnerability.toFixed(1)}s · Tấn công để hủy`;
     }
 
     addTDMKillFeed(killerName, victimName, isKillerFriendly = true) {
@@ -1318,14 +1342,14 @@ export class UIManager {
         }, 800);
     }
 
-    drawRadar(player, enemies, pickups, portals = [], teammates = [], airdropZone = null) {
+    drawRadar(player, enemies, pickups, portals = [], teammates = [], airdropZone = null, arena = null) {
         if (!this.radarCtx) return;
         const ctx = this.radarCtx;
         const w = this.radarCanvas.width;
         const h = this.radarCanvas.height;
 
         // World halfSize = 25 → [-25, 25]
-        const HALF = 25;
+        const HALF = arena?.halfSize || 25;
         const MAP_SIZE = HALF * 2;
 
         const toX = (wx) => ((wx + HALF) / MAP_SIZE) * w;
@@ -1338,6 +1362,13 @@ export class UIManager {
         ctx.fillStyle = '#1e1e1e';
         ctx.fillRect(0, 0, w, h);
 
+        if (arena) {
+            ctx.fillStyle = 'rgba(120,155,175,0.42)';
+            for (const box of arena.colliders) {
+                if (box.max.y <= 0.4 || box.min.y > 2) continue;
+                ctx.fillRect(toX(box.min.x), toY(box.min.z), toR(box.max.x - box.min.x), toR(box.max.z - box.min.z));
+            }
+        } else {
         // 2. Giao lo trung tam sáng hon
         const pSz = toR(5);
         ctx.fillStyle = '#2d2d2d';
@@ -1384,6 +1415,8 @@ export class UIManager {
         ctx.fillStyle = 'rgba(100,130,160,0.4)';
         ctx.fillRect(toX(-6.8), toY(-18.4), toR(3.6), toR(0.8));
         ctx.fillRect(toX(3.2),  toY(17.6),  toR(3.6), toR(0.8));
+
+        }
 
         // 6. Portal
         for (let i = 0; i < portals.length; i++) {

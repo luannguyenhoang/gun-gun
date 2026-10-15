@@ -516,6 +516,58 @@ class SoundManager {
     }
 
     // Xử lý âm thanh bước chân dứt khoát, triệt tiêu hoàn toàn hiện tượng chồng chéo dồn âm
+    updateSpatialListener(camera, position) {
+        if (!this.ctx || !camera || !position) return;
+        const listener = this.ctx.listener, t = this.ctx.currentTime;
+        const matrix = camera.matrixWorld.elements;
+        const forward = [-matrix[8], -matrix[9], -matrix[10]];
+        const up = [matrix[4], matrix[5], matrix[6]];
+        if (listener.positionX) {
+            [listener.positionX, listener.positionY, listener.positionZ].forEach((p, i) => p.setValueAtTime([position.x, position.y + 1.3, position.z][i], t));
+            [listener.forwardX, listener.forwardY, listener.forwardZ].forEach((p, i) => p.setValueAtTime(forward[i], t));
+            [listener.upX, listener.upY, listener.upZ].forEach((p, i) => p.setValueAtTime(up[i], t));
+        } else {
+            listener.setPosition(position.x, position.y + 1.3, position.z);
+            listener.setOrientation(...forward, ...up);
+        }
+    }
+
+    playSpatialFootstep(position, { sprinting = false, crouching = false, occluded = false } = {}) {
+        if (!this.enabled || !this.ctx || this.ctx.state !== 'running') return;
+        const ctx = this.ctx, t = ctx.currentTime;
+        const panner = ctx.createPanner();
+        panner.panningModel = 'HRTF';
+        panner.distanceModel = 'inverse';
+        panner.refDistance = 2;
+        panner.maxDistance = 28;
+        panner.rolloffFactor = 1.5;
+        panner.setPosition(position.x, position.y + 0.15, position.z);
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = occluded ? 850 : 6000;
+        const gain = ctx.createGain();
+        const volume = (crouching ? 0.09 : sprinting ? 0.7 : 0.38) * (occluded ? 0.55 : 1);
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(volume, t + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+        let source;
+        const buffer = this.buffers.step;
+        if (buffer?.duration > 0.2) {
+            source = ctx.createBufferSource();
+            source.buffer = buffer;
+            source.playbackRate.value = sprinting ? 1.12 : 0.95;
+        } else {
+            source = ctx.createOscillator();
+            source.frequency.setValueAtTime(110, t);
+            source.frequency.exponentialRampToValueAtTime(38, t + 0.16);
+        }
+        source.connect(filter); filter.connect(gain); gain.connect(panner); panner.connect(this.sfxDestination);
+        source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); panner.disconnect(); };
+        if (buffer?.duration > 0.2) source.start(t, Math.min(0.12, buffer.duration - 0.2));
+        else source.start(t);
+        source.stop(t + 0.19);
+    }
+
     th_playFootstep(options = {}) {
         if (!this.enabled) return null;
         if (!this.ctx) this.init();
