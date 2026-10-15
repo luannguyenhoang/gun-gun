@@ -32,8 +32,8 @@ export class TDMBot {
         this.remote.position.copy(spawnPos);
         this.remote.health = 100;
         this.remote.maxHealth = 100;
-        this.remote.shield = 100;
-        this.remote.maxShield = 100;
+        this.remote.shield = 0;
+        this.remote.maxShield = 0;
         this.remote.isDead = false;
         this.remote.isDowned = false;
         this.remote.invulnerability = 1.5;
@@ -108,10 +108,9 @@ export class TDMBot {
     takeDamage(amount, penPower, isCrit, direction, attacker) {
         if (this.remote.isDead || this.remote.invulnerability > 0) return;
 
-        // Trừ giáp trước (nếu có), trừ máu sau
-        const absorbed = Math.min(this.remote.shield || 0, amount);
-        this.remote.shield = Math.max(0, (this.remote.shield || 0) - absorbed);
-        this.remote.health -= (amount - absorbed);
+        // Da loai bo co che giap: Tru thang vao mau
+        this.remote.shield = 0;
+        this.remote.health -= amount;
 
         if (this.remote.health <= 0) {
             this.remote.health = 0;
@@ -351,12 +350,8 @@ export class TDMManager {
         const player = this.game.player;
         player.team = playerTeam;
         player.health = player.maxHealth;
-        if (this.is1v1) {
-            player.maxShield = 0;
-            player.shield = 0;
-        } else {
-            player.shield = player.maxShield;
-        }
+        player.shield = 0;
+        player.maxShield = 0;
         player.isDead = false;
         player.isDowned = false;
         if (this.is1v1) protectSpawn(player);
@@ -570,12 +565,8 @@ export class TDMManager {
         const spawnPos = this.getRandomSpawnPoint(entity.team);
         entity.position.copy(spawnPos);
         entity.health = entity.maxHealth || 100;
-        if (this.is1v1) {
-            entity.maxShield = 0;
-            entity.shield = 0;
-        } else {
-            entity.shield = entity.maxShield || 100;
-        }
+        entity.shield = 0;
+        entity.maxShield = 0;
         entity.isDead = false;
         entity.isDowned = false;
         if (this.is1v1) protectSpawn(entity);

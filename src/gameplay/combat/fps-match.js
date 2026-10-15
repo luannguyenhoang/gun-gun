@@ -33,7 +33,7 @@ export class FPSBot {
         this.remote.position.copy(spawnPos);
         this.remote.health = 100;
         this.remote.maxHealth = 100;
-        // Chế độ 1vs1: loại bỏ giáp hoàn toàn
+
         this.remote.shield = 0;
         this.remote.maxShield = 0;
         this.remote.isDead = false;
@@ -118,10 +118,9 @@ export class FPSBot {
     takeDamage(amount, penPower, isCrit, direction, attacker) {
         if (this.remote.isDead || this.remote.invulnerability > 0) return;
 
-        // Trừ giáp trước (nếu có), trừ máu sau
-        const absorbed = Math.min(this.remote.shield || 0, amount);
-        this.remote.shield = Math.max(0, (this.remote.shield || 0) - absorbed);
-        this.remote.health -= (amount - absorbed);
+        // Da loai bo co che giap: Tru thang vao mau
+        this.remote.shield = 0;
+        this.remote.health -= amount;
 
         if (this.remote.health <= 0) {
             this.remote.health = 0;
@@ -364,9 +363,8 @@ export class FPSMatchManager {
         const player = this.game.player;
         player.team = playerTeam;
         player.health = player.maxHealth;
-        // Chế độ 1vs1: loại bỏ giáp hoàn toàn
-        player.maxShield = 0;
         player.shield = 0;
+        player.maxShield = 0;
         player.isDead = false;
         player.isDowned = false;
         protectSpawn(player);
@@ -578,7 +576,7 @@ export class FPSMatchManager {
         const spawnPos = this.getRandomSpawnPoint(entity.team);
         entity.position.copy(spawnPos);
         entity.health = entity.maxHealth || 100;
-        // Chế độ 1vs1: hồi sinh không có giáp
+
         entity.shield = 0;
         entity.maxShield = 0;
         entity.isDead = false;

@@ -149,10 +149,12 @@ export class FirstPersonView {
         this.lastShotTime = now;
         const shot = ++this.sprayShot;
         const p = this.game.player;
-        const kick = Math.max(0, strength) * 0.35 * (p.recoilMult || 1) * (p.isADS ? 0.65 : 1);
-        // A repeatable rise then lateral drift, applied to the same angles as mouse input.
-        // No separate recoil offset pulls the aim back after the player compensates.
-        const horizontal = shot <= 4 ? 0 : shot <= 10 ? 0.35 : shot <= 20 ? -0.35 : Math.sin(shot * 0.8) * 0.3;
+        const isADS = !!(p.isADS || p.th_toggleADS);
+        // Khi khong ngam chuot phai (Hipfire), goc nhin camera FPS se giat nay cuc manh
+        const hipfireMult = isADS ? 0.55 : 2.45;
+        const kick = Math.max(0, strength) * 0.35 * (p.recoilMult || 1) * hipfireMult;
+        const horizontalBase = shot <= 4 ? (isADS ? 0 : (Math.random() - 0.5) * 0.35) : shot <= 10 ? 0.4 : shot <= 20 ? -0.4 : Math.sin(shot * 0.8) * 0.35;
+        const horizontal = horizontalBase * (isADS ? 1.0 : 1.75);
         this.pitch = THREE.MathUtils.clamp(this.pitch + kick, -1.45, 1.45);
         this.yaw -= kick * horizontal;
         this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');

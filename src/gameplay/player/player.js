@@ -175,11 +175,11 @@ export class PlayerController {
         this.baseScale = 1.7;
         this.hitPunch = 1.0;
 
-        // Stats
+        // Stats - Da loai bo co che giap theo yeu cau
         this.maxHealth = 100;
         this.health = 100;
-        this.maxShield = 100;
-        this.shield = 100;
+        this.maxShield = 0;
+        this.shield = 0;
         this.isDead = false;
         this.cooperative = false;
         this.isDowned = false;
@@ -798,13 +798,8 @@ export class PlayerController {
 
         this.maxHealth = 100 + (passives.healthBonus || 0);
         this.health = Math.min(this.health || this.maxHealth, this.maxHealth);
-        if (is1v1Mode) {
-            this.maxShield = 0;
-            this.shield = 0;
-        } else {
-            this.maxShield = 100 + (passives.armorBonus || 0);
-            this.shield = Math.min(this.shield || this.maxShield, this.maxShield);
-        }
+        this.maxShield = 0;
+        this.shield = 0;
         this.speed = 7.5 * (passives.speedMult || 1.0);
         this.recoilMult = passives.recoilMult || 1.0;
         this.dodgeDistMult = passives.dodgeDistMult || 1.0;
@@ -2730,13 +2725,17 @@ export class PlayerController {
         // FPS recoil is applied once per accepted shot to the camera angles.
         if (this.firstPerson) return;
         if (!this.cursorKick) this.cursorKick = new THREE.Vector2(0, 0);
-        const recoilM = this.recoilMult || 1.0;
-        const kick = (typeof kickStrength === 'number' ? kickStrength : (kickStrength?.x || 3.5)) * recoilM;
 
-        // Quy luật nảy tâm có thể dự đoán (Predictable Recoil Spray Pattern)
+        const isADS = !!(this.isADS || this.th_toggleADS);
+        const recoilM = this.recoilMult || 1.0;
+        // Neu khong giu chuot phai de ngam (Hipfire), do giat se tang vot rat manh
+        const hipfireRecoilMultiplier = isADS ? 0.65 : 2.85;
+        const kick = (typeof kickStrength === 'number' ? kickStrength : (kickStrength?.x || 3.5)) * recoilM * hipfireRecoilMultiplier;
+
+        // Quy luat nay tam (Recoil Spray Pattern)
         const now = performance.now();
         if (!this.th_lastShotTime || (now - this.th_lastShotTime > 280)) {
-            this.th_sprayShotCount = 0; // Reset nhịp spray nếu ngừng bắn quá 0.28s
+            this.th_sprayShotCount = 0; // Reset nhip spray neu ngung ban qua 0.28s
         }
         this.th_lastShotTime = now;
         this.th_sprayShotCount = (this.th_sprayShotCount || 0) + 1;
@@ -2746,29 +2745,37 @@ export class PlayerController {
         const shot = this.th_sprayShotCount;
 
         if (shot <= 4) {
-            // Viên 1-4: Nảy giật thẳng đứng lên trên (người chơi chỉ cần ghìm chuột kéo xuống)
-            xOffset = (Math.random() - 0.5) * 0.2;
+            // Vien 1-4: Nay giat thang dung len tren
+            xOffset = (Math.random() - 0.5) * (isADS ? 0.15 : 0.65);
             yOffset = -1.05 - (shot * 0.05);
         } else if (shot <= 10) {
-            // Viên 5-10: Nảy chếch sang phải (người chơi ghìm chéo xuống góc trái)
-            xOffset = 0.65 + (Math.random() - 0.5) * 0.25;
+            // Vien 5-10: Nay chech sang phai
+            xOffset = 0.65 + (Math.random() - 0.5) * (isADS ? 0.2 : 0.85);
             yOffset = -0.75;
         } else if (shot <= 20) {
-            // Viên 11-20: Đổi hướng nảy lượn sang bên trái (người chơi kéo ngược sang phải)
-            xOffset = -0.85 + (Math.random() - 0.5) * 0.25;
+            // Vien 11-20: Doi huong nay sang ben trai
+            xOffset = -0.85 + (Math.random() - 0.5) * (isADS ? 0.2 : 0.85);
             yOffset = -0.55;
         } else {
-            // Viên > 20: Dao động ngang hai bên ở đỉnh
-            xOffset = Math.sin(shot * 1.4) * 0.9;
+            // Vien > 20: Dao dong ngang hai ben o dinh
+            xOffset = Math.sin(shot * 1.4) * (isADS ? 0.9 : 1.6);
             yOffset = -0.45;
         }
 
-        // Tác động lực giật vào tâm chuột
-        this.cursorKick.x += xOffset * kick * 5.8;
-        this.cursorKick.y += yOffset * kick * 8.2;
+        // Khi khong ngam chuot phai, them do lech rung ngau nhien manh lam tam giat lon xon
+        if (!isADS) {
+            xOffset += (Math.random() - 0.5) * 1.25;
+            yOffset -= Math.random() * 0.45;
+        }
 
-        // Rung màn hình dựa trên cỡ đạn (Screen Shake Trauma) cố định
-        const traumaAdd = (typeof shakeStrength === 'number' ? shakeStrength * 1.3 : 0.22);
+        // Tac dong luc giat vao tam chuot (Hipfire giat nay tung tam chuot)
+        const kickFactorX = isADS ? 3.5 : 9.5;
+        const kickFactorY = isADS ? 4.8 : 14.5;
+        this.cursorKick.x += xOffset * kick * kickFactorX;
+        this.cursorKick.y += yOffset * kick * kickFactorY;
+
+        // Rung man hinh: Khong ngam se rung manh du doi tao cam giac rat giat
+        const traumaAdd = (typeof shakeStrength === 'number' ? shakeStrength : 0.18) * (isADS ? 0.6 : 2.6);
         this.applyScreenShake(traumaAdd, false);
     }
 
@@ -2797,31 +2804,20 @@ export class PlayerController {
         // Kiem tra hang rao thep giam 50% sat thuong
         if (this.activeSkillEffect === 'iron_wall') amount = Math.round(amount * 0.5);
         if (this.damageTakenMult) amount = Math.max(1, Math.round(amount * this.damageTakenMult));
-        // Che do Developer: Nhan vat bat tu, khong bi tru mau hoac khien
+        // Che do Developer: Nhan vat bat tu, khong bi tru mau
         if (this.developerMode || window.developerMode) {
             this.health = this.maxHealth;
-            this.shield = this.maxShield;
+            this.shield = 0;
             if (hitDir) {
                 this.velocity.x += hitDir.x * 2.0;
                 this.velocity.z += hitDir.z * 2.0;
             }
-            sounds.playShieldDamage();
             return;
         }
         this.damageRevision++;
 
-        this.shieldRegenTimer = this.shieldRegenDelay;
-
-        if (this.shield > 0) {
-            sounds.playShieldDamage();
-            if (this.shield >= amount) {
-                this.shield -= amount;
-                amount = 0;
-            } else {
-                amount -= this.shield;
-                this.shield = 0;
-            }
-        }
+        // Da bo co che giap: Sat thuong tru thang vao mau
+        this.shield = 0;
 
         if (amount > 0) {
             this.health -= amount;
@@ -2857,10 +2853,8 @@ export class PlayerController {
     }
 
     rechargeShield(amount) {
-        if (this.maxShield <= 0) return;
-        // Tính thêm hệ số cường hóa nạp giáp nếu có
-        const boost = this.shieldBatteryBoost || 1.0;
-        this.shield = Math.min(this.maxShield, this.shield + Math.round(amount * boost));
+        // Da loai bo co che giap
+        this.shield = 0;
     }
 
     die(forceDead = false) {
@@ -2958,7 +2952,7 @@ export class PlayerController {
         // Duy tri trang thai day mau va song sot khi bat Che do Developer
         if (authoritative && (this.developerMode || window.developerMode)) {
             this.health = this.maxHealth;
-            this.shield = this.maxShield;
+            this.shield = 0;
             this.isDead = false;
             this.isDowned = false;
         }
@@ -3495,7 +3489,7 @@ export class PlayerController {
         this.velocity.set(0, 0, 0);
         this.applyCharacterStats();
         this.health = this.maxHealth;
-        this.shield = this.maxShield;
+        this.shield = 0;
         this.activeSkillCooldownTimer = 0;
         this.activeSkillDurationTimer = 0;
         this.activeSkillEffect = null;

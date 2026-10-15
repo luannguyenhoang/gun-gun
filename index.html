@@ -134,7 +134,7 @@
       </section>
       <div id="player-overhead-vitals" class="player-overhead-vitals" hidden aria-label="Máu và khiên nhân vật">
         <div class="overhead-health"><div id="health-fill"></div><strong id="health-text">100</strong></div>
-        <div class="overhead-shield"><div id="shield-fill"></div></div>
+        <div class="overhead-shield" style="display:none;"><div id="shield-fill"></div></div>
       </div>
       <section class="combat-wave combat-panel"><span class="combat-kicker">SINH TỒN VÔ TẬN</span><strong>ĐỢT <span id="wave-value">1</span></strong><span class="enemy-count">ZOMBIE CÒN LẠI <b id="enemies-value">0</b></span></section>
 
@@ -276,7 +276,7 @@
                 <div class="pubg-gear-bar-seg active"></div>
               </div>
             </div>
-            <div class="pubg-gear-item" id="pubg-hud-vest">
+            <div class="pubg-gear-item" id="pubg-hud-vest" style="display:none;">
               <svg viewBox="0 0 24 24" class="pubg-gear-svg" fill="none" stroke="currentColor">
                 <path d="M6 4h4l2 3 2-3h4v8l-2 8H8L6 12V4z" fill="rgba(255,255,255,0.15)" stroke="#fff" stroke-width="1.8"/>
                 <path d="M8 8h8M8 12h8M8 16h8" stroke="#38bdf8" stroke-width="1.5" stroke-linecap="round"/>
@@ -1342,7 +1342,7 @@
         <div class="character-info-body">
           <div class="character-stats">
             <div><span class="stat-symbol health-symbol">♥</span><small>MÁU</small><b id="character-health">100</b><em>ĐIỂM MÁU</em></div>
-            <div><span class="stat-symbol shield-symbol">⛨</span><small>GIÁP</small><b id="character-shield">100</b><em>ĐIỂM GIÁP</em></div>
+            <div style="display:none;"><span class="stat-symbol shield-symbol">⛨</span><small>GIÁP</small><b id="character-shield">0</b><em>ĐIỂM GIÁP</em></div>
             <div><span class="stat-symbol damage-symbol">✹</span><small>SÁT THƯƠNG</small><b id="character-damage">28</b><em>MỖI VIÊN</em></div>
             <div><span class="stat-symbol move-symbol">»</span><small>TỐC ĐỘ</small><b id="character-speed">7.5</b><em>MÉT / GIÂY</em></div>
           </div>
@@ -1740,7 +1740,7 @@
     </div>
 
     <!-- Main Game Script -->
-    <script src="vendor/qrcode.min.js"></script><script type="module" src="src/app/main.js?v=95"></script>
+    <script src="vendor/qrcode.min.js"></script><script type="module" src="src/app/main.js?v=96"></script>
     <script>
         // Vô hiệu hóa triệt để menu ngữ cảnh chuột phải mặc định của trình duyệt
         window.addEventListener('contextmenu', function(e) {
