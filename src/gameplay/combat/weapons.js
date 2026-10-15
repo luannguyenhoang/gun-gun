@@ -2308,11 +2308,12 @@ export class WeaponSystem {
         // Hieu ung am thanh ban
         sounds.playShot(w.id, { category: w.category, weapon: w, isOverclock: isOverclockActive });
 
-        // Phụt tia lửa nòng (Chỉ chạy khi bật hiệu ứng để tránh lag)
+        // Phụt tia lửa nòng (Chỉ chạy khi có particles)
         const bulletColor = isOverclockActive ? 0xffdd00 : (effective.hasLegendary ? 0xf59e0b : w.color);
         const bulletType = getBulletType(w);
-        if (this.particles?.muzzleFlashEnabled) {
-            this.particles.createMuzzleFlash(origin, new THREE.Vector3().subVectors(targetPoint, origin).normalize(), bulletColor);
+        if (this.particles?.createMuzzleFlash) {
+            const shootDir = new THREE.Vector3().subVectors(targetPoint, origin).normalize();
+            this.particles.createMuzzleFlash(origin, shootDir, bulletColor);
         }
         this.onShotFired?.({ origin, target: targetPoint, ads: isADS, weapon: w, color: bulletColor, bulletType });
 
@@ -2361,6 +2362,7 @@ export class WeaponSystem {
                 baseDamage: effective.damage * damageMultiplier * (isPlayer ? this.damageBoost : 1),
                 maxRange: effective.maxRange,
                 distanceTraveled: 0,
+                isNewShot: true,
                 penPower: (effective.hasLegendary ? Math.max(3, w.penPower) : w.penPower) + charExtraPen,
                 critMultiplier: (w.critMultiplier || 2.0) + (effective.extraCritDmgMod || 0),
                 critChance: finalCritChance,
@@ -3264,6 +3266,13 @@ export class WeaponSystem {
 
             if (p.life <= 0) {
                 this.removeProjectile(i);
+                continue;
+            }
+
+            // Ở frame đầu tiên sau khi bắn, giữ viên đạn đúng vị trí đầu nòng súng
+            // để renderer kịp vẽ viên đạn thực sự đi ra từ nòng súng thay vì nhảy cóc 2-4m
+            if (p.isNewShot) {
+                p.isNewShot = false;
                 continue;
             }
 

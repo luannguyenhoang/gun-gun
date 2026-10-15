@@ -122,9 +122,13 @@ export class FirstPersonView {
 
     look(event) {
         if (!this.locked || !this.game.player.inputEnabled) return;
+        const rawX = event.movementX || 0;
+        const rawY = event.movementY || 0;
+        // Bỏ qua đột biến di chuyển chuột (spike) do Pointer Lock của trình duyệt gây giật góc nhìn 180 độ
+        if (Math.abs(rawX) > 300 || Math.abs(rawY) > 300) return;
         const scale = 0.0015 * this.sensitivity * (this.game.player.isADS ? this.adsSensitivity : 1);
-        this.yaw -= event.movementX * scale;
-        this.pitch = THREE.MathUtils.clamp(this.pitch - event.movementY * scale, -1.45, 1.45);
+        this.yaw -= rawX * scale;
+        this.pitch = THREE.MathUtils.clamp(this.pitch - rawY * scale, -1.45, 1.45);
         // Apply input immediately, without mouse smoothing or frame-rate scaling.
         this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
     }
@@ -164,8 +168,30 @@ export class FirstPersonView {
     updateAim() {
         const p = this.game.player;
         this.camera.getWorldDirection(this.direction);
-        p.aimPoint.copy(this.camera.position).addScaledVector(this.direction, 150);
         p.aimYaw = Math.atan2(this.direction.x, this.direction.z);
+        // Hướng bắn mặc định theo tâm ngắm xa 150m
+        p.aimPoint.copy(this.camera.position).addScaledVector(this.direction, 150);
+
+        // Giữ khoảng cách hội tụ tối thiểu 4.0m phía trước camera để đường đạn
+        // luôn bay thẳng ra từ nòng súng, không bị chéo góc sang bên cạnh khi đứng gần tường
+        this.aimRay ||= new THREE.Ray();
+        this.aimHit ||= new THREE.Vector3();
+        this.aimRay.set(this.camera.position, this.direction);
+        let distance = 150;
+        const minDistance = 4.0;
+        for (const box of this.game.arena?.colliders || []) {
+            if (!this.aimRay.intersectBox(box, this.aimHit)) continue;
+            const d = this.camera.position.distanceTo(this.aimHit);
+            if (d >= minDistance && d < distance) { distance = d; p.aimPoint.copy(this.aimHit); }
+        }
+        const opponents = p.team === 'blue' ? this.game.matchManager?.teamRed : this.game.matchManager?.teamBlue;
+        for (const enemy of opponents || []) {
+            if (enemy.isDead || !enemy.checkHit) continue;
+            const hit = enemy.checkHit(this.camera.position, p.aimPoint, this.aimRay);
+            if (!hit?.hit || !hit.point) continue;
+            const d = this.camera.position.distanceTo(hit.point);
+            if (d >= minDistance && d < distance) { distance = d; p.aimPoint.copy(hit.point); }
+        }
     }
 
     clearWeapon() {
@@ -173,12 +199,11 @@ export class FirstPersonView {
             this.weapon.removeFromParent();
             this.weapon.traverse(o => { if (o.isMesh) for (const m of [o.material].flat()) m.dispose(); });
         }
-        this.weapon = null; this.weaponId = null;
+        this.weapon = null; this.weaponId = null; this.muzzle = null;
     }
 
-    render(renderer) {
+    syncWeapon() {
         const p = this.game.player, weapons = this.game.weapons;
-        this.syncHint();
         const config = weapons.getCurrentWeapon();
         if (this.weaponId !== config.id) {
             this.clearWeapon();
@@ -190,6 +215,14 @@ export class FirstPersonView {
                     o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone();
                     o.castShadow = o.receiveShadow = false;
                 });
+                // Use the same local barrel coordinates as the third-person gun.
+                const sourceBounds = new THREE.Box3().setFromObject(mesh);
+                const muzzle = new THREE.Object3D();
+                muzzle.name = 'fps-weapon-muzzle';
+                if (config.isStyloo) muzzle.position.set(sourceBounds.max.x + 0.05, 0.03, 0);
+                else muzzle.position.set(0, 0.04, sourceBounds.min.z - 0.025);
+                mesh.add(muzzle);
+                this.muzzle = muzzle;
                 if (config.isStyloo) mesh.rotation.y = Math.PI / 2;
                 const box = new THREE.Box3().setFromObject(mesh);
                 const size = box.getSize(new THREE.Vector3());
@@ -200,10 +233,26 @@ export class FirstPersonView {
                 this.rig.add(mesh); this.weapon = mesh; this.weaponId = config.id;
             }
         }
-        if (p.isDead || p.isDowned) return;
         const bob = p.velocity.lengthSq() > 0.2 ? Math.sin(performance.now() * 0.009) * 0.008 : 0;
         this.rig.position.set(p.isADS ? 0.04 : 0.28, -0.26 + bob - (weapons.isReloading ? 0.16 : 0), -0.75 + Math.min(0.08, weapons.fireCooldown * 0.12));
         this.rig.rotation.z = weapons.isReloading ? -0.35 : 0;
+        this.camera.updateMatrixWorld(true);
+    }
+
+    getMuzzlePosition(out = new THREE.Vector3()) {
+        this.syncWeapon();
+        if (this.muzzle) {
+            this.muzzle.updateWorldMatrix(true, false);
+            return this.muzzle.getWorldPosition(out);
+        }
+        // Only used while an optional weapon asset is unavailable.
+        return out.set(0.28, -0.26, -1).applyMatrix4(this.camera.matrixWorld);
+    }
+
+    render(renderer) {
+        this.syncHint();
+        this.syncWeapon();
+        if (this.game.player.isDead || this.game.player.isDowned) return;
         const autoClear = renderer.autoClear;
         renderer.autoClear = false;
         renderer.clearDepth();

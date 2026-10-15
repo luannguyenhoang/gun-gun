@@ -45,8 +45,8 @@ export class ParticleSystem {
         this.explosions = [];
         this.maxExplosions = 12;
 
-        // Cấu hình tối ưu hóa hiệu năng (Mặc định tắt hiệu ứng nòng súng & tia lửa để đạt FPS tối đa)
-        this.muzzleFlashEnabled = false;
+        // Cấu hình tối ưu hóa hiệu năng
+        this.muzzleFlashEnabled = true;
         this.sparksEnabled = false;
         this.sparksCountMultiplier = 0;
         this.effectLightEnabled = false;
@@ -59,8 +59,8 @@ export class ParticleSystem {
         this.initTextures();
     }
 
-    setQuality({ muzzleFlash = false, bulletSparks = false, effectLight = false } = {}) {
-        this.muzzleFlashEnabled = !!muzzleFlash;
+    setQuality({ muzzleFlash = true, bulletSparks = false, effectLight = false } = {}) {
+        this.muzzleFlashEnabled = (muzzleFlash !== false);
         this.sparksEnabled = !!bulletSparks;
         this.sparksCountMultiplier = bulletSparks ? 1.0 : 0;
         this.effectLightEnabled = !!effectLight;

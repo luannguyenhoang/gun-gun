@@ -3127,15 +3127,20 @@ export class PlayerController {
             probe.copy(this.position); probe.z += this.velocity.z * delta;
             if (!arena.checkCollision(probe, this.radius)) this.position.z = probe.z;
         }
-        // Vertical collision
-        this.position.y += this.velocity.y * delta;
-        if (this.position.y <= 0) {
-            this.position.y = 0;
-            if (!this.isGrounded && this.velocity.y < -4) {
-                sounds.play('land', { volume: 0.5 });
-            }
+        // Land on cover instead of falling into it and being ejected sideways.
+        const verticalSpeed = this.velocity.y;
+        let verticalHit;
+        if (arena.moveCharacterVertical) {
+            verticalHit = arena.moveCharacterVertical(this.position, verticalSpeed * delta, this.radius, this.isCrouching ? 1.05 : this.height);
+        } else {
+            this.position.y += verticalSpeed * delta;
+            verticalHit = this.position.y <= 0;
+            this.position.y = Math.max(0, this.position.y);
+        }
+        this.isGrounded = !!verticalHit && verticalSpeed <= 0;
+        if (verticalHit) {
+            if (verticalSpeed < -4) sounds.play('land', { volume: 0.5 });
             this.velocity.y = 0;
-            this.isGrounded = true;
         }
 
         // Giảm dần độ giật con trỏ (Cursor Kickback Decay)
@@ -3321,11 +3326,7 @@ export class PlayerController {
         if (shouldShoot) {
             // Compute muzzle origin from character right arm (Zero Allocation GC)
             if (this.firstPerson) {
-                // Ở chế độ FPS, hạ vị trí phát đạn xuống ngang tầm súng/vai thay vì xuất phát từ trán
-                _th_muzzlePos.copy(this.camera.position);
-                this.camera.getWorldDirection(_th_shootForward);
-                _th_muzzlePos.addScaledVector(_th_shootForward, 0.35);
-                _th_muzzlePos.y -= 0.35;
+                this.firstPerson.getMuzzlePosition(_th_muzzlePos);
             } else if (this.weapons.getMuzzlePosition?.(_th_muzzlePos)) {
                 // The projectile and flash now originate at the visible barrel.
             } else if (this.handBone) {

@@ -327,12 +327,12 @@ export class BaseArena {
 
     moveCharacter(position, dx, dz, radius) {
         // 1. Giải phóng chồng lấn nếu đã bị lún từ trước (Spawn, knockback, sai số tọa độ)
-        const nearby = this.getCollidersInRadius(position.x, position.z, radius + 0.2, _tempNearbyColliders);
         for (let pass = 0; pass < 3; pass++) {
+            const nearby = this.getCollidersInRadius(position.x, position.z, radius + 0.15, _tempNearbyColliders);
             let hadOverlap = false;
             for (let i = 0; i < nearby.length; i++) {
                 const box = nearby[i];
-                if (box.max.y <= position.y + 0.1 || box.min.y >= position.y + 1.9) continue;
+                if (box.max.y <= position.y + 0.05 || box.min.y >= position.y + 1.85) continue;
                 const cx = Math.max(box.min.x, Math.min(position.x, box.max.x));
                 const cz = Math.max(box.min.z, Math.min(position.z, box.max.z));
                 const ox = position.x - cx;
@@ -344,18 +344,23 @@ export class BaseArena {
                 const dist = Math.sqrt(distSq);
                 if (dist > 0.0001) {
                     const pen = radius - dist;
-                    position.x += (ox / dist) * (pen + 0.002);
-                    position.z += (oz / dist) * (pen + 0.002);
+                    // Giới hạn lực đẩy mỗi pass để triệt tiêu hiện tượng giật nảy và bắn vọt
+                    const push = Math.min(pen + 0.002, radius * 0.45);
+                    position.x += (ox / dist) * push;
+                    position.z += (oz / dist) * push;
                 } else {
+                    // Khi tâm nhân vật lọt vào trong hình hộp: đẩy nhẹ theo hướng mép gần nhất
+                    // Clamp lực đẩy tối đa, tuyệt đối không gán snap tọa độ gây dịch chuyển tức thời
                     const left = Math.abs(position.x - box.min.x);
                     const right = Math.abs(box.max.x - position.x);
                     const bottom = Math.abs(position.z - box.min.z);
                     const top = Math.abs(box.max.z - position.z);
                     const minDist = Math.min(left, right, bottom, top);
-                    if (minDist === left) position.x = box.min.x - radius - 0.002;
-                    else if (minDist === right) position.x = box.max.x + radius + 0.002;
-                    else if (minDist === bottom) position.z = box.min.z - radius - 0.002;
-                    else position.z = box.max.z + radius + 0.002;
+                    const push = Math.min(minDist + radius + 0.002, radius * 0.45);
+                    if (minDist === left) position.x -= push;
+                    else if (minDist === right) position.x += push;
+                    else if (minDist === bottom) position.z -= push;
+                    else position.z += push;
                 }
             }
             if (!hadOverlap) break;
@@ -425,9 +430,8 @@ export class BaseArena {
                     break;
                 }
 
-                position.x = targetX + normX * (maxPen + 0.002);
-                position.z = targetZ + normZ * (maxPen + 0.002);
-
+                // Project the remaining step from the ORIGINAL position. Applying
+                // target + correction here and then sliding spent the tangent twice.
                 const dot = curDx * normX + curDz * normZ;
                 if (dot < 0) {
                     curDx -= normX * dot;
@@ -437,6 +441,21 @@ export class BaseArena {
                 }
             }
         }
+    }
+
+    moveCharacterVertical(position, dy, radius, height = 1.6) {
+        const previousY = position.y;
+        let nextY = Math.max(0, previousY + dy);
+        const candidates = this.getCollidersInRadius(position.x, position.z, radius, _tempSlideColliders);
+        for (const box of candidates) {
+            const x = Math.max(box.min.x, Math.min(position.x, box.max.x));
+            const z = Math.max(box.min.z, Math.min(position.z, box.max.z));
+            if ((position.x - x) ** 2 + (position.z - z) ** 2 >= radius * radius) continue;
+            if (dy <= 0 && previousY >= box.max.y - 0.12 && nextY < box.max.y) nextY = Math.max(nextY, box.max.y);
+            if (dy > 0 && previousY + height <= box.min.y + 0.001 && nextY + height > box.min.y) nextY = Math.min(nextY, box.min.y - height);
+        }
+        position.y = nextY;
+        return Math.abs(nextY - (previousY + dy)) > 0.00001;
     }
 
     navigationClear(from, to, radius) {
